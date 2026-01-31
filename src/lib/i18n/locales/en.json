@@ -1,0 +1,152 @@
+{
+  "app": {
+    "name": "Khi",
+    "title": "Khi - Kobo Highlights Exporter"
+  },
+  "screens": {
+    "noKobo": {
+      "title": "No Kobo connected",
+      "subtitle": "Connect your Kobo to view your highlights"
+    },
+    "importing": {
+      "title": "Importing highlights..."
+    },
+    "library": {
+      "title": "Library",
+      "exportAll": "Export All",
+      "exportSelected": "Export Selected",
+      "clearSelection": "Clear Selection",
+      "selectAll": "Select All",
+      "selectAllTitle": "Select all (Ctrl+A)",
+      "clear": "Clear",
+      "clearTitle": "Clear selection",
+      "invert": "Invert",
+      "invertTitle": "Invert selection",
+      "import": "Import",
+      "importTitle": "Import from Kobo",
+      "booksCount": "{count} books",
+      "booksCount_one": "1 book",
+      "booksCount_other": "{count} books",
+      "selectedCount": "{count} selected",
+      "selectedCount_one": "1 selected",
+      "selectedCount_other": "{count} selected",
+      "noBooks": "No books found",
+      "noBooksSubtitle": "Connect your Kobo and import your highlights",
+      "gridView": "Grid",
+      "listView": "List",
+      "importProgress": "Import progress"
+    },
+    "bookDetails": {
+      "back": "Back",
+      "exportMarkdown": "Export to Markdown",
+      "highlights": "Highlights",
+      "noHighlights": "No highlights available for this book",
+      "page": "Page {number}",
+      "chapter": "Chapter {number}",
+      "unknownAuthor": "Unknown author",
+      "lastRead": "Last read",
+      "active": "Active",
+      "excluded": "Excluded",
+      "edited": "Edited",
+      "withNotes": "With notes",
+      "noChapter": "No chapter"
+    },
+    "bookDetails": {
+      "back": "Back",
+      "exportMarkdown": "Export to Markdown",
+      "highlights": "Highlights",
+      "noHighlights": "No highlights available for this book",
+      "page": "Page {number}",
+      "chapter": "Chapter {number}"
+    }
+  },
+  "book": {
+    "highlightsCount": "{count} highlights",
+    "highlightsCount_one": "1 highlight",
+    "highlightsCount_other": "{count} highlights",
+    "noHighlights": "No highlights",
+    "select": "Select",
+    "deselect": "Deselect"
+  },
+  "highlight": {
+    "edit": "Edit",
+    "save": "Save",
+    "saveNote": "Save Note",
+    "cancel": "Cancel",
+    "addNote": "Add a personal note...",
+    "noteLabel": "Note:",
+    "edited": "edited",
+    "editedTitle": "Edited",
+    "excluded": "excluded",
+    "excludeTitle": "Exclude from export",
+    "includeTitle": "Include in export",
+    "editTitle": "Edit highlight"
+  },
+  "settings": {
+    "title": "Settings",
+    "export": {
+      "tab": "Export",
+      "defaultFormat": "Default Format",
+      "includeMetadata": "Include book metadata in exports",
+      "exportPath": "Export folder",
+      "chooseFolder": "Choose folder"
+    },
+    "appearance": {
+      "tab": "Appearance",
+      "theme": "Theme",
+      "themeLight": "Light",
+      "themeDark": "Dark",
+      "themeAuto": "Auto (follows system)",
+      "viewMode": "Default view mode",
+      "viewModeGrid": "Grid",
+      "viewModeList": "List",
+      "sortBy": "Sort by",
+      "sortByTitle": "Title",
+      "sortByAuthor": "Author",
+      "sortByDate": "Date"
+    },
+    "actions": {
+      "save": "Save",
+      "cancel": "Cancel",
+      "reset": "Reset to defaults"
+    }
+  },
+  "export": {
+    "format": {
+      "markdown": "Markdown",
+      "text": "Plain Text",
+      "json": "JSON"
+    },
+    "metadata": {
+      "author": "Author",
+      "isbn": "ISBN",
+      "publisher": "Publisher",
+      "language": "Language",
+      "dateLastRead": "Date last read",
+      "description": "Description",
+      "location": "Location",
+      "date": "Date"
+    },
+    "dateFormat": {
+      "iso": "ISO 8601 (YYYY-MM-DD)",
+      "pt": "Portuguese (DD/MM/YYYY)",
+      "us": "US (MM/DD/YYYY)"
+    }
+  },
+  "notifications": {
+    "deviceDetected": "Kobo device detected",
+    "deviceReady": "Kobo detected! Ready to import.",
+    "close": "Close notification",
+    "importSuccess": "Import completed successfully",
+    "exportSuccess": "Export completed successfully",
+    "exportError": "Error exporting highlights",
+    "settingsSaved": "Settings saved"
+  },
+  "errors": {
+    "noDevice": "No Kobo device found",
+    "deviceNotAccessible": "Cannot access Kobo device",
+    "databaseError": "Error reading Kobo database",
+    "exportPathInvalid": "Invalid export path",
+    "generic": "An error occurred"
+  }
+}

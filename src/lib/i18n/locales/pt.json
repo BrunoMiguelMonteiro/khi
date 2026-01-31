@@ -1,0 +1,117 @@
+{
+  "app": {
+    "name": "Khi",
+    "title": "Khi - Kobo Highlights Exporter"
+  },
+  "screens": {
+    "noKobo": {
+      "title": "Nenhum Kobo ligado",
+      "subtitle": "Liga o teu Kobo para ver os teus destaques"
+    },
+    "importing": {
+      "title": "A importar destaques..."
+    },
+    "library": {
+      "title": "Biblioteca",
+      "exportAll": "Exportar Todos",
+      "exportSelected": "Exportar Selecionados",
+      "clearSelection": "Limpar Seleção",
+      "selectAll": "Selecionar Todos",
+      "booksCount": "{count} livros",
+      "booksCount_one": "1 livro",
+      "booksCount_other": "{count} livros",
+      "selectedCount": "{count} selecionados",
+      "selectedCount_one": "1 selecionado",
+      "selectedCount_other": "{count} selecionados",
+      "noBooks": "Nenhum livro encontrado",
+      "gridView": "Grelha",
+      "listView": "Lista"
+    },
+    "bookDetails": {
+      "back": "Voltar",
+      "exportMarkdown": "Exportar para Markdown",
+      "highlights": "Destaques",
+      "noHighlights": "Não existem destaques disponíveis para este livro",
+      "page": "Página {number}",
+      "chapter": "Capítulo {number}"
+    }
+  },
+  "book": {
+    "highlightsCount": "{count} destaques",
+    "highlightsCount_one": "1 destaque",
+    "highlightsCount_other": "{count} destaques",
+    "select": "Selecionar",
+    "deselect": "Deselecionar"
+  },
+  "highlight": {
+    "edit": "Editar",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "addNote": "Adicionar nota",
+    "edited": "editado",
+    "excluded": "excluído"
+  },
+  "settings": {
+    "title": "Definições",
+    "export": {
+      "tab": "Exportação",
+      "defaultFormat": "Formato Padrão",
+      "includeMetadata": "Incluir metadados do livro nas exportações",
+      "exportPath": "Pasta de exportação",
+      "chooseFolder": "Escolher pasta"
+    },
+    "appearance": {
+      "tab": "Aparência",
+      "theme": "Tema",
+      "themeLight": "Claro",
+      "themeDark": "Escuro",
+      "themeAuto": "Automático (segue o sistema)",
+      "viewMode": "Modo de visualização padrão",
+      "viewModeGrid": "Grelha",
+      "viewModeList": "Lista",
+      "sortBy": "Ordenar por",
+      "sortByTitle": "Título",
+      "sortByAuthor": "Autor",
+      "sortByDate": "Data"
+    },
+    "actions": {
+      "save": "Guardar",
+      "cancel": "Cancelar",
+      "reset": "Repor padrões"
+    }
+  },
+  "export": {
+    "format": {
+      "markdown": "Markdown",
+      "text": "Texto Simples",
+      "json": "JSON"
+    },
+    "metadata": {
+      "author": "Autor",
+      "isbn": "ISBN",
+      "publisher": "Editora",
+      "language": "Idioma",
+      "dateLastRead": "Data da última leitura",
+      "description": "Descrição"
+    },
+    "dateFormat": {
+      "iso": "ISO 8601 (AAAA-MM-DD)",
+      "pt": "Português (DD/MM/AAAA)",
+      "us": "US (MM/DD/AAAA)"
+    }
+  },
+  "notifications": {
+    "deviceDetected": "Dispositivo Kobo detetado",
+    "importSuccess": "Importação concluída com sucesso",
+    "exportSuccess": "Exportação concluída com sucesso",
+    "exportError": "Erro ao exportar destaques",
+    "settingsSaved": "Definições guardadas"
+  },
+  "errors": {
+    "noDevice": "Nenhum dispositivo Kobo encontrado",
+    "deviceNotAccessible": "Não é possível aceder ao dispositivo Kobo",
+    "databaseError": "Erro ao ler a base de dados do Kobo",
+    "exportPathInvalid": "Caminho de exportação inválido",
+    "generic": "Ocorreu um erro"
+  }
+}
