@@ -1,145 +1,145 @@
 # Khi
 
-Aplicação macOS nativa para extrair highlights (destaques) do Kobo Libra II e exportar para ficheiros Markdown.
+Native macOS application to extract highlights from Kobo Libra II and export them to Markdown files.
 
-## Funcionalidades
+## Features
 
-- **Deteção Automática**: Deteta automaticamente quando o Kobo é conectado via USB
-- **Pré-visualização**: Visualiza todos os livros e highlights antes de exportar
-- **Edição Inline**: Edita highlights e adiciona notas pessoais antes de exportar
-- **Exportação Markdown**: Gera ficheiros Markdown limpos e bem estruturados
-- **Configurações Personalizáveis**: Escolhe metadados a incluir e formato de data
-- **Design Moderno**: Interface nativa macOS com modo escuro
+- **Automatic Detection**: Automatically detects when Kobo is connected via USB
+- **Preview**: View all books and highlights before exporting
+- **Inline Editing**: Edit highlights and add personal notes before exporting
+- **Markdown Export**: Generates clean, well-structured Markdown files
+- **Customizable Settings**: Choose which metadata to include and date format
+- **Modern Design**: Native macOS interface with dark mode
 
-## Stack Tecnológico
+## Tech Stack
 
 - **Frontend**: Tauri 2.x + Svelte 5 + TypeScript
 - **Backend**: Rust
-- **Base de Dados**: SQLite (leitura do Kobo)
+- **Database**: SQLite (reading from Kobo)
 - **Testing**: Vitest (frontend) + Rust test framework (backend)
 
-## Requisitos de Sistema
+## System Requirements
 
-- macOS 11.0 (Big Sur) ou superior
-- Kobo Libra II (ou outro eReader Kobo compatível)
-- Cabo USB para ligar o Kobo ao Mac
+- macOS 11.0 (Big Sur) or later
+- Kobo Libra II (or other compatible Kobo eReader)
+- USB cable to connect Kobo to Mac
 
-## Instalação
+## Installation
 
 ### Download
 
-1. Descarrega a última versão da aplicação na secção [Releases](../../releases)
-2. Abre o ficheiro `.dmg` descarregado
-3. Arrasta a aplicação "Khi" para a pasta Aplicações
+1. Download the latest version of the application in the [Releases](../../releases) section
+2. Open the downloaded `.dmg` file
+3. Drag the "Khi" application to the Applications folder
 
-### Primeira Execução
+### First Launch
 
-Como a aplicação não é assinada pela Apple (ainda), podes ver um aviso de segurança na primeira execução:
+Since the application is not signed by Apple (yet), you may see a security warning on first launch:
 
-1. Clica com o botão direito na aplicação e seleciona "Abrir"
-2. Na janela de segurança, clica em "Abrir"
-3. Alternativamente, vai a `Preferências do Sistema > Segurança e Privacidade` e clica em "Abrir Mesmo Assim"
+1. Right-click on the application and select "Open"
+2. In the security window, click "Open"
+3. Alternatively, go to `System Preferences > Security & Privacy` and click "Open Anyway"
 
-## Utilização
+## Usage
 
-### 1. Conectar o Kobo
+### 1. Connect the Kobo
 
-1. Liga o teu Kobo ao Mac via cabo USB
-2. A aplicação deteta automaticamente o dispositivo
-3. Clica em "Importar" para carregar os highlights
+1. Connect your Kobo to your Mac via USB cable
+2. The application automatically detects the device
+3. Click "Import" to load the highlights
 
-### 2. Selecionar Livros
+### 2. Select Books
 
-- Usa Ctrl/Cmd+click para selecionar múltiplos livros
-- Usa Shift+click para selecionar intervalos
-- Clica em "Selecionar Todos" para exportar toda a biblioteca
+- Use Ctrl/Cmd+click to select multiple books
+- Use Shift+click to select ranges
+- Click "Select All" to export the entire library
 
-### 3. Editar Highlights (Opcional)
+### 3. Edit Highlights (Optional)
 
-- Clica num livro para ver os seus highlights
-- Edita o texto de qualquer highlight
-- Adiciona notas pessoais
-- Exclui highlights que não queres exportar
+- Click on a book to view its highlights
+- Edit the text of any highlight
+- Add personal notes
+- Exclude highlights you don't want to export
 
-### 4. Exportar
+### 4. Export
 
-1. Escolhe a pasta de destino
-2. Configura as opções de exportação (metadados, formato de data)
-3. Clica em "Exportar Selecionados"
-4. Os ficheiros Markdown são gerados na pasta escolhida
+1. Choose the destination folder
+2. Configure export options (metadata, date format)
+3. Click "Export Selected"
+4. Markdown files are generated in the chosen folder
 
-## Estrutura dos Ficheiros Exportados
+## Export File Structure
 
-Cada livro é exportado como um ficheiro Markdown separado:
+Each book is exported as a separate Markdown file:
 
 ```markdown
-# Título do Livro
+# Book Title
 
-**Autor**: Nome do Autor  
+**Author**: Author Name  
 **ISBN**: 978-1234567890  
-**Data de Exportação**: 29/01/2026
+**Export Date**: 01/29/2026
 
 ---
 
-## Capítulo 1
+## Chapter 1
 
-> "Este é o texto do highlight..."
+> "This is the highlight text..."
 
-**Nota pessoal**: A minha reflexão sobre este trecho.
+**Personal note**: My reflection on this passage.
 
 ---
 
-## Capítulo 2
+## Chapter 2
 
-> "Outro highlight..."
+> "Another highlight..."
 ```
 
-## Desenvolvimento
+## Development
 
-### Pré-requisitos
+### Prerequisites
 
 - [Node.js](https://nodejs.org/) 18+
 - [Rust](https://rustup.rs/) 1.70+
 - [Tauri CLI](https://tauri.app/start/prerequisites/)
 
-### Setup do Projeto
+### Project Setup
 
 ```bash
-# Clonar o repositório
+# Clone the repository
 git clone <repository-url>
 cd khi
 
-# Instalar dependências do frontend
+# Install frontend dependencies
 npm install
 
-# Executar em modo de desenvolvimento
+# Run in development mode
 npm run tauri dev
 ```
 
-### Executar Testes
+### Run Tests
 
 ```bash
-# Testes do frontend (Vitest)
+# Frontend tests (Vitest)
 npm test
 
-# Testes do backend (Rust)
+# Backend tests (Rust)
 cd src-tauri && cargo test
 
-# Testes com cobertura
+# Tests with coverage
 npm test -- --coverage
 ```
 
-### Build para Produção
+### Production Build
 
 ```bash
-# Build completo (frontend + backend)
+# Full build (frontend + backend)
 npm run tauri build
 
-# O bundle da aplicação fica em:
+# The application bundle is located at:
 # src-tauri/target/release/bundle/
 ```
 
-## Arquitetura
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -166,36 +166,36 @@ npm run tauri build
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Testes
+## Testing
 
-O projeto segue a metodologia **Test-Driven Development (TDD)**:
+The project follows the **Test-Driven Development (TDD)** methodology:
 
-| Módulo | Testes | Cobertura |
-|--------|--------|-----------|
+| Module | Tests | Coverage |
+|--------|-------|----------|
 | Frontend (TypeScript/Svelte) | 177+ | >90% |
 | Backend (Rust) | 52+ | 100% |
 | **Total** | **229+** | **>90%** |
 
-## Contribuições
+## Contributing
 
-Contribuições são bem-vindas! Por favor:
+Contributions are welcome! Please:
 
-1. Faz fork do projeto
-2. Cria uma branch para a tua feature (`git checkout -b feature/nova-feature`)
-3. Commit das alterações (`git commit -m 'Adiciona nova feature'`)
-4. Push para a branch (`git push origin feature/nova-feature`)
-5. Abre um Pull Request
+1. Fork the project
+2. Create a branch for your feature (`git checkout -b feature/new-feature`)
+3. Commit your changes (`git commit -m 'Add new feature'`)
+4. Push to the branch (`git push origin feature/new-feature`)
+5. Open a Pull Request
 
-## Licença
+## License
 
-MIT License - ver [LICENSE](LICENSE) para detalhes.
+MIT License - see [LICENSE](LICENSE) for details.
 
-## Agradecimentos
+## Acknowledgments
 
-- [Tauri](https://tauri.app/) - Framework para aplicações desktop
-- [Svelte](https://svelte.dev/) - Framework reativo para UI
-- [Rust](https://www.rust-lang.org/) - Linguagem de programação segura e performante
+- [Tauri](https://tauri.app/) - Framework for desktop applications
+- [Svelte](https://svelte.dev/) - Reactive UI framework
+- [Rust](https://www.rust-lang.org/) - Safe and performant programming language
 
 ---
 
-**Nota**: Esta aplicação não é afiliada com Rakuten Kobo. É um projeto independente criado para facilitar a exportação de highlights pessoais.
+**Note**: This application is not affiliated with Rakuten Kobo. It is an independent project created to facilitate the export of personal highlights.
