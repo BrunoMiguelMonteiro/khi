@@ -57,8 +57,9 @@ impl KoboDatabase {
         }
 
         // Query to get all bookmarks (highlights) with their content info
-        // The book metadata (title, author, etc.) is stored in the chapter content entries,
-        // not in the root book entry (VolumeID). We get it from c_chapter which is joined by ContentID.
+        // We need two JOINs:
+        // 1. c_book: joined by VolumeID to get book metadata (author, ISBN, etc.)
+        // 2. c_chapter: joined by ContentID to get chapter title
         let query = "SELECT 
                 b.BookmarkID,
                 b.ContentID,
@@ -68,14 +69,15 @@ impl KoboDatabase {
                 b.StartContainerPath,
                 b.ChapterProgress,
                 b.DateCreated,
-                COALESCE(c_chapter.BookTitle, c_chapter.Title, 'Unknown Title') as BookTitle,
+                COALESCE(c_book.Title, c_book.BookTitle, c_chapter.BookTitle, c_chapter.Title, 'Unknown Title') as BookTitle,
                 c_chapter.Title as ChapterTitle,
-                c_chapter.Attribution,
-                c_chapter.ISBN,
-                c_chapter.Publisher,
-                c_chapter.Language,
-                c_chapter.DateLastRead
+                c_book.Attribution,
+                c_book.ISBN,
+                c_book.Publisher,
+                c_book.Language,
+                c_book.DateLastRead
              FROM Bookmark b
+             LEFT JOIN content c_book ON b.VolumeID = c_book.ContentID
              LEFT JOIN content c_chapter ON b.ContentID = c_chapter.ContentID
              WHERE b.Text IS NOT NULL AND b.Text != ''
              ORDER BY BookTitle, b.DateCreated";
