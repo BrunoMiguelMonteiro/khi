@@ -36,22 +36,48 @@ pub struct MarkdownExporter {
 
 impl MarkdownExporter {
     pub fn new(export_dir: PathBuf) -> Self {
+        log::info!("[EXPORTER] Criando MarkdownExporter");
+        log::info!("[EXPORTER] Export directory: {:?}", export_dir);
+
         // Ensure export directory exists
         if !export_dir.exists() {
-            fs::create_dir_all(&export_dir).expect("Failed to create export directory");
+            log::info!("[EXPORTER] Diretório não existe, a criar...");
+            match fs::create_dir_all(&export_dir) {
+                Ok(_) => log::info!("[EXPORTER] ✅ Diretório criado com sucesso"),
+                Err(e) => {
+                    log::error!("[EXPORTER] ❌ Erro fatal ao criar diretório: {}", e);
+                    panic!("Failed to create export directory: {}", e);
+                }
+            }
+        } else {
+            log::info!("[EXPORTER] ✅ Diretório já existe");
         }
         Self { export_dir }
     }
 
     /// Export a single book to markdown
     pub fn export_book(&self, book: &Book, config: &ExportConfig) -> Result<PathBuf, ExportError> {
+        log::info!("[EXPORTER] A exportar livro: '{}'", book.title);
+
+        log::info!("[EXPORTER] A gerar filename...");
         let filename = generate_filename(book);
+        log::info!("[EXPORTER] Filename gerado: {}", filename);
+
         let file_path = self.export_dir.join(&filename);
+        log::info!("[EXPORTER] Path completo: {:?}", file_path);
 
+        log::info!("[EXPORTER] A gerar markdown...");
         let markdown = self.generate_markdown(book, config);
+        log::info!("[EXPORTER] Markdown gerado ({} bytes)", markdown.len());
 
+        log::info!("[EXPORTER] A criar ficheiro...");
         let mut file = fs::File::create(&file_path)?;
+        log::info!("[EXPORTER] A escrever conteúdo...");
         file.write_all(markdown.as_bytes())?;
+        log::info!(
+            "[EXPORTER] ✅ Ficheiro escrito com sucesso: {:?}",
+            file_path
+        );
 
         Ok(file_path)
     }
@@ -62,10 +88,49 @@ impl MarkdownExporter {
         books: &[Book],
         config: &ExportConfig,
     ) -> Vec<Result<PathBuf, ExportError>> {
-        books
-            .iter()
-            .map(|book| self.export_book(book, config))
-            .collect()
+        log::info!("[EXPORTER] ==========================================");
+        log::info!(
+            "[EXPORTER] Iniciando exportação de {} livro(s)",
+            books.len()
+        );
+        log::info!("[EXPORTER] Diretório de exportação: {:?}", self.export_dir);
+
+        // Verificar se diretório existe
+        if !self.export_dir.exists() {
+            log::info!("[EXPORTER] Diretório não existe, a criar...");
+            match fs::create_dir_all(&self.export_dir) {
+                Ok(_) => log::info!("[EXPORTER] ✅ Diretório criado com sucesso"),
+                Err(e) => {
+                    log::error!("[EXPORTER] ❌ Falha ao criar diretório: {}", e);
+                    return vec![Err(ExportError::Io(e))];
+                }
+            }
+        } else {
+            log::info!("[EXPORTER] ✅ Diretório já existe");
+        }
+
+        let mut results = Vec::new();
+
+        for (i, book) in books.iter().enumerate() {
+            log::info!(
+                "[EXPORTER] --- A processar livro {}/{} ---",
+                i + 1,
+                books.len()
+            );
+            let result = self.export_book(book, config);
+            results.push(result);
+        }
+
+        let success_count = results.iter().filter(|r| r.is_ok()).count();
+        let error_count = results.len() - success_count;
+        log::info!("[EXPORTER] ==========================================");
+        log::info!(
+            "[EXPORTER] Exportação concluída: {} sucesso, {} erro(s)",
+            success_count,
+            error_count
+        );
+
+        results
     }
 
     /// Export book as structured data for frontend processing

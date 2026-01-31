@@ -1,5 +1,5 @@
-use rusqlite::{Connection, Result};
 use crate::models::{Book, Highlight};
+use rusqlite::{Connection, Result};
 use std::collections::HashMap;
 
 pub struct KoboDatabase {
@@ -14,26 +14,28 @@ impl KoboDatabase {
 
     pub fn extract_books_with_highlights(&self) -> Result<Vec<Book>> {
         log::info!("Starting extract_books_with_highlights");
-        
+
         // DEBUG: Log all tables and columns to understand the schema
         let tables_query = "SELECT name FROM sqlite_master WHERE type='table'";
         let mut tables_stmt = self.conn.prepare(tables_query)?;
-        let table_names: Vec<String> = tables_stmt.query_map([], |row| row.get(0))?
+        let table_names: Vec<String> = tables_stmt
+            .query_map([], |row| row.get(0))?
             .filter_map(Result::ok)
             .collect();
-            
+
         log::info!("Tables found: {:?}", table_names);
-        
+
         for table in &table_names {
             if table == "Bookmark" || table == "Content" {
                 let columns_query = format!("PRAGMA table_info({})", table);
                 let mut cols_stmt = self.conn.prepare(&columns_query)?;
-                let columns: Vec<String> = cols_stmt.query_map([], |row| {
-                    let name: String = row.get(1)?;
-                    Ok(name)
-                })?
-                .filter_map(Result::ok)
-                .collect();
+                let columns: Vec<String> = cols_stmt
+                    .query_map([], |row| {
+                        let name: String = row.get(1)?;
+                        Ok(name)
+                    })?
+                    .filter_map(Result::ok)
+                    .collect();
                 log::info!("Columns in {}: {:?}", table, columns);
             }
         }
@@ -43,9 +45,9 @@ impl KoboDatabase {
         let count_result: Result<i64, _> = self.conn.query_row(
             "SELECT COUNT(*) FROM Bookmark WHERE Text IS NOT NULL AND Text != ''",
             [],
-            |row| row.get(0)
+            |row| row.get(0),
         );
-        
+
         match count_result {
             Ok(count) => log::info!("Found {} bookmarks with text", count),
             Err(e) => {
@@ -53,12 +55,10 @@ impl KoboDatabase {
                 // Continue anyway to try the main query and get detailed error
             }
         }
-        
+
         // Query to get all bookmarks (highlights) with their content info
-        // We use two joins:
-        // 1. c_book: Joined by VolumeID to get Book metadata.
-        //    For the book root entry (VolumeID), the title is usually in 'Title'.
-        // 2. c_chapter: Joined by ContentID to get Chapter metadata (Title).
+        // The book metadata (title, author, etc.) is stored in the chapter content entries,
+        // not in the root book entry (VolumeID). We get it from c_chapter which is joined by ContentID.
         let query = "SELECT 
                 b.BookmarkID,
                 b.ContentID,
@@ -68,15 +68,14 @@ impl KoboDatabase {
                 b.StartContainerPath,
                 b.ChapterProgress,
                 b.DateCreated,
-                COALESCE(c_book.Title, c_book.BookTitle) as BookTitle,
+                COALESCE(c_chapter.BookTitle, c_chapter.Title, 'Unknown Title') as BookTitle,
                 c_chapter.Title as ChapterTitle,
-                c_book.Attribution,
-                c_book.ISBN,
-                c_book.Publisher,
-                c_book.Language,
-                c_book.DateLastRead
+                c_chapter.Attribution,
+                c_chapter.ISBN,
+                c_chapter.Publisher,
+                c_chapter.Language,
+                c_chapter.DateLastRead
              FROM Bookmark b
-             LEFT JOIN content c_book ON b.VolumeID = c_book.ContentID
              LEFT JOIN content c_chapter ON b.ContentID = c_chapter.ContentID
              WHERE b.Text IS NOT NULL AND b.Text != ''
              ORDER BY BookTitle, b.DateCreated";
@@ -90,7 +89,7 @@ impl KoboDatabase {
             Ok((
                 row.get::<_, String>("BookmarkID")?,
                 // Use VolumeID as the grouping key for the book, as ContentID is specific to the chapter/fragment
-                row.get::<_, String>("VolumeID")?, 
+                row.get::<_, String>("VolumeID")?,
                 row.get::<_, Option<String>>("BookTitle")?,
                 row.get::<_, Option<String>>("ChapterTitle")?,
                 row.get::<_, Option<String>>("Attribution")?,
@@ -137,8 +136,12 @@ impl KoboDatabase {
             let book = books_map.entry(volume_id.clone()).or_insert_with(|| {
                 Book::new(
                     volume_id.clone(),
-                    book_title.clone().unwrap_or_else(|| "Unknown Title".to_string()),
-                    attribution.clone().unwrap_or_else(|| "Unknown Author".to_string()),
+                    book_title
+                        .clone()
+                        .unwrap_or_else(|| "Unknown Title".to_string()),
+                    attribution
+                        .clone()
+                        .unwrap_or_else(|| "Unknown Author".to_string()),
                 )
             });
 
@@ -176,12 +179,17 @@ impl KoboDatabase {
 
         // Convert HashMap to Vec
         let mut books: Vec<Book> = books_map.into_values().collect();
-        
+
         log::info!("Total distinct books collected in HashMap: {}", books.len());
         for b in &books {
-            log::info!("Book collected: '{}' by '{}' with {} highlights", b.title, b.author, b.highlights.len());
+            log::info!(
+                "Book collected: '{}' by '{}' with {} highlights",
+                b.title,
+                b.author,
+                b.highlights.len()
+            );
         }
-        
+
         // Sort books by title
         books.sort_by(|a, b| a.title.cmp(&b.title));
 
@@ -192,13 +200,13 @@ impl KoboDatabase {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::NamedTempFile;
     use rusqlite::Connection;
+    use tempfile::NamedTempFile;
 
     fn create_mock_db() -> NamedTempFile {
         let temp = NamedTempFile::new().unwrap();
         let conn = Connection::open(temp.path()).unwrap();
-        
+
         // Create Bookmark table
         conn.execute(
             "CREATE TABLE Bookmark (
@@ -213,8 +221,9 @@ mod tests {
                 Color TEXT
             )",
             [],
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         // Create Content table
         conn.execute(
             "CREATE TABLE Content (
@@ -229,30 +238,34 @@ mod tests {
                 ContentType INTEGER
             )",
             [],
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         // Insert test data - Book content
         conn.execute(
             "INSERT INTO Content VALUES ('vol1', NULL, NULL, 'Test Author', 
              '123456789', 'Test Publisher', 'en', '2025-01-24', 6)",
             [],
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         // Insert test data - Chapter content
         conn.execute(
             "INSERT INTO Content VALUES ('vol1!section1', 'Test Book', 'Chapter 1', 
              'Test Author', '123456789', 'Test Publisher', 'en', '2025-01-24', 6)",
             [],
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         // Insert test highlight
         conn.execute(
             "INSERT INTO Bookmark VALUES ('hl1', 'vol1!section1', 'vol1', 
              'Test highlight text', 'My note', 'OEBPS/ch01.xhtml', 0.25, 
              '2025-01-24', 'yellow')",
             [],
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         temp
     }
 
@@ -267,9 +280,9 @@ mod tests {
     fn test_extract_highlights() {
         let mock_db = create_mock_db();
         let db = KoboDatabase::new(mock_db.path()).unwrap();
-        
+
         let books = db.extract_books_with_highlights().unwrap();
-        
+
         assert_eq!(books.len(), 1);
         assert_eq!(books[0].title, "Test Book");
         assert_eq!(books[0].author, "Test Author");
@@ -281,22 +294,21 @@ mod tests {
     fn test_handle_null_annotation() {
         let mock_db = create_mock_db();
         let conn = Connection::open(mock_db.path()).unwrap();
-        
+
         // Insert highlight without annotation
         conn.execute(
             "INSERT INTO Bookmark VALUES ('hl2', 'vol1!section1', 'vol1', 
              'Second highlight', NULL, 'OEBPS/ch01.xhtml', 0.50, 
              '2025-01-25', 'blue')",
             [],
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         let db = KoboDatabase::new(mock_db.path()).unwrap();
         let books = db.extract_books_with_highlights().unwrap();
-        
-        let second_highlight = books[0].highlights.iter()
-            .find(|h| h.id == "hl2")
-            .unwrap();
-        
+
+        let second_highlight = books[0].highlights.iter().find(|h| h.id == "hl2").unwrap();
+
         assert!(second_highlight.annotation.is_none());
     }
 
@@ -304,24 +316,26 @@ mod tests {
     fn test_empty_highlights_filtered() {
         let mock_db = create_mock_db();
         let conn = Connection::open(mock_db.path()).unwrap();
-        
+
         // Insert bookmark with empty text (should be ignored)
         conn.execute(
             "INSERT INTO Bookmark VALUES ('hl3', 'vol1!section1', 'vol1', 
              '', NULL, 'OEBPS/ch01.xhtml', 0.75, '2025-01-26', 'red')",
             [],
-        ).unwrap();
+        )
+        .unwrap();
 
         // Insert bookmark with NULL text (should be ignored)
         conn.execute(
             "INSERT INTO Bookmark VALUES ('hl4', 'vol1!section1', 'vol1', 
              NULL, NULL, 'OEBPS/ch01.xhtml', 0.80, '2025-01-27', 'green')",
             [],
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         let db = KoboDatabase::new(mock_db.path()).unwrap();
         let books = db.extract_books_with_highlights().unwrap();
-        
+
         // Should only have hl1, not hl3 or hl4
         assert_eq!(books[0].highlights.len(), 1);
         assert_eq!(books[0].highlights[0].id, "hl1");

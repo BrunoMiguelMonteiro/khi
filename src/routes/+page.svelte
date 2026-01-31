@@ -19,10 +19,9 @@
     scanForDevice,
     importHighlights,
     exportBooks,
-    getDefaultExportPath,
-    type Book,
-    type Highlight
+    getDefaultExportPath
   } from '$lib/stores/library.svelte';
+  import type { Book, Highlight } from '$lib/types';
 
   // Local state for UI
   let books = $state<Book[]>([]);
@@ -33,6 +32,9 @@
   let showDeviceNotification = $state(false);
   let viewingBook = $state<Book | undefined>(undefined);
   let showSettings = $state(false);
+  
+  // Notification state for export
+  let exportNotification = $state<{ message: string; type: 'success' | 'error'; visible: boolean } | null>(null);
 
   // Sync with store on mount
   onMount(() => {
@@ -71,14 +73,31 @@
   }
 
   async function handleExport() {
+    console.log('[EXPORT FRONTEND] ==========================================');
+    console.log('[EXPORT FRONTEND] Botão Export clicado');
+    console.log('[EXPORT FRONTEND] Livros selecionados:', selectedBookIds.length);
+    console.log('[EXPORT FRONTEND] IDs selecionados:', selectedBookIds);
+    
     try {
+      console.log('[EXPORT FRONTEND] A chamar getDefaultExportPath()...');
       const exportPath = await getDefaultExportPath();
+      console.log('[EXPORT FRONTEND] ✅ Path obtido:', exportPath);
+      
+      console.log('[EXPORT FRONTEND] A chamar exportBooks()...');
       const exportedFiles = await exportBooks(exportPath);
-      console.log('Exported files:', exportedFiles);
-      // TODO: Show success notification
+      console.log('[EXPORT FRONTEND] ✅ Sucesso! Ficheiros exportados:', exportedFiles);
+      console.log('[EXPORT FRONTEND] ==========================================');
+      showNotification(`${exportedFiles.length} book${exportedFiles.length === 1 ? '' : 's'} exported successfully!`, 'success');
     } catch (error) {
-      console.error('Export failed:', error);
-      // TODO: Show error notification
+      console.error('[EXPORT FRONTEND] ❌ ERRO CAPTURADO:', error);
+      console.error('[EXPORT FRONTEND] Tipo do erro:', typeof error);
+      if (error instanceof Error) {
+        console.error('[EXPORT FRONTEND] Message:', error.message);
+        console.error('[EXPORT FRONTEND] Stack:', error.stack);
+      }
+      console.error('[EXPORT FRONTEND] ==========================================');
+      const errorMessage = error instanceof Error ? error.message : 'Export failed';
+      showNotification(`Export failed: ${errorMessage}`, 'error');
     }
   }
 
@@ -124,6 +143,17 @@
       // So if showSettings is true, it takes precedence.
     }
   }
+
+  // Notification helper function
+  function showNotification(message: string, type: 'success' | 'error') {
+    exportNotification = { message, type, visible: true };
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+      if (exportNotification) {
+        exportNotification.visible = false;
+      }
+    }, 5000);
+  }
 </script>
 
 <AppLayout>
@@ -155,6 +185,31 @@
         class="notification-close"
         onclick={() => showDeviceNotification = false}
         aria-label={$_('notifications.close')}
+      >
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+  {/if}
+
+  {#if exportNotification?.visible}
+    <div class="export-notification {exportNotification.type}" role="status" aria-live="polite">
+      <div class="notification-content">
+        <svg class="notification-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          {#if exportNotification.type === 'success'}
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" fill="currentColor"/>
+          {:else}
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" fill="currentColor"/>
+          {/if}
+        </svg>
+        <span class="notification-text">{exportNotification.message}</span>
+      </div>
+      <button
+        type="button"
+        class="notification-close"
+        onclick={() => exportNotification && (exportNotification.visible = false)}
+        aria-label="Close notification"
       >
         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -310,6 +365,38 @@
   /* Responsive */
   @media (max-width: 640px) {
     .device-notification {
+      left: var(--space-4, 16px);
+      right: var(--space-4, 16px);
+    }
+  }
+
+  /* Export Notification */
+  .export-notification {
+    position: fixed;
+    top: calc(var(--header-height, 64px) + var(--space-4, 16px));
+    right: var(--space-4, 16px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3, 12px);
+    padding: var(--space-3, 12px) var(--space-4, 16px);
+    border-radius: var(--radius-lg, 8px);
+    box-shadow: var(--shadow-lg, 0 10px 15px -3px rgba(0, 0, 0, 0.1));
+    animation: slideIn 0.3s ease;
+  }
+
+  .export-notification.success {
+    background-color: var(--color-success-600, #16a34a);
+    color: white;
+  }
+
+  .export-notification.error {
+    background-color: var(--color-error-600, #dc2626);
+    color: white;
+  }
+
+  @media (max-width: 640px) {
+    .export-notification {
       left: var(--space-4, 16px);
       right: var(--space-4, 16px);
     }

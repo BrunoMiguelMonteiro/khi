@@ -16,10 +16,11 @@ import {
   scanForDevice,
   importHighlights,
   exportBooks,
+  exportBooksWithConfig,
   getDefaultExportPath,
   validateExportPath
 } from './library.svelte';
-import type { Book, KoboDevice } from '../types';
+import type { Book, KoboDevice, ExportConfig } from '../types';
 
 // Mock Tauri API
 vi.mock('@tauri-apps/api/core', () => ({
@@ -210,6 +211,49 @@ describe('Library Store', () => {
           })
         });
         expect(result).toEqual(exportedFiles);
+      });
+
+      it('should use snake_case dateFormat for Rust compatibility', async () => {
+        setBooks(mockBooks);
+        setSelectedBookIds(['book-1']);
+        vi.mocked(invoke).mockResolvedValueOnce(['/path/to/file.md']);
+
+        await exportBooks('/path/to/export');
+
+        const callArgs = vi.mocked(invoke).mock.calls[0];
+        const config = (callArgs[1] as { config: ExportConfig }).config;
+        
+        // DateFormat must be snake_case for Rust enum compatibility
+        expect(config.dateFormat).toMatch(/^[a-z][a-z0-9]*(_[a-z0-9]+)*$/);
+        expect(['dd_mm_yyyy', 'dd_month_yyyy', 'iso8601']).toContain(config.dateFormat);
+      });
+    });
+
+    describe('exportBooksWithConfig', () => {
+      it('should use provided config instead of hardcoded values', async () => {
+        setBooks(mockBooks);
+        setSelectedBookIds(['book-1']);
+        vi.mocked(invoke).mockResolvedValueOnce(['/path/to/file.md']);
+
+        const customConfig: ExportConfig = {
+          exportPath: '/custom/path',
+          metadata: {
+            author: false,
+            isbn: true,
+            publisher: false,
+            dateLastRead: true,
+            language: false,
+            description: true
+          },
+          dateFormat: 'iso8601'
+        };
+
+        await exportBooksWithConfig(customConfig);
+
+        expect(invoke).toHaveBeenCalledWith('export_books', {
+          books: [mockBooks[0]],
+          config: customConfig
+        });
       });
     });
 

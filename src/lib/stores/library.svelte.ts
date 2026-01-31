@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { Book, Highlight, KoboDevice, ImportProgress } from '../types';
+import type { Book, Highlight, KoboDevice, ImportProgress, ExportConfig } from '../types';
 
 // State
 let books = $state<Book[]>([]);
@@ -122,32 +122,77 @@ export async function importHighlights(): Promise<Book[]> {
 }
 
 export async function exportBooks(exportPath: string): Promise<string[]> {
+  console.log('[EXPORT STORE] ==========================================');
+  console.log('[EXPORT STORE] exportBooks() iniciado');
+  console.log('[EXPORT STORE] Export path recebido:', exportPath);
+  
   const selectedBooks = getSelectedBooks();
+  console.log('[EXPORT STORE] Número de livros selecionados:', selectedBooks.length);
   
   if (selectedBooks.length === 0) {
+    console.error('[EXPORT STORE] ❌ Nenhum livro selecionado - lançando erro');
+    throw new Error('No books selected for export');
+  }
+
+  // Log detalhes de cada livro
+  selectedBooks.forEach((book, i) => {
+    console.log(`[EXPORT STORE] Livro ${i + 1}: "${book.title}" (${book.highlights.length} highlights)`);
+    console.log(`[EXPORT STORE]   - contentId: ${book.contentId}`);
+    console.log(`[EXPORT STORE]   - author: ${book.author}`);
+  });
+
+  // Default config with snake_case values for Rust compatibility
+  const config: ExportConfig = {
+    exportPath,
+    metadata: {
+      author: true,
+      isbn: true,
+      publisher: true,
+      dateLastRead: true,
+      language: true,
+      description: true
+    },
+    dateFormat: 'dd_month_yyyy' // snake_case for Rust enum compatibility
+  };
+  
+  console.log('[EXPORT STORE] Config a enviar para Rust:', JSON.stringify(config, null, 2));
+  console.log('[EXPORT STORE] A chamar exportBooksWithConfig()...');
+
+  return exportBooksWithConfig(config);
+}
+
+export async function exportBooksWithConfig(config: ExportConfig): Promise<string[]> {
+  console.log('[EXPORT STORE] exportBooksWithConfig() iniciado');
+  
+  const selectedBooks = getSelectedBooks();
+  console.log('[EXPORT STORE] Verificando livros selecionados:', selectedBooks.length);
+  
+  if (selectedBooks.length === 0) {
+    console.error('[EXPORT STORE] ❌ Nenhum livro selecionado');
     throw new Error('No books selected for export');
   }
 
   try {
-    const exportedFiles = await invoke<string[]>('export_books', {
-      books: selectedBooks,
-      config: {
-        exportPath,
-        metadata: {
-          author: true,
-          isbn: true,
-          publisher: true,
-          dateLastRead: true,
-          language: true,
-          description: true
-        },
-        dateFormat: 'DD Mês YYYY'
-      }
+    console.log('[EXPORT STORE] A invocar Tauri command "export_books"...');
+    console.log('[EXPORT STORE] Payload:', { 
+      booksCount: selectedBooks.length, 
+      config: config 
     });
     
+    const exportedFiles = await invoke<string[]>('export_books', {
+      books: selectedBooks,
+      config
+    });
+    
+    console.log('[EXPORT STORE] ✅ Resposta Tauri recebida:', exportedFiles);
+    console.log('[EXPORT STORE] ==========================================');
     return exportedFiles;
   } catch (error) {
-    console.error('Failed to export books:', error);
+    console.error('[EXPORT STORE] ❌ Erro na invocação Tauri:', error);
+    console.error('[EXPORT STORE] Tipo do erro:', typeof error);
+    if (error instanceof Error) {
+      console.error('[EXPORT STORE] Message:', error.message);
+    }
     throw error;
   }
 }
