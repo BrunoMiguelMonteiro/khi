@@ -9,6 +9,7 @@
 -->
 
 <script lang="ts">
+  import { invoke } from '@tauri-apps/api/core';
   import { 
     getSettings, 
     getExportConfig, 
@@ -25,12 +26,9 @@
     getSortLabel,
     getViewModeLabel,
     getThemeLabel,
-    getDateFormatLabel,
-    type ThemePreference,
-    type ViewMode,
-    type SortPreference
+    getDateFormatLabel
   } from '../stores/settings.svelte';
-  import type { ExportConfig } from '../types';
+  import type { ExportConfig, ThemePreference, ViewMode, SortPreference } from '../types';
 
   // Props
   interface Props {
@@ -119,6 +117,21 @@
     const target = event.target as HTMLInputElement;
     setExportPath(target.value);
     hasChanges = true;
+  }
+
+  async function handleBrowseFolder() {
+    try {
+      const selectedPath = await invoke<string | null>('pick_export_folder', {
+        defaultPath: exportConfig.exportPath
+      });
+      
+      if (selectedPath) {
+        setExportPath(selectedPath);
+        hasChanges = true;
+      }
+    } catch (error) {
+      console.error('Failed to pick folder:', error);
+    }
   }
 
   function handleMetadataToggle(key: keyof ExportConfig['metadata']) {
@@ -259,14 +272,27 @@
           <h3 class="section-title">Export Folder</h3>
           <div class="form-group">
             <label for="export-path" class="form-label">Path</label>
-            <input
-              id="export-path"
-              type="text"
-              class="form-input"
-              value={exportConfig.exportPath}
-              oninput={handleExportPathChange}
-              placeholder="~/Documents/Kobo Highlights"
-            />
+            <div class="input-with-button">
+              <input
+                id="export-path"
+                type="text"
+                class="form-input"
+                value={exportConfig.exportPath}
+                oninput={handleExportPathChange}
+                placeholder="~/Documents/Kobo Highlights"
+              />
+              <button
+                type="button"
+                class="browse-button"
+                onclick={handleBrowseFolder}
+                aria-label="Browse for export folder"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                </svg>
+                Browse
+              </button>
+            </div>
             <p class="form-hint">Markdown files will be saved in this folder.</p>
           </div>
         </section>
@@ -856,6 +882,44 @@
     to {
       transform: rotate(360deg);
     }
+  }
+
+  /* Input with Button */
+  .input-with-button {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+  }
+
+  .input-with-button .form-input {
+    flex: 1;
+  }
+
+  .browse-button {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    background: var(--surface-secondary);
+    color: var(--text-primary);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+  }
+
+  .browse-button:hover {
+    background: var(--surface-tertiary);
+    border-color: var(--color-primary-500);
+    color: var(--color-primary-600);
+  }
+
+  .browse-button:focus-visible {
+    outline: 2px solid var(--color-primary-500);
+    outline-offset: 2px;
   }
 
   /* Responsive */

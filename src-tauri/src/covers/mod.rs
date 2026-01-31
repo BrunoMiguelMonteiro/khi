@@ -1,7 +1,7 @@
+use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::{Read, Seek, Write};
 use std::path::{Path, PathBuf};
-use sha2::{Sha256, Digest};
 use zip::ZipArchive;
 
 pub struct CoverExtractor {
@@ -22,7 +22,7 @@ impl CoverExtractor {
         // Check cache first
         let cache_key = self.compute_cache_key(epub_path)?;
         let cached_path = self.cache_dir.join(format!("{}.jpg", cache_key));
-        
+
         if cached_path.exists() {
             return Ok(Some(cached_path));
         }
@@ -33,7 +33,7 @@ impl CoverExtractor {
 
         // Try to find cover image
         let cover_path = self.find_cover_path(&mut archive)?;
-        
+
         match cover_path {
             Some(path_in_epub) => {
                 // Extract cover image
@@ -63,19 +63,22 @@ impl CoverExtractor {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
-        
+
         let path_str = epub_path.to_string_lossy();
         let input = format!("{}:{}", path_str, modified_secs);
-        
+
         let mut hasher = Sha256::new();
         hasher.update(input.as_bytes());
         let result = hasher.finalize();
-        
+
         Ok(format!("{:x}", result)[..16].to_string())
     }
 
     /// Find cover image path in EPUB
-    fn find_cover_path<R: Read + Seek>(&self, archive: &mut ZipArchive<R>) -> Result<Option<String>, CoverError> {
+    fn find_cover_path<R: Read + Seek>(
+        &self,
+        archive: &mut ZipArchive<R>,
+    ) -> Result<Option<String>, CoverError> {
         // Common cover image paths
         let common_paths = [
             "OEBPS/cover.jpg",
@@ -100,7 +103,9 @@ impl CoverExtractor {
         for i in 0..archive.len() {
             let file = archive.by_index(i)?;
             let name = file.name().to_lowercase();
-            if name.contains("cover") && (name.ends_with(".jpg") || name.ends_with(".jpeg") || name.ends_with(".png")) {
+            if name.contains("cover")
+                && (name.ends_with(".jpg") || name.ends_with(".jpeg") || name.ends_with(".png"))
+            {
                 return Ok(Some(file.name().to_string()));
             }
         }
@@ -110,8 +115,10 @@ impl CoverExtractor {
 
     /// Generate a placeholder SVG when no cover is found
     fn generate_placeholder(&self, cache_key: &str) -> Result<PathBuf, CoverError> {
-        let placeholder_path = self.cache_dir.join(format!("{}_placeholder.svg", cache_key));
-        
+        let placeholder_path = self
+            .cache_dir
+            .join(format!("{}_placeholder.svg", cache_key));
+
         let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" width="200" height="300" viewBox="0 0 200 300">
             <rect width="200" height="300" fill="#f0f0f0"/>
             <rect x="20" y="40" width="160" height="200" fill="#e0e0e0" stroke="#ccc" stroke-width="2"/>
@@ -188,48 +195,49 @@ impl From<zip::result::ZipError> for CoverError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
     use std::io::Write;
+    use tempfile::TempDir;
 
     fn create_mock_epub_with_cover(temp_dir: &Path) -> PathBuf {
         let epub_path = temp_dir.join("test_with_cover.epub");
-        
+
         // Create a minimal EPUB with a cover
         let file = fs::File::create(&epub_path).unwrap();
         let mut zip = zip::ZipWriter::new(file);
-        
-        let options = zip::write::FileOptions::default()
-            .compression_method(zip::CompressionMethod::Stored);
-        
+
+        let options =
+            zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Stored);
+
         // Add mimetype
         zip.start_file("mimetype", options).unwrap();
         zip.write_all(b"application/epub+zip").unwrap();
-        
+
         // Add a fake cover image (just JPEG header bytes)
         zip.start_file("OEBPS/cover.jpg", options).unwrap();
         // Minimal JPEG header
-        zip.write_all(&[0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46]).unwrap();
-        
+        zip.write_all(&[0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46])
+            .unwrap();
+
         zip.finish().unwrap();
-        
+
         epub_path
     }
 
     fn create_mock_epub_without_cover(temp_dir: &Path) -> PathBuf {
         let epub_path = temp_dir.join("test_without_cover.epub");
-        
+
         let file = fs::File::create(&epub_path).unwrap();
         let mut zip = zip::ZipWriter::new(file);
-        
-        let options = zip::write::FileOptions::default()
-            .compression_method(zip::CompressionMethod::Stored);
-        
+
+        let options =
+            zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Stored);
+
         // Add mimetype only
         zip.start_file("mimetype", options).unwrap();
         zip.write_all(b"application/epub+zip").unwrap();
-        
+
         zip.finish().unwrap();
-        
+
         epub_path
     }
 
@@ -238,10 +246,10 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let cache_dir = temp.path().join("cache");
         let epub_path = create_mock_epub_with_cover(temp.path());
-        
+
         let extractor = CoverExtractor::new(cache_dir.clone());
         let cover = extractor.extract_cover(&epub_path).unwrap();
-        
+
         assert!(cover.is_some());
         let cover_path = cover.unwrap();
         assert!(cover_path.exists());
@@ -253,15 +261,15 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let cache_dir = temp.path().join("cache");
         let epub_path = create_mock_epub_without_cover(temp.path());
-        
+
         let extractor = CoverExtractor::new(cache_dir);
         let cover = extractor.extract_cover(&epub_path).unwrap();
-        
+
         assert!(cover.is_some());
         let cover_path = cover.unwrap();
         assert!(cover_path.exists());
         assert!(cover_path.to_string_lossy().ends_with("_placeholder.svg"));
-        
+
         // Verify it's a valid SVG
         let content = fs::read_to_string(&cover_path).unwrap();
         assert!(content.contains("<svg"));
@@ -273,21 +281,21 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let cache_dir = temp.path().join("cache");
         let epub_path = create_mock_epub_with_cover(temp.path());
-        
+
         let extractor = CoverExtractor::new(cache_dir);
-        
+
         // First extraction
         let cover1 = extractor.extract_cover(&epub_path).unwrap();
         let cover1_path = cover1.unwrap().clone();
         let metadata1 = fs::metadata(&cover1_path).unwrap();
         let modified1 = metadata1.modified().unwrap();
-        
+
         // Second extraction (should use cache)
         let cover2 = extractor.extract_cover(&epub_path).unwrap();
         let cover2_path = cover2.unwrap();
         let metadata2 = fs::metadata(&cover2_path).unwrap();
         let modified2 = metadata2.modified().unwrap();
-        
+
         // Same file should be returned
         assert_eq!(cover1_path, cover2_path);
         assert_eq!(modified1, modified2);
@@ -298,20 +306,20 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let cache_dir = temp.path().join("cache");
         let epub_path = create_mock_epub_with_cover(temp.path());
-        
+
         let extractor = CoverExtractor::new(cache_dir.clone());
-        
+
         // Extract cover to populate cache
         let cover = extractor.extract_cover(&epub_path).unwrap();
         assert!(cover.is_some());
-        
+
         // Verify cache has files
         let cache_files: Vec<_> = fs::read_dir(&cache_dir).unwrap().collect();
         assert!(!cache_files.is_empty());
-        
+
         // Clear cache
         extractor.clear_cache().unwrap();
-        
+
         // Verify cache is empty
         let cache_files: Vec<_> = fs::read_dir(&cache_dir).unwrap().collect();
         assert!(cache_files.is_empty());
@@ -321,11 +329,11 @@ mod tests {
     fn test_cache_dir_created() {
         let temp = TempDir::new().unwrap();
         let cache_dir = temp.path().join("new_cache_dir");
-        
+
         assert!(!cache_dir.exists());
-        
+
         let _extractor = CoverExtractor::new(cache_dir.clone());
-        
+
         assert!(cache_dir.exists());
     }
 }

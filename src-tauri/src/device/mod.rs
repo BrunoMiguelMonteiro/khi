@@ -1,6 +1,6 @@
+use crate::models::KoboDevice;
 use std::fs;
 use std::path::{Path, PathBuf};
-use crate::models::KoboDevice;
 
 pub struct DeviceDetector {
     volumes_path: PathBuf,
@@ -22,7 +22,7 @@ impl DeviceDetector {
         for entry in fs::read_dir(&self.volumes_path)? {
             let entry = entry?;
             let path = entry.path();
-            
+
             if path.is_dir() {
                 // Check if this is a Kobo device
                 if let Some(device) = self.check_kobo_device(&path)? {
@@ -148,25 +148,30 @@ impl From<rusqlite::Error> for DeviceError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
     use rusqlite::Connection;
+    use tempfile::TempDir;
 
     fn create_mock_kobo_device(temp_dir: &Path, name: &str) -> PathBuf {
         let device_path = temp_dir.join(name);
         let kobo_dir = device_path.join(".kobo");
         fs::create_dir_all(&kobo_dir).unwrap();
-        
+
         // Create a valid SQLite database
         let sqlite_path = kobo_dir.join("KoboReader.sqlite");
         let conn = Connection::open(&sqlite_path).unwrap();
         // Create a proper table that allows querying
-        conn.execute("CREATE TABLE IF NOT EXISTS test (id INTEGER PRIMARY KEY)", []).unwrap();
-        conn.execute("INSERT INTO test (id) VALUES (1)", []).unwrap();
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS test (id INTEGER PRIMARY KEY)",
+            [],
+        )
+        .unwrap();
+        conn.execute("INSERT INTO test (id) VALUES (1)", [])
+            .unwrap();
         drop(conn);
-        
+
         // Create version file with serial number
         fs::write(kobo_dir.join("version"), "SN12345678").unwrap();
-        
+
         device_path
     }
 
@@ -180,10 +185,10 @@ mod tests {
     fn test_detect_kobo_by_sqlite_file() {
         let temp = TempDir::new().unwrap();
         create_mock_kobo_device(temp.path(), "KOBOeReader");
-        
+
         let detector = DeviceDetector::new(temp.path().to_path_buf());
         let device = detector.scan_for_kobo().unwrap();
-        
+
         assert!(device.is_some());
         let device = device.unwrap();
         assert_eq!(device.name, "KOBOeReader");
@@ -194,10 +199,10 @@ mod tests {
     fn test_ignore_non_kobo_volumes() {
         let temp = TempDir::new().unwrap();
         create_non_kobo_device(temp.path(), "MyUSB");
-        
+
         let detector = DeviceDetector::new(temp.path().to_path_buf());
         let device = detector.scan_for_kobo().unwrap();
-        
+
         assert!(device.is_none());
     }
 
@@ -207,16 +212,16 @@ mod tests {
         let device_path = temp.path().join("KOBOeReader");
         let kobo_dir = device_path.join(".kobo");
         fs::create_dir_all(&kobo_dir).unwrap();
-        
+
         // Create a valid SQLite database
         let sqlite_path = kobo_dir.join("KoboReader.sqlite");
         let conn = Connection::open(&sqlite_path).unwrap();
         conn.execute("CREATE TABLE test (id INTEGER)", []).unwrap();
         drop(conn);
-        
+
         let detector = DeviceDetector::new(temp.path().to_path_buf());
         let device = detector.scan_for_kobo().unwrap();
-        
+
         assert!(device.is_some());
         assert!(device.unwrap().is_valid);
     }
@@ -227,39 +232,45 @@ mod tests {
         let device_path = temp.path().join("KOBOeReader");
         let kobo_dir = device_path.join(".kobo");
         fs::create_dir_all(&kobo_dir).unwrap();
-        
+
         // Create .kobo directory but NO SQLite file
         // This simulates a device that has .kobo folder but no database
-        
+
         let detector = DeviceDetector::new(temp.path().to_path_buf());
         let device = detector.scan_for_kobo().unwrap();
-        
+
         assert!(device.is_some());
         // The device should be detected but marked as invalid because there's no SQLite
         let device = device.unwrap();
-        assert!(!device.is_valid, "Device without SQLite file should be marked as invalid");
+        assert!(
+            !device.is_valid,
+            "Device without SQLite file should be marked as invalid"
+        );
     }
 
     #[test]
     fn test_read_serial_number() {
         let temp = TempDir::new().unwrap();
         create_mock_kobo_device(temp.path(), "KOBOeReader");
-        
+
         let detector = DeviceDetector::new(temp.path().to_path_buf());
         let device = detector.scan_for_kobo().unwrap();
-        
+
         assert!(device.is_some());
-        assert_eq!(device.unwrap().serial_number, Some("SN12345678".to_string()));
+        assert_eq!(
+            device.unwrap().serial_number,
+            Some("SN12345678".to_string())
+        );
     }
 
     #[test]
     fn test_get_database_path() {
         let temp = TempDir::new().unwrap();
         create_mock_kobo_device(temp.path(), "KOBOeReader");
-        
+
         let detector = DeviceDetector::new(temp.path().to_path_buf());
         let device = detector.scan_for_kobo().unwrap().unwrap();
-        
+
         let db_path = detector.get_database_path(&device);
         assert!(db_path.is_some());
         assert!(db_path.unwrap().exists());
@@ -271,10 +282,10 @@ mod tests {
         create_non_kobo_device(temp.path(), "MyUSB");
         create_mock_kobo_device(temp.path(), "KOBOeReader");
         create_non_kobo_device(temp.path(), "AnotherDrive");
-        
+
         let detector = DeviceDetector::new(temp.path().to_path_buf());
         let device = detector.scan_for_kobo().unwrap();
-        
+
         assert!(device.is_some());
         assert_eq!(device.unwrap().name, "KOBOeReader");
     }

@@ -1,13 +1,17 @@
-pub mod models;
-pub mod db;
+pub mod commands;
 pub mod covers;
+pub mod db;
 pub mod device;
 pub mod export;
-pub mod commands;
+pub mod models;
 pub mod settings;
 pub mod utils;
 
-use commands::{scan_for_device, import_highlights, export_books, get_export_preview, get_default_export_path, validate_export_path, load_settings, save_settings, update_last_import, reset_settings};
+use commands::{
+    export_books, get_default_export_path, get_export_preview, import_highlights, load_settings,
+    pick_export_folder, reset_settings, save_settings, scan_for_device, update_last_import,
+    validate_export_path,
+};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -18,6 +22,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             scan_for_device,
             import_highlights,
@@ -28,7 +33,8 @@ pub fn run() {
             load_settings,
             save_settings,
             update_last_import,
-            reset_settings
+            reset_settings,
+            pick_export_folder
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

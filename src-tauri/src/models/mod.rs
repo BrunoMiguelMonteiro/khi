@@ -153,9 +153,9 @@ mod tests {
             "Test highlight".to_string(),
             "2025-01-24".to_string(),
         );
-        
+
         book.add_highlight(highlight);
-        
+
         assert_eq!(book.highlight_count(), 1);
         assert_eq!(book.highlights[0].text, "Test highlight");
     }
@@ -167,7 +167,7 @@ mod tests {
             "Test highlight text".to_string(),
             "2025-01-24".to_string(),
         );
-        
+
         assert_eq!(highlight.id, "hl123");
         assert_eq!(highlight.text, "Test highlight text");
         assert_eq!(highlight.date_created, "2025-01-24");
@@ -182,12 +182,12 @@ mod tests {
             "Original text".to_string(),
             "2025-01-24".to_string(),
         );
-        
+
         assert_eq!(highlight.display_text(), "Original text");
-        
+
         let mut edited_highlight = highlight.clone();
         edited_highlight.edited_text = Some("Edited text".to_string());
-        
+
         assert_eq!(edited_highlight.display_text(), "Edited text");
     }
 
@@ -206,12 +206,12 @@ mod tests {
             is_excluded: false,
             edited_text: None,
         };
-        
+
         let json = serde_json::to_string(&highlight).unwrap();
         assert!(json.contains("Test highlight"));
         // Expect camelCase keys
-        assert!(json.contains("chapterTitle")); 
-        
+        assert!(json.contains("chapterTitle"));
+
         let deserialized: Highlight = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized, highlight);
     }
@@ -220,12 +220,12 @@ mod tests {
     fn test_book_serialization() {
         let mut book = Book::new("id1".to_string(), "Title".to_string(), "Author".to_string());
         book.isbn = Some("978-1234567890".to_string());
-        
+
         let json = serde_json::to_string(&book).unwrap();
         assert!(json.contains("Title"));
         // Expect camelCase keys
         assert!(json.contains("contentId"));
-        
+
         let deserialized: Book = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized, book);
     }
@@ -238,10 +238,10 @@ mod tests {
             is_valid: true,
             serial_number: Some("SN12345".to_string()),
         };
-        
+
         assert_eq!(device.name, "KOBOeReader");
         assert!(device.is_valid);
-        
+
         let json = serde_json::to_string(&device).unwrap();
         // Expect camelCase keys
         assert!(json.contains("serialNumber"));
@@ -261,7 +261,7 @@ mod tests {
             },
             date_format: DateFormat::DdMonthYyyy,
         };
-        
+
         assert!(config.metadata.author);
         assert!(!config.metadata.description);
     }

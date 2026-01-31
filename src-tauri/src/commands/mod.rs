@@ -225,6 +225,37 @@ pub fn reset_settings() -> Result<AppSettings, String> {
     Ok(manager.get().clone())
 }
 
+/// Open a folder picker dialog to select export directory
+#[tauri::command]
+pub async fn pick_export_folder(app_handle: tauri::AppHandle, default_path: Option<String>) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    
+    // Create the folder picker dialog
+    let mut folder_dialog = app_handle.dialog().file();
+    
+    // Set it to pick a folder instead of a file
+    folder_dialog = folder_dialog.set_can_create_directories(true);
+    
+    // Set starting directory if provided
+    if let Some(path) = default_path {
+        folder_dialog = folder_dialog.set_directory(std::path::PathBuf::from(path));
+    }
+    
+    // Open the dialog and wait for user selection
+    let result = folder_dialog.blocking_pick_folder();
+    
+    // Convert the result to a string path
+    match result {
+        Some(folder_path) => {
+            let path_str = folder_path.as_path()
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_default();
+            Ok(Some(path_str))
+        },
+        None => Ok(None),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
