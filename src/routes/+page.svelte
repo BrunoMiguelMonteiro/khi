@@ -18,9 +18,9 @@
     updateHighlight,
     scanForDevice,
     importHighlights,
-    exportBooks,
-    getDefaultExportPath
+    exportBooks
   } from '$lib/stores/library.svelte';
+  import { getExportConfig } from '$lib/stores/settings.svelte';
   import type { Book, Highlight } from '$lib/types';
 
   // Local state for UI
@@ -79,9 +79,10 @@
     console.log('[EXPORT FRONTEND] IDs selecionados:', selectedBookIds);
     
     try {
-      console.log('[EXPORT FRONTEND] A chamar getDefaultExportPath()...');
-      const exportPath = await getDefaultExportPath();
-      console.log('[EXPORT FRONTEND] ✅ Path obtido:', exportPath);
+      console.log('[EXPORT FRONTEND] A obter export path das settings...');
+      const exportConfig = getExportConfig();
+      const exportPath = exportConfig.exportPath;
+      console.log('[EXPORT FRONTEND] ✅ Path obtido das settings:', exportPath);
       
       console.log('[EXPORT FRONTEND] A chamar exportBooks()...');
       const exportedFiles = await exportBooks(exportPath);
