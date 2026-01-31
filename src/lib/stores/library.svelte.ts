@@ -1,6 +1,9 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { Book, Highlight, KoboDevice, ImportProgress, ExportConfig } from '../types';
 
+// UI State Machine
+type UiState = 'no-device' | 'importing' | 'library' | 'book-details';
+
 // State
 let books = $state<Book[]>([]);
 let selectedBookIds = $state<string[]>([]);
@@ -8,6 +11,11 @@ let isImporting = $state(false);
 let importProgress = $state<ImportProgress | undefined>(undefined);
 let connectedDevice = $state<KoboDevice | undefined>(undefined);
 let isScanning = $state(false);
+
+// UI State Machine State
+let uiState = $state<UiState>('no-device');
+let hasImportedInSession = $state(false);
+let lastDeviceSerial = $state<string | null>(null);
 
 // Getters
 export function getBooks(): Book[] {
@@ -32,6 +40,18 @@ export function getConnectedDevice(): KoboDevice | undefined {
 
 export function getIsScanning(): boolean {
   return isScanning;
+}
+
+export function getUiState(): UiState {
+  return uiState;
+}
+
+export function getHasImportedInSession(): boolean {
+  return hasImportedInSession;
+}
+
+export function getLastDeviceSerial(): string | null {
+  return lastDeviceSerial;
 }
 
 export function getSelectedBooks(): Book[] {
@@ -68,6 +88,37 @@ export function removeBook(bookId: string): void {
 export function clearBooks(): void {
   books = [];
   selectedBookIds = [];
+}
+
+// UI State Machine Actions
+export function setUiState(state: UiState): void {
+  uiState = state;
+}
+
+export function setConnectedDevice(device: KoboDevice | undefined): void {
+  connectedDevice = device;
+  if (device) {
+    uiState = 'importing';
+  } else {
+    uiState = 'no-device';
+  }
+}
+
+export function markImportComplete(deviceSerial: string): void {
+  uiState = 'library';
+  hasImportedInSession = true;
+  lastDeviceSerial = deviceSerial;
+}
+
+export function shouldAutoImport(device: KoboDevice): boolean {
+  // Auto-import if we haven't imported yet OR if it's a different device
+  if (!hasImportedInSession) {
+    return true;
+  }
+  if (device.serialNumber && device.serialNumber !== lastDeviceSerial) {
+    return true;
+  }
+  return false;
 }
 
 // Tauri command wrappers

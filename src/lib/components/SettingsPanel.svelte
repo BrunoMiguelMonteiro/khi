@@ -21,6 +21,7 @@
     setTheme,
     setViewMode,
     setSortPreference,
+    setAutoImportOnConnect,
     saveSettings,
     resetAndSaveSettings,
     getSortLabel,
@@ -156,6 +157,11 @@
 
   function handleSortChange(sort: SortPreference) {
     setSortPreference(sort);
+    hasChanges = true;
+  }
+
+  function handleAutoImportToggle() {
+    setAutoImportOnConnect(!uiPreferences.autoImportOnConnect);
     hasChanges = true;
   }
 
@@ -435,6 +441,21 @@
               {/each}
             </select>
           </div>
+        </section>
+
+        <!-- Auto-import on connect -->
+        <section class="settings-section">
+          <h3 class="section-title">Device Connection</h3>
+          <p class="section-description">Automatically import highlights when a Kobo device is connected.</p>
+          <label class="checkbox-label">
+            <input
+              type="checkbox"
+              checked={uiPreferences.autoImportOnConnect}
+              onchange={handleAutoImportToggle}
+              class="checkbox-input"
+            />
+            <span class="checkbox-text">Auto-import on device connect</span>
+          </label>
         </section>
       </div>
     {/if}

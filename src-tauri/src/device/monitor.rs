@@ -7,7 +7,7 @@ use crate::device::DeviceDetector;
 use crate::models::KoboDevice;
 
 /// Event emitted when a device is detected
-#[derive(Clone, serde::Serialize)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct DeviceDetectedEvent {
     pub device: KoboDevice,
 }
