@@ -35,12 +35,6 @@ function generateHighlightExportMarkdown(
     lines.push(`**${dateLabel}**: ${highlight.date}`);
   }
 
-  // Personal note
-  if (highlight.note) {
-    lines.push('');
-    lines.push(highlight.note);
-  }
-
   return lines.join('\n');
 }
 
