@@ -83,14 +83,6 @@
     margin: 0 0 var(--space-2, 8px) 0;
   }
 
-  .subtitle {
-    font-size: var(--text-base, 16px);
-    color: var(--text-secondary, #737373);
-    margin: 0;
-    max-width: 320px;
-    line-height: var(--leading-relaxed, 1.625);
-  }
-
   /* Respect reduced motion preference */
   @media (prefers-reduced-motion: reduce) {
     .pulse-ring {

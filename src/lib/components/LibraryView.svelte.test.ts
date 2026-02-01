@@ -26,7 +26,7 @@ const mockBooks: Book[] = [
     contentId: 'book-1',
     title: 'Book One',
     author: 'Author One',
-    highlights: [{ id: 'h1', text: 'Highlight 1', dateCreated: '2025-01-15', isExcluded: false, isEditing: false }],
+    highlights: [{ id: 'h1', text: 'Highlight 1', dateCreated: '2025-01-15' }],
     isSelected: false,
   },
   {
@@ -41,8 +41,8 @@ const mockBooks: Book[] = [
     title: 'Book Three',
     author: 'Author Three',
     highlights: [
-      { id: 'h2', text: 'Highlight 2', dateCreated: '2025-01-16', isExcluded: false, isEditing: false },
-      { id: 'h3', text: 'Highlight 3', dateCreated: '2025-01-17', isExcluded: false, isEditing: false },
+      { id: 'h2', text: 'Highlight 2', dateCreated: '2025-01-16' },
+      { id: 'h3', text: 'Highlight 3', dateCreated: '2025-01-17' },
     ],
     isSelected: false,
   },

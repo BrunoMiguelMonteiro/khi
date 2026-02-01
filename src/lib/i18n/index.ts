@@ -3,7 +3,7 @@ import en from './locales/en.json';
 import pt from './locales/pt.json';
 import { config } from './config';
 
-const translations = { en, pt };
+const translations: Record<string, any> = { en, pt };
 export const defaultLocale = config.fallbackLocale;
 export const currentLocale = writable(config.initialLocale);
 
