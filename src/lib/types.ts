@@ -21,15 +21,11 @@ export interface Highlight {
   id: string;
   text: string;
   annotation?: string;
-  personalNote?: string;
   chapterTitle?: string;
   chapterProgress?: number;
   containerPath?: string;
   dateCreated: string;
   color?: string;
-  isExcluded: boolean;
-  editedText?: string;
-  isEditing: boolean;
 }
 
 export interface KoboDevice {
@@ -94,8 +90,6 @@ export interface ExportHighlightData {
   chapter: string | null;
   location: string;
   date: string;
-  note: string | null;
-  isEdited: boolean;
 }
 
 /** Export data for a book with highlights */
