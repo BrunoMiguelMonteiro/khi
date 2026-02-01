@@ -200,6 +200,8 @@
       // Single selection - open book details
       setViewingBookId(book.contentId);
       viewingBook = getViewingBook();
+      setUiState('book-details');
+      uiState = 'book-details';
       showSettings = false;
     }
   }
