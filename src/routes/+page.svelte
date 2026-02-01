@@ -23,7 +23,6 @@
     setUiState,
     markImportComplete,
     shouldAutoImport,
-    updateHighlight,
     scanForDevice,
     importHighlights,
     exportBooks
@@ -211,14 +210,6 @@
     viewingBook = undefined;
   }
 
-  function handleUpdateHighlight(bookId: string, highlightId: string, updates: Partial<Highlight>) {
-    updateHighlight(bookId, highlightId, updates);
-    // Refresh viewing book
-    viewingBook = getViewingBook();
-    // Also refresh books list to reflect changes
-    books = getBooks();
-  }
-
   function handleToggleSettings() {
     showSettings = !showSettings;
     if (showSettings) {
@@ -314,7 +305,6 @@
       <BookDetailsView
         book={viewingBook}
         onClose={handleCloseBookDetails}
-        onUpdateHighlight={handleUpdateHighlight}
       />
     {:else if uiState === 'no-device'}
       <EmptyStateNoDevice />
