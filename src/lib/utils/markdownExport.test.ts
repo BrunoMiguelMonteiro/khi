@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { generateMarkdown } from './markdownExport';
 import type { ExportBookData, ExportHighlightData } from '../types';
 
@@ -24,9 +24,7 @@ describe('generateMarkdown (i18n)', () => {
     text: 'This is a highlight',
     chapter: 'Chapter 1',
     location: 'Chapter 1 · 25%',
-    date: '2025-01-24',
-    note: 'My personal note',
-    isEdited: false
+    date: '2025-01-24'
   };
 
   const mockBook: ExportBookData = {
@@ -101,11 +99,6 @@ describe('generateMarkdown (i18n)', () => {
     expect(md).toContain('**Date**: 2025-01-24');
   });
 
-  it('should include personal note', () => {
-    const md = generateMarkdown(mockBook, { includeMetadata: true });
-    expect(md).toContain('My personal note');
-  });
-
   it('should include chapter heading for grouped highlights', () => {
     const md = generateMarkdown(mockBook, { includeMetadata: true });
     expect(md).toContain('## Chapter 1');
@@ -153,9 +146,7 @@ describe('generateMarkdown (i18n)', () => {
       text: 'Second highlight',
       chapter: 'Chapter 1',
       location: 'Chapter 1 · 50%',
-      date: '2025-01-25',
-      note: null,
-      isEdited: false
+      date: '2025-01-25'
     };
     const book = { ...mockBook, highlights: [mockHighlight, secondHighlight] };
     const md = generateMarkdown(book, { includeMetadata: true });
@@ -167,16 +158,5 @@ describe('generateMarkdown (i18n)', () => {
     // Should have separator between highlights
     const separatorCount = (md.match(/---/g) || []).length;
     expect(separatorCount).toBeGreaterThanOrEqual(2); // One after metadata, one between highlights
-  });
-
-  it('should handle highlights without notes', () => {
-    const highlightWithoutNote: ExportHighlightData = {
-      ...mockHighlight,
-      note: null
-    };
-    const book = { ...mockBook, highlights: [highlightWithoutNote] };
-    const md = generateMarkdown(book, { includeMetadata: true });
-    expect(md).toContain('> This is a highlight');
-    expect(md).not.toContain('My personal note');
   });
 });

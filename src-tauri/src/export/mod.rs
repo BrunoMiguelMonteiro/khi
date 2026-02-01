@@ -135,12 +135,11 @@ impl MarkdownExporter {
 
     /// Export book as structured data for frontend processing
     pub fn export_book_data(&self, book: &Book, config: &ExportConfig) -> ExportBookData {
-        // Filter out excluded highlights
-        let active_highlights: Vec<&Highlight> =
-            book.highlights.iter().filter(|h| !h.is_excluded).collect();
+        // Use all highlights (editing features removed)
+        let highlights: Vec<&Highlight> = book.highlights.iter().collect();
 
         // Convert highlights to export data
-        let highlights_data: Vec<ExportHighlightData> = active_highlights
+        let highlights_data: Vec<ExportHighlightData> = highlights
             .iter()
             .map(|h| {
                 // Build location string
@@ -153,18 +152,14 @@ impl MarkdownExporter {
                 }
                 let location = location_parts.join(" · ");
 
-                // Determine display text and edited status
-                let is_edited = h.edited_text.is_some();
-                let text = h.edited_text.as_ref().unwrap_or(&h.text).clone();
-
                 ExportHighlightData {
                     id: h.id.clone(),
-                    text,
+                    text: h.text.clone(),
                     chapter: h.chapter_title.clone(),
                     location,
                     date: h.date_created.clone(),
-                    note: h.personal_note.clone(),
-                    is_edited,
+                    note: None,
+                    is_edited: false,
                 }
             })
             .collect();
@@ -227,11 +222,7 @@ impl MarkdownExporter {
             lines.push(String::new());
         }
 
-        // Filter out excluded highlights
-        let active_highlights: Vec<&Highlight> =
-            book.highlights.iter().filter(|h| !h.is_excluded).collect();
-
-        if active_highlights.is_empty() {
+        if book.highlights.is_empty() {
             return lines.join("\n");
         }
 
@@ -239,7 +230,8 @@ impl MarkdownExporter {
         lines.push(String::new());
 
         // Group highlights by chapter
-        let grouped = group_highlights_by_chapter(&active_highlights);
+        let highlights: Vec<&Highlight> = book.highlights.iter().collect();
+        let grouped = group_highlights_by_chapter(&highlights);
 
         let chapter_keys: Vec<_> = grouped.keys().collect();
         for (i, chapter) in chapter_keys.iter().enumerate() {
@@ -273,8 +265,7 @@ impl MarkdownExporter {
         let mut lines: Vec<String> = Vec::new();
 
         // Highlight text as blockquote
-        let display_text = highlight.edited_text.as_ref().unwrap_or(&highlight.text);
-        lines.push(format!("> {}", display_text));
+        lines.push(format!("> {}", highlight.text));
         lines.push(String::new());
 
         // Location info
@@ -293,12 +284,6 @@ impl MarkdownExporter {
         // Date
         if !highlight.date_created.is_empty() {
             lines.push(format!("**Data**: {}", highlight.date_created));
-        }
-
-        // Personal note
-        if let Some(note) = &highlight.personal_note {
-            lines.push(String::new());
-            lines.push(note.clone());
         }
 
         lines.join("\n")
@@ -430,27 +415,21 @@ mod tests {
                     id: "hl1".to_string(),
                     text: "First highlight".to_string(),
                     annotation: None,
-                    personal_note: Some("My note".to_string()),
                     chapter_title: Some("Chapter 1".to_string()),
                     chapter_progress: Some(0.25),
                     container_path: None,
                     date_created: "2025-01-24".to_string(),
                     color: Some("yellow".to_string()),
-                    is_excluded: false,
-                    edited_text: None,
                 },
                 Highlight {
                     id: "hl2".to_string(),
                     text: "Second highlight".to_string(),
                     annotation: None,
-                    personal_note: None,
                     chapter_title: Some("Chapter 1".to_string()),
                     chapter_progress: Some(0.50),
                     container_path: None,
                     date_created: "2025-01-25".to_string(),
                     color: None,
-                    is_excluded: false,
-                    edited_text: None,
                 },
             ],
         }
@@ -471,14 +450,11 @@ mod tests {
                 id: "hl3".to_string(),
                 text: "Another highlight".to_string(),
                 annotation: None,
-                personal_note: None,
                 chapter_title: None,
                 chapter_progress: None,
                 container_path: None,
                 date_created: "2025-01-26".to_string(),
                 color: None,
-                is_excluded: false,
-                edited_text: None,
             }],
         }
     }
@@ -555,40 +531,6 @@ mod tests {
         // Verify files exist
         let files: Vec<_> = fs::read_dir(temp.path()).unwrap().collect();
         assert_eq!(files.len(), 2);
-    }
-
-    #[test]
-    fn test_exclude_highlights() {
-        let temp = TempDir::new().unwrap();
-        let mut book = create_test_book();
-
-        // Mark first highlight as excluded
-        book.highlights[0].is_excluded = true;
-
-        let config = create_test_config();
-        let exporter = MarkdownExporter::new(temp.path().to_path_buf());
-        let result = exporter.export_book(&book, &config).unwrap();
-
-        let content = fs::read_to_string(result).unwrap();
-        assert!(!content.contains("First highlight"));
-        assert!(content.contains("Second highlight"));
-    }
-
-    #[test]
-    fn test_use_edited_text() {
-        let temp = TempDir::new().unwrap();
-        let mut book = create_test_book();
-
-        // Edit the first highlight
-        book.highlights[0].edited_text = Some("Corrected text".to_string());
-
-        let config = create_test_config();
-        let exporter = MarkdownExporter::new(temp.path().to_path_buf());
-        let result = exporter.export_book(&book, &config).unwrap();
-
-        let content = fs::read_to_string(result).unwrap();
-        assert!(content.contains("> Corrected text"));
-        assert!(!content.contains("> First highlight"));
     }
 
     #[test]

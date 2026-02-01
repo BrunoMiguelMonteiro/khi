@@ -11,5 +11,14 @@ export default defineConfig({
 	},
 	resolve: {
 		conditions: ['browser']
+	},
+	server: {
+		fs: {
+			allow: [
+				'.',
+				'../node_modules',
+				'/Users/bruno/Documents/khi-project/kobo-highlights-exporter/node_modules'
+			]
+		}
 	}
 });

@@ -277,14 +277,11 @@ mod tests {
                 id: "hl1".to_string(),
                 text: "Test highlight".to_string(),
                 annotation: None,
-                personal_note: None,
                 chapter_title: None,
                 chapter_progress: None,
                 container_path: None,
                 date_created: "2025-01-24".to_string(),
                 color: None,
-                is_excluded: false,
-                edited_text: None,
             }],
         }
     }

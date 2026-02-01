@@ -44,11 +44,6 @@
     "deselect": "Deselecionar"
   },
   "highlight": {
-    "edit": "Editar",
-    "save": "Guardar",
-    "cancel": "Cancelar",
-    "addNote": "Adicionar nota",
-    "edited": "editado",
     "excluded": "excluído"
   },
   "settings": {

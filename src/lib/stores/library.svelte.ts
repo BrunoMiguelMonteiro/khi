@@ -287,32 +287,6 @@ export function simulateImportProgress(totalBooks: number): void {
   }, 100);
 }
 
-// Highlight editing actions
-export function updateHighlight(bookId: string, highlightId: string, updates: Partial<Highlight>): void {
-  books = books.map(book => {
-    if (book.contentId !== bookId) return book;
-    
-    return {
-      ...book,
-      highlights: book.highlights.map(highlight =>
-        highlight.id === highlightId ? { ...highlight, ...updates } : highlight
-      )
-    };
-  });
-}
-
-export function toggleHighlightExclude(bookId: string, highlightId: string, excluded: boolean): void {
-  updateHighlight(bookId, highlightId, { isExcluded: excluded });
-}
-
-export function editHighlightText(bookId: string, highlightId: string, editedText: string): void {
-  updateHighlight(bookId, highlightId, { editedText });
-}
-
-export function addHighlightNote(bookId: string, highlightId: string, note: string): void {
-  updateHighlight(bookId, highlightId, { personalNote: note });
-}
-
 // Get a single book by ID
 export function getBookById(bookId: string): Book | undefined {
   return books.find(book => book.contentId === bookId);

@@ -10,8 +10,6 @@ const mockHighlights: Highlight[] = [
     chapterTitle: 'Chapter 1',
     chapterProgress: 0.1,
     dateCreated: '2025-01-24',
-    isExcluded: false,
-    isEditing: false,
   },
   {
     id: 'hl2',
@@ -19,9 +17,6 @@ const mockHighlights: Highlight[] = [
     chapterTitle: 'Chapter 1',
     chapterProgress: 0.2,
     dateCreated: '2025-01-25',
-    isExcluded: false,
-    isEditing: false,
-    personalNote: 'My note',
   },
   {
     id: 'hl3',
@@ -29,9 +24,6 @@ const mockHighlights: Highlight[] = [
     chapterTitle: 'Chapter 2',
     chapterProgress: 0.5,
     dateCreated: '2025-01-26',
-    isExcluded: true,
-    isEditing: false,
-    editedText: 'Edited text',
   },
 ];
 
@@ -137,24 +129,8 @@ describe('BookDetailsView', () => {
 
   it('displays correct highlight count in stats', () => {
     render(BookDetailsView, { props: { book: mockBook } });
-    // Should show 2 active (3 total - 1 excluded)
-    // The stats are in the title attributes
-    expect(screen.getByTitle('Active')).toBeInTheDocument();
-  });
-
-  it('shows excluded count when there are excluded highlights', () => {
-    render(BookDetailsView, { props: { book: mockBook } });
-    expect(screen.getByTitle('Excluded')).toBeInTheDocument();
-  });
-
-  it('shows edited count when there are edited highlights', () => {
-    render(BookDetailsView, { props: { book: mockBook } });
-    expect(screen.getByTitle('Edited')).toBeInTheDocument();
-  });
-
-  it('shows notes count when there are highlights with notes', () => {
-    render(BookDetailsView, { props: { book: mockBook } });
-    expect(screen.getByTitle('With notes')).toBeInTheDocument();
+    // Should show total count (3)
+    expect(screen.getByTitle('Total')).toBeInTheDocument();
   });
 
   it('renders highlights list', () => {
@@ -187,68 +163,7 @@ describe('BookDetailsView', () => {
     expect(screen.getByText('No highlights available for this book')).toBeInTheDocument();
   });
 
-  it('calls onUpdateHighlight when toggle exclude', async () => {
-    const handleUpdate = vi.fn();
-    render(BookDetailsView, { 
-      props: { 
-        book: mockBook,
-        onUpdateHighlight: handleUpdate
-      } 
-    });
-    
-    const excludeBtns = screen.getAllByTestId('highlight-exclude-btn');
-    await fireEvent.click(excludeBtns[0]);
-    
-    expect(handleUpdate).toHaveBeenCalledWith('book-1', 'hl1', { isExcluded: true });
-  });
 
-  it('calls onUpdateHighlight when edit highlight', async () => {
-    const handleUpdate = vi.fn();
-    render(BookDetailsView, { 
-      props: { 
-        book: mockBook,
-        onUpdateHighlight: handleUpdate
-      } 
-    });
-    
-    // Click edit button
-    const editBtns = screen.getAllByTestId('highlight-edit-btn');
-    await fireEvent.click(editBtns[0]);
-    
-    // Type new text
-    const textarea = screen.getByTestId('highlight-edit-textarea');
-    await fireEvent.input(textarea, { target: { value: 'New edited text' } });
-    
-    // Save
-    const saveBtn = screen.getByTestId('highlight-save-edit');
-    await fireEvent.click(saveBtn);
-    
-    expect(handleUpdate).toHaveBeenCalledWith('book-1', 'hl1', { editedText: 'New edited text' });
-  });
-
-  it('calls onUpdateHighlight when add note', async () => {
-    const handleUpdate = vi.fn();
-    render(BookDetailsView, { 
-      props: { 
-        book: mockBook,
-        onUpdateHighlight: handleUpdate
-      } 
-    });
-    
-    // Click note button
-    const noteBtns = screen.getAllByTestId('highlight-note-btn');
-    await fireEvent.click(noteBtns[0]);
-    
-    // Type note
-    const textarea = screen.getByTestId('highlight-note-textarea');
-    await fireEvent.input(textarea, { target: { value: 'My new note' } });
-    
-    // Save
-    const saveBtn = screen.getByTestId('highlight-save-note');
-    await fireEvent.click(saveBtn);
-    
-    expect(handleUpdate).toHaveBeenCalledWith('book-1', 'hl1', { personalNote: 'My new note' });
-  });
 
   it('renders "Sem Capítulo" for highlights without chapter', () => {
     const bookWithNoChapter: Book = {
