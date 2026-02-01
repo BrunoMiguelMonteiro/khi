@@ -46,14 +46,11 @@ pub struct Highlight {
     pub id: String,
     pub text: String,
     pub annotation: Option<String>,
-    pub personal_note: Option<String>,
     pub chapter_title: Option<String>,
     pub chapter_progress: Option<f64>,
     pub container_path: Option<String>,
     pub date_created: String,
     pub color: Option<String>,
-    pub is_excluded: bool,
-    pub edited_text: Option<String>,
 }
 
 impl Highlight {
@@ -63,18 +60,11 @@ impl Highlight {
             text,
             date_created,
             annotation: None,
-            personal_note: None,
             chapter_title: None,
             chapter_progress: None,
             container_path: None,
             color: None,
-            is_excluded: false,
-            edited_text: None,
         }
-    }
-
-    pub fn display_text(&self) -> &str {
-        self.edited_text.as_deref().unwrap_or(&self.text)
     }
 }
 
@@ -172,23 +162,6 @@ mod tests {
         assert_eq!(highlight.text, "Test highlight text");
         assert_eq!(highlight.date_created, "2025-01-24");
         assert!(highlight.annotation.is_none());
-        assert!(!highlight.is_excluded);
-    }
-
-    #[test]
-    fn test_highlight_display_text() {
-        let highlight = Highlight::new(
-            "hl1".to_string(),
-            "Original text".to_string(),
-            "2025-01-24".to_string(),
-        );
-
-        assert_eq!(highlight.display_text(), "Original text");
-
-        let mut edited_highlight = highlight.clone();
-        edited_highlight.edited_text = Some("Edited text".to_string());
-
-        assert_eq!(edited_highlight.display_text(), "Edited text");
     }
 
     #[test]
@@ -197,14 +170,11 @@ mod tests {
             id: "hl123".to_string(),
             text: "Test highlight".to_string(),
             annotation: Some("My annotation".to_string()),
-            personal_note: None,
             chapter_title: Some("Chapter 1".to_string()),
             chapter_progress: Some(0.25),
             container_path: Some("OEBPS/ch01.xhtml".to_string()),
             date_created: "2025-01-24".to_string(),
             color: Some("yellow".to_string()),
-            is_excluded: false,
-            edited_text: None,
         };
 
         let json = serde_json::to_string(&highlight).unwrap();
