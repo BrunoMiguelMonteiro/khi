@@ -47,17 +47,8 @@
       "lastRead": "Last read",
       "active": "Active",
       "excluded": "Excluded",
-      "edited": "Edited",
       "withNotes": "With notes",
       "noChapter": "No chapter"
-    },
-    "bookDetails": {
-      "back": "Back",
-      "exportMarkdown": "Export to Markdown",
-      "highlights": "Highlights",
-      "noHighlights": "No highlights available for this book",
-      "page": "Page {number}",
-      "chapter": "Chapter {number}"
     }
   },
   "book": {
@@ -69,18 +60,9 @@
     "deselect": "Deselect"
   },
   "highlight": {
-    "edit": "Edit",
-    "save": "Save",
-    "saveNote": "Save Note",
-    "cancel": "Cancel",
-    "addNote": "Add a personal note...",
-    "noteLabel": "Note:",
-    "edited": "edited",
-    "editedTitle": "Edited",
     "excluded": "excluded",
     "excludeTitle": "Exclude from export",
-    "includeTitle": "Include in export",
-    "editTitle": "Edit highlight"
+    "includeTitle": "Include in export"
   },
   "settings": {
     "title": "Settings",
