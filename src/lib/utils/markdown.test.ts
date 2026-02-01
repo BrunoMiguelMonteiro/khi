@@ -26,8 +26,6 @@ describe('generateMarkdown', () => {
     chapterTitle: 'Chapter 1',
     chapterProgress: 0.25,
     dateCreated: '2025-01-24',
-    isExcluded: false,
-    isEditing: false,
   };
 
   const mockBook: Book = {
@@ -57,28 +55,6 @@ describe('generateMarkdown', () => {
   it('should include highlight as blockquote', () => {
     const md = generateMarkdown(mockBook, {});
     expect(md).toContain('> This is a highlight');
-  });
-
-  it('should exclude highlights marked as excluded', () => {
-    const excludedHighlight = { ...mockHighlight, isExcluded: true };
-    const book = { ...mockBook, highlights: [excludedHighlight] };
-    const md = generateMarkdown(book, {});
-    expect(md).not.toContain('This is a highlight');
-  });
-
-  it('should use edited text when present', () => {
-    const editedHighlight = { ...mockHighlight, editedText: 'Corrected text' };
-    const book = { ...mockBook, highlights: [editedHighlight] };
-    const md = generateMarkdown(book, {});
-    expect(md).toContain('> Corrected text');
-    expect(md).not.toContain('This is a highlight');
-  });
-
-  it('should include personal notes', () => {
-    const notedHighlight = { ...mockHighlight, personalNote: 'My thoughts' };
-    const book = { ...mockBook, highlights: [notedHighlight] };
-    const md = generateMarkdown(book, {});
-    expect(md).toContain('My thoughts');
   });
 
   it('should include chapter information', () => {

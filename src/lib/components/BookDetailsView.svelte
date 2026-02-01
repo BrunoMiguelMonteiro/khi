@@ -8,26 +8,12 @@
   interface Props {
     book: Book;
     onClose?: () => void;
-    onUpdateHighlight?: (bookId: string, highlightId: string, updates: Partial<Highlight>) => void;
   }
 
   let {
     book,
-    onClose,
-    onUpdateHighlight
+    onClose
   }: Props = $props();
-
-  function handleToggleExclude(highlightId: string, excluded: boolean) {
-    onUpdateHighlight?.(book.contentId, highlightId, { isExcluded: excluded });
-  }
-
-  function handleEdit(highlightId: string, editedText: string) {
-    onUpdateHighlight?.(book.contentId, highlightId, { editedText });
-  }
-
-  function handleAddNote(highlightId: string, note: string) {
-    onUpdateHighlight?.(book.contentId, highlightId, { personalNote: note });
-  }
 
   // Group highlights by chapter
   const groupedHighlights = $derived(() => {
@@ -54,10 +40,7 @@
   // Calculate stats
   const stats = $derived(() => {
     const total = book.highlights.length;
-    const excluded = book.highlights.filter(h => h.isExcluded).length;
-    const edited = book.highlights.filter(h => h.editedText).length;
-    const withNotes = book.highlights.filter(h => h.personalNote).length;
-    return { total, excluded, edited, withNotes, active: total - excluded };
+    return { total };
   });
 
   // Generate a consistent gradient based on book title
@@ -151,42 +134,13 @@
     <div class="highlights-header">
       <h2 class="section-title">{$_('screens.bookDetails.highlights')}</h2>
       <div class="stats">
-        <span class="stat active" title={$_('screens.bookDetails.active')}>
+        <span class="stat total" title="Total">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
           </svg>
-          {stats().active}
+          {stats().total}
         </span>
-        {#if stats().excluded > 0}
-          <span class="stat excluded" title={$_('screens.bookDetails.excluded')}>
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            {stats().excluded}
-          </span>
-        {/if}
-        {#if stats().edited > 0}
-          <span class="stat edited" title={$_('screens.bookDetails.edited')}>
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            {stats().edited}
-          </span>
-        {/if}
-        {#if stats().withNotes > 0}
-          <span class="stat notes" title={$_('screens.bookDetails.withNotes')}>
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M14 2v6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M16 13H8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M16 17H8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M10 9H8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            {stats().withNotes}
-          </span>
-        {/if}
       </div>
     </div>
 
@@ -204,12 +158,7 @@
             <h3 class="chapter-title">{chapter}</h3>
             <div class="chapter-highlights">
               {#each highlights as highlight (highlight.id)}
-                <HighlightItem
-                  {highlight}
-                  onToggleExclude={handleToggleExclude}
-                  onEdit={handleEdit}
-                  onAddNote={handleAddNote}
-                />
+                <HighlightItem {highlight} />
               {/each}
             </div>
           </div>
@@ -387,24 +336,9 @@
     height: 14px;
   }
 
-  .stat.active {
+  .stat.total {
     background: var(--color-success-100);
     color: var(--color-success-700);
-  }
-
-  .stat.excluded {
-    background: var(--color-error-100);
-    color: var(--color-error-700);
-  }
-
-  .stat.edited {
-    background: var(--color-warning-100);
-    color: var(--color-warning-700);
-  }
-
-  .stat.notes {
-    background: var(--color-info-100);
-    color: var(--color-info-700);
   }
 
   /* Empty State */

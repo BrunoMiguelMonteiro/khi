@@ -9,17 +9,6 @@ const mockT = vi.fn((key: string, params?: Record<string, string | number>) => {
   
   // Simple translations map for common keys
   const translations: Record<string, string> = {
-    'save': 'Save',
-    'cancel': 'Cancel',
-    'saveNote': 'Save Note',
-    'addNote': 'Add note',
-    'noteLabel': 'Note:',
-    'edited': 'edited',
-    'editedTitle': 'Edited',
-    'excludeTitle': 'Exclude from export',
-    'includeTitle': 'Include in export',
-    'editTitle': 'Edit highlight',
-    'edit': 'Edit',
     'unknownAuthor': 'Unknown author',
     'back': 'Back',
     'highlights': 'Highlights',
