@@ -323,15 +323,15 @@ export async function resetAndSaveSettings(): Promise<void> {
 function applyTheme(theme: ThemePreference): void {
   const root = document.documentElement;
   
-  // Remove existing theme classes
+  // Remove legacy theme classes
   root.classList.remove('theme-light', 'theme-dark');
   
-  if (theme === 'system') {
-    // Check system preference
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    root.classList.add(prefersDark ? 'theme-dark' : 'theme-light');
+  const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+  if (isDark) {
+    root.classList.add('dark');
   } else {
-    root.classList.add(`theme-${theme}`);
+    root.classList.remove('dark');
   }
 }
 

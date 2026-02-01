@@ -221,38 +221,15 @@
 
 /* 
   1. System Preference (Initial Load / Fallback) 
-     Applied when system is dark AND user hasn't explicitly chosen light
+     Handled by JS (applyTheme) adding .dark class
 */
-@media (prefers-color-scheme: dark) {
-  :root:not(.theme-light) {
-    /* Surface colors for dark mode */
-    --surface-primary: var(--color-neutral-900);
-    --surface-secondary: var(--color-neutral-800);
-    --surface-tertiary: var(--color-neutral-700);
-    --surface-elevated: var(--color-neutral-800);
-
-    /* Text colors for dark mode */
-    --text-primary: var(--color-neutral-100);
-    --text-secondary: var(--color-neutral-400);
-    --text-tertiary: var(--color-neutral-500);
-    --text-disabled: var(--color-neutral-600);
-
-    /* Border colors for dark mode */
-    --border-default: var(--color-neutral-700);
-    --border-hover: var(--color-neutral-600);
-
-    /* Shadows for dark mode (more subtle) */
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.4);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.4);
-  }
-}
+/* @media (prefers-color-scheme: dark) { ... } */
 
 /* 
   2. Manual Override 
      Applied when user explicitly chooses dark mode (or system=dark via JS)
 */
-:root.theme-dark {
+:root.dark {
   /* Surface colors for dark mode */
   --surface-primary: var(--color-neutral-900);
   --surface-secondary: var(--color-neutral-800);

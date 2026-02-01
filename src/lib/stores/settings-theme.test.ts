@@ -38,16 +38,17 @@ describe('Settings Store - Theme Application', () => {
     vi.restoreAllMocks();
   });
 
-  it('should apply light theme class when theme is "light"', () => {
+  it('should apply light theme (remove dark class) when theme is "light"', () => {
+    // Start with dark to verify removal
+    document.documentElement.classList.add('dark');
+    
     settingsStore.setTheme('light');
-    expect(document.documentElement.classList.contains('theme-light')).toBe(true);
-    expect(document.documentElement.classList.contains('theme-dark')).toBe(false);
+    expect(document.documentElement.classList.contains('dark')).toBe(false);
   });
 
-  it('should apply dark theme class when theme is "dark"', () => {
+  it('should apply dark theme (add dark class) when theme is "dark"', () => {
     settingsStore.setTheme('dark');
-    expect(document.documentElement.classList.contains('theme-dark')).toBe(true);
-    expect(document.documentElement.classList.contains('theme-light')).toBe(false);
+    expect(document.documentElement.classList.contains('dark')).toBe(true);
   });
 
   it('should apply system light theme correctly', () => {
@@ -58,10 +59,12 @@ describe('Settings Store - Theme Application', () => {
       addEventListener: vi.fn(),
     }));
     
+    // Start with dark to verify removal
+    document.documentElement.classList.add('dark');
+
     settingsStore.setTheme('system');
     
-    expect(document.documentElement.classList.contains('theme-light')).toBe(true);
-    expect(document.documentElement.classList.contains('theme-dark')).toBe(false);
+    expect(document.documentElement.classList.contains('dark')).toBe(false);
   });
 
   it('should apply system dark theme correctly', () => {
@@ -74,14 +77,12 @@ describe('Settings Store - Theme Application', () => {
     
     settingsStore.setTheme('system');
     
-    expect(document.documentElement.classList.contains('theme-dark')).toBe(true);
-    expect(document.documentElement.classList.contains('theme-light')).toBe(false);
+    expect(document.documentElement.classList.contains('dark')).toBe(true);
   });
 
   it('should update theme when switching from specific to system (dark)', () => {
-    // Start with light
-    settingsStore.setTheme('light');
-    expect(document.documentElement.classList.contains('theme-light')).toBe(true);
+    // Start with light (no class)
+    document.documentElement.classList.remove('dark');
     
     // Mock system preferring dark
     matchMediaMock.mockImplementation(query => ({
@@ -93,7 +94,6 @@ describe('Settings Store - Theme Application', () => {
     // Switch to system
     settingsStore.setTheme('system');
     
-    expect(document.documentElement.classList.contains('theme-dark')).toBe(true);
-    expect(document.documentElement.classList.contains('theme-light')).toBe(false);
+    expect(document.documentElement.classList.contains('dark')).toBe(true);
   });
 });
