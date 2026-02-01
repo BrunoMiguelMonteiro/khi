@@ -198,7 +198,7 @@
     </div>
   {/if}
 
-  <div class="books-grid" data-testid="books-grid" role="list" aria-label="Lista de livros">
+  <div class="books-grid grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6" data-testid="books-grid" role="list" aria-label="Lista de livros">
     {#each books as book, index (book.contentId)}
       <div role="listitem">
         <BookCard
@@ -452,8 +452,6 @@
 
   /* Books Grid */
   .books-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: var(--space-4);
     overflow-y: auto;
     flex: 1;
@@ -516,10 +514,6 @@
 
     .selection-controls {
       justify-content: space-between;
-    }
-
-    .books-grid {
-      grid-template-columns: 1fr;
     }
 
     .action-btn {

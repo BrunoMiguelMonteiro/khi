@@ -1,3 +1,4 @@
+import '@testing-library/jest-dom';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/svelte';
 import LibraryView from './LibraryView.svelte';
@@ -373,5 +374,24 @@ describe('LibraryView', () => {
     await clickBookContent(bookCards[2], { ctrlKey: true, shiftKey: true });
     
     expect(handleSelectionChange).toHaveBeenLastCalledWith(['book-1', 'book-2', 'book-3']);
+  });
+
+  it('has correct responsive grid classes', () => {
+    render(LibraryView, {
+      props: {
+        books: mockBooks,
+        selectedBookIds: [],
+        onSelectionChange: vi.fn()
+      }
+    });
+    
+    const grid = screen.getByTestId('books-grid');
+    
+    // Check for Tailwind responsive classes based on spec
+    expect(grid).toHaveClass('grid-cols-2');
+    expect(grid).toHaveClass('sm:grid-cols-3');
+    expect(grid).toHaveClass('md:grid-cols-4');
+    expect(grid).toHaveClass('lg:grid-cols-5');
+    expect(grid).toHaveClass('xl:grid-cols-6');
   });
 });

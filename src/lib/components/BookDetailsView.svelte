@@ -91,7 +91,7 @@
   </header>
 
   <div class="book-info-section">
-    <div class="book-cover">
+    <div class="book-cover w-[120px] h-[180px] max-sm:w-[96px] max-sm:h-[144px]">
       {#if book.coverPath}
         <img 
           src={book.coverPath} 
@@ -109,7 +109,7 @@
     </div>
 
     <div class="book-meta">
-      <h1 class="book-title">{book.title}</h1>
+      <h1 class="book-title text-3xl max-sm:text-2xl">{book.title}</h1>
       <p class="book-author">{book.author || $_('screens.bookDetails.unknownAuthor')}</p>
       
       {#if book.isbn}
@@ -228,8 +228,6 @@
 
   .book-cover {
     flex-shrink: 0;
-    width: 120px;
-    height: 180px;
     border-radius: var(--radius-lg);
     overflow: hidden;
     box-shadow: var(--shadow-md);
@@ -265,7 +263,6 @@
 
   .book-title {
     margin: 0;
-    font-size: var(--text-2xl);
     font-weight: var(--font-bold);
     color: var(--text-primary);
     line-height: var(--leading-tight);
@@ -403,15 +400,6 @@
       flex-direction: column;
       align-items: center;
       text-align: center;
-    }
-
-    .book-cover {
-      width: 100px;
-      height: 150px;
-    }
-
-    .book-title {
-      font-size: var(--text-xl);
     }
 
     .highlights-header {

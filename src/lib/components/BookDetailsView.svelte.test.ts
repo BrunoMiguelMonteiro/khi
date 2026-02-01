@@ -1,3 +1,4 @@
+import '@testing-library/jest-dom';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/svelte';
 import BookDetailsView from './BookDetailsView.svelte';
@@ -175,5 +176,41 @@ describe('BookDetailsView', () => {
     };
     render(BookDetailsView, { props: { book: bookWithNoChapter } });
     expect(screen.getByText('No chapter')).toBeInTheDocument();
+  });
+
+  it('has responsive cover dimensions', () => {
+    render(BookDetailsView, {
+      props: {
+        book: mockBook,
+        onClose: vi.fn()
+      }
+    });
+    
+    // Using initials to find placeholder since mockBook uses placeholder logic in test (if coverPath handled?)
+    // Wait, mockBook HAS coverPath: '/path/to/cover.jpg'
+    // So it renders img, not placeholder.
+    // The classes are on the container .book-cover.
+    
+    const img = document.querySelector('.cover-image');
+    const container = img?.closest('.book-cover');
+    
+    expect(container).toHaveClass('w-[120px]');
+    expect(container).toHaveClass('h-[180px]');
+    expect(container).toHaveClass('max-sm:w-[96px]');
+    expect(container).toHaveClass('max-sm:h-[144px]');
+  });
+
+  it('has responsive title font size', () => {
+    render(BookDetailsView, {
+      props: {
+        book: mockBook,
+        onClose: vi.fn()
+      }
+    });
+    
+    const title = screen.getByRole('heading', { level: 1 });
+    
+    expect(title).toHaveClass('text-3xl');
+    expect(title).toHaveClass('max-sm:text-2xl');
   });
 });
