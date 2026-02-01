@@ -174,7 +174,8 @@ impl SettingsManager {
     /// Create a SettingsManager with a custom config path (useful for testing)
     pub fn with_path(config_path: PathBuf) -> Result<Self, SettingsError> {
         let settings = if config_path.exists() {
-            Self::load_from_file(&config_path)?
+            // Use fallback to handle corrupted settings gracefully
+            Self::load_with_fallback(&config_path)?
         } else {
             AppSettings::default()
         };
@@ -200,6 +201,7 @@ impl SettingsManager {
     }
 
     /// Load settings from a file
+    /// If parsing fails, returns error with path information for debugging
     fn load_from_file(path: &Path) -> Result<AppSettings, SettingsError> {
         let content = fs::read_to_string(path).map_err(SettingsError::IoError)?;
 
@@ -209,14 +211,128 @@ impl SettingsManager {
         Ok(settings)
     }
 
-    /// Save settings to disk
+    /// Load settings with fallback to defaults on parse error
+    /// Logs the error and path for debugging, but allows app to continue
+    fn load_with_fallback(path: &Path) -> Result<AppSettings, SettingsError> {
+        let content = fs::read_to_string(path).map_err(SettingsError::IoError)?;
+
+        match serde_json::from_str::<AppSettings>(&content) {
+            Ok(settings) => Ok(settings),
+            Err(e) => {
+                eprintln!(
+                    "Warning: Failed to parse settings file at {}: {}. Using defaults.",
+                    path.display(),
+                    e
+                );
+                // Backup the corrupted file for inspection
+                let backup_path = path.with_extension("json.corrupted");
+                let _ = fs::copy(path, &backup_path);
+                Ok(AppSettings::default())
+            }
+        }
+    }
+
+    /// Save settings to disk with multiple layers of protection against corruption
+    ///
+    /// Protection layers:
+    /// 1. Pre-validation: Verify JSON is valid before writing
+    /// 2. Backup: Keep previous version before overwrite
+    /// 3. Atomic write: Write to temp file, then rename (prevents partial writes)
+    /// 4. Post-validation: Read back and verify integrity
+    /// 5. Retry with backoff: If write fails, retry up to 3 times
     pub fn save(&self) -> Result<(), SettingsError> {
         let content =
             serde_json::to_string_pretty(&self.settings).map_err(SettingsError::SerializeError)?;
 
-        fs::write(&self.config_path, content).map_err(SettingsError::IoError)?;
+        // Layer 1: Pre-validation - verify the JSON we're about to write is valid
+        if let Err(e) = serde_json::from_str::<AppSettings>(&content) {
+            log::error!("Settings serialization produced invalid JSON: {}", e);
+            return Err(SettingsError::SerializeError(e));
+        }
 
-        Ok(())
+        // Layer 2: Backup previous version (if exists and is valid)
+        if self.config_path.exists() {
+            let backup_path = self.config_path.with_extension("json.backup");
+            if let Err(e) = fs::copy(&self.config_path, &backup_path) {
+                log::warn!("Failed to create settings backup: {}", e);
+            }
+        }
+
+        // Layer 3 & 5: Atomic write with retry
+        let temp_path = self.config_path.with_extension("json.tmp");
+        let mut last_error = None;
+
+        for attempt in 1..=3 {
+            // Write to temp file
+            if let Err(e) = fs::write(&temp_path, &content) {
+                log::warn!("Settings write attempt {} failed: {}", attempt, e);
+                last_error = Some(e);
+                if attempt < 3 {
+                    std::thread::sleep(std::time::Duration::from_millis(100 * attempt as u64));
+                    continue;
+                }
+                break;
+            }
+
+            // Atomic rename
+            if let Err(e) = fs::rename(&temp_path, &self.config_path) {
+                log::warn!("Settings rename attempt {} failed: {}", attempt, e);
+                last_error = Some(e);
+                if attempt < 3 {
+                    std::thread::sleep(std::time::Duration::from_millis(100 * attempt as u64));
+                    continue;
+                }
+                break;
+            }
+
+            // Layer 4: Post-validation - verify what we wrote is readable
+            match Self::load_from_file(&self.config_path) {
+                Ok(verified_settings) => {
+                    if verified_settings.version == self.settings.version {
+                        log::debug!(
+                            "Settings saved and verified successfully (attempt {})",
+                            attempt
+                        );
+                        return Ok(());
+                    } else {
+                        log::warn!(
+                            "Settings verification failed: version mismatch on attempt {}",
+                            attempt
+                        );
+                    }
+                }
+                Err(e) => {
+                    log::warn!(
+                        "Settings verification read failed on attempt {}: {}",
+                        attempt,
+                        e
+                    );
+                }
+            }
+
+            if attempt < 3 {
+                std::thread::sleep(std::time::Duration::from_millis(100 * attempt as u64));
+            }
+        }
+
+        // All attempts failed - restore from backup if available
+        log::error!(
+            "All 3 attempts to save settings failed. Last error: {:?}",
+            last_error
+        );
+
+        let backup_path = self.config_path.with_extension("json.backup");
+        if backup_path.exists() {
+            log::info!("Attempting to restore settings from backup...");
+            if let Err(e) = fs::copy(&backup_path, &self.config_path) {
+                log::error!("Failed to restore from backup: {}", e);
+            }
+        }
+
+        Err(SettingsError::IoError(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("Failed to save settings after 3 attempts: {:?}", last_error),
+        )))
     }
 
     /// Get a reference to the current settings
