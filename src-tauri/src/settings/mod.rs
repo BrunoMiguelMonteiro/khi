@@ -596,16 +596,25 @@ mod tests {
     }
 
     #[test]
-    fn test_invalid_json_handling() {
+    fn test_invalid_json_recovery() {
         let temp_dir = TempDir::new().unwrap();
         let config_path = temp_dir.path().join("settings.json");
 
         // Write invalid JSON
         fs::write(&config_path, "not valid json").unwrap();
 
-        // Should return parse error
+        // With 5-layer protection, invalid JSON should be automatically recovered
+        // Returns default settings instead of error
         let result = SettingsManager::with_path(config_path);
-        assert!(result.is_err());
+        assert!(result.is_ok());
+
+        let settings_manager = result.unwrap();
+        // Verify we got default settings
+        assert_eq!(
+            settings_manager.settings.ui_preferences.theme,
+            ThemePreference::System
+        );
+        assert!(settings_manager.settings.ui_preferences.show_onboarding);
     }
 
     #[test]
