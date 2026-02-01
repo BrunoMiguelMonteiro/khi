@@ -166,14 +166,11 @@ impl KoboDatabase {
                 id: bookmark_id,
                 text,
                 annotation,
-                personal_note: None,
                 chapter_title,
                 chapter_progress,
                 container_path,
                 date_created: date_created.unwrap_or_else(|| "Unknown".to_string()),
                 color: None, // Color não disponível neste modelo
-                is_excluded: false,
-                edited_text: None,
             };
 
             book.highlights.push(highlight);
