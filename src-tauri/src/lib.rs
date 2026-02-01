@@ -13,6 +13,8 @@ use commands::{
     validate_export_path,
 };
 
+use device::monitor::DeviceMonitor;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Initialize logging
@@ -36,6 +38,15 @@ pub fn run() {
             reset_settings,
             pick_export_folder
         ])
+        .setup(|app| {
+            // Start device monitoring
+            let app_handle = app.handle().clone();
+            let monitor = DeviceMonitor::new(app_handle);
+            monitor.start_monitoring();
+            
+            log::info!("Application started with device monitoring enabled");
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

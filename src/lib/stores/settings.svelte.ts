@@ -65,6 +65,7 @@ function getDefaultUiPreferences(): UiPreferences {
     showOnboarding: true,
     libraryViewMode: 'grid',
     librarySort: 'title',
+    autoImportOnConnect: true,
   };
 }
 
@@ -220,6 +221,16 @@ export function setShowOnboarding(show: boolean): void {
     uiPreferences: {
       ...settings.uiPreferences,
       showOnboarding: show,
+    },
+  };
+}
+
+export function setAutoImportOnConnect(enabled: boolean): void {
+  settings = {
+    ...settings,
+    uiPreferences: {
+      ...settings.uiPreferences,
+      autoImportOnConnect: enabled,
     },
   };
 }

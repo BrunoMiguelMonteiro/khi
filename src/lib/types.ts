@@ -142,6 +142,8 @@ export interface UiPreferences {
   libraryViewMode: ViewMode;
   /** Sort preference for library */
   librarySort: SortPreference;
+  /** Whether to auto-import when device is detected */
+  autoImportOnConnect: boolean;
 }
 
 /** Theme preference */
