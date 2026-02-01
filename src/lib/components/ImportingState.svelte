@@ -21,8 +21,7 @@
     <div class="pulse-ring" style="animation-delay: 0.5s;"></div>
   </div>
   
-  <h2 class="title">{$_('importingState.title')}</h2>
-  <p class="subtitle">{$_('importingState.subtitle')}</p>
+  <h2 class="title">{$_('screens.importing.title')}</h2>
 </div>
 
 <style>

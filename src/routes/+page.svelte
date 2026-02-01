@@ -75,9 +75,9 @@
   async function setupDeviceListeners() {
     try {
       // Listen for device detected events
-      unlistenDeviceDetected = await listen<KoboDevice>('device-detected', (event) => {
+      unlistenDeviceDetected = await listen<{device: KoboDevice}>('device-detected', (event) => {
         console.log('Device detected:', event.payload);
-        const device = event.payload;
+        const device = event.payload.device;
         setConnectedDevice(device);
         uiState = getUiState();
         connectedDevice = device;

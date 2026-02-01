@@ -19,8 +19,8 @@
     </svg>
   </div>
   
-  <h2 class="title">{$_('emptyState.noDevice.title')}</h2>
-  <p class="subtitle">{$_('emptyState.noDevice.subtitle')}</p>
+  <h2 class="title">{$_('screens.noKobo.title')}</h2>
+  <p class="subtitle">{$_('screens.noKobo.subtitle')}</p>
 </div>
 
 <style>
