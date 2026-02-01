@@ -6,6 +6,7 @@
 
   interface Props {
     book: Book;
+    gradient?: string;
     isSelected?: boolean;
     isHovered?: boolean;
     onClick?: (event: MouseEvent) => void;
@@ -16,6 +17,7 @@
 
   let {
     book,
+    gradient = 'from-blue-400 to-blue-600',
     isSelected = false,
     isHovered = false,
     onClick,
@@ -27,28 +29,6 @@
   function formatHighlightCount(count: number): string {
     if (count === 0) return $_('book.noHighlights');
     return $_('book.highlightsCount', { count });
-  }
-
-  // Generate a consistent gradient based on book title
-  function generatePlaceholderGradient(title: string): string {
-    const gradients = [
-      'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-      'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-      'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-      'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-      'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
-      'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
-      'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
-    ];
-    
-    let hash = 0;
-    for (let i = 0; i < title.length; i++) {
-      hash = title.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    
-    const index = Math.abs(hash) % gradients.length;
-    return gradients[index];
   }
 
   function getInitials(title: string): string {
@@ -103,10 +83,7 @@
           loading="lazy"
         />
       {:else}
-        <div 
-          class="cover-placeholder"
-          style="background: {generatePlaceholderGradient(book.title)}"
-        >
+        <div class="cover-placeholder bg-gradient-to-br {gradient}">
           <span class="placeholder-text">{getInitials(book.title)}</span>
         </div>
       {/if}

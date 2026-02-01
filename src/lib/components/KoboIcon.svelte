@@ -1,51 +1,60 @@
-<script lang="ts">
-	interface Props {
-		disabled?: boolean;
-		size?: number;
-		class?: string;
-	}
+<script>
+  /**
+   * @typedef {Object} Props
+   * @property {boolean} [disabled] - Whether the icon is in disabled state
+   * @property {number} [size] - Width of the icon in pixels (height is auto-calculated)
+   */
 
-	let { disabled = false, size = 128, class: className = '' }: Props = $props();
+  /** @type {Props} */
+  let { disabled = false, size = 128 } = $props();
+
+  // Calculate height automatically maintaining 7:9 aspect ratio
+  let height = $derived(size * 1.286);
 </script>
 
 <svg
-	xmlns="http://www.w3.org/2000/svg"
-	viewBox="0 0 140 180"
-	width={size}
-	height={size}
-	fill="none"
-	class="{className} {disabled ? 'text-neutral-300 dark:text-neutral-700' : ''}"
+  width={size}
+  height={height}
+  viewBox="0 0 140 180"
+  xmlns="http://www.w3.org/2000/svg"
+  class="transition-colors duration-200 ease-in-out"
+  class:text-neutral-300={disabled}
+  class:dark:text-neutral-700={disabled}
+  class:text-neutral-900={!disabled}
+  class:dark:text-neutral-100={!disabled}
+  aria-label={disabled ? 'Kobo device (disabled)' : 'Kobo device'}
+  role="img"
 >
-	<!-- Device outline -->
-	<rect
-		x="15"
-		y="20"
-		width="110"
-		height="140"
-		rx="8"
-		stroke="currentColor"
-		stroke-width="2.5"
-		fill="none"
-	/>
+  <!-- Device outline -->
+  <rect
+    x="5"
+    y="5"
+    width="130"
+    height="170"
+    rx="8"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="3"
+  />
 
-	<!-- Full-screen display -->
-	<rect
-		x="22"
-		y="27"
-		width="96"
-		height="126"
-		rx="3"
-		stroke="currentColor"
-		stroke-width="1.5"
-		fill="none"
-	/>
+  <!-- Screen area -->
+  <rect
+    x="15"
+    y="15"
+    width="110"
+    height="140"
+    rx="2"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+  />
 
-	<!-- Book page representation (text lines) -->
-	<line x1="35" y1="45" x2="78" y2="45" stroke="currentColor" stroke-width="1.5" />
-	<line x1="35" y1="59" x2="103" y2="59" stroke="currentColor" stroke-width="1.5" />
-	<line x1="35" y1="73" x2="98" y2="73" stroke="currentColor" stroke-width="1.5" />
-	<line x1="35" y1="87" x2="105" y2="87" stroke="currentColor" stroke-width="1.5" />
-	<line x1="35" y1="101" x2="93" y2="101" stroke="currentColor" stroke-width="1.5" />
-	<line x1="35" y1="115" x2="103" y2="115" stroke="currentColor" stroke-width="1.5" />
-	<line x1="35" y1="129" x2="88" y2="129" stroke="currentColor" stroke-width="1.5" />
+  <!-- 7 text lines representing content -->
+  <line x1="25" y1="30" x2="115" y2="30" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+  <line x1="25" y1="50" x2="115" y2="50" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+  <line x1="25" y1="70" x2="115" y2="70" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+  <line x1="25" y1="90" x2="115" y2="90" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+  <line x1="25" y1="110" x2="115" y2="110" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+  <line x1="25" y1="130" x2="95" y2="130" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+  <line x1="25" y1="150" x2="105" y2="150" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
 </svg>

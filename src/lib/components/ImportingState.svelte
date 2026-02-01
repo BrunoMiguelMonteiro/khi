@@ -51,6 +51,7 @@
     color: var(--color-primary-500, #3b82f6);
     z-index: 1;
     position: relative;
+    animation: iconPulse 2s ease-in-out infinite;
   }
 
   .pulse-ring {
@@ -63,6 +64,15 @@
     border-radius: 50%;
     background-color: var(--color-primary-100, #dbeafe);
     animation: pulse 2s ease-out infinite;
+  }
+
+  @keyframes iconPulse {
+    0%, 100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.05);
+    }
   }
 
   @keyframes pulse {
@@ -85,8 +95,11 @@
 
   /* Respect reduced motion preference */
   @media (prefers-reduced-motion: reduce) {
+    .e-reader-icon,
     .pulse-ring {
       animation: none;
+    }
+    .pulse-ring {
       opacity: 0.3;
     }
   }

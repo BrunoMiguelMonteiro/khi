@@ -4,6 +4,7 @@
   import { formatDate } from '../utils/date';
   import { getExportConfig } from '../stores/settings.svelte';
   import { _ } from '$lib/i18n';
+  import { getBookGradient } from '$lib/utils/gradients';
 
   interface Props {
     book: Book;
@@ -43,28 +44,6 @@
     return { total };
   });
 
-  // Generate a consistent gradient based on book title
-  function generatePlaceholderGradient(title: string): string {
-    const gradients = [
-      'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-      'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-      'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-      'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-      'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
-      'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
-      'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
-    ];
-    
-    let hash = 0;
-    for (let i = 0; i < title.length; i++) {
-      hash = title.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    
-    const index = Math.abs(hash) % gradients.length;
-    return gradients[index];
-  }
-
   function getInitials(title: string): string {
     return title
       .split(' ')
@@ -99,10 +78,7 @@
           class="cover-image"
         />
       {:else}
-        <div 
-          class="cover-placeholder"
-          style="background: {generatePlaceholderGradient(book.title)}"
-        >
+        <div class="cover-placeholder bg-gradient-to-br {getBookGradient(book.contentId)}">
           <span class="placeholder-text">{getInitials(book.title)}</span>
         </div>
       {/if}

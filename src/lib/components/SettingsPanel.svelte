@@ -30,6 +30,8 @@
     getDateFormatLabel
   } from '../stores/settings.svelte';
   import type { ExportConfig, ThemePreference, ViewMode, SortPreference } from '../types';
+  import CustomCheckbox from './CustomCheckbox.svelte';
+  import CustomRadio from './CustomRadio.svelte';
 
   // Props
   interface Props {
@@ -310,11 +312,9 @@
           <div class="checkbox-group">
             {#each metadataOptions as option}
               <label class="checkbox-label">
-                <input
-                  type="checkbox"
+                <CustomCheckbox
                   checked={exportConfig.metadata[option.key]}
-                  onchange={() => handleMetadataToggle(option.key)}
-                  class="checkbox-input"
+                  onChange={() => handleMetadataToggle(option.key)}
                 />
                 <span class="checkbox-text">{option.label}</span>
               </label>
@@ -328,13 +328,11 @@
           <div class="radio-group">
             {#each dateFormats as format}
               <label class="radio-label">
-                <input
-                  type="radio"
+                <CustomRadio
                   name="date-format"
                   value={format}
                   checked={exportConfig.dateFormat === format}
-                  onchange={() => handleDateFormatChange(format)}
-                  class="radio-input"
+                  onChange={() => handleDateFormatChange(format)}
                 />
                 <span class="radio-text">{getEnglishDateFormatLabel(format)}</span>
               </label>
@@ -573,7 +571,8 @@
     gap: var(--space-3);
     padding: var(--space-2) var(--space-4);
     border: none;
-    border-radius: var(--radius-md);
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
     background: transparent;
     color: var(--text-secondary);
     font-size: var(--text-sm);
@@ -583,13 +582,16 @@
   }
 
   .tab-button:hover {
-    background: var(--surface-tertiary);
     color: var(--text-primary);
   }
 
   .tab-button.active {
-    background: var(--color-primary-500);
-    color: white;
+    border-bottom-color: rgb(10, 10, 10);
+    color: var(--text-primary);
+  }
+
+  :global(.dark) .tab-button.active {
+    border-bottom-color: white;
   }
 
   .tab-button:focus-visible {
@@ -686,12 +688,6 @@
     background: var(--surface-secondary);
   }
 
-  .checkbox-input {
-    width: 18px;
-    height: 18px;
-    accent-color: var(--color-primary-500);
-    cursor: pointer;
-  }
 
   .checkbox-text {
     font-size: var(--text-sm);
@@ -719,12 +715,6 @@
     background: var(--surface-secondary);
   }
 
-  .radio-input {
-    width: 18px;
-    height: 18px;
-    accent-color: var(--color-primary-500);
-    cursor: pointer;
-  }
 
   .radio-text {
     font-size: var(--text-sm);

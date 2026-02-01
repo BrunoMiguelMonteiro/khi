@@ -2,9 +2,6 @@
   import type { Book } from '../types';
   import BookCard from './BookCard.svelte';
   import { _ } from '$lib/i18n';
-  import { Download, Grid3x3, List, ArrowUpDown, X, Settings, ChevronDown } from 'lucide-svelte';
-  import CustomCheckbox from './CustomCheckbox.svelte';
-  import { getBookGradient } from '$lib/utils/gradients';
 
   interface Props {
     books: Book[];
@@ -30,30 +27,6 @@
 
   let lastSelectedIndex = $state(-1);
   let hoveredBookId = $state<string | null>(null);
-  let viewMode: 'grid' | 'list' = $state('grid');
-  let sortBy = $state('title-asc');
-  let showSortDropdown = $state(false);
-
-  const sortOptions = [
-    { value: 'title-asc', label: 'Title (A-Z)' },
-    { value: 'title-desc', label: 'Title (Z-A)' },
-    { value: 'author-asc', label: 'Author (A-Z)' },
-    { value: 'highlights-desc', label: 'Most Highlights' },
-    { value: 'highlights-asc', label: 'Least Highlights' },
-  ];
-
-  let currentSortLabel = $derived(sortOptions.find(opt => opt.value === sortBy)?.label || 'Title (A-Z)');
-
-  let sortedBooks = $derived([...books].sort((a, b) => {
-    switch (sortBy) {
-      case 'title-asc': return (a.title || '').localeCompare(b.title || '');
-      case 'title-desc': return (b.title || '').localeCompare(a.title || '');
-      case 'author-asc': return (a.author || '').localeCompare(b.author || '');
-      case 'highlights-desc': return (b.highlights?.length || 0) - (a.highlights?.length || 0);
-      case 'highlights-asc': return (a.highlights?.length || 0) - (b.highlights?.length || 0);
-      default: return 0;
-    }
-  }));
 
   function isSelected(bookId: string): boolean {
     return selectedBookIds.includes(bookId);
@@ -116,44 +89,8 @@
     onSelectionChange(inverted);
   }
 
-  function handleExportAll() {
-    selectAll();
-    onBooksExport?.();
-  }
-
-  function handleExportSelected() {
-    onBooksExport?.();
-  }
-
-  function toggleBookSelection(bookId: string) {
-    if (selectedBookIds.includes(bookId)) {
-      onSelectionChange(selectedBookIds.filter(id => id !== bookId));
-    } else {
-      onSelectionChange([...selectedBookIds, bookId]);
-    }
-  }
-
-  function getHighlightCount(book: Book): number {
-    return book.highlights?.length || 0;
-  }
-
   let selectedCount = $derived(selectedBookIds.length);
   let totalCount = $derived(books.length);
-
-  // Close dropdown when clicking outside
-  $effect(() => {
-    if (!showSortDropdown) return;
-
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (!target.closest('.sort-dropdown')) {
-        showSortDropdown = false;
-      }
-    };
-
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  });
 </script>
 
 <div class="library-view" data-testid="library-view">
@@ -211,118 +148,39 @@
     </div>
 
     <div class="header-actions">
-      <div class="actions-left">
-        {#if onBooksExport}
-          <button
-            type="button"
-            class="action-btn export-all"
-            onclick={handleExportAll}
-            disabled={isImporting || totalCount === 0}
-          >
-            <Download class="btn-icon" size={16} />
-            Export All
-          </button>
-          <button
-            type="button"
-            class="action-btn export-selected"
-            onclick={handleExportSelected}
-            disabled={isImporting || selectedCount === 0}
-          >
-            <Download class="btn-icon" size={16} />
-            Export Selected ({selectedCount})
-          </button>
-          {#if selectedCount > 0}
-            <button
-              type="button"
-              class="action-btn clear"
-              onclick={deselectAll}
-              disabled={isImporting}
-            >
-              <X class="btn-icon" size={16} />
-              Clear Selection
-            </button>
+      {#if onBooksImport}
+        <button 
+          type="button" 
+          class="action-btn import" 
+          onclick={onBooksImport} 
+          disabled={isImporting}
+        >
+          {#if isImporting}
+            <svg class="btn-icon spin" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            {$_('screens.importing.title')}
+          {:else}
+            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M12 4v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            {$_('screens.library.import')}
           {/if}
-        {/if}
-      </div>
-
-      <div class="actions-right">
-        <!-- Sort Dropdown -->
-        <div class="sort-dropdown" class:active={showSortDropdown}>
-          <button
-            type="button"
-            class="sort-button"
-            onclick={() => showSortDropdown = !showSortDropdown}
-            disabled={isImporting}
-          >
-            <ArrowUpDown class="btn-icon" size={16} />
-            <span class="sort-label">{currentSortLabel}</span>
-            <ChevronDown class="chevron-icon" size={12} />
-          </button>
-
-          {#if showSortDropdown}
-            <!-- svelte-ignore a11y_click_events_have_key_events -->
-            <!-- svelte-ignore a11y_interactive_supports_focus -->
-            <div
-              class="sort-menu"
-              role="menu"
-              onclick={(e) => e.stopPropagation()}
-            >
-              {#each sortOptions as option}
-                <button
-                  type="button"
-                  class="sort-option"
-                  class:active={sortBy === option.value}
-                  onclick={() => {
-                    sortBy = option.value;
-                    showSortDropdown = false;
-                  }}
-                  role="menuitem"
-                >
-                  {#if sortBy === option.value}
-                    <span class="indicator-dot"></span>
-                  {/if}
-                  {option.label}
-                </button>
-              {/each}
-            </div>
-          {/if}
-        </div>
-
-        <!-- View Mode Toggle -->
-        <div class="view-toggle">
-          <button
-            type="button"
-            class="view-button"
-            class:active={viewMode === 'grid'}
-            onclick={() => viewMode = 'grid'}
-            disabled={isImporting}
-            aria-label="Grid view"
-          >
-            <Grid3x3 size={16} />
-          </button>
-          <button
-            type="button"
-            class="view-button"
-            class:active={viewMode === 'list'}
-            onclick={() => viewMode = 'list'}
-            disabled={isImporting}
-            aria-label="List view"
-          >
-            <List size={16} />
-          </button>
-        </div>
-
-        <!-- Settings Button -->
+        </button>
+      {/if}
+      {#if onBooksExport}
         <button
           type="button"
-          class="settings-button"
-          onclick={() => {/* TODO: Open settings */}}
-          disabled={isImporting}
-          aria-label="Settings"
+          class="action-btn export"
+          onclick={onBooksExport}
+          disabled={isImporting || selectedCount === 0}
         >
-          <Settings size={16} />
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M12 4v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" transform="rotate(180 12 12)"/>
+          </svg>
+          {$_('screens.library.exportSelected')} ({selectedCount})
         </button>
-      </div>
+      {/if}
     </div>
   </header>
 
@@ -345,7 +203,6 @@
       <div role="listitem">
         <BookCard
           {book}
-          gradient={getBookGradient(book.contentId)}
           isSelected={isSelected(book.contentId)}
           isHovered={hoveredBookId === book.contentId}
           onClick={(e) => handleBookClick(book, index, e)}
@@ -485,18 +342,9 @@
   /* Header Actions */
   .header-actions {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
     gap: var(--space-3);
     padding-top: var(--space-4);
     border-top: 1px solid var(--border-default);
-  }
-
-  .actions-left,
-  .actions-right {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
   }
 
   .action-btn {
@@ -504,19 +352,14 @@
     align-items: center;
     justify-content: center;
     gap: var(--space-2);
-    padding: var(--space-2) var(--space-4);
+    padding: var(--space-3) var(--space-5);
     font-size: var(--text-sm);
-    font-weight: var(--font-medium);
+    font-weight: var(--font-semibold);
     border: none;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     cursor: pointer;
-    transition: all 150ms ease;
-    background-color: transparent;
-    color: var(--text-primary);
-  }
-
-  .action-btn:hover:not(:disabled) {
-    background-color: var(--surface-tertiary);
+    transition: all var(--transition-fast);
+    min-width: 120px;
   }
 
   .action-btn:focus-visible {
@@ -525,188 +368,30 @@
   }
 
   .action-btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-
-  .action-btn.export-all,
-  .action-btn.export-selected {
-    background-color: var(--surface-tertiary);
-  }
-
-  .action-btn.export-all:hover:not(:disabled),
-  .action-btn.export-selected:hover:not(:disabled) {
-    background-color: var(--surface-secondary);
-  }
-
-  /* Sort Dropdown */
-  .sort-dropdown {
-    position: relative;
-  }
-
-  .sort-button {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-2) var(--space-3);
-    font-size: var(--text-sm);
-    font-weight: var(--font-medium);
-    color: var(--text-primary);
-    background-color: white;
-    border: 1px solid var(--border-default);
-    border-radius: 9999px;
-    cursor: pointer;
-    transition: all 150ms ease;
-  }
-
-  :global(.dark) .sort-button {
-    background-color: rgb(10, 10, 10);
-  }
-
-  .sort-button:hover:not(:disabled) {
-    background-color: var(--surface-tertiary);
-  }
-
-  .sort-button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }
 
-  .sort-label {
-    font-size: var(--text-sm);
+  .action-btn.import {
+    background-color: var(--color-primary-600);
+    color: var(--text-inverse);
   }
 
-  .chevron-icon {
-    flex-shrink: 0;
+  .action-btn.import:hover:not(:disabled) {
+    background-color: var(--color-primary-700);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
   }
 
-  .sort-menu {
-    position: absolute;
-    top: calc(100% + 4px);
-    right: 0;
-    width: 192px;
-    background-color: white;
-    border: 1px solid var(--border-default);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-lg);
-    overflow: hidden;
-    z-index: 50;
+  .action-btn.export {
+    background-color: var(--color-success-600);
+    color: var(--text-inverse);
   }
 
-  :global(.dark) .sort-menu {
-    background-color: rgb(10, 10, 10);
-  }
-
-  .sort-option {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    width: 100%;
-    padding: var(--space-2) var(--space-3);
-    font-size: var(--text-sm);
-    color: var(--text-primary);
-    background-color: transparent;
-    border: none;
-    text-align: left;
-    cursor: pointer;
-    transition: background-color 150ms ease;
-  }
-
-  .sort-option:hover {
-    background-color: rgb(250, 250, 250);
-  }
-
-  :global(.dark) .sort-option:hover {
-    background-color: rgb(23, 23, 23);
-  }
-
-  .sort-option.active {
-    background-color: rgb(245, 245, 245);
-  }
-
-  :global(.dark) .sort-option.active {
-    background-color: rgb(38, 38, 38);
-  }
-
-  .indicator-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background-color: var(--text-primary);
-    flex-shrink: 0;
-  }
-
-  /* View Toggle */
-  .view-toggle {
-    display: inline-flex;
-    align-items: center;
-    border: 1px solid var(--border-default);
-    border-radius: 9999px;
-    background-color: white;
-    padding: 2px;
-  }
-
-  :global(.dark) .view-toggle {
-    background-color: rgb(10, 10, 10);
-  }
-
-  .view-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: var(--space-2);
-    border: none;
-    border-radius: 9999px;
-    background-color: transparent;
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all 150ms ease;
-  }
-
-  .view-button:hover:not(:disabled):not(.active) {
-    background-color: rgb(245, 245, 245);
-  }
-
-  :global(.dark) .view-button:hover:not(:disabled):not(.active) {
-    background-color: rgb(23, 23, 23);
-  }
-
-  .view-button.active {
-    background-color: rgb(10, 10, 10);
-    color: white;
-  }
-
-  :global(.dark) .view-button.active {
-    background-color: white;
-    color: rgb(10, 10, 10);
-  }
-
-  .view-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  /* Settings Button */
-  .settings-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: var(--space-2);
-    border: none;
-    border-radius: var(--radius-md);
-    background-color: transparent;
-    color: var(--text-primary);
-    cursor: pointer;
-    transition: background-color 150ms ease;
-  }
-
-  .settings-button:hover:not(:disabled) {
-    background-color: var(--surface-tertiary);
-  }
-
-  .settings-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  .action-btn.export:hover:not(:disabled) {
+    background-color: var(--color-success-700);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
   }
 
   /* Button Icon */
