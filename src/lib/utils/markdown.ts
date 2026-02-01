@@ -42,8 +42,7 @@ function generateHighlightMarkdown(highlight: Highlight, options: MarkdownOption
   const lines: string[] = [];
   
   // Highlight text as blockquote
-  const displayText = highlight.editedText || highlight.text;
-  lines.push(`> ${displayText}`);
+  lines.push(`> ${highlight.text}`);
   lines.push('');
   
   // Location info
@@ -63,12 +62,6 @@ function generateHighlightMarkdown(highlight: Highlight, options: MarkdownOption
   if (highlight.dateCreated) {
     // Default to 'dd_month_yyyy' if not specified, to match previous behavior
     lines.push(`**Data**: ${formatDate(highlight.dateCreated, options.dateFormat || 'dd_month_yyyy')}`);
-  }
-  
-  // Personal note
-  if (highlight.personalNote) {
-    lines.push('');
-    lines.push(highlight.personalNote);
   }
   
   return lines.join('\n');
@@ -129,10 +122,7 @@ export function generateMarkdown(book: Book, options: MarkdownOptions): string {
     lines.push('');
   }
   
-  // Filter out excluded highlights
-  const activeHighlights = book.highlights.filter(h => !h.isExcluded);
-  
-  if (activeHighlights.length === 0) {
+  if (book.highlights.length === 0) {
     return lines.join('\n');
   }
   
@@ -140,7 +130,7 @@ export function generateMarkdown(book: Book, options: MarkdownOptions): string {
   lines.push('');
   
   // Group by chapter
-  const grouped = groupHighlightsByChapter(activeHighlights);
+  const grouped = groupHighlightsByChapter(book.highlights);
   
   for (const [chapter, highlights] of grouped) {
     if (chapter !== 'Sem Capítulo') {
