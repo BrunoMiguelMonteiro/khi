@@ -207,6 +207,7 @@ describe('Settings Store - Settings Management', () => {
         showOnboarding: false,
         libraryViewMode: 'list' as ViewMode,
         librarySort: 'author' as SortPreference,
+        autoImportOnConnect: true,
       },
       lastImport: {
         timestamp: '2025-01-29T14:00:00Z',
@@ -273,6 +274,7 @@ describe('Settings Store - Tauri Integration', () => {
         showOnboarding: false,
         libraryViewMode: 'list',
         librarySort: 'author',
+        autoImportOnConnect: false,
       },
       lastImport: undefined,
       version: '0.1.0',

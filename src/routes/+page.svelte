@@ -1,9 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { listen, type UnlistenFn } from '@tauri-apps/api/event';
   import AppLayout from '$lib/components/AppLayout.svelte';
   import LibraryView from '$lib/components/LibraryView.svelte';
   import BookDetailsView from '$lib/components/BookDetailsView.svelte';
   import SettingsPanel from '$lib/components/SettingsPanel.svelte';
+  import EmptyStateNoDevice from '$lib/components/EmptyStateNoDevice.svelte';
+  import ImportingState from '$lib/components/ImportingState.svelte';
   import { _ } from '$lib/i18n';
   import {
     getBooks,
@@ -13,15 +16,20 @@
     getConnectedDevice,
     getViewingBook,
     getViewingBookId,
+    getUiState,
     setSelectedBookIds,
     setViewingBookId,
+    setConnectedDevice,
+    setUiState,
+    markImportComplete,
+    shouldAutoImport,
     updateHighlight,
     scanForDevice,
     importHighlights,
     exportBooks
   } from '$lib/stores/library.svelte';
-  import { getExportConfig } from '$lib/stores/settings.svelte';
-  import type { Book, Highlight } from '$lib/types';
+  import { getExportConfig, getSettings } from '$lib/stores/settings.svelte';
+  import type { Book, Highlight, KoboDevice } from '$lib/types';
 
   // Local state for UI
   let books = $state<Book[]>([]);
@@ -32,6 +40,11 @@
   let showDeviceNotification = $state(false);
   let viewingBook = $state<Book | undefined>(undefined);
   let showSettings = $state(false);
+  let uiState = $state<'no-device' | 'importing' | 'library' | 'book-details'>('no-device');
+  
+  // Event unlisten functions for cleanup
+  let unlistenDeviceDetected: UnlistenFn | undefined;
+  let unlistenDeviceDisconnected: UnlistenFn | undefined;
   
   // Notification state for export
   let exportNotification = $state<{ message: string; type: 'success' | 'error'; visible: boolean } | null>(null);
@@ -44,10 +57,71 @@
     importProgress = getImportProgress();
     connectedDevice = getConnectedDevice();
     viewingBook = getViewingBook();
+    uiState = getUiState();
 
-    // Auto-scan for device on mount
+    // Setup event listeners for device monitoring
+    setupDeviceListeners();
+
+    // Initial device scan
     handleScanForDevice();
+
+    // Cleanup on unmount
+    return () => {
+      unlistenDeviceDetected?.();
+      unlistenDeviceDisconnected?.();
+    };
   });
+
+  async function setupDeviceListeners() {
+    try {
+      // Listen for device detected events
+      unlistenDeviceDetected = await listen<{device: KoboDevice}>('device-detected', (event) => {
+        console.log('Device detected:', event.payload);
+        const device = event.payload.device;
+        setConnectedDevice(device);
+        uiState = getUiState();
+        connectedDevice = device;
+        
+        // Check if auto-import should happen
+        const settings = getSettings();
+        const autoImportEnabled = settings.uiPreferences.autoImportOnConnect ?? true;
+        
+        if (autoImportEnabled && shouldAutoImport(device)) {
+          handleAutoImport(device);
+        } else {
+          showDeviceNotification = true;
+          setTimeout(() => {
+            showDeviceNotification = false;
+          }, 5000);
+        }
+      });
+
+      // Listen for device disconnected events
+      unlistenDeviceDisconnected = await listen<void>('device-disconnected', () => {
+        console.log('Device disconnected');
+        setConnectedDevice(undefined);
+        uiState = getUiState();
+        connectedDevice = undefined;
+      });
+    } catch (error) {
+      console.error('Failed to setup device listeners:', error);
+    }
+  }
+
+  async function handleAutoImport(device: KoboDevice) {
+    console.log('Auto-importing from device:', device);
+    try {
+      await handleImport();
+      // Mark import complete with device serial if available
+      markImportComplete(device.serialNumber || 'unknown');
+      uiState = getUiState();
+    } catch (error) {
+      console.error('Auto-import failed:', error);
+      // Reset to no-device state on failure
+      setUiState('no-device');
+      uiState = 'no-device';
+    }
+  }
 
   async function handleScanForDevice() {
     const device = await scanForDevice();
@@ -61,14 +135,24 @@
 
   async function handleImport() {
     try {
-      await importHighlights();
+      const importedBooks = await importHighlights();
       // Refresh books after import
       books = getBooks();
       isImporting = getIsImporting();
       importProgress = getImportProgress();
+      
+      // Mark import as complete
+      const device = getConnectedDevice();
+      if (device) {
+        markImportComplete(device.serialNumber || 'unknown');
+        uiState = getUiState();
+      }
+      
+      return importedBooks;
     } catch (error) {
       console.error('Import failed:', error);
       // TODO: Show error notification
+      throw error;
     }
   }
 
@@ -116,6 +200,8 @@
       // Single selection - open book details
       setViewingBookId(book.contentId);
       viewingBook = getViewingBook();
+      setUiState('book-details');
+      uiState = 'book-details';
       showSettings = false;
     }
   }
@@ -224,12 +310,16 @@
       <div class="settings-container">
         <SettingsPanel onClose={() => showSettings = false} />
       </div>
-    {:else if viewingBook}
+    {:else if uiState === 'book-details' && viewingBook}
       <BookDetailsView
         book={viewingBook}
         onClose={handleCloseBookDetails}
         onUpdateHighlight={handleUpdateHighlight}
       />
+    {:else if uiState === 'no-device'}
+      <EmptyStateNoDevice />
+    {:else if uiState === 'importing'}
+      <ImportingState />
     {:else}
       <LibraryView
         {books}

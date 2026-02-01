@@ -1,3 +1,5 @@
+pub mod monitor;
+
 use crate::models::KoboDevice;
 use std::fs;
 use std::path::{Path, PathBuf};
