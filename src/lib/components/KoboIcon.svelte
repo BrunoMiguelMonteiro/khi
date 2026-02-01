@@ -1,0 +1,51 @@
+<script lang="ts">
+	interface Props {
+		disabled?: boolean;
+		size?: number;
+		class?: string;
+	}
+
+	let { disabled = false, size = 128, class: className = '' }: Props = $props();
+</script>
+
+<svg
+	xmlns="http://www.w3.org/2000/svg"
+	viewBox="0 0 140 180"
+	width={size}
+	height={size}
+	fill="none"
+	class="{className} {disabled ? 'text-neutral-300 dark:text-neutral-700' : ''}"
+>
+	<!-- Device outline -->
+	<rect
+		x="15"
+		y="20"
+		width="110"
+		height="140"
+		rx="8"
+		stroke="currentColor"
+		stroke-width="2.5"
+		fill="none"
+	/>
+
+	<!-- Full-screen display -->
+	<rect
+		x="22"
+		y="27"
+		width="96"
+		height="126"
+		rx="3"
+		stroke="currentColor"
+		stroke-width="1.5"
+		fill="none"
+	/>
+
+	<!-- Book page representation (text lines) -->
+	<line x1="35" y1="45" x2="78" y2="45" stroke="currentColor" stroke-width="1.5" />
+	<line x1="35" y1="59" x2="103" y2="59" stroke="currentColor" stroke-width="1.5" />
+	<line x1="35" y1="73" x2="98" y2="73" stroke="currentColor" stroke-width="1.5" />
+	<line x1="35" y1="87" x2="105" y2="87" stroke="currentColor" stroke-width="1.5" />
+	<line x1="35" y1="101" x2="93" y2="101" stroke="currentColor" stroke-width="1.5" />
+	<line x1="35" y1="115" x2="103" y2="115" stroke="currentColor" stroke-width="1.5" />
+	<line x1="35" y1="129" x2="88" y2="129" stroke="currentColor" stroke-width="1.5" />
+</svg>
