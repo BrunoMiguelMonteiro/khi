@@ -22,7 +22,6 @@ rusqlite = { version = "0.31", features = ["bundled"] }
 log = "0.4"
 env_logger = "0.11"
 chrono = "0.4"
-tokio = { version = "1", features = ["time", "rt"] }
 zip = "0.6"
 image = "0.24"
 sha2 = "0.10"
