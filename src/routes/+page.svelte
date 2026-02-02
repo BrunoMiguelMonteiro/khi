@@ -39,7 +39,9 @@
   let showDeviceNotification = $state(false);
   let viewingBook = $state<Book | undefined>(undefined);
   let showSettings = $state(false);
-  let uiState = $state<'no-device' | 'importing' | 'library' | 'book-details'>('no-device');
+
+  // Derive uiState from store to keep it reactive
+  let uiState = $derived(getUiState());
   
   // Event unlisten functions for cleanup
   let unlistenDeviceDetected: UnlistenFn | undefined;
@@ -56,7 +58,6 @@
     importProgress = getImportProgress();
     connectedDevice = getConnectedDevice();
     viewingBook = getViewingBook();
-    uiState = getUiState();
 
     // Setup event listeners for device monitoring
     setupDeviceListeners();
@@ -78,16 +79,19 @@
         console.log('Device detected:', event.payload);
         const device = event.payload.device;
         setConnectedDevice(device);
-        uiState = getUiState();
         connectedDevice = device;
-        
+
         // Check if auto-import should happen
         const settings = getSettings();
         const autoImportEnabled = settings.uiPreferences.autoImportOnConnect ?? true;
-        
+
         if (autoImportEnabled && shouldAutoImport(device)) {
+          // Will auto-import: set UI to importing state
+          setUiState('importing');
           handleAutoImport(device);
         } else {
+          // Won't auto-import: go directly to library view
+          setUiState('library');
           showDeviceNotification = true;
           setTimeout(() => {
             showDeviceNotification = false;
@@ -99,8 +103,9 @@
       unlistenDeviceDisconnected = await listen<void>('device-disconnected', () => {
         console.log('Device disconnected');
         setConnectedDevice(undefined);
-        uiState = getUiState();
         connectedDevice = undefined;
+        // When device disconnects, return to no-device state
+        setUiState('no-device');
       });
     } catch (error) {
       console.error('Failed to setup device listeners:', error);
@@ -113,12 +118,10 @@
       await handleImport();
       // Mark import complete with device serial if available
       markImportComplete(device.serialNumber || 'unknown');
-      uiState = getUiState();
     } catch (error) {
       console.error('Auto-import failed:', error);
       // Reset to no-device state on failure
       setUiState('no-device');
-      uiState = 'no-device';
     }
   }
 
@@ -139,14 +142,13 @@
       books = getBooks();
       isImporting = getIsImporting();
       importProgress = getImportProgress();
-      
+
       // Mark import as complete
       const device = getConnectedDevice();
       if (device) {
         markImportComplete(device.serialNumber || 'unknown');
-        uiState = getUiState();
       }
-      
+
       return importedBooks;
     } catch (error) {
       console.error('Import failed:', error);
@@ -194,13 +196,12 @@
     // If single click without modifiers, open book details
     const isCtrlOrCmd = event.ctrlKey || event.metaKey;
     const isShift = event.shiftKey;
-    
+
     if (!isCtrlOrCmd && !isShift) {
       // Single selection - open book details
       setViewingBookId(book.contentId);
       viewingBook = getViewingBook();
       setUiState('book-details');
-      uiState = 'book-details';
       showSettings = false;
     }
   }
