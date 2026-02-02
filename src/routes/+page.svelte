@@ -151,6 +151,9 @@
 			await handleImport();
 			// Mark import complete with device serial if available
 			markImportComplete(device.serialNumber || 'unknown');
+			// Transition to library view after successful import
+			setUiState('library');
+			uiState = 'library';
 		} catch (error) {
 			console.error('Auto-import failed:', error);
 			// Reset to no-device state on failure
