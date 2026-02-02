@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(grep:*)",
-      "Bash(npm run check:*)"
+      "Bash(npm run check:*)",
+      "Bash(npm run tauri:*)",
+      "Bash(npx @sveltejs/mcp:*)",
+      "Bash(git restore:*)",
+      "Skill(commit-commands:commit)"
     ]
   }
 }

@@ -10,9 +10,10 @@
     header?: import('svelte').Snippet;
     content?: import('svelte').Snippet;
     footer?: import('svelte').Snippet;
+    children?: import('svelte').Snippet;
   }
 
-  let { isOpen, onClose, title, header, content, footer }: Props = $props();
+  let { isOpen, onClose, title, header, content, footer, children }: Props = $props();
 
   let modalRef = $state<HTMLDivElement>();
 
@@ -55,53 +56,68 @@
     onclick={handleBackdropClick}
     transition:fade={{ duration: 200 }}
   >
-    <div
-      class="modal-container"
-      bind:this={modalRef}
-      tabindex="-1"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={title ? 'modal-title' : undefined}
-      transition:scale={{ duration: 200, start: 0.95 }}
-    >
-      <div class="modal-header">
-        {#if header}
-          {@render header()}
-        {:else if title}
-          <h2 id="modal-title" class="modal-title">{title}</h2>
-          <button
-            type="button"
-            class="modal-close-btn"
-            onclick={onClose}
-            aria-label="Fechar"
-          >
-            <X size={20} />
-          </button>
-        {:else}
-          <div class="modal-title-spacer"></div>
-          <button
-            type="button"
-            class="modal-close-btn"
-            onclick={onClose}
-            aria-label="Fechar"
-          >
-            <X size={20} />
-          </button>
-        {/if}
+    {#if children}
+      <!-- Render children directly (e.g., SettingsPanel with its own structure) -->
+      <div
+        bind:this={modalRef}
+        tabindex="-1"
+        role="dialog"
+        aria-modal="true"
+        style="outline: none"
+        transition:scale={{ duration: 200, start: 0.95 }}
+      >
+        {@render children()}
       </div>
-
-      <div class="modal-content">
-        {#if content}
-          {@render content()}
-        {/if}
-      </div>
-
-      {#if footer}
-        <div class="modal-footer">
-          {@render footer()}
+    {:else}
+      <!-- Use default Modal structure with header/content/footer -->
+      <div
+        class="modal-container"
+        bind:this={modalRef}
+        tabindex="-1"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? 'modal-title' : undefined}
+        transition:scale={{ duration: 200, start: 0.95 }}
+      >
+        <div class="modal-header">
+          {#if header}
+            {@render header()}
+          {:else if title}
+            <h2 id="modal-title" class="modal-title">{title}</h2>
+            <button
+              type="button"
+              class="modal-close-btn"
+              onclick={onClose}
+              aria-label="Fechar"
+            >
+              <X size={20} />
+            </button>
+          {:else}
+            <div class="modal-title-spacer"></div>
+            <button
+              type="button"
+              class="modal-close-btn"
+              onclick={onClose}
+              aria-label="Fechar"
+            >
+              <X size={20} />
+            </button>
+          {/if}
         </div>
-      {/if}
-    </div>
+
+        <div class="modal-content">
+          {#if content}
+            {@render content()}
+          {/if}
+        </div>
+
+        {#if footer}
+          <div class="modal-footer">
+            {@render footer()}
+          </div>
+        {/if}
+      </div>
+    {/if}
   </div>
 {/if}
 

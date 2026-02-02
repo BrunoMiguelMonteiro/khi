@@ -100,6 +100,69 @@ A aplicação usa **Svelte 5 com runes** (`$state`, `$derived`, `$effect`) para 
 - **CustomRadio.svelte** - Radio button customizado
 - **KoboIcon.svelte** - Ícone SVG do dispositivo Kobo
 
+#### Patterns Críticos de Frontend
+
+##### 1. UI State Management com Store Dual
+
+O projeto usa **estado dual** para UI state:
+- **Store global** (`library.svelte.ts`) - fonte de verdade, persiste entre re-renders
+- **Estado local** (`+page.svelte`) - cópia reativa para rendering do componente
+
+**⚠️ REGRA CRÍTICA**: Sempre sincronizar ambos em conjunto:
+
+```typescript
+// ✅ CORRETO - atualizar ambos
+setUiState('library');  // Atualiza store global
+uiState = 'library';    // Atualiza estado local
+
+// ❌ ERRADO - apenas um deles
+setUiState('library');  // Store atualizado mas UI não muda
+```
+
+**Pontos onde aplicar este pattern**:
+- Event handlers (`device-detected`, `device-disconnected`)
+- Callbacks de scan (`handleScanForDevice`)
+- Completion de imports (`handleAutoImport`, `markImportComplete`)
+- Navegação entre vistas (`handleBookClick`, `handleCloseBookDetails`)
+
+**Localização**: Ver `src/routes/+page.svelte` linhas ~103-164
+
+##### 2. Device Detection: Event Listeners + Scan Fallback Pattern
+
+**Problema**: O event `device-detected` do Tauri só dispara em **transições de estado**:
+- ✅ **Dispara**: Device conecta *depois* da app iniciar
+- ❌ **NÃO dispara**: Device já estava conectado quando app recarrega (ex: HMR, page refresh)
+
+**Solução**: `handleScanForDevice()` chamado no `onMount` deve **replicar completamente** a lógica do event listener:
+
+```typescript
+async function handleScanForDevice() {
+  const device = await scanForDevice();
+  if (device) {
+    connectedDevice = device;
+
+    // ⚠️ CRÍTICO: mesma lógica do event listener
+    const settings = getSettings();
+    const autoImportEnabled = settings.uiPreferences.autoImportOnConnect ?? true;
+
+    if (autoImportEnabled && shouldAutoImport(device)) {
+      setUiState('importing');
+      uiState = 'importing';
+      await handleAutoImport(device);
+    } else {
+      setUiState('library');
+      uiState = 'library';
+    }
+  }
+}
+```
+
+**Bug evitado**: Sem este pattern, após reload com device conectado, a app fica presa em `'no-device'` porque o event não re-dispara e o scan não atualiza o UI state.
+
+**Localização**:
+- Event listener: `src/routes/+page.svelte` linhas ~103-147
+- Scan fallback: `src/routes/+page.svelte` linhas ~166-193
+
 ### Backend (Rust)
 
 #### Estrutura de Módulos (`src-tauri/src/`)

@@ -141,13 +141,13 @@ from-teal-400 to-teal-600
 ### Specifications
 
 **Container:**
-- Full viewport height
+- Full viewport height (should be dynamic not fixed height)
 - Centered content (vertical & horizontal)
 - Background: `--background`
 
 **Icon:**
-- Component: Custom Kobo e-reader icon
-- Size: 128px × 160px
+- Component: kobo-icon-dashed.svg
+- Size: 112px × 144px
 - Color: neutral-300 (light) / neutral-700 (dark)
 - Margin bottom: 32px
 
@@ -169,16 +169,6 @@ from-teal-400 to-teal-600
 - **Static state** - no user interaction except theme toggle
 - In production: Listens for Kobo device connection via Tauri
 - On device connect → transition to Importing screen
-
-### Kobo Icon Details
-
-The custom e-reader icon should be:
-- Minimalist rectangular device shape
-- Rounded corners (8px)
-- Screen area indicated with inner rectangle
-- Home button circle at bottom
-- All strokes same color (gray)
-- Stroke width: 2px
 
 ---
 
@@ -207,8 +197,8 @@ The custom e-reader icon should be:
 - Background: `--background`
 
 **Icon:**
-- Component: Same Kobo e-reader icon
-- Size: 128px × 160px
+- Component: kobo-icon-disabled.svg & kobo-icon-solid.svg
+- Size: 112px × 144px
 - Color: `--brand` (black in light, white in dark)
 - **Animation:** Continuous pulse
   - Scale: 1.0 → 1.05 → 1.0
