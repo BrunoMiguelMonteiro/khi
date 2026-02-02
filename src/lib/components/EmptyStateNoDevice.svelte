@@ -4,10 +4,11 @@
 
 <div
   class="flex flex-col items-center justify-center min-h-screen gap-8"
+  style="background-color: var(--surface-primary);"
   role="status"
   aria-live="polite"
 >
-  <KoboIcon disabled={true} size={128} />
+  <KoboIcon variant="dashed" size={128} />
 
   <div class="flex flex-col items-center gap-2 text-center">
     <h2 class="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">

@@ -1,60 +1,101 @@
-<script>
-  /**
-   * @typedef {Object} Props
-   * @property {boolean} [disabled] - Whether the icon is in disabled state
-   * @property {number} [size] - Width of the icon in pixels (height is auto-calculated)
-   */
+<script lang="ts">
+  import { onMount, onDestroy } from 'svelte';
+  import solidIcon from '$lib/assets/kobo-icon-solid.svg?raw';
+  import dashedIcon from '$lib/assets/kobo-icon-dashed.svg?raw';
+  import disabledIcon from '$lib/assets/kobo-icon-disabled.svg?raw';
 
-  /** @type {Props} */
-  let { disabled = false, size = 128 } = $props();
+  interface Props {
+    variant?: 'solid' | 'dashed' | 'disabled';
+    size?: number;
+    disabled?: boolean; // Retrocompatibilidade (deprecated)
+    animate?: boolean;   // Alterna entre solid e disabled
+  }
 
-  // Calculate height automatically maintaining 7:9 aspect ratio
-  let height = $derived(size * 1.286);
+  let {
+    variant = 'solid',
+    size = 128,
+    disabled = false,
+    animate = false
+  }: Props = $props();
+
+  // Estado para animação (alterna entre solid/disabled)
+  let animationFrame = $state<'solid' | 'disabled'>('solid');
+  let intervalId: number | undefined;
+
+  onMount(() => {
+    if (animate) {
+      intervalId = window.setInterval(() => {
+        animationFrame = animationFrame === 'solid' ? 'disabled' : 'solid';
+      }, 1000); // Alterna cada 1 segundo
+    }
+  });
+
+  onDestroy(() => {
+    if (intervalId) {
+      clearInterval(intervalId);
+    }
+  });
+
+  const iconSvg = $derived(() => {
+    // Se está a animar, usar animationFrame
+    if (animate) {
+      return animationFrame === 'solid' ? solidIcon : disabledIcon;
+    }
+
+    // Retrocompatibilidade
+    if (disabled) return disabledIcon;
+
+    // Variant normal
+    switch (variant) {
+      case 'dashed': return dashedIcon;
+      case 'disabled': return disabledIcon;
+      case 'solid':
+      default: return solidIcon;
+    }
+  });
 </script>
 
-<svg
-  width={size}
-  height={height}
-  viewBox="0 0 140 180"
-  xmlns="http://www.w3.org/2000/svg"
-  class="transition-colors duration-200 ease-in-out"
-  class:text-neutral-300={disabled}
-  class:dark:text-neutral-700={disabled}
-  class:text-neutral-900={!disabled}
-  class:dark:text-neutral-100={!disabled}
-  aria-label={disabled ? 'Kobo device (disabled)' : 'Kobo device'}
+<div
+  class="kobo-icon text-neutral-300 dark:text-neutral-700"
+  class:text-neutral-900={!disabled && variant === 'solid'}
+  class:dark:text-neutral-100={!disabled && variant === 'solid'}
+  class:animate={animate}
+  style="width: {size}px; height: auto;"
   role="img"
+  aria-label="Kobo e-reader device"
 >
-  <!-- Device outline -->
-  <rect
-    x="5"
-    y="5"
-    width="130"
-    height="170"
-    rx="8"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="3"
-  />
+  {@html iconSvg()}
+</div>
 
-  <!-- Screen area -->
-  <rect
-    x="15"
-    y="15"
-    width="110"
-    height="140"
-    rx="2"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="2"
-  />
+<style>
+  .kobo-icon {
+    display: block;
+    transition: opacity 300ms;
+  }
 
-  <!-- 7 text lines representing content -->
-  <line x1="25" y1="30" x2="115" y2="30" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-  <line x1="25" y1="50" x2="115" y2="50" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-  <line x1="25" y1="70" x2="115" y2="70" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-  <line x1="25" y1="90" x2="115" y2="90" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-  <line x1="25" y1="110" x2="115" y2="110" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-  <line x1="25" y1="130" x2="95" y2="130" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-  <line x1="25" y1="150" x2="105" y2="150" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-</svg>
+  .kobo-icon :global(svg) {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  .kobo-icon.animate {
+    animation: breathe 2s ease-in-out infinite;
+  }
+
+  @keyframes breathe {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.6;
+    }
+  }
+
+  /* Respect reduced motion preference */
+  @media (prefers-reduced-motion: reduce) {
+    .kobo-icon.animate {
+      animation: none;
+    }
+  }
+</style>

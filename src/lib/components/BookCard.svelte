@@ -1,7 +1,5 @@
 <script lang="ts">
   import type { Book } from '../types';
-  import { formatDate } from '../utils/date';
-  import { getExportConfig } from '../stores/settings.svelte';
   import { _ } from '$lib/i18n';
 
   interface Props {
@@ -95,20 +93,8 @@
       
       <div class="book-meta">
         <span class="meta-item highlight-count">
-          <svg class="meta-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <path d="M7 7h10M7 12h10M7 17h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
           {formatHighlightCount(book.highlights.length)}
         </span>
-        {#if book.dateLastRead}
-          <span class="meta-item modification-date">
-            <svg class="meta-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-              <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-            {formatDate(book.dateLastRead, getExportConfig().dateFormat)}
-          </span>
-        {/if}
       </div>
     </div>
   </button>
@@ -117,23 +103,21 @@
 <style>
   .book-card {
     display: flex;
-    align-items: flex-start;
+    flex-direction: column;
+    align-items: stretch;
     border: 2px solid transparent;
-    border-radius: var(--radius-lg);
-    background: var(--surface-elevated);
     text-align: left;
     width: 100%;
     transition: all var(--transition-fast);
     position: relative;
-    box-shadow: var(--shadow-sm);
-    overflow: hidden;
   }
 
   .content-btn {
     display: flex;
+    flex-direction: column;
     align-items: flex-start;
-    gap: var(--space-3);
-    padding: var(--space-3);
+    gap: 0;
+    padding: 0;
     width: 100%;
     height: 100%;
     background: none;
@@ -170,10 +154,10 @@
   /* Selection Button */
   .selection-btn {
     position: absolute;
-    top: 0;
-    right: 0;
-    width: 44px;
-    height: 44px;
+    top: 8px;
+    left: 8px;
+    width: 24px;
+    height: 24px;
     background: transparent;
     border: none;
     cursor: pointer;
@@ -200,9 +184,6 @@
     color: var(--color-primary-500);
     opacity: 0;
     transition: all var(--transition-fast);
-    /* Position adjustments for visual alignment inside 44px button */
-    margin-bottom: 8px; 
-    margin-left: 8px;
   }
 
   .book-card:hover .selection-indicator,
@@ -219,15 +200,18 @@
 
   /* Cover Styles */
   .cover-container {
-    flex-shrink: 0;
-    width: 60px;
-    height: 90px;
-    border-radius: var(--radius-md);
+    width: 100%;
+    height: 0;
+    padding-bottom: 150%; /* 2:3 aspect ratio */
+    position: relative;
+    border-radius: var(--radius-lg);
     overflow: hidden;
     box-shadow: var(--shadow-sm);
   }
 
   .cover-image {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
@@ -239,6 +223,8 @@
   }
 
   .cover-placeholder {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     display: flex;
@@ -260,7 +246,8 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
-    padding-right: var(--space-6);
+    padding: var(--space-3);
+    margin-top: var(--space-3);
   }
 
   .book-title {
@@ -269,9 +256,12 @@
     font-weight: var(--font-semibold);
     line-height: var(--leading-snug);
     color: var(--text-primary);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: normal;
   }
 
   .book-author {
@@ -285,39 +275,18 @@
 
   /* Meta Info */
   .book-meta {
-    margin-top: auto;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-    padding-top: var(--space-2);
+    margin-top: var(--space-1);
   }
 
   .meta-item {
-    display: flex;
-    align-items: center;
-    gap: var(--space-1);
     font-size: var(--text-xs);
     color: var(--text-tertiary);
   }
 
-  .meta-icon {
-    width: 12px;
-    height: 12px;
-  }
-
   /* Responsive */
   @media (max-width: 640px) {
-    .content-btn {
+    .book-info {
       padding: var(--space-2);
-    }
-
-    .cover-container {
-      width: 48px;
-      height: 72px;
-    }
-
-    .placeholder-text {
-      font-size: var(--text-lg);
     }
   }
 </style>

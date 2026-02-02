@@ -5,6 +5,7 @@
 	import LibraryView from '$lib/components/LibraryView.svelte';
 	import BookDetailsView from '$lib/components/BookDetailsView.svelte';
 	import SettingsPanel from '$lib/components/SettingsPanel.svelte';
+	import Modal from '$lib/components/Modal.svelte';
 	import EmptyStateNoDevice from '$lib/components/EmptyStateNoDevice.svelte';
 	import ImportingState from '$lib/components/ImportingState.svelte';
 	import { _ } from '$lib/i18n';
@@ -165,10 +166,27 @@
 	async function handleScanForDevice() {
 		const device = await scanForDevice();
 		if (device) {
-			showDeviceNotification = true;
-			setTimeout(() => {
-				showDeviceNotification = false;
-			}, 5000);
+			// Update local state to match store
+			connectedDevice = device;
+
+			// Check if we should auto-import
+			const settings = getSettings();
+			const autoImportEnabled = settings.uiPreferences.autoImportOnConnect ?? true;
+
+			if (autoImportEnabled && shouldAutoImport(device)) {
+				// Auto-import needed
+				setUiState('importing');
+				uiState = 'importing';
+				await handleAutoImport(device);
+			} else {
+				// Device ready, go to library view
+				setUiState('library');
+				uiState = 'library';
+				showDeviceNotification = true;
+				setTimeout(() => {
+					showDeviceNotification = false;
+				}, 5000);
+			}
 		}
 	}
 
@@ -412,7 +430,9 @@
 
 <!-- Settings Modal (overlay) -->
 {#if showSettings}
-	<SettingsPanel onClose={handleCloseSettings} />
+	<Modal isOpen={showSettings} onClose={handleCloseSettings}>
+		<SettingsPanel onClose={handleCloseSettings} />
+	</Modal>
 {/if}
 
 <style>

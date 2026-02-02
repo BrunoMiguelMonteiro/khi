@@ -510,7 +510,6 @@
     flex-direction: column;
     background: var(--surface-primary);
     border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-lg);
     max-width: 600px;
     width: 100%;
     max-height: 80vh;

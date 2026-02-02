@@ -99,6 +99,12 @@
   --border-error: var(--color-error-500);
 
   /* ----------------------------------------
+     Colors - Accent (Interactive Elements)
+     ---------------------------------------- */
+  --accent-primary: var(--color-primary-600);
+  --accent-primary-hover: var(--color-primary-700);
+
+  /* ----------------------------------------
      Spacing Scale (4px base)
      ---------------------------------------- */
   --space-0: 0;
@@ -231,7 +237,7 @@
 */
 :root.dark {
   /* Surface colors for dark mode */
-  --surface-primary: var(--color-neutral-900);
+  --surface-primary: var(--color-neutral-900);  /* #171717 */
   --surface-secondary: var(--color-neutral-800);
   --surface-tertiary: var(--color-neutral-700);
   --surface-elevated: var(--color-neutral-800);
