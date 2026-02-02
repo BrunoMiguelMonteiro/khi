@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Book } from '../types';
 	import BookCard from './BookCard.svelte';
+	import BookListItem from './BookListItem.svelte';
 	import { _ } from '$lib/i18n';
 	import { getBookGradient } from '$lib/utils/gradients';
 
@@ -95,7 +96,7 @@
 	</div>
 {/if}
 
-<div class="library-container">
+<div class="library-container" class:list-mode={viewMode === 'list'}>
 	{#if books.length === 0}
 		<div class="empty-state" data-testid="empty-state">
 			<div class="empty-icon">
@@ -162,19 +163,16 @@
 			{/each}
 		</div>
 	{:else}
-		<!-- List view - TODO: criar BookListItem component -->
+		<!-- List view -->
 		<div class="books-list" data-testid="books-list" role="list" aria-label="Lista de livros">
 			{#each books as book, index (book.contentId)}
 				<div role="listitem">
-					<BookCard
+					<BookListItem
 						{book}
 						gradient={getBookGradient(book.contentId)}
 						isSelected={isSelected(book.contentId)}
-						isHovered={hoveredBookId === book.contentId}
+						onToggleSelect={() => toggleSelection(book, index)}
 						onClick={(e) => handleBookClick(book, index, e)}
-						onToggleSelection={() => toggleSelection(book, index)}
-						onMouseEnter={() => (hoveredBookId = book.contentId)}
-						onMouseLeave={() => (hoveredBookId = null)}
 					/>
 				</div>
 			{/each}
@@ -230,6 +228,11 @@
 		padding: 32px 24px;
 	}
 
+	.library-container.list-mode {
+		max-width: none;
+		width: 100%;
+	}
+
 	/* Books Grid */
 	.books-grid {
 		display: grid;
@@ -259,7 +262,7 @@
 	.books-list {
 		display: flex;
 		flex-direction: column;
-		gap: 12px;
+		gap: var(--space-2); /* 8px - Conforme UI-SPEC linha 80 */
 	}
 
 	/* Empty State */
