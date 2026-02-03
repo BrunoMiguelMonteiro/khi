@@ -1,5 +1,6 @@
 import { Menu, Submenu, MenuItem, PredefinedMenuItem } from '@tauri-apps/api/menu';
 import { emit } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/core';
 import type { MessageFormatter } from '$lib/i18n';
 
 export async function createApplicationMenu(t: MessageFormatter) {
@@ -15,12 +16,20 @@ export async function createApplicationMenu(t: MessageFormatter) {
         });
 
         const appMenu = await Submenu.new({
-            text: t('app.name'),
+            text: 'Khi',
             items: [
-                await PredefinedMenuItem.new({ item: 'About' }),
+                // About item invoking native panel via Rust command
+                await MenuItem.new({
+                    id: 'about',
+                    text: 'About Khi',
+                    action: () => {
+                        invoke('show_about'); 
+                    }
+                }),
                 await PredefinedMenuItem.new({ item: 'Separator' }),
                 settingsItem,
                 await PredefinedMenuItem.new({ item: 'Separator' }),
+                await PredefinedMenuItem.new({ item: 'Services' }),
                 await PredefinedMenuItem.new({ item: 'Hide' }),
                 await PredefinedMenuItem.new({ item: 'HideOthers' }),
                 await PredefinedMenuItem.new({ item: 'ShowAll' }),
@@ -31,7 +40,7 @@ export async function createApplicationMenu(t: MessageFormatter) {
 
         // Edit Menu (Essential for input fields)
         const editMenu = await Submenu.new({
-            text: 'Edit', // macOS usually handles translation of standard menus automatically, but we set it just in case
+            text: 'Edit',
             items: [
                 await PredefinedMenuItem.new({ item: 'Undo' }),
                 await PredefinedMenuItem.new({ item: 'Redo' }),
@@ -43,27 +52,15 @@ export async function createApplicationMenu(t: MessageFormatter) {
             ]
         });
 
-        // Window Menu
-        const windowMenu = await Submenu.new({
-            text: 'Window',
-            items: [
-                await PredefinedMenuItem.new({ item: 'Minimize' }),
-                await PredefinedMenuItem.new({ item: 'Zoom' }),
-                await PredefinedMenuItem.new({ item: 'Separator' }),
-                await PredefinedMenuItem.new({ item: 'CloseWindow' })
-            ]
-        });
-
         // Create the menu
         const menu = await Menu.new({
-            items: [appMenu, editMenu, windowMenu]
+            id: 'main-menu',
+            items: [appMenu, editMenu]
         });
 
         // Set as application menu
         await menu.setAsAppMenu();
-        
-        console.log('Application menu created successfully');
     } catch (error) {
-        console.error('Failed to create application menu:', error);
+        console.error('[MENU] Failed to create application menu:', error);
     }
 }

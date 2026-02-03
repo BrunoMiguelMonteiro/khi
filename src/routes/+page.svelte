@@ -88,7 +88,10 @@
 	// Sync with store on mount
 	onMount(() => {
 		// Initialize application menu with current locale
-		createApplicationMenu($_);
+		// Small delay to ensure Tauri is ready to receive the menu command
+		setTimeout(() => {
+			createApplicationMenu($_);
+		}, 500);
 
 		books = getBooks();
 		selectedBookIds = getSelectedBookIds();
