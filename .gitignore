@@ -9,3 +9,8 @@ node_modules
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .worktrees/
+
+# Private project configuration (not for public repo)
+CLAUDE.md
+.claude/
+.ralphy/
