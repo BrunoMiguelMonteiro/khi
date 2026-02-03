@@ -181,8 +181,8 @@
         hasChanges = true;
     }
 
-    function handleThemeChange(theme: ThemePreference) {
-        setTheme(theme);
+    async function handleThemeChange(theme: ThemePreference) {
+        await setTheme(theme);
         hasChanges = true;
     }
 
