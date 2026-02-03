@@ -69,8 +69,8 @@
 
     // Date format options
     const dateFormats: ExportConfig["dateFormat"][] = [
-        "dd_mm_yyyy",
         "dd_month_yyyy",
+        "dd_mm_yyyy",
         "iso8601",
     ];
 
@@ -669,8 +669,8 @@
         flex-direction: column;
         background: var(--surface-primary);
         border-radius: var(--radius-lg);
-        max-width: 720px;
-        width: 100%;
+        min-width: 700px;
+        max-width: 900px;
         max-height: 80vh;
         overflow: hidden;
     }
@@ -828,8 +828,8 @@
     /* Checkbox Group */
     .checkbox-group {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-        gap: var(--space-3);
+        grid-template-columns: repeat(2, 1fr);
+        gap: 2px var(--space-4);
     }
 
     .checkbox-label {
@@ -855,7 +855,7 @@
     .radio-group {
         display: flex;
         flex-direction: column;
-        gap: var(--space-3);
+        gap: 2px;
     }
 
     .radio-label {
@@ -1072,6 +1072,7 @@
     /* Responsive */
     @media (max-width: 640px) {
         .settings-panel {
+            min-width: auto;
             max-width: 100%;
             max-height: 100vh;
             border-radius: 0;
