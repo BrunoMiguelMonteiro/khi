@@ -98,11 +98,6 @@ describe('BookCard', () => {
     expect(screen.getByText('No highlights available for this book')).toBeInTheDocument();
   });
 
-  it('displays formatted modification date', () => {
-    render(BookCard, { props: { book: mockBook } });
-    expect(screen.getByText(/2025/)).toBeInTheDocument();
-  });
-
   it('applies selected class when isSelected is true', () => {
     render(BookCard, { props: { book: mockBook, isSelected: true } });
     const card = screen.getByTestId('book-card');

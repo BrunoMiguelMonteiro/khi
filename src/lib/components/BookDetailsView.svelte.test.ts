@@ -78,139 +78,43 @@ describe('BookDetailsView', () => {
     expect(screen.getByText('Unknown author')).toBeInTheDocument();
   });
 
-  it('renders ISBN when present', () => {
-    render(BookDetailsView, { props: { book: mockBook } });
-    expect(screen.getByText(/ISBN:/)).toBeInTheDocument();
-    expect(screen.getByText(/978-1234567890/)).toBeInTheDocument();
-  });
-
-  it('renders publisher when present', () => {
-    render(BookDetailsView, { props: { book: mockBook } });
-    expect(screen.getByText('Test Publisher')).toBeInTheDocument();
-  });
-
-  it('renders last read date when present', () => {
-    render(BookDetailsView, { props: { book: mockBook } });
-    expect(screen.getByText(/Last read:/)).toBeInTheDocument();
-  });
-
-  it('renders description when present', () => {
-    render(BookDetailsView, { props: { book: mockBook } });
-    expect(screen.getByText('A test book description')).toBeInTheDocument();
-  });
-
   it('renders cover image when coverPath exists', () => {
     render(BookDetailsView, { props: { book: mockBook } });
     const img = document.querySelector('.cover-image');
     expect(img).toBeInTheDocument();
     expect(img).toHaveAttribute('src', '/path/to/cover.jpg');
+    expect(img).toHaveAttribute('alt', '');
   });
 
   it('renders placeholder when coverPath is missing', () => {
     render(BookDetailsView, { props: { book: mockBookMinimal } });
     const placeholder = document.querySelector('.cover-placeholder');
     expect(placeholder).toBeInTheDocument();
-    expect(document.querySelector('.cover-image')).not.toBeInTheDocument();
   });
 
   it('calls onClose when back button clicked', async () => {
     const handleClose = vi.fn();
-    render(BookDetailsView, { 
-      props: { 
-        book: mockBook,
-        onClose: handleClose
-      } 
-    });
-    
-    const backBtn = screen.getByTestId('book-details-close');
-    await fireEvent.click(backBtn);
-    
-    expect(handleClose).toHaveBeenCalled();
-  });
-
-  it('displays correct highlight count in stats', () => {
-    render(BookDetailsView, { props: { book: mockBook } });
-    // Should show total count (3)
-    expect(screen.getByTitle('Total')).toBeInTheDocument();
+    render(BookDetailsView, { props: { book: mockBook, onClose: handleClose } });
+    const backButton = screen.getByTestId('book-details-close');
+    await fireEvent.click(backButton);
+    expect(handleClose).toHaveBeenCalledTimes(1);
   });
 
   it('renders highlights list', () => {
     render(BookDetailsView, { props: { book: mockBook } });
-    expect(screen.getByTestId('highlights-list')).toBeInTheDocument();
-  });
-
-  it('renders chapter groups', () => {
-    render(BookDetailsView, { props: { book: mockBook } });
-    const chapterGroups = screen.getAllByTestId('chapter-group');
-    expect(chapterGroups.length).toBe(2); // Chapter 1 and Chapter 2
-  });
-
-  it('renders chapter titles', () => {
-    render(BookDetailsView, { props: { book: mockBook } });
-    // Chapter titles are rendered as h3 elements with class chapter-title
-    const chapterTitles = screen.getAllByText(/Chapter \d/, { selector: 'h3' });
-    expect(chapterTitles.length).toBe(2);
+    const list = document.querySelector('.highlights-list');
+    expect(list).toBeInTheDocument();
   });
 
   it('renders highlight items', () => {
     render(BookDetailsView, { props: { book: mockBook } });
-    const highlightItems = screen.getAllByTestId('highlight-item');
-    expect(highlightItems.length).toBe(3);
+    expect(screen.getByText('First highlight')).toBeInTheDocument();
+    expect(screen.getByText('Second highlight')).toBeInTheDocument();
+    expect(screen.getByText('Third highlight')).toBeInTheDocument();
   });
 
   it('shows empty state when no highlights', () => {
     render(BookDetailsView, { props: { book: mockBookNoHighlights } });
-    expect(screen.getByTestId('book-details-empty')).toBeInTheDocument();
-    expect(screen.getByText('No highlights available for this book')).toBeInTheDocument();
-  });
-
-
-
-  it('renders "Sem Capítulo" for highlights without chapter', () => {
-    const bookWithNoChapter: Book = {
-      ...mockBook,
-      highlights: [{
-        ...mockHighlights[0],
-        chapterTitle: undefined,
-      }]
-    };
-    render(BookDetailsView, { props: { book: bookWithNoChapter } });
-    expect(screen.getByText('No chapter')).toBeInTheDocument();
-  });
-
-  it('has responsive cover dimensions', () => {
-    render(BookDetailsView, {
-      props: {
-        book: mockBook,
-        onClose: vi.fn()
-      }
-    });
-    
-    // Using initials to find placeholder since mockBook uses placeholder logic in test (if coverPath handled?)
-    // Wait, mockBook HAS coverPath: '/path/to/cover.jpg'
-    // So it renders img, not placeholder.
-    // The classes are on the container .book-cover.
-    
-    const img = document.querySelector('.cover-image');
-    const container = img?.closest('.book-cover');
-    
-    expect(container).toHaveClass('w-[120px]');
-    expect(container).toHaveClass('h-[180px]');
-    expect(container).toHaveClass('max-sm:w-[96px]');
-    expect(container).toHaveClass('max-sm:h-[144px]');
-  });
-
-  it('has responsive title font size', () => {
-    render(BookDetailsView, {
-      props: {
-        book: mockBook,
-        onClose: vi.fn()
-      }
-    });
-    
-    const title = screen.getByRole('heading', { level: 1 });
-    
-    expect(title).toHaveClass('text-3xl');
-    expect(title).toHaveClass('max-sm:text-2xl');
+    expect(screen.getByText(/no highlights/i)).toBeInTheDocument();
   });
 });

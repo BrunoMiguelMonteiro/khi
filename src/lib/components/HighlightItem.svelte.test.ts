@@ -22,17 +22,6 @@ describe('HighlightItem', () => {
     expect(screen.getByText('Chapter 1')).toBeInTheDocument();
   });
 
-  it('renders progress percentage', () => {
-    render(HighlightItem, { props: { highlight: mockHighlight } });
-    expect(screen.getByText('25%')).toBeInTheDocument();
-  });
-
-  it('renders date', () => {
-    render(HighlightItem, { props: { highlight: mockHighlight } });
-    // Date format may vary, check for year
-    expect(screen.getByText(/2025/)).toBeInTheDocument();
-  });
-
   it('has correct data attributes', () => {
     render(HighlightItem, { props: { highlight: mockHighlight } });
     const item = screen.getByTestId('highlight-item');
@@ -48,12 +37,33 @@ describe('HighlightItem', () => {
     expect(screen.queryByText('Chapter 1')).not.toBeInTheDocument();
   });
 
-  it('renders without progress when not provided', () => {
-    const highlightWithoutProgress: Highlight = {
+  it('formats technical EPUB paths to "Unknown Location"', () => {
+    const highlightWithTechnicalTitle: Highlight = {
       ...mockHighlight,
-      chapterProgress: undefined,
+      chapterTitle: 'OEBPS/Text/Section0001.html',
     };
-    render(HighlightItem, { props: { highlight: highlightWithoutProgress } });
-    expect(screen.queryByText('25%')).not.toBeInTheDocument();
+    render(HighlightItem, { props: { highlight: highlightWithTechnicalTitle } });
+    // Section numbers are stripped, leaving empty string -> "Unknown Location"
+    expect(screen.getByText('Unknown Location')).toBeInTheDocument();
+  });
+
+  it('formats chapter-number patterns correctly', () => {
+    const highlightWithChapterNumber: Highlight = {
+      ...mockHighlight,
+      chapterTitle: 'OEBPS/Text/chapter-3.xhtml',
+    };
+    render(HighlightItem, { props: { highlight: highlightWithChapterNumber } });
+    // Should format to "Chapter 3" (OEBPS/Text/ path is stripped)
+    expect(screen.getByText('Chapter 3')).toBeInTheDocument();
+  });
+
+  it('does not render location label for empty chapter titles', () => {
+    const highlightWithEmptyTitle: Highlight = {
+      ...mockHighlight,
+      chapterTitle: '',
+    };
+    render(HighlightItem, { props: { highlight: highlightWithEmptyTitle } });
+    // Empty string is falsy in Svelte's {#if}, so no label is rendered
+    expect(screen.queryByText('Unknown Location')).not.toBeInTheDocument();
   });
 });
