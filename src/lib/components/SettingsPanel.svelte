@@ -973,23 +973,25 @@
     }
 
     .button-primary {
-        background: var(--surface-secondary);
-        color: var(--text-primary);
-        border-color: var(--border-default);
+        background: rgb(10, 10, 10);
+        color: white;
+        border-color: rgb(10, 10, 10);
     }
 
     :global(.dark) .button-primary {
         background: white;
         color: rgb(10, 10, 10);
+        border-color: white;
     }
 
     .button-primary:hover:not(:disabled) {
-        background: var(--surface-tertiary);
-        border-color: var(--border-hover);
+        background: rgb(40, 40, 40);
+        border-color: rgb(40, 40, 40);
     }
 
     :global(.dark) .button-primary:hover:not(:disabled) {
         background: rgb(240, 240, 240);
+        border-color: rgb(240, 240, 240);
     }
 
     .button-primary:focus-visible {
