@@ -20,11 +20,9 @@
         setDateFormat,
         setTheme,
         setViewMode,
-        setSortPreference,
         setAutoImportOnConnect,
         saveSettings,
         resetAndSaveSettings,
-        getSortLabel,
         getViewModeLabel,
         getThemeLabel,
         getDateFormatLabel,
@@ -82,34 +80,11 @@
     // View mode options
     const viewModes: ViewMode[] = ["grid", "list"];
 
-    // Sort options
-    const sortOptions: SortPreference[] = [
-        "title",
-        "author",
-        "date_last_read",
-        "highlight_count",
-    ];
-
     // Helper to translate labels that come from store (if they are not already localized there)
     // For now, assuming store returns generic or English labels, or we map them here.
     // The store functions getSortLabel etc might return Portuguese. I should override or update store.
     // Since I cannot easily update store without checking it, I will map them here if possible,
     // or just use the English labels directly if I know the values.
-
-    function getEnglishSortLabel(sort: SortPreference): string {
-        switch (sort) {
-            case "title":
-                return "Title";
-            case "author":
-                return "Author";
-            case "date_last_read":
-                return "Last Read";
-            case "highlight_count":
-                return "Highlight Count";
-            default:
-                return sort;
-        }
-    }
 
     function getEnglishThemeLabel(theme: ThemePreference): string {
         switch (theme) {
@@ -188,11 +163,6 @@
 
     function handleViewModeChange(mode: ViewMode) {
         setViewMode(mode);
-        hasChanges = true;
-    }
-
-    function handleSortChange(sort: SortPreference) {
-        setSortPreference(sort);
         hasChanges = true;
     }
 
@@ -615,32 +585,6 @@
                     </div>
                 </section>
 
-                <!-- Sort Preference -->
-                <section class="settings-section">
-                    <h3 class="section-title">
-                        <label for="sort-preference">Default Sort</label>
-                    </h3>
-                    <div class="select-wrapper">
-                        <select
-                            id="sort-preference"
-                            class="form-select"
-                            value={uiPreferences.librarySort}
-                            onchange={(e) =>
-                                handleSortChange(
-                                    (e.target as HTMLSelectElement)
-                                        .value as SortPreference,
-                                )}
-                            aria-label="Default library sort"
-                        >
-                            {#each sortOptions as sort}
-                                <option value={sort}
-                                    >{getEnglishSortLabel(sort)}</option
-                                >
-                            {/each}
-                        </select>
-                    </div>
-                </section>
-
                 <!-- Auto-import on connect -->
                 <section class="settings-section">
                     <h3 class="section-title">Device Connection</h3>
@@ -817,13 +761,13 @@
     .settings-content {
         flex: 1;
         overflow-y: auto;
-        padding: var(--space-6);
+        padding: var(--space-5);
     }
 
     .tab-panel {
         display: flex;
         flex-direction: column;
-        gap: var(--space-8);
+        gap: var(--space-6);
     }
 
     .settings-section {
@@ -963,54 +907,23 @@
 
     .theme-button.active,
     .view-mode-button.active {
-        border-color: var(--color-primary-500);
-        background: var(--color-primary-50);
-        color: var(--color-primary-700);
+        background: white;
+        color: var(--text-primary);
+        border-color: var(--border-default);
+    }
+
+    /* Dark mode variant */
+    :global(.dark) .theme-button.active,
+    :global(.dark) .view-mode-button.active {
+        background: var(--surface-secondary);
+        color: var(--text-primary);
+        border-color: var(--border-default);
     }
 
     .theme-button:focus-visible,
     .view-mode-button:focus-visible {
         outline: 2px solid var(--color-primary-500);
         outline-offset: 2px;
-    }
-
-    /* Select */
-    .select-wrapper {
-        position: relative;
-    }
-
-    .form-select {
-        width: 100%;
-        padding: var(--space-2) var(--space-4);
-        padding-right: var(--space-8);
-        border: 1px solid var(--border-default);
-        border-radius: var(--radius-md);
-        background: var(--surface-primary);
-        color: var(--text-primary);
-        font-size: var(--text-sm);
-        cursor: pointer;
-        appearance: none;
-        transition: border-color var(--transition-fast);
-    }
-
-    .form-select:focus {
-        outline: none;
-        border-color: var(--color-primary-500);
-        box-shadow: 0 0 0 3px var(--color-primary-100);
-    }
-
-    .select-wrapper::after {
-        content: "";
-        position: absolute;
-        right: var(--space-4);
-        top: 50%;
-        transform: translateY(-50%);
-        width: 0;
-        height: 0;
-        border-left: 5px solid transparent;
-        border-right: 5px solid transparent;
-        border-top: 5px solid var(--text-secondary);
-        pointer-events: none;
     }
 
     /* Error Message */
@@ -1060,14 +973,23 @@
     }
 
     .button-primary {
-        background: var(--color-primary-600);
-        color: white;
-        border-color: var(--color-primary-600);
+        background: var(--surface-secondary);
+        color: var(--text-primary);
+        border-color: var(--border-default);
+    }
+
+    :global(.dark) .button-primary {
+        background: white;
+        color: rgb(10, 10, 10);
     }
 
     .button-primary:hover:not(:disabled) {
-        background: var(--color-primary-700);
-        border-color: var(--color-primary-700);
+        background: var(--surface-tertiary);
+        border-color: var(--border-hover);
+    }
+
+    :global(.dark) .button-primary:hover:not(:disabled) {
+        background: rgb(240, 240, 240);
     }
 
     .button-primary:focus-visible {
@@ -1095,8 +1017,8 @@
     .spinner {
         width: 16px;
         height: 16px;
-        border: 2px solid rgba(255, 255, 255, 0.3);
-        border-top-color: white;
+        border: 2px solid var(--border-default);
+        border-top-color: var(--text-primary);
         border-radius: 50%;
         animation: spin 0.8s linear infinite;
     }
