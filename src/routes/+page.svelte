@@ -28,8 +28,15 @@
 		importHighlights,
 		exportBooks
 	} from '$lib/stores/library.svelte';
-	import { getExportConfig, getSettings } from '$lib/stores/settings.svelte';
+	import {
+		getExportConfig,
+		getSettings,
+		getUiPreferences,
+		getIsLoading,
+		loadSettings
+	} from '$lib/stores/settings.svelte';
 	import type { Book, KoboDevice } from '$lib/types';
+	import { createApplicationMenu } from '$lib/menu';
 
 	// Local state for UI
 	let books = $state<Book[]>([]);
@@ -49,6 +56,7 @@
 	// Event unlisten functions for cleanup
 	let unlistenDeviceDetected: UnlistenFn | undefined;
 	let unlistenDeviceDisconnected: UnlistenFn | undefined;
+	let unlistenSettings: UnlistenFn | undefined;
 
 	// Notification state for export
 	let exportNotification = $state<{
@@ -79,6 +87,9 @@
 
 	// Sync with store on mount
 	onMount(() => {
+		// Initialize application menu with current locale
+		createApplicationMenu($_);
+
 		books = getBooks();
 		selectedBookIds = getSelectedBookIds();
 		isImporting = getIsImporting();
@@ -97,11 +108,17 @@
 		return () => {
 			unlistenDeviceDetected?.();
 			unlistenDeviceDisconnected?.();
+			unlistenSettings?.();
 		};
 	});
 
 	async function setupDeviceListeners() {
 		try {
+			// Listen for settings event from native menu
+			unlistenSettings = await listen('open-settings', () => {
+				showSettings = true;
+			});
+
 			// Listen for device detected events
 			unlistenDeviceDetected = await listen<{ device: KoboDevice }>(
 				'device-detected',
