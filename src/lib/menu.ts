@@ -1,6 +1,7 @@
 import { Menu, Submenu, MenuItem, PredefinedMenuItem } from '@tauri-apps/api/menu';
 import { emit } from '@tauri-apps/api/event';
-import { invoke } from '@tauri-apps/api/core';
+import { Image } from '@tauri-apps/api/image';
+import { resolveResource } from '@tauri-apps/api/path';
 import type { MessageFormatter } from '$lib/i18n';
 
 export async function createApplicationMenu(t: MessageFormatter) {
@@ -15,15 +16,25 @@ export async function createApplicationMenu(t: MessageFormatter) {
             }
         });
 
+        let icon: Image | undefined;
+        try {
+            const iconPath = await resolveResource('icons/icon_512x512.png');
+            icon = await Image.fromPath(iconPath);
+        } catch {
+            console.warn('[MENU] Failed to load app icon for About panel');
+        }
+
         const appMenu = await Submenu.new({
             text: 'Khi',
             items: [
-                // About item invoking native panel via Rust command
-                await MenuItem.new({
-                    id: 'about',
-                    text: 'About Khi',
-                    action: () => {
-                        invoke('show_about'); 
+                await PredefinedMenuItem.new({
+                    item: {
+                        About: {
+                            name: 'Khi',
+                            version: '0.1.0',
+                            copyright: 'Copyright © 2026 Bruno Monteiro. All rights reserved.',
+                            ...(icon && { icon }),
+                        }
                     }
                 }),
                 await PredefinedMenuItem.new({ item: 'Separator' }),
