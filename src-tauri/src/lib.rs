@@ -15,6 +15,31 @@ use commands::{
 
 use device::monitor::DeviceMonitor;
 
+#[cfg(target_os = "macos")]
+#[tauri::command]
+fn show_about(_app: tauri::AppHandle) {
+    use dispatch2::Queue;
+    use objc2::msg_send;
+    use objc2_app_kit::NSApplication;
+    use objc2_foundation::MainThreadMarker;
+
+    // Dispatch to main thread to safely interact with AppKit
+    Queue::main().exec_async(|| {
+        unsafe {
+            // We are on the main thread, so we can create the marker unchecked safely
+            let mtm = MainThreadMarker::new_unchecked();
+            let app = NSApplication::sharedApplication(mtm);
+            let _: () = msg_send![&app, orderFrontStandardAboutPanel: &*app];
+        }
+    });
+}
+
+#[cfg(not(target_os = "macos"))]
+#[tauri::command]
+fn show_about(_app: tauri::AppHandle) {
+    // No-op on other platforms or show a custom dialog
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Initialize logging
@@ -36,7 +61,8 @@ pub fn run() {
             save_settings,
             update_last_import,
             reset_settings,
-            pick_export_folder
+            pick_export_folder,
+            show_about
         ])
         .setup(|app| {
             // Start device monitoring

@@ -71,22 +71,22 @@ describe('Settings Store - Export Config Actions', () => {
   });
 
   it('should update date format', () => {
-    settingsStore.setDateFormat('ISO8601');
-    expect(settingsStore.getExportConfig().dateFormat).toBe('ISO8601');
+    settingsStore.setDateFormat('iso8601');
+    expect(settingsStore.getExportConfig().dateFormat).toBe('iso8601');
     
-    settingsStore.setDateFormat('DD/MM/YYYY');
-    expect(settingsStore.getExportConfig().dateFormat).toBe('DD/MM/YYYY');
+    settingsStore.setDateFormat('dd_mm_yyyy');
+    expect(settingsStore.getExportConfig().dateFormat).toBe('dd_mm_yyyy');
   });
 
   it('should update entire export config', () => {
     settingsStore.updateExportConfig({
       exportPath: '/new/path',
-      dateFormat: 'ISO8601',
+      dateFormat: 'iso8601',
     });
     
     const config = settingsStore.getExportConfig();
     expect(config.exportPath).toBe('/new/path');
-    expect(config.dateFormat).toBe('ISO8601');
+    expect(config.dateFormat).toBe('iso8601');
     // Other fields should remain unchanged
     expect(config.metadata.author).toBe(true);
   });
@@ -114,8 +114,8 @@ describe('Settings Store - UI Preferences Actions', () => {
     settingsStore.setSortPreference('author');
     expect(settingsStore.getUiPreferences().librarySort).toBe('author');
     
-    settingsStore.setSortPreference('highlightCount');
-    expect(settingsStore.getUiPreferences().librarySort).toBe('highlightCount');
+    settingsStore.setSortPreference('highlight_count');
+    expect(settingsStore.getUiPreferences().librarySort).toBe('highlight_count');
   });
 
   it('should update window size', () => {
@@ -197,7 +197,7 @@ describe('Settings Store - Settings Management', () => {
           language: false,
           description: true,
         },
-        dateFormat: 'ISO8601',
+        dateFormat: 'iso8601',
       },
       uiPreferences: {
         theme: 'dark' as ThemePreference,
@@ -264,7 +264,7 @@ describe('Settings Store - Tauri Integration', () => {
           language: true,
           description: false,
         },
-        dateFormat: 'ISO8601',
+        dateFormat: 'iso8601',
       },
       uiPreferences: {
         theme: 'dark',

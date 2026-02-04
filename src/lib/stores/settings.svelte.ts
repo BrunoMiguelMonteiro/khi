@@ -163,7 +163,7 @@ export function updateExportConfig(config: Partial<ExportConfig>): void {
 // Actions - UI Preferences
 // ============================================
 
-export function setTheme(theme: ThemePreference): void {
+export async function setTheme(theme: ThemePreference): Promise<void> {
   settings = {
     ...settings,
     uiPreferences: {
@@ -171,7 +171,7 @@ export function setTheme(theme: ThemePreference): void {
       theme,
     },
   };
-  applyTheme(theme);
+  await applyTheme(theme);
 }
 
 export function setViewMode(mode: ViewMode): void {
@@ -273,11 +273,11 @@ export function clearLastImport(): void {
 export async function loadSettings(): Promise<void> {
   isLoading = true;
   error = null;
-  
+
   try {
     const loadedSettings = await invoke<AppSettings>('load_settings');
     settings = loadedSettings;
-    applyTheme(settings.uiPreferences.theme);
+    await applyTheme(settings.uiPreferences.theme);
   } catch (err) {
     console.error('Failed to load settings:', err);
     error = err instanceof Error ? err.message : 'Failed to load settings';
@@ -318,20 +318,56 @@ export async function resetAndSaveSettings(): Promise<void> {
 // ============================================
 
 /**
- * Apply theme to document
+ * Apply theme to document and macOS titlebar
  */
-function applyTheme(theme: ThemePreference): void {
+async function applyTheme(theme: ThemePreference): Promise<void> {
   const root = document.documentElement;
-  
-  // Remove existing theme classes
+
+  // Remove legacy theme classes
   root.classList.remove('theme-light', 'theme-dark');
-  
+
+  let isDark: boolean;
+
   if (theme === 'system') {
-    // Check system preference
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    root.classList.add(prefersDark ? 'theme-dark' : 'theme-light');
+    // For 'system' theme, force window to sync with system then read back
+    try {
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      const appWindow = getCurrentWindow();
+
+      // Force sync with system by setting to null
+      await appWindow.setTheme(null);
+
+      // Wait a bit for the system to update
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Now read the theme
+      const currentTheme = await appWindow.theme();
+      isDark = currentTheme === 'dark';
+    } catch (err) {
+      // Fallback to media query if Tauri API fails
+      console.warn('[THEME] Could not get theme from Tauri, using media query');
+      isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
   } else {
-    root.classList.add(`theme-${theme}`);
+    isDark = theme === 'dark';
+  }
+
+  if (isDark) {
+    root.classList.add('dark');
+  } else {
+    root.classList.remove('dark');
+  }
+
+  // Sincronizar titlebar do macOS com Tauri Window API
+  if (typeof window !== 'undefined') {
+    try {
+      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      const appWindow = getCurrentWindow();
+      await appWindow.setTheme(isDark ? 'dark' : 'light');
+    } catch (err) {
+      // Falhar silenciosamente se não estiver em ambiente Tauri
+      console.debug('Tauri window theme not available:', err);
+    }
   }
 }
 
@@ -340,14 +376,16 @@ function applyTheme(theme: ThemePreference): void {
  */
 export async function initializeSettings(): Promise<void> {
   await loadSettings();
-  
+
   // Listen for system theme changes
-  if (settings.uiPreferences.theme === 'system') {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    mediaQuery.addEventListener('change', () => {
-      applyTheme('system');
-    });
-  }
+  // Always add listener, but only apply if theme is 'system'
+  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  mediaQuery.addEventListener('change', async () => {
+    // Only react to system changes if theme preference is 'system'
+    if (settings.uiPreferences.theme === 'system') {
+      await applyTheme('system');
+    }
+  });
 }
 
 /**

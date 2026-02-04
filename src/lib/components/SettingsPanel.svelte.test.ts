@@ -261,7 +261,7 @@ describe('SettingsPanel', () => {
 
   it('should call saveSettings and onSave when save button is clicked', async () => {
     const { saveSettings } = settingsStore;
-    saveSettings.mockResolvedValue(undefined);
+    vi.mocked(saveSettings).mockResolvedValue(undefined);
     
     render(SettingsPanel, {
       props: {

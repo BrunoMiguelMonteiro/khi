@@ -97,11 +97,9 @@ export function setUiState(state: UiState): void {
 
 export function setConnectedDevice(device: KoboDevice | undefined): void {
   connectedDevice = device;
-  if (device) {
-    uiState = 'importing';
-  } else {
-    uiState = 'no-device';
-  }
+  // Don't change uiState here - let the caller decide the UI flow
+  // This prevents inconsistent states where uiState is 'importing'
+  // but no actual import happens
 }
 
 export function markImportComplete(deviceSerial: string): void {
@@ -126,11 +124,13 @@ export async function scanForDevice(): Promise<KoboDevice | null> {
   isScanning = true;
   try {
     const device = await invoke<KoboDevice | null>('scan_for_device');
-    connectedDevice = device || undefined;
+    // Update connectedDevice only - uiState will be managed by event listeners
+    setConnectedDevice(device || undefined);
+    // Note: The device-detected event will handle uiState changes
     return device;
   } catch (error) {
     console.error('Failed to scan for device:', error);
-    connectedDevice = undefined;
+    setConnectedDevice(undefined);
     return null;
   } finally {
     isScanning = false;

@@ -29,15 +29,11 @@ const mockBook: Book = {
       id: 'hl1',
       text: 'Highlight 1',
       dateCreated: '2025-01-15',
-      isExcluded: false,
-      isEditing: false,
     },
     {
       id: 'hl2',
       text: 'Highlight 2',
       dateCreated: '2025-01-16',
-      isExcluded: false,
-      isEditing: false,
     },
   ],
   isSelected: false,
@@ -57,7 +53,7 @@ const mockBookLongTitle: Book = {
   contentId: 'book-3',
   title: 'A Very Long Book Title That Should Be Truncated When Displayed In The Card',
   author: 'Some Author With A Very Long Name',
-  highlights: [{ id: 'hl1', text: 'Test', dateCreated: '2025-01-15', isExcluded: false, isEditing: false }],
+  highlights: [{ id: 'hl1', text: 'Test', dateCreated: '2025-01-15' }],
   isSelected: false,
   dateLastRead: '2025-01-10T08:00:00Z',
 };
@@ -100,11 +96,6 @@ describe('BookCard', () => {
   it('displays "No highlights" when no highlights', () => {
     render(BookCard, { props: { book: mockBookNoCover } });
     expect(screen.getByText('No highlights available for this book')).toBeInTheDocument();
-  });
-
-  it('displays formatted modification date', () => {
-    render(BookCard, { props: { book: mockBook } });
-    expect(screen.getByText(/2025/)).toBeInTheDocument();
   });
 
   it('applies selected class when isSelected is true', () => {

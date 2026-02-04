@@ -1,8 +1,5 @@
 <script lang="ts">
   import type { Highlight } from '../types';
-  import { formatDate } from '../utils/date';
-  import { getExportConfig } from '../stores/settings.svelte';
-  import { _ } from '$lib/i18n';
 
   interface Props {
     highlight: Highlight;
@@ -12,110 +9,89 @@
     highlight
   }: Props = $props();
 
-  function formatProgress(progress: number | undefined): string {
-    if (progress === undefined) return '';
-    return `${Math.round(progress * 100)}%`;
+  /**
+   * Formata chapter titles técnicos (paths EPUB) em títulos legíveis
+   * Exemplos:
+   *   "OEBPS/Text/Section0001.html" → "Section 1"
+   *   "file:///mnt/onboard/Book/xhtml/chapter01.xhtml#intro" → "Intro"
+   *   "content/chapter-3.html" → "Chapter 3"
+   */
+  function formatChapterTitle(rawTitle: string | undefined): string {
+    if (!rawTitle) return '';
+
+    let cleaned = rawTitle;
+
+    // Remove file:// protocol
+    cleaned = cleaned.replace(/^file:\/\/\/mnt\/onboard\//, '');
+
+    // Remove common EPUB internal paths
+    cleaned = cleaned.replace(/.*\/(OEBPS|Text|xhtml|html|content)\//, '');
+
+    // Remove file extensions
+    cleaned = cleaned.replace(/\.(xhtml|html|htm|xml).*$/, '');
+
+    // Extract hash anchor if present (e.g., Section0001.html#chapter_1 → chapter_1)
+    const anchorMatch = cleaned.match(/#(.+)$/);
+    if (anchorMatch) {
+      cleaned = anchorMatch[1];
+    }
+
+    // Clean up common patterns
+    cleaned = cleaned
+      .replace(/Section\d+/gi, '') // Remove "Section001"
+      .replace(/chapter[-_]?(\d+)/gi, 'Chapter $1') // chapter-1 → Chapter 1
+      .replace(/part[-_]?(\d+)/gi, 'Part $1') // part_2 → Part 2
+      .replace(/[-_]/g, ' ') // Replace hyphens/underscores with spaces
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .trim();
+
+    // Capitalize first letter of each word
+    cleaned = cleaned
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+
+    return cleaned || 'Unknown Location';
   }
 </script>
 
-<div 
+<div
   class="highlight-item"
   data-testid="highlight-item"
   data-highlight-id={highlight.id}
 >
-  <div class="highlight-content">
-    <blockquote class="highlight-text">
-      {highlight.text}
-    </blockquote>
-  </div>
-
-  <div class="highlight-meta">
-    <div class="meta-info">
-      {#if highlight.chapterTitle}
-        <span class="chapter-title">{highlight.chapterTitle}</span>
-      {/if}
-      {#if highlight.chapterProgress !== undefined}
-        <span class="progress">{formatProgress(highlight.chapterProgress)}</span>
-      {/if}
-      <span class="date">{formatDate(highlight.dateCreated, getExportConfig().dateFormat)}</span>
-    </div>
-  </div>
+  <blockquote class="highlight-text">
+    {highlight.text}
+  </blockquote>
+  {#if highlight.chapterTitle}
+    <p class="location-label">{formatChapterTitle(highlight.chapterTitle)}</p>
+  {/if}
 </div>
 
 <style>
   .highlight-item {
-    padding: var(--space-4);
-    background: var(--surface-elevated);
-    border: 1px solid var(--border-default);
-    border-radius: var(--radius-lg);
-    transition: all var(--transition-fast);
-  }
-
-  .highlight-item:hover {
-    border-color: var(--border-hover);
-    box-shadow: var(--shadow-sm);
-  }
-
-  .highlight-content {
-    margin-bottom: var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2); /* 8px gap between quote and location */
   }
 
   .highlight-text {
     margin: 0;
-    padding: var(--space-3);
-    padding-left: var(--space-4);
-    border-left: 3px solid var(--color-primary-500);
-    background: var(--surface-secondary);
-    border-radius: 0 var(--radius-md) var(--radius-md) 0;
-    font-size: var(--text-base);
-    line-height: var(--leading-relaxed);
+    padding: 4px var(--space-4); /* 4px vertical, 16px horizontal */
+    border-left: 4px solid var(--color-neutral-300);
+    font-size: var(--text-base); /* 16px */
+    line-height: var(--leading-relaxed); /* 1.625 */
     color: var(--text-primary);
-    font-style: italic;
   }
 
-  .highlight-meta {
-    display: flex;
-    justify-content: flex-start;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: var(--space-3);
-    padding-top: var(--space-3);
-    border-top: 1px solid var(--border-default);
+  :global(.dark) .highlight-text {
+    border-left-color: var(--color-neutral-400);
   }
 
-  .meta-info {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    font-size: var(--text-sm);
+  .location-label {
+    margin: 0;
+    padding-left: var(--space-4); /* Aligned with quote */
+    font-size: var(--text-xs); /* 12px */
     color: var(--text-tertiary);
-  }
-
-  .chapter-title {
-    font-weight: var(--font-medium);
-    color: var(--text-secondary);
-  }
-
-  .progress {
-    padding: var(--space-0) var(--space-2);
-    background: var(--surface-tertiary);
-    border-radius: var(--radius-sm);
-    font-size: var(--text-xs);
-  }
-
-  /* Responsive */
-  @media (max-width: 640px) {
-    .highlight-item {
-      padding: var(--space-3);
-    }
-
-    .highlight-meta {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-
-    .meta-info {
-      flex-wrap: wrap;
-    }
   }
 </style>

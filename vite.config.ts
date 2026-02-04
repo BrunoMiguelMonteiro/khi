@@ -1,5 +1,9 @@
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
 	plugins: [sveltekit()],
@@ -7,7 +11,7 @@ export default defineConfig({
 		include: ['src/**/*.{test,spec}.{js,ts}'],
 		environment: 'jsdom',
 		globals: true,
-		setupFiles: ['./vitest-setup.ts']
+		setupFiles: [resolve(__dirname, 'vitest-setup.ts')]
 	},
 	resolve: {
 		conditions: ['browser']
