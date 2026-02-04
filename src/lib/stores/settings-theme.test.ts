@@ -6,6 +6,13 @@ vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
 }));
 
+// Mock Tauri window — getCurrentWindow throws so applyTheme falls back to matchMedia
+vi.mock('@tauri-apps/api/window', () => ({
+  getCurrentWindow: () => {
+    throw new Error('Not in Tauri');
+  },
+}));
+
 describe('Settings Store - Theme Application', () => {
   // Mock matchMedia
   const matchMediaMock = vi.fn();
@@ -51,49 +58,49 @@ describe('Settings Store - Theme Application', () => {
     expect(document.documentElement.classList.contains('dark')).toBe(true);
   });
 
-  it('should apply system light theme correctly', () => {
+  it('should apply system light theme correctly', async () => {
     // Mock system preferring light
     matchMediaMock.mockImplementation(query => ({
       matches: false,
       media: query,
       addEventListener: vi.fn(),
     }));
-    
+
     // Start with dark to verify removal
     document.documentElement.classList.add('dark');
 
-    settingsStore.setTheme('system');
-    
+    await settingsStore.setTheme('system');
+
     expect(document.documentElement.classList.contains('dark')).toBe(false);
   });
 
-  it('should apply system dark theme correctly', () => {
+  it('should apply system dark theme correctly', async () => {
     // Mock system preferring dark
     matchMediaMock.mockImplementation(query => ({
       matches: true,
       media: query,
       addEventListener: vi.fn(),
     }));
-    
-    settingsStore.setTheme('system');
-    
+
+    await settingsStore.setTheme('system');
+
     expect(document.documentElement.classList.contains('dark')).toBe(true);
   });
 
-  it('should update theme when switching from specific to system (dark)', () => {
+  it('should update theme when switching from specific to system (dark)', async () => {
     // Start with light (no class)
     document.documentElement.classList.remove('dark');
-    
+
     // Mock system preferring dark
     matchMediaMock.mockImplementation(query => ({
       matches: true,
       media: query,
       addEventListener: vi.fn(),
     }));
-    
+
     // Switch to system
-    settingsStore.setTheme('system');
-    
+    await settingsStore.setTheme('system');
+
     expect(document.documentElement.classList.contains('dark')).toBe(true);
   });
 });
