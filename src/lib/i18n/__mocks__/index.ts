@@ -28,7 +28,6 @@ export function t(key: string, params?: Record<string, string | number>): string
     'clear': 'Clear',
     'invert': 'Invert',
     'exportSelected': 'Export Selected',
-    'deviceReady': 'Kobo detected! Ready to import.',
     'close': 'Close notification',
     'settings': 'Settings',
   };

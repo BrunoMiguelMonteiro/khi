@@ -116,8 +116,6 @@
     }
   },
   "notifications": {
-    "deviceDetected": "Kobo device detected",
-    "deviceReady": "Kobo detected! Ready to import.",
     "close": "Close notification",
     "importSuccess": "Import completed successfully",
     "exportSuccess": "Export completed successfully",

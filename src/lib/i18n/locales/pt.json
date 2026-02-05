@@ -96,7 +96,6 @@
     }
   },
   "notifications": {
-    "deviceDetected": "Dispositivo Kobo detetado",
     "importSuccess": "Importação concluída com sucesso",
     "exportSuccess": "Exportação concluída com sucesso",
     "exportError": "Erro ao exportar destaques",

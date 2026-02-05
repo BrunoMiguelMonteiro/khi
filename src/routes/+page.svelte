@@ -44,7 +44,6 @@
 	let isImporting = $state(false);
 	let importProgress = $state<{ currentBook: string; percentage: number } | undefined>(undefined);
 	let connectedDevice = $state<{ name: string; path: string } | undefined>(undefined);
-	let showDeviceNotification = $state(false);
 	let viewingBook = $state<Book | undefined>(undefined);
 	let showSettings = $state(false);
 	let viewMode = $state<'grid' | 'list'>('grid');
@@ -144,10 +143,6 @@
 						// Won't auto-import: go directly to library view
 						setUiState('library');
 						uiState = 'library';
-						showDeviceNotification = true;
-						setTimeout(() => {
-							showDeviceNotification = false;
-						}, 5000);
 					}
 				}
 			);
@@ -202,10 +197,6 @@
 				// Device ready, go to library view
 				setUiState('library');
 				uiState = 'library';
-				showDeviceNotification = true;
-				setTimeout(() => {
-					showDeviceNotification = false;
-				}, 5000);
 			}
 		}
 	}
@@ -329,41 +320,6 @@
 </script>
 
 <!-- Notificações globais -->
-{#if showDeviceNotification}
-	<div class="device-notification" role="status" aria-live="polite">
-		<div class="notification-content">
-			<svg
-				class="notification-icon"
-				viewBox="0 0 24 24"
-				fill="none"
-				xmlns="http://www.w3.org/2000/svg"
-				aria-hidden="true"
-			>
-				<path
-					d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
-					fill="currentColor"
-				/>
-			</svg>
-			<span class="notification-text">{$_('notifications.deviceReady')}</span>
-		</div>
-		<button
-			type="button"
-			class="notification-close"
-			onclick={() => (showDeviceNotification = false)}
-			aria-label={$_('notifications.close')}
-		>
-			<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-				<path
-					d="M18 6L6 18M6 6l12 12"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-				/>
-			</svg>
-		</button>
-	</div>
-{/if}
-
 {#if exportNotification?.visible}
 	<div class="export-notification {exportNotification.type}" role="status" aria-live="polite">
 		<div class="notification-content">
@@ -491,22 +447,6 @@
 	}
 
 	/* Device Notification */
-	.device-notification {
-		position: fixed;
-		top: 16px;
-		right: 16px;
-		z-index: 1000;
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		padding: 12px 16px;
-		background-color: #16a34a;
-		color: white;
-		border-radius: 8px;
-		box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-		animation: slideIn 0.3s ease;
-	}
-
 	@keyframes slideIn {
 		from {
 			transform: translateX(100%);
@@ -586,7 +526,6 @@
 
 	/* Responsive */
 	@media (max-width: 640px) {
-		.device-notification,
 		.export-notification {
 			left: 16px;
 			right: 16px;
