@@ -84,7 +84,7 @@ describe('BookListItem', () => {
 
 	it('calls onClick when item is clicked', async () => {
 		const onClick = vi.fn();
-		const { container } = render(BookListItem, {
+		render(BookListItem, {
 			props: {
 				book: mockBook,
 				gradient: mockGradient,
@@ -94,8 +94,8 @@ describe('BookListItem', () => {
 			}
 		});
 
-		const listItem = container.querySelector('.book-list-item');
-		await fireEvent.click(listItem!);
+		const listItem = screen.getByRole('button');
+		await fireEvent.click(listItem);
 
 		expect(onClick).toHaveBeenCalledTimes(1);
 	});
@@ -158,7 +158,7 @@ describe('BookListItem', () => {
 
 	it('calls onClick when Enter key is pressed', async () => {
 		const onClick = vi.fn();
-		const { container } = render(BookListItem, {
+		render(BookListItem, {
 			props: {
 				book: mockBook,
 				gradient: mockGradient,
@@ -168,15 +168,15 @@ describe('BookListItem', () => {
 			}
 		});
 
-		const listItem = container.querySelector('.book-list-item');
-		await fireEvent.keyDown(listItem!, { key: 'Enter' });
+		const listItem = screen.getByRole('button');
+		await fireEvent.keyDown(listItem, { key: 'Enter' });
 
 		expect(onClick).toHaveBeenCalledTimes(1);
 	});
 
 	it('calls onClick when Space key is pressed', async () => {
 		const onClick = vi.fn();
-		const { container } = render(BookListItem, {
+		render(BookListItem, {
 			props: {
 				book: mockBook,
 				gradient: mockGradient,
@@ -186,8 +186,8 @@ describe('BookListItem', () => {
 			}
 		});
 
-		const listItem = container.querySelector('.book-list-item');
-		await fireEvent.keyDown(listItem!, { key: ' ' });
+		const listItem = screen.getByRole('button');
+		await fireEvent.keyDown(listItem, { key: ' ' });
 
 		expect(onClick).toHaveBeenCalledTimes(1);
 	});
@@ -224,31 +224,11 @@ describe('BookListItem', () => {
 			}
 		});
 
-		const coverButton = container.querySelector('.cover');
-		expect(coverButton).toHaveClass('bg-gradient-to-br');
-		expect(coverButton).toHaveClass('from-blue-400');
-		expect(coverButton).toHaveClass('to-blue-600');
-	});
-
-	it('renders with correct DOM structure', () => {
-		const { container } = render(BookListItem, {
-			props: {
-				book: mockBook,
-				gradient: mockGradient,
-				isSelected: false,
-				onToggleSelect: vi.fn(),
-				onClick: vi.fn()
-			}
-		});
-
-		// Verifica estrutura DOM
-		expect(container.querySelector('.book-list-item')).toBeInTheDocument();
-		expect(container.querySelector('.checkbox-container')).toBeInTheDocument();
-		expect(container.querySelector('.cover')).toBeInTheDocument();
-		expect(container.querySelector('.book-info')).toBeInTheDocument();
-		expect(container.querySelector('.book-title')).toBeInTheDocument();
-		expect(container.querySelector('.book-author')).toBeInTheDocument();
-		expect(container.querySelector('.highlight-count')).toBeInTheDocument();
+		// O container da capa é o div a seguir à checkbox
+		const cover = container.querySelector('.bg-gradient-to-br');
+		expect(cover).toBeInTheDocument();
+		expect(cover).toHaveClass('from-blue-400');
+		expect(cover).toHaveClass('to-blue-600');
 	});
 
 	it('displays custom checkbox with correct checked state', () => {

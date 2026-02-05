@@ -92,3 +92,15 @@ vi.mock('svelte-i18n', () => ({
   init: vi.fn(),
   getLocaleFromNavigator: vi.fn(() => 'en')
 }));
+
+// Mock Tauri API
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: vi.fn(),
+  convertFileSrc: vi.fn((src) => src)
+}));
+
+vi.mock('@tauri-apps/api/window', () => ({
+  getCurrentWindow: vi.fn(() => ({
+    setTheme: vi.fn().mockResolvedValue(undefined)
+  }))
+}));

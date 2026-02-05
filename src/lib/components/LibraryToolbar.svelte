@@ -26,11 +26,10 @@
 	}: Props = $props();
 
 	const sortOptions = [
-		{ value: 'title-asc', label: 'Title (A-Z)' },
-		{ value: 'title-desc', label: 'Title (Z-A)' },
-		{ value: 'author-asc', label: 'Author (A-Z)' },
-		{ value: 'author-desc', label: 'Author (Z-A)' },
-		{ value: 'recent', label: 'Recently Read' }
+		{ value: 'title', label: 'Title (A-Z)' },
+		{ value: 'author', label: 'Author (A-Z)' },
+		{ value: 'date_last_read', label: 'Recently Read' },
+		{ value: 'highlight_count', label: 'Highlight Count' }
 	];
 </script>
 

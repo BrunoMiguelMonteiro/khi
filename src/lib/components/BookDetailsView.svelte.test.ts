@@ -79,8 +79,8 @@ describe('BookDetailsView', () => {
   });
 
   it('renders cover image when coverPath exists', () => {
-    render(BookDetailsView, { props: { book: mockBook } });
-    const img = document.querySelector('.cover-image');
+    const { container } = render(BookDetailsView, { props: { book: mockBook } });
+    const img = container.querySelector('img');
     expect(img).toBeInTheDocument();
     expect(img).toHaveAttribute('src', '/path/to/cover.jpg');
     expect(img).toHaveAttribute('alt', '');
@@ -88,21 +88,20 @@ describe('BookDetailsView', () => {
 
   it('renders placeholder when coverPath is missing', () => {
     render(BookDetailsView, { props: { book: mockBookMinimal } });
-    const placeholder = document.querySelector('.cover-placeholder');
-    expect(placeholder).toBeInTheDocument();
+    expect(screen.getByText('MB')).toBeInTheDocument();
   });
 
   it('calls onClose when back button clicked', async () => {
     const handleClose = vi.fn();
     render(BookDetailsView, { props: { book: mockBook, onClose: handleClose } });
-    const backButton = screen.getByTestId('book-details-close');
+    const backButton = screen.getByLabelText('Back');
     await fireEvent.click(backButton);
     expect(handleClose).toHaveBeenCalledTimes(1);
   });
 
   it('renders highlights list', () => {
     render(BookDetailsView, { props: { book: mockBook } });
-    const list = document.querySelector('.highlights-list');
+    const list = screen.getByTestId('highlights-list');
     expect(list).toBeInTheDocument();
   });
 

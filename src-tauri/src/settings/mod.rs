@@ -662,7 +662,7 @@ mod tests {
                 "isMaximized": false,
                 "showOnboarding": true,
                 "libraryViewMode": "grid",
-                "librarySort": "title"
+                "librarySort": "date_last_read"
             },
             "version": "0.1.0"
         }"#;

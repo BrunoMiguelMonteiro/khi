@@ -14,37 +14,35 @@
 	import type { Book, KoboDevice } from '$lib/types';
 	import { createApplicationMenu } from '$lib/menu';
 
-	// Local state for UI components
+	// Sync with store
+	let viewMode = $derived(settings.uiPreferences.libraryViewMode);
+	let sortBy = $derived(settings.uiPreferences.librarySort);
+
+	// Local state
 	let showSettings = $state(false);
-	let viewMode = $state<'grid' | 'list'>('grid');
-	let sortBy = $state('title-asc');
-
-	// Event unlisten functions for cleanup
-	let unlistenDeviceDetected: UnlistenFn | undefined;
-	let unlistenDeviceDisconnected: UnlistenFn | undefined;
-	let unlistenSettings: UnlistenFn | undefined;
-
-	// Notification state for export
 	let exportNotification = $state<{
 		message: string;
 		type: 'success' | 'error';
 		visible: boolean;
 	} | null>(null);
 
+	// Event unlisten functions for cleanup
+	let unlistenDeviceDetected: UnlistenFn | undefined;
+	let unlistenDeviceDisconnected: UnlistenFn | undefined;
+	let unlistenSettings: UnlistenFn | undefined;
+
 	// Sort books based on selected option
 	let sortedBooks = $derived(
 		[...library.books].sort((a, b) => {
 			switch (sortBy) {
-				case 'title-asc':
+				case 'title':
 					return (a.title || '').localeCompare(b.title || '');
-				case 'title-desc':
-					return (b.title || '').localeCompare(a.title || '');
-				case 'author-asc':
+				case 'author':
 					return (a.author || '').localeCompare(b.author || '');
-				case 'author-desc':
-					return (b.author || '').localeCompare(a.author || '');
-				case 'recent':
+				case 'date_last_read':
 					return (b.dateLastRead || '').localeCompare(a.dateLastRead || '');
+				case 'highlight_count':
+					return (b.highlights?.length || 0) - (a.highlights?.length || 0);
 				default:
 					return 0;
 			}
@@ -282,8 +280,8 @@
 				onExportAll={handleExportAll}
 				onExportSelected={handleExportSelected}
 				onClearSelection={handleClearSelection}
-				onSortChange={(sort) => (sortBy = sort)}
-				onViewModeChange={(mode) => (viewMode = mode)}
+				onSortChange={(sort) => settings.setSortPreference(sort as any)}
+				onViewModeChange={(mode) => settings.setViewMode(mode)}
 				onOpenSettings={handleOpenSettings}
 			/>
 

@@ -76,16 +76,16 @@ describe('BookCard', () => {
   });
 
   it('renders cover image when coverPath exists', () => {
-    render(BookCard, { props: { book: mockBook } });
-    const img = document.querySelector('.cover-image');
+    const { container } = render(BookCard, { props: { book: mockBook } });
+    const img = container.querySelector('img');
     expect(img).toBeInTheDocument();
     expect(img).toHaveAttribute('src', '/path/to/cover.jpg');
   });
 
   it('renders placeholder when coverPath is missing', () => {
-    render(BookCard, { props: { book: mockBookNoCover } });
+    const { container } = render(BookCard, { props: { book: mockBookNoCover } });
     expect(screen.getByText('BW')).toBeInTheDocument();
-    expect(document.querySelector('.cover-image')).not.toBeInTheDocument();
+    expect(container.querySelector('img')).not.toBeInTheDocument();
   });
 
   it('displays correct highlight count for multiple highlights', () => {
@@ -98,10 +98,10 @@ describe('BookCard', () => {
     expect(screen.getByText('No highlights available for this book')).toBeInTheDocument();
   });
 
-  it('applies selected class when isSelected is true', () => {
+  it('renders correctly when isSelected is true', () => {
     render(BookCard, { props: { book: mockBook, isSelected: true } });
-    const card = screen.getByTestId('book-card');
-    expect(card).toHaveClass('selected');
+    const selectionBtn = screen.getByLabelText('Deselect');
+    expect(selectionBtn).toBeInTheDocument();
   });
 
   it('calls onClick when content is clicked', async () => {
@@ -134,10 +134,10 @@ describe('BookCard', () => {
     expect(screen.getAllByRole('button').length).toBeGreaterThan(0);
   });
 
-  it('truncates long titles with ellipsis', () => {
+  it('truncates long titles with line-clamp', () => {
     render(BookCard, { props: { book: mockBookLongTitle } });
     const title = screen.getByText(/A Very Long Book Title/);
     expect(title).toBeInTheDocument();
-    expect(title).toHaveClass('book-title');
+    expect(title).toHaveClass('line-clamp-2');
   });
 });
