@@ -1,6 +1,7 @@
 <script lang="ts">
     import type { Book } from "../types";
     import { _ } from "$lib/i18n";
+    import { convertFileSrc } from "@tauri-apps/api/core";
 
     interface Props {
         book: Book;
@@ -83,7 +84,7 @@
         <div class="relative w-full pb-[150%] rounded-lg overflow-hidden shadow-sm">
             {#if book.coverPath}
                 <img
-                    src={book.coverPath}
+                    src={convertFileSrc(book.coverPath)}
                     alt=""
                     class="absolute inset-0 w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
                     loading="lazy"

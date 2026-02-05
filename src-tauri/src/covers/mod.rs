@@ -75,42 +75,138 @@ impl CoverExtractor {
     }
 
     /// Find cover image path in EPUB
+    /// Find cover image path in EPUB by parsing manifest
     fn find_cover_path<R: Read + Seek>(
         &self,
         archive: &mut ZipArchive<R>,
     ) -> Result<Option<String>, CoverError> {
-        // Common cover image paths
+        // 1. Find the OPF file path from container.xml
+        let opf_path = self.get_opf_path(archive)?;
+        
+        if let Some(path) = opf_path {
+            // 2. Parse OPF to find cover image
+            if let Ok(cover_href) = self.parse_opf_for_cover(archive, &path) {
+                return Ok(Some(cover_href));
+            }
+        }
+
+        // Fallback to filename-based search if OPF parsing fails
+        self.fallback_find_cover_path(archive)
+    }
+
+    fn get_opf_path<R: Read + Seek>(&self, archive: &mut ZipArchive<R>) -> Result<Option<String>, CoverError> {
+        let mut container = match archive.by_name("META-INF/container.xml") {
+            Ok(file) => file,
+            Err(_) => return Ok(None),
+        };
+        
+        let mut content = String::new();
+        container.read_to_string(&mut content)?;
+        
+        // Simple regex-less extraction of full-path
+        if let Some(start) = content.find("full-path=\"") {
+            let sub = &content[start + 11..];
+            if let Some(end) = sub.find('\"') {
+                return Ok(Some(sub[..end].to_string()));
+            }
+        }
+        
+        Ok(None)
+    }
+
+    fn parse_opf_for_cover<R: Read + Seek>(&self, archive: &mut ZipArchive<R>, opf_path: &str) -> Result<String, CoverError> {
+        let mut opf_file = archive.by_name(opf_path)?;
+        let mut content = String::new();
+        opf_file.read_to_string(&mut content)?;
+
+        let opf_dir = Path::new(opf_path).parent().unwrap_or_else(|| Path::new(""));
+        
+        // Try EPUB 3 style (properties="cover-image")
+        if let Some(pos) = content.find("properties=\"cover-image\"") {
+            // Look backwards for href
+            let pre_content = &content[..pos];
+            if let Some(href_start) = pre_content.rfind("href=\"") {
+                let sub = &pre_content[href_start + 6..];
+                if let Some(href_end) = sub.find('\"') {
+                    let href = &sub[..href_end];
+                    return Ok(opf_dir.join(href).to_string_lossy().to_string());
+                }
+            }
+        }
+
+        // Try EPUB 2 style (<meta name="cover" content="item_id"/>)
+        if let Some(pos) = content.find("name=\"cover\"") {
+            let sub = &content[pos..];
+            if let Some(content_start) = sub.find("content=\"") {
+                let sub_id = &sub[content_start + 9..];
+                if let Some(content_end) = sub_id.find('\"') {
+                    let cover_id = &sub_id[..content_end];
+                    
+                    // Now find the item with this ID in the manifest
+                    let item_pattern = format!("id=\"{}\"", cover_id);
+                    if let Some(item_pos) = content.find(&item_pattern) {
+                        let item_sub = &content[item_pos..];
+                        if let Some(href_start) = item_sub.find("href=\"") {
+                            let href_sub = &item_sub[href_start + 6..];
+                            if let Some(href_end) = href_sub.find('\"') {
+                                let href = &href_sub[..href_end];
+                                return Ok(opf_dir.join(href).to_string_lossy().to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Err(CoverError::NoCoverFound)
+    }
+
+    fn fallback_find_cover_path<R: Read + Seek>(
+        &self,
+        archive: &mut ZipArchive<R>,
+    ) -> Result<Option<String>, CoverError> {
+        // Common explicit paths
         let common_paths = [
             "OEBPS/cover.jpg",
             "OEBPS/cover.jpeg",
             "OEBPS/cover.png",
+            "OEBPS/Images/cover.jpg",
+            "OEBPS/images/cover.jpg",
             "OPS/cover.jpg",
             "OPS/cover.jpeg",
-            "OPS/cover.png",
+            "OPS/images/cover.jpg",
             "cover.jpg",
             "cover.jpeg",
             "cover.png",
         ];
 
-        // Try common paths first
         for path in &common_paths {
             if archive.by_name(path).is_ok() {
                 return Ok(Some(path.to_string()));
             }
         }
 
-        // Search for any image with "cover" in the name
+        // Search for any image file that has "cover" in its name
+        let mut best_match: Option<(String, usize)> = None;
+
         for i in 0..archive.len() {
             let file = archive.by_index(i)?;
-            let name = file.name().to_lowercase();
-            if name.contains("cover")
-                && (name.ends_with(".jpg") || name.ends_with(".jpeg") || name.ends_with(".png"))
-            {
-                return Ok(Some(file.name().to_string()));
+            let name = file.name();
+            let name_lower = name.to_lowercase();
+            
+            if name_lower.ends_with(".jpg") || name_lower.ends_with(".jpeg") || name_lower.ends_with(".png") {
+                if name_lower.contains("cover") {
+                    let depth = name.split('/').count();
+                    match best_match {
+                        None => best_match = Some((name.to_string(), depth)),
+                        Some((_, d)) if depth < d => best_match = Some((name.to_string(), depth)),
+                        _ => {}
+                    }
+                }
             }
         }
 
-        Ok(None)
+        Ok(best_match.map(|(path, _)| path))
     }
 
     /// Generate a placeholder SVG when no cover is found
@@ -239,6 +335,39 @@ mod tests {
         zip.finish().unwrap();
 
         epub_path
+    }
+
+    fn create_mock_epub_with_nested_cover(temp_dir: &Path) -> PathBuf {
+        let epub_path = temp_dir.join("test_nested.epub");
+        let file = fs::File::create(&epub_path).unwrap();
+        let mut zip = zip::ZipWriter::new(file);
+        let options = zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Stored);
+
+        // Add a nested "cover" (e.g. in a chapter)
+        zip.start_file("OEBPS/ch1/images/cover.jpg", options).unwrap();
+        zip.write_all(&[0x00]).unwrap();
+
+        // Add the main "cover" (higher up)
+        zip.start_file("OEBPS/cover.jpg", options).unwrap();
+        zip.write_all(&[0xFF, 0xD8]).unwrap();
+
+        zip.finish().unwrap();
+        epub_path
+    }
+
+    #[test]
+    fn test_extract_nested_cover_preference() {
+        let temp = TempDir::new().unwrap();
+        let cache_dir = temp.path().join("cache");
+        let epub_path = create_mock_epub_with_nested_cover(temp.path());
+
+        let extractor = CoverExtractor::new(cache_dir);
+        let cover = extractor.extract_cover(&epub_path).unwrap();
+
+        assert!(cover.is_some());
+        // Should find the one at OEBPS/cover.jpg
+        let data = fs::read(cover.unwrap()).unwrap();
+        assert_eq!(data[0], 0xFF);
     }
 
     #[test]

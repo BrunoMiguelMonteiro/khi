@@ -409,6 +409,7 @@ mod tests {
             language: Some("en".to_string()),
             date_last_read: Some("2025-01-24".to_string()),
             description: Some("A test book description".to_string()),
+            file_path: None,
             cover_path: None,
             highlights: vec![
                 Highlight {
@@ -445,6 +446,7 @@ mod tests {
             language: None,
             date_last_read: None,
             description: None,
+            file_path: None,
             cover_path: None,
             highlights: vec![Highlight {
                 id: "hl3".to_string(),
@@ -505,6 +507,7 @@ mod tests {
             language: None,
             date_last_read: None,
             description: None,
+            file_path: None,
             cover_path: None,
             highlights: vec![],
         };
@@ -568,6 +571,7 @@ mod tests {
             language: None,
             date_last_read: None,
             description: None,
+            file_path: None,
             cover_path: None,
             highlights: vec![],
         };

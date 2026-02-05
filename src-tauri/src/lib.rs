@@ -8,9 +8,9 @@ pub mod settings;
 pub mod utils;
 
 use commands::{
-    export_books, get_default_export_path, get_export_preview, import_highlights, load_settings,
-    pick_export_folder, reset_settings, save_settings, scan_for_device, update_last_import,
-    validate_export_path,
+    clear_cover_cache, export_books, get_default_export_path, get_export_preview, import_highlights,
+    load_settings, pick_export_folder, reset_settings, save_settings, scan_for_device,
+    update_last_import, validate_export_path,
 };
 
 use device::monitor::DeviceMonitor;
@@ -36,7 +36,8 @@ pub fn run() {
             save_settings,
             update_last_import,
             reset_settings,
-            pick_export_folder
+            pick_export_folder,
+            clear_cover_cache
         ])
         .setup(|app| {
             // Start device monitoring

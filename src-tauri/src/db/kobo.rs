@@ -136,7 +136,7 @@ impl KoboDatabase {
 
             // Get or create book using volume_id as key
             let book = books_map.entry(volume_id.clone()).or_insert_with(|| {
-                Book::new(
+                let mut b = Book::new(
                     volume_id.clone(),
                     book_title
                         .clone()
@@ -144,7 +144,14 @@ impl KoboDatabase {
                     attribution
                         .clone()
                         .unwrap_or_else(|| "Unknown Author".to_string()),
-                )
+                );
+
+                // Set file path if it looks like a local file
+                if volume_id.starts_with("file:///mnt/onboard/") {
+                    b.file_path = Some(volume_id.replace("file:///mnt/onboard/", ""));
+                }
+                
+                b
             });
 
             // Update book metadata if available
@@ -287,6 +294,47 @@ mod tests {
         assert_eq!(books[0].author, "Test Author");
         assert_eq!(books[0].highlights.len(), 1);
         assert_eq!(books[0].highlights[0].text, "Test highlight text");
+    }
+
+    #[test]
+    fn test_file_path_normalization() {
+        let temp = tempfile::NamedTempFile::new().unwrap();
+        let conn = rusqlite::Connection::open(temp.path()).unwrap();
+
+        // Create tables with all columns used in the query
+        conn.execute("CREATE TABLE Bookmark (
+            BookmarkID TEXT, 
+            ContentID TEXT, 
+            VolumeID TEXT, 
+            Text TEXT, 
+            Annotation TEXT,
+            StartContainerPath TEXT,
+            ChapterProgress REAL,
+            DateCreated TEXT
+        )", []).unwrap();
+        
+        conn.execute("CREATE TABLE Content (
+            ContentID TEXT PRIMARY KEY, 
+            BookTitle TEXT, 
+            Title TEXT,
+            Attribution TEXT, 
+            ISBN TEXT,
+            Publisher TEXT,
+            Language TEXT,
+            DateLastRead TEXT,
+            ContentType INTEGER
+        )", []).unwrap();
+
+        // Insert book with Kobo style path
+        let kobo_path = "file:///mnt/onboard/Books/MyBook.epub";
+        conn.execute("INSERT INTO Content (ContentID, BookTitle, Attribution, ContentType) VALUES (?1, 'Title', 'Author', 6)", [kobo_path]).unwrap();
+        conn.execute("INSERT INTO Bookmark (BookmarkID, ContentID, VolumeID, Text, DateCreated) VALUES ('hl1', 'chapter1', ?1, 'text', 'date')", [kobo_path]).unwrap();
+
+        let db = KoboDatabase::new(temp.path()).unwrap();
+        let books = db.extract_books_with_highlights().unwrap();
+
+        assert_eq!(books.len(), 1);
+        assert_eq!(books[0].file_path, Some("Books/MyBook.epub".to_string()));
     }
 
     #[test]

@@ -6,7 +6,7 @@
     import { _ } from "$lib/i18n";
     import { getBookGradient } from "$lib/utils/gradients";
     import { FileDown } from "lucide-svelte";
-    import { invoke } from "@tauri-apps/api/core";
+    import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 
     interface Props {
         book: Book;
@@ -98,7 +98,7 @@
         <div class="flex gap-6 max-w-4xl mx-auto mb-12 px-6 py-8 bg-transparent max-sm:flex-col max-sm:items-center max-sm:text-center">
             <div class="w-32 h-48 shrink-0 rounded-lg overflow-hidden shadow-md max-sm:w-24 max-sm:h-36">
                 {#if book.coverPath}
-                    <img src={book.coverPath} alt="" class="w-full h-full object-cover" />
+                    <img src={convertFileSrc(book.coverPath)} alt="" class="w-full h-full object-cover" />
                 {:else}
                     <div
                         class="w-full h-full flex items-center justify-center bg-gradient-to-br {getBookGradient(

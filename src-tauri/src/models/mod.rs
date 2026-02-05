@@ -11,6 +11,8 @@ pub struct Book {
     pub language: Option<String>,
     pub date_last_read: Option<String>,
     pub description: Option<String>,
+    #[serde(skip)]
+    pub file_path: Option<String>,
     pub cover_path: Option<String>,
     pub highlights: Vec<Highlight>,
 }
@@ -26,6 +28,7 @@ impl Book {
             language: None,
             date_last_read: None,
             description: None,
+            file_path: None,
             cover_path: None,
             highlights: Vec::new(),
         }

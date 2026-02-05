@@ -1,9 +1,11 @@
 use crate::db::kobo::KoboDatabase;
 use crate::device::DeviceDetector;
 use crate::export::MarkdownExporter;
+use crate::covers::CoverExtractor;
 use crate::models::{Book, ExportConfig, KoboDevice};
 use crate::settings::{AppSettings, LastImportRecord, SettingsManager};
 use std::path::PathBuf;
+use tauri::Manager;
 
 /// Scan for connected Kobo devices
 #[tauri::command]
@@ -20,7 +22,7 @@ pub fn scan_for_device() -> Result<Option<KoboDevice>, String> {
 
 /// Import highlights from a connected Kobo device
 #[tauri::command]
-pub fn import_highlights(device: KoboDevice) -> Result<Vec<Book>, String> {
+pub fn import_highlights(app_handle: tauri::AppHandle, device: KoboDevice) -> Result<Vec<Book>, String> {
     // Get the database path from the device
     let volumes_path = PathBuf::from("/Volumes");
     let detector = DeviceDetector::new(volumes_path);
@@ -42,12 +44,28 @@ pub fn import_highlights(device: KoboDevice) -> Result<Vec<Book>, String> {
 
     log::info!("Database opened successfully");
 
-    let books = db.extract_books_with_highlights().map_err(|e| {
+    let mut books = db.extract_books_with_highlights().map_err(|e| {
         log::error!("Failed to extract highlights: {}", e);
         format!("Failed to extract highlights: {}", e)
     })?;
 
     log::info!("Extracted {} books with highlights", books.len());
+
+    // Extract covers
+    let cache_dir = app_handle.path().app_cache_dir().map_err(|e| e.to_string())?;
+    let extractor = CoverExtractor::new(cache_dir);
+
+    for book in &mut books {
+        if let Some(file_path) = &book.file_path {
+            let epub_path = PathBuf::from(&device.path).join(file_path);
+            
+            if epub_path.exists() {
+                if let Ok(Some(cover_path)) = extractor.extract_cover(&epub_path) {
+                    book.cover_path = Some(cover_path.to_string_lossy().to_string());
+                }
+            }
+        }
+    }
 
     Ok(books)
 }
@@ -256,6 +274,15 @@ pub async fn pick_export_folder(app_handle: tauri::AppHandle, default_path: Opti
     }
 }
 
+/// Clear the application cover cache
+#[tauri::command]
+pub fn clear_cover_cache(app_handle: tauri::AppHandle) -> Result<(), String> {
+    let cache_dir = app_handle.path().app_cache_dir().map_err(|e| e.to_string())?;
+    let extractor = CoverExtractor::new(cache_dir);
+    
+    extractor.clear_cache().map_err(|e| format!("Failed to clear cache: {}", e))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -272,6 +299,7 @@ mod tests {
             language: None,
             date_last_read: None,
             description: None,
+            file_path: None,
             cover_path: None,
             highlights: vec![Highlight {
                 id: "hl1".to_string(),
