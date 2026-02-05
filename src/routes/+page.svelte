@@ -9,25 +9,7 @@
 	import EmptyStateNoDevice from '$lib/components/EmptyStateNoDevice.svelte';
 	import ImportingState from '$lib/components/ImportingState.svelte';
 	import { _ } from '$lib/i18n';
-	import {
-		getBooks,
-		getSelectedBookIds,
-		getIsImporting,
-		getImportProgress,
-		getConnectedDevice,
-		getViewingBook,
-		getViewingBookId,
-		getUiState,
-		setSelectedBookIds,
-		setViewingBookId,
-		setConnectedDevice,
-		setUiState,
-		markImportComplete,
-		shouldAutoImport,
-		scanForDevice,
-		importHighlights,
-		exportBooks
-	} from '$lib/stores/library.svelte';
+	import { library } from '$lib/stores/library.svelte';
 	import {
 		getExportConfig,
 		getSettings,
@@ -38,19 +20,10 @@
 	import type { Book, KoboDevice } from '$lib/types';
 	import { createApplicationMenu } from '$lib/menu';
 
-	// Local state for UI
-	let books = $state<Book[]>([]);
-	let selectedBookIds = $state<string[]>([]);
-	let isImporting = $state(false);
-	let importProgress = $state<{ currentBook: string; percentage: number } | undefined>(undefined);
-	let connectedDevice = $state<{ name: string; path: string } | undefined>(undefined);
-	let viewingBook = $state<Book | undefined>(undefined);
+	// Local state for UI components
 	let showSettings = $state(false);
 	let viewMode = $state<'grid' | 'list'>('grid');
 	let sortBy = $state('title-asc');
-
-	// Local UI state
-	let uiState = $state<'no-device' | 'importing' | 'library' | 'book-details'>('no-device');
 
 	// Event unlisten functions for cleanup
 	let unlistenDeviceDetected: UnlistenFn | undefined;
@@ -66,7 +39,7 @@
 
 	// Sort books based on selected option
 	let sortedBooks = $derived(
-		[...books].sort((a, b) => {
+		[...library.books].sort((a, b) => {
 			switch (sortBy) {
 				case 'title-asc':
 					return (a.title || '').localeCompare(b.title || '');
@@ -87,18 +60,9 @@
 	// Sync with store on mount
 	onMount(() => {
 		// Initialize application menu with current locale
-		// Small delay to ensure Tauri is ready to receive the menu command
 		setTimeout(() => {
 			createApplicationMenu($_);
 		}, 500);
-
-		books = getBooks();
-		selectedBookIds = getSelectedBookIds();
-		isImporting = getIsImporting();
-		importProgress = getImportProgress();
-		connectedDevice = getConnectedDevice();
-		viewingBook = getViewingBook();
-		uiState = getUiState();
 
 		// Setup event listeners for device monitoring
 		setupDeviceListeners();
@@ -127,22 +91,17 @@
 				(event) => {
 					console.log('Device detected:', event.payload);
 					const device = event.payload.device;
-					setConnectedDevice(device);
-					connectedDevice = device;
+					library.setConnectedDevice(device);
 
 					// Check if auto-import should happen
 					const settings = getSettings();
 					const autoImportEnabled = settings.uiPreferences.autoImportOnConnect ?? true;
 
-					if (autoImportEnabled && shouldAutoImport(device)) {
-						// Will auto-import: set UI to importing state
-						setUiState('importing');
-						uiState = 'importing';
+					if (autoImportEnabled && library.shouldAutoImport(device)) {
+						library.setUiState('importing');
 						handleAutoImport(device);
 					} else {
-						// Won't auto-import: go directly to library view
-						setUiState('library');
-						uiState = 'library';
+						library.setUiState('library');
 					}
 				}
 			);
@@ -150,11 +109,8 @@
 			// Listen for device disconnected events
 			unlistenDeviceDisconnected = await listen<void>('device-disconnected', () => {
 				console.log('Device disconnected');
-				setConnectedDevice(undefined);
-				connectedDevice = undefined;
-				// When device disconnects, return to no-device state
-				setUiState('no-device');
-				uiState = 'no-device';
+				library.setConnectedDevice(undefined);
+				library.setUiState('no-device');
 			});
 		} catch (error) {
 			console.error('Failed to setup device listeners:', error);
@@ -165,56 +121,35 @@
 		console.log('Auto-importing from device:', device);
 		try {
 			await handleImport();
-			// Mark import complete with device serial if available
-			markImportComplete(device.serialNumber || 'unknown');
-			// Transition to library view after successful import
-			setUiState('library');
-			uiState = 'library';
+			library.markImportComplete(device.serialNumber || 'unknown');
+			library.setUiState('library');
 		} catch (error) {
 			console.error('Auto-import failed:', error);
-			// Reset to no-device state on failure
-			setUiState('no-device');
-			uiState = 'no-device';
+			library.setUiState('no-device');
 		}
 	}
 
 	async function handleScanForDevice() {
-		const device = await scanForDevice();
+		const device = await library.scanForDevice();
 		if (device) {
-			// Update local state to match store
-			connectedDevice = device;
-
-			// Check if we should auto-import
 			const settings = getSettings();
 			const autoImportEnabled = settings.uiPreferences.autoImportOnConnect ?? true;
 
-			if (autoImportEnabled && shouldAutoImport(device)) {
-				// Auto-import needed
-				setUiState('importing');
-				uiState = 'importing';
+			if (autoImportEnabled && library.shouldAutoImport(device)) {
+				library.setUiState('importing');
 				await handleAutoImport(device);
 			} else {
-				// Device ready, go to library view
-				setUiState('library');
-				uiState = 'library';
+				library.setUiState('library');
 			}
 		}
 	}
 
 	async function handleImport() {
 		try {
-			const importedBooks = await importHighlights();
-			// Refresh books after import
-			books = getBooks();
-			isImporting = getIsImporting();
-			importProgress = getImportProgress();
-
-			// Mark import as complete
-			const device = getConnectedDevice();
-			if (device) {
-				markImportComplete(device.serialNumber || 'unknown');
+			const importedBooks = await library.importHighlights();
+			if (library.connectedDevice) {
+				library.markImportComplete(library.connectedDevice.serialNumber || 'unknown');
 			}
-
 			return importedBooks;
 		} catch (error) {
 			console.error('Import failed:', error);
@@ -223,80 +158,49 @@
 	}
 
 	async function handleExportAll() {
-		console.log('[EXPORT] Exportando todos os livros');
-		selectedBookIds = books.map((b) => b.contentId);
-		setSelectedBookIds(selectedBookIds);
+		library.setSelectedBookIds(library.books.map((b) => b.contentId));
 		await handleExport();
 	}
 
 	async function handleExportSelected() {
-		console.log('[EXPORT] Exportando livros selecionados:', selectedBookIds.length);
 		await handleExport();
 	}
 
 	async function handleExport() {
-		console.log('[EXPORT FRONTEND] ==========================================');
-		console.log('[EXPORT FRONTEND] Botão Export clicado');
-		console.log('[EXPORT FRONTEND] Livros selecionados:', selectedBookIds.length);
-		console.log('[EXPORT FRONTEND] IDs selecionados:', selectedBookIds);
-
 		try {
-			console.log('[EXPORT FRONTEND] A obter export path das settings...');
-			const exportConfig = getExportConfig();
-			const exportPath = exportConfig.exportPath;
-			console.log('[EXPORT FRONTEND] ✅ Path obtido das settings:', exportPath);
-
-			console.log('[EXPORT FRONTEND] A chamar exportBooks()...');
-			const exportedFiles = await exportBooks(exportPath);
-			console.log('[EXPORT FRONTEND] ✅ Sucesso! Ficheiros exportados:', exportedFiles);
-			console.log('[EXPORT FRONTEND] ==========================================');
-			showNotification(
-				`${exportedFiles.length} book${exportedFiles.length === 1 ? '' : 's'} exported successfully!`,
-				'success'
-			);
+			const settings = getSettings();
+			const exportPath = settings.exportConfig.exportPath;
+			await library.exportBooks(exportPath);
+			showNotification($_('notifications.exportSuccess'), 'success');
 		} catch (error) {
-			console.error('[EXPORT FRONTEND] ❌ ERRO CAPTURADO:', error);
-			console.error('[EXPORT FRONTEND] Tipo do erro:', typeof error);
-			if (error instanceof Error) {
-				console.error('[EXPORT FRONTEND] Message:', error.message);
-				console.error('[EXPORT FRONTEND] Stack:', error.stack);
-			}
-			console.error('[EXPORT FRONTEND] ==========================================');
+			console.error('Export failed:', error);
 			const errorMessage = error instanceof Error ? error.message : 'Export failed';
 			showNotification(`Export failed: ${errorMessage}`, 'error');
 		}
 	}
 
 	function handleSelectionChange(newSelection: string[]) {
-		selectedBookIds = newSelection;
-		setSelectedBookIds(newSelection);
+		library.setSelectedBookIds(newSelection);
 	}
 
 	function handleClearSelection() {
-		selectedBookIds = [];
-		setSelectedBookIds([]);
+		library.setSelectedBookIds([]);
 	}
 
 	function handleBookClick(book: Book, event: MouseEvent) {
-		// If single click without modifiers, open book details
 		const isCtrlOrCmd = event.ctrlKey || event.metaKey;
 		const isShift = event.shiftKey;
 
 		if (!isCtrlOrCmd && !isShift) {
-			// Single selection - open book details
-			setViewingBookId(book.contentId);
-			viewingBook = getViewingBook();
-			setUiState('book-details');
-			uiState = 'book-details';
+			library.setViewingBookId(book.contentId);
+			library.setUiState('book-details');
 			showSettings = false;
 		}
 	}
 
 	function handleCloseBookDetails() {
-		setViewingBookId(null);
-		viewingBook = undefined;
-		setUiState('library');
-		uiState = 'library';
+		library.setViewingBookId(null);
+		library.setUiState('library');
 	}
 
 	function handleOpenSettings() {
@@ -307,10 +211,8 @@
 		showSettings = false;
 	}
 
-	// Notification helper function
 	function showNotification(message: string, type: 'success' | 'error') {
 		exportNotification = { message, type, visible: true };
-		// Auto-hide after 5 seconds
 		setTimeout(() => {
 			if (exportNotification) {
 				exportNotification.visible = false;
@@ -363,13 +265,13 @@
 {/if}
 
 <!-- Conteúdo principal -->
-{#if uiState === 'no-device'}
+{#if library.uiState === 'no-device'}
 	<EmptyStateNoDevice />
-{:else if uiState === 'importing'}
+{:else if library.uiState === 'importing'}
 	<ImportingState />
-{:else if uiState === 'book-details' && viewingBook}
-	<BookDetailsView book={viewingBook} onClose={handleCloseBookDetails} />
-{:else if uiState === 'library'}
+{:else if library.uiState === 'book-details' && library.viewingBook}
+	<BookDetailsView book={library.viewingBook} onClose={handleCloseBookDetails} />
+{:else if library.uiState === 'library'}
 	<!-- Books Library Screen -->
 	<div class="screen">
 		<!-- Header -->
@@ -379,7 +281,7 @@
 
 		<!-- Toolbar -->
 		<LibraryToolbar
-			selectedCount={selectedBookIds.length}
+			selectedCount={library.selectedBookIds.length}
 			{viewMode}
 			{sortBy}
 			onExportAll={handleExportAll}
@@ -393,13 +295,13 @@
 		<!-- Content -->
 		<LibraryView
 			books={sortedBooks}
-			{selectedBookIds}
+			selectedBookIds={library.selectedBookIds}
 			{viewMode}
 			onSelectionChange={handleSelectionChange}
 			onBookClick={handleBookClick}
 			onBooksImport={handleImport}
-			{isImporting}
-			{importProgress}
+			isImporting={library.isImporting}
+			importProgress={library.importProgress}
 		/>
 	</div>
 {/if}
@@ -433,20 +335,21 @@
 	}
 
 	.library-header {
-		padding: 16px 24px;
-		border-bottom: 1px solid var(--border-default);
-		background-color: var(--surface-primary);
+		padding: 24px 32px;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
 	}
 
 	.brand {
+		font-family: 'Geist', sans-serif;
 		font-size: 24px;
-		font-weight: 700;
-		letter-spacing: -0.025em;
+		font-weight: 800;
+		letter-spacing: -0.05em;
 		color: var(--text-primary);
 		margin: 0;
 	}
 
-	/* Device Notification */
 	@keyframes slideIn {
 		from {
 			transform: translateX(100%);
