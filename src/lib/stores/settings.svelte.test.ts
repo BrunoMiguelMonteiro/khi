@@ -16,51 +16,52 @@ import type { AppSettings, ThemePreference, ViewMode, SortPreference } from '../
 
 // Mock Tauri invoke
 vi.mock('@tauri-apps/api/core', () => ({
-	invoke: vi.fn()
+	invoke: vi.fn(),
+  convertFileSrc: vi.fn((src) => src)
 }));
 
 import { invoke } from '@tauri-apps/api/core';
 const mockedInvoke = vi.mocked(invoke);
 
-describe('Settings Store - Default Values', () => {
-	it('should have correct default export config', () => {
-		const config = settings.exportConfig;
+const MOCK_DEFAULTS: AppSettings = {
+  exportConfig: {
+    exportPath: '~/Documents/Kobo Highlights',
+    metadata: {
+      author: true,
+      isbn: true,
+      publisher: true,
+      dateLastRead: true,
+      language: true,
+      description: false
+    },
+    dateFormat: 'dd_month_yyyy'
+  },
+  uiPreferences: {
+    theme: 'system',
+    windowWidth: 1200,
+    windowHeight: 800,
+    isMaximized: false,
+    showOnboarding: true,
+    libraryViewMode: 'grid',
+    librarySort: 'title',
+    autoImportOnConnect: true
+  },
+  lastImport: undefined,
+  version: '0.1.0'
+};
 
-		expect(config.exportPath).toBe('~/Documents/Kobo Highlights');
-		expect(config.metadata.author).toBe(true);
-		expect(config.metadata.isbn).toBe(true);
-		expect(config.metadata.publisher).toBe(true);
-		expect(config.metadata.dateLastRead).toBe(true);
-		expect(config.metadata.language).toBe(true);
-		expect(config.metadata.description).toBe(false);
-		expect(config.dateFormat).toBe('dd_month_yyyy');
-	});
-
-	it('should have correct default UI preferences', () => {
-		const prefs = settings.uiPreferences;
-
-		expect(prefs.theme).toBe('system');
-		expect(prefs.windowWidth).toBe(1200);
-		expect(prefs.windowHeight).toBe(800);
-		expect(prefs.isMaximized).toBe(false);
-		expect(prefs.showOnboarding).toBe(true);
-		expect(prefs.libraryViewMode).toBe('grid');
-		expect(prefs.librarySort).toBe('title');
-	});
-
-	it('should have no last import by default', () => {
-		expect(settings.state.lastImport).toBeUndefined();
-	});
-});
-
-describe('Settings Store - Export Config Actions', () => {
-	beforeEach(() => {
-		settings.resetSettings();
+describe('Settings Store - Actions', () => {
+	beforeEach(async () => {
+    mockedInvoke.mockClear();
+    mockedInvoke.mockImplementation((cmd) => {
+      if (cmd === 'get_default_settings') return Promise.resolve(MOCK_DEFAULTS);
+      return Promise.resolve({});
+    });
+		await settings.resetSettings();
 	});
 
 	it('should update export path', () => {
 		settings.setExportPath('/custom/path');
-
 		expect(settings.exportConfig.exportPath).toBe('/custom/path');
 	});
 
@@ -98,8 +99,13 @@ describe('Settings Store - Export Config Actions', () => {
 });
 
 describe('Settings Store - UI Preferences Actions', () => {
-	beforeEach(() => {
-		settings.resetSettings();
+	beforeEach(async () => {
+    mockedInvoke.mockClear();
+    mockedInvoke.mockImplementation((cmd) => {
+      if (cmd === 'get_default_settings') return Promise.resolve(MOCK_DEFAULTS);
+      return Promise.resolve({});
+    });
+		await settings.resetSettings();
 	});
 
 	it('should update theme', async () => {
@@ -155,8 +161,13 @@ describe('Settings Store - UI Preferences Actions', () => {
 });
 
 describe('Settings Store - Last Import Actions', () => {
-	beforeEach(() => {
-		settings.resetSettings();
+	beforeEach(async () => {
+    mockedInvoke.mockClear();
+    mockedInvoke.mockImplementation((cmd) => {
+      if (cmd === 'get_default_settings') return Promise.resolve(MOCK_DEFAULTS);
+      return Promise.resolve({});
+    });
+		await settings.resetSettings();
 	});
 
 	it('should set last import record', () => {
@@ -186,8 +197,13 @@ describe('Settings Store - Last Import Actions', () => {
 });
 
 describe('Settings Store - Settings Management', () => {
-	beforeEach(() => {
-		settings.resetSettings();
+	beforeEach(async () => {
+    mockedInvoke.mockClear();
+    mockedInvoke.mockImplementation((cmd) => {
+      if (cmd === 'get_default_settings') return Promise.resolve(MOCK_DEFAULTS);
+      return Promise.resolve({});
+    });
+		await settings.resetSettings();
 	});
 
 	it('should update entire settings', () => {
@@ -243,7 +259,7 @@ describe('Settings Store - Settings Management', () => {
 		settings.setExportPath('/custom/path');
 
 		// Reset
-		settings.resetSettings();
+		await settings.resetSettings();
 
 		// Verify defaults
 		expect(settings.uiPreferences.theme).toBe('system');
@@ -252,9 +268,13 @@ describe('Settings Store - Settings Management', () => {
 });
 
 describe('Settings Store - Tauri Integration', () => {
-	beforeEach(() => {
-		settings.resetSettings();
-		mockedInvoke.mockClear();
+	beforeEach(async () => {
+    mockedInvoke.mockClear();
+    mockedInvoke.mockImplementation((cmd) => {
+      if (cmd === 'get_default_settings') return Promise.resolve(MOCK_DEFAULTS);
+      return Promise.resolve({});
+    });
+		await settings.resetSettings();
 	});
 
 	it('should load settings from Tauri', async () => {
@@ -294,13 +314,17 @@ describe('Settings Store - Tauri Integration', () => {
 		expect(settings.uiPreferences.theme).toBe('dark');
 	});
 
-	it('should handle load settings error', async () => {
-		mockedInvoke.mockRejectedValueOnce(new Error('Failed to load'));
+	it('should handle load settings error and fallback to defaults', async () => {
+		mockedInvoke.mockImplementation((cmd) => {
+      if (cmd === 'load_settings') return Promise.reject(new Error('Failed to load'));
+      if (cmd === 'get_default_settings') return Promise.resolve(MOCK_DEFAULTS);
+      return Promise.resolve({});
+    });
 
 		await settings.load();
 
 		expect(settings.error).toBe('Failed to load');
-		// Should keep default settings
+		// Should have fallen back to defaults
 		expect(settings.exportConfig.exportPath).toBe('~/Documents/Kobo Highlights');
 	});
 
@@ -322,7 +346,12 @@ describe('Settings Store - Tauri Integration', () => {
 	});
 
 	it('should reset and save settings', async () => {
-		mockedInvoke.mockResolvedValueOnce(undefined);
+		mockedInvoke.mockClear();
+    mockedInvoke.mockImplementation((cmd) => {
+      if (cmd === 'get_default_settings') return Promise.resolve(MOCK_DEFAULTS);
+      if (cmd === 'save_settings') return Promise.resolve(undefined);
+      return Promise.resolve({});
+    });
 
 		// Modify settings first
 		await settings.setTheme('dark');
@@ -370,8 +399,9 @@ describe('Settings Store - Loading State', () => {
 
 	it('should set loading state during load', async () => {
 		mockedInvoke.mockImplementation(
-			() =>
+			(cmd) =>
 				new Promise((resolve) => {
+          if (cmd === 'get_default_settings') resolve(MOCK_DEFAULTS);
 					// Check loading is true during the call
 					expect(settings.isLoading).toBe(true);
 					setTimeout(() => resolve({}), 10);

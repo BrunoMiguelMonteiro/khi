@@ -1,10 +1,15 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { settings } from './settings.svelte';
+import type { AppSettings } from '../types';
 
 // Mock Tauri invoke
 vi.mock('@tauri-apps/api/core', () => ({
-	invoke: vi.fn()
+	invoke: vi.fn(),
+  convertFileSrc: vi.fn((src) => src)
 }));
+
+import { invoke } from '@tauri-apps/api/core';
+const mockedInvoke = vi.mocked(invoke);
 
 // Mock Tauri window — getCurrentWindow throws so applyTheme falls back to matchMedia
 vi.mock('@tauri-apps/api/window', () => ({
@@ -13,11 +18,38 @@ vi.mock('@tauri-apps/api/window', () => ({
 	}
 }));
 
+const MOCK_DEFAULTS: AppSettings = {
+  exportConfig: {
+    exportPath: '~/Documents/Kobo Highlights',
+    metadata: {
+      author: true,
+      isbn: true,
+      publisher: true,
+      dateLastRead: true,
+      language: true,
+      description: false
+    },
+    dateFormat: 'dd_month_yyyy'
+  },
+  uiPreferences: {
+    theme: 'system',
+    windowWidth: 1200,
+    windowHeight: 800,
+    isMaximized: false,
+    showOnboarding: true,
+    libraryViewMode: 'grid',
+    librarySort: 'title',
+    autoImportOnConnect: true
+  },
+  lastImport: undefined,
+  version: '0.1.0'
+};
+
 describe('Settings Store - Theme Application', () => {
 	// Mock matchMedia
 	const matchMediaMock = vi.fn();
 
-	beforeEach(() => {
+	beforeEach(async () => {
 		// Reset DOM
 		document.documentElement.className = '';
 
@@ -38,7 +70,13 @@ describe('Settings Store - Theme Application', () => {
 			dispatchEvent: vi.fn()
 		}));
 
-		settings.resetSettings();
+    mockedInvoke.mockClear();
+    mockedInvoke.mockImplementation((cmd) => {
+      if (cmd === 'get_default_settings') return Promise.resolve(MOCK_DEFAULTS);
+      return Promise.resolve({});
+    });
+
+		await settings.resetSettings();
 	});
 
 	afterEach(() => {

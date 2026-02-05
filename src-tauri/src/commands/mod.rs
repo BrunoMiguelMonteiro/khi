@@ -201,6 +201,12 @@ pub fn load_settings() -> Result<AppSettings, String> {
     Ok(manager.get().clone())
 }
 
+/// Get the default application settings
+#[tauri::command]
+pub fn get_default_settings() -> AppSettings {
+    AppSettings::default()
+}
+
 /// Save application settings to disk
 #[tauri::command]
 pub fn save_settings(settings: AppSettings) -> Result<(), String> {

@@ -7,6 +7,7 @@
  * - Last import record
  *
  * Integrates with Tauri commands for persistence.
+ * This store uses the Backend (Rust) as the Single Source of Truth for defaults.
  */
 
 import { invoke } from "@tauri-apps/api/core";
@@ -20,49 +21,40 @@ import type {
   LastImportSettingsRecord,
 } from "../types";
 
-// ============================================
-// Default Values
-// ============================================
-
-function getDefaultSettings(): AppSettings {
+/**
+ * Initial empty state to satisfy TypeScript before Rust provides actual values.
+ * Values here are placeholders and should be overwritten by initialize() or load().
+ */
+function createInitialState(): AppSettings {
   return {
-    exportConfig: getDefaultExportConfig(),
-    uiPreferences: getDefaultUiPreferences(),
-    lastImport: undefined,
+    exportConfig: {
+      exportPath: "",
+      metadata: {
+        author: true,
+        isbn: true,
+        publisher: true,
+        dateLastRead: true,
+        language: true,
+        description: false,
+      },
+      dateFormat: "iso8601",
+    },
+    uiPreferences: {
+      theme: "system",
+      windowWidth: 1200,
+      windowHeight: 800,
+      isMaximized: false,
+      showOnboarding: true,
+      libraryViewMode: "grid",
+      librarySort: "title",
+      autoImportOnConnect: true,
+    },
     version: "0.1.0",
   };
 }
 
-function getDefaultExportConfig(): ExportConfig {
-  return {
-    exportPath: "~/Documents/Kobo Highlights",
-    metadata: {
-      author: true,
-      isbn: true,
-      publisher: true,
-      dateLastRead: true,
-      language: true,
-      description: false,
-    },
-    dateFormat: "dd_month_yyyy",
-  };
-}
-
-function getDefaultUiPreferences(): UiPreferences {
-  return {
-    theme: "system",
-    windowWidth: 1200,
-    windowHeight: 800,
-    isMaximized: false,
-    showOnboarding: true,
-    libraryViewMode: "grid",
-    librarySort: "date_last_read",
-    autoImportOnConnect: true,
-  };
-}
-
 class SettingsStore {
-  state = $state<AppSettings>(getDefaultSettings());
+  state = $state<AppSettings>(createInitialState());
   isLoading = $state(false);
   error = $state<string | null>(null);
 
@@ -82,8 +74,19 @@ class SettingsStore {
     this.state = { ...this.state, ...updates };
   }
 
-  resetSettings() {
-    this.state = getDefaultSettings();
+  /**
+   * Pede ao Rust os valores por defeito e atualiza o estado local.
+   */
+  async resetSettings() {
+    this.isLoading = true;
+    try {
+      const defaults = await invoke<AppSettings>("get_default_settings");
+      this.state = defaults;
+    } catch (err) {
+      console.error("Failed to fetch default settings:", err);
+    } finally {
+      this.isLoading = false;
+    }
   }
 
   // ============================================
@@ -175,7 +178,8 @@ class SettingsStore {
       console.error("Failed to load settings:", err);
       this.error =
         err instanceof Error ? err.message : "Failed to load settings";
-      // Keep default settings on error
+      // Fallback to defaults from Rust if load fails
+      await this.resetSettings();
     } finally {
       this.isLoading = false;
     }
@@ -204,7 +208,7 @@ class SettingsStore {
    * Reset settings to defaults and save
    */
   async resetAndSave() {
-    this.resetSettings();
+    await this.resetSettings();
     await this.save();
   }
 

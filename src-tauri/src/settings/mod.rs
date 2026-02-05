@@ -128,7 +128,7 @@ impl Default for UiPreferences {
             is_maximized: false,
             show_onboarding: true,
             library_view_mode: ViewMode::Grid,
-            library_sort: SortPreference::Title,
+            library_sort: SortPreference::DateLastRead,
         }
     }
 }

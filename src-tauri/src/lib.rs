@@ -8,9 +8,9 @@ pub mod settings;
 pub mod utils;
 
 use commands::{
-    clear_cover_cache, export_books, get_default_export_path, get_export_preview, import_highlights,
-    load_settings, pick_export_folder, reset_settings, save_settings, scan_for_device,
-    update_last_import, validate_export_path,
+    clear_cover_cache, export_books, get_default_export_path, get_default_settings,
+    get_export_preview, import_highlights, load_settings, pick_export_folder, reset_settings,
+    save_settings, scan_for_device, update_last_import, validate_export_path,
 };
 
 use device::monitor::DeviceMonitor;
@@ -31,6 +31,7 @@ pub fn run() {
             export_books,
             get_export_preview,
             get_default_export_path,
+            get_default_settings,
             validate_export_path,
             load_settings,
             save_settings,
