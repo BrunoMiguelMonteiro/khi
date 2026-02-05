@@ -90,3 +90,5 @@ function createTranslationStore() {
 export const _ = createTranslationStore();
 export { currentLocale as locale };
 export { config, type Locale } from './config';
+
+export type MessageFormatter = typeof t;
