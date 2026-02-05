@@ -2,6 +2,7 @@
 	import type { Book } from '../types';
 	import BookCard from './BookCard.svelte';
 	import BookListItem from './BookListItem.svelte';
+	import Button from './Button.svelte';
 	import { _ } from '$lib/i18n';
 	import { getBookGradient } from '$lib/utils/gradients';
 
@@ -79,27 +80,28 @@
 
 {#if isImporting && importProgress}
 	<div
-		class="progress-container"
+		class="flex items-center gap-3 px-6 py-3 bg-neutral-100 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-700"
 		role="status"
 		aria-live="polite"
 		aria-label={$_('screens.library.importProgress')}
 	>
-		<div class="progress-bar" data-testid="import-progress">
+		<div class="flex-1 h-2 bg-neutral-200 dark:bg-neutral-700 rounded-full overflow-hidden" data-testid="import-progress">
 			<div
-				class="progress-fill"
+				class="h-full bg-neutral-900 dark:bg-neutral-100 rounded-full transition-all duration-300"
 				style="width: {importProgress.percentage}%"
 				aria-hidden="true"
 			></div>
 		</div>
-		<span class="progress-text">{importProgress.currentBook}</span>
-		<span class="progress-percentage">{importProgress.percentage}%</span>
+		<span class="text-sm text-neutral-600 dark:text-neutral-400 truncate max-w-[300px] max-sm:max-w-[150px]">{importProgress.currentBook}</span>
+		<span class="text-sm font-semibold text-neutral-900 dark:text-neutral-100 min-w-[48px] text-right">{importProgress.percentage}%</span>
 	</div>
 {/if}
 
-<div class="library-container" class:list-mode={viewMode === 'list'}>
-	{#if books.length === 0}
-		<div class="empty-state" data-testid="empty-state">
-			<div class="empty-icon">
+<div class="flex-1 overflow-y-auto">
+	<div class="mx-auto px-6 py-8 transition-all {viewMode === 'list' ? 'w-full' : 'max-w-7xl'} max-sm:px-4">
+		{#if books.length === 0}
+		<div class="flex flex-col items-center justify-center gap-4 py-16 px-8 text-center" data-testid="empty-state">
+			<div class="w-16 h-16 text-neutral-300 dark:text-neutral-600">
 				<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 					<path
 						d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"
@@ -117,32 +119,34 @@
 					/>
 				</svg>
 			</div>
-			<h3 class="empty-title">{$_('screens.library.noBooks')}</h3>
-			<p class="empty-description">{$_('screens.library.noBooksSubtitle')}</p>
+			<h3 class="m-0 text-xl font-semibold text-neutral-900 dark:text-neutral-100">{$_('screens.library.noBooks')}</h3>
+			<p class="m-0 text-base text-neutral-500 dark:text-neutral-400 max-w-sm">{$_('screens.library.noBooksSubtitle')}</p>
 			{#if onBooksImport}
-				<button type="button" class="action-btn import" onclick={onBooksImport}>
-					<svg
-						class="btn-icon"
-						viewBox="0 0 24 24"
-						fill="none"
-						xmlns="http://www.w3.org/2000/svg"
-						aria-hidden="true"
-					>
-						<path
-							d="M12 4v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						/>
-					</svg>
+				<Button onclick={onBooksImport} class="mt-4">
+					{#snippet icon()}
+						<svg
+							class="w-4 h-4"
+							viewBox="0 0 24 24"
+							fill="none"
+							xmlns="http://www.w3.org/2000/svg"
+							aria-hidden="true"
+						>
+							<path
+								d="M12 4v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							/>
+						</svg>
+					{/snippet}
 					{$_('screens.library.importTitle')}
-				</button>
+				</Button>
 			{/if}
 		</div>
 	{:else if viewMode === 'grid'}
 		<div
-			class="books-grid"
+			class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
 			data-testid="books-grid"
 			role="list"
 			aria-label="Lista de livros"
@@ -164,7 +168,7 @@
 		</div>
 	{:else}
 		<!-- List view -->
-		<div class="books-list" data-testid="books-list" role="list" aria-label="Lista de livros">
+		<div class="flex flex-col gap-2" data-testid="books-list" role="list" aria-label="Lista de livros">
 			{#each books as book, index (book.contentId)}
 				<div role="listitem">
 					<BookListItem
@@ -179,166 +183,4 @@
 		</div>
 	{/if}
 </div>
-
-<style>
-	.progress-container {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		padding: 12px 24px;
-		background-color: var(--surface-secondary);
-		border-bottom: 1px solid var(--border-default);
-	}
-
-	.progress-bar {
-		flex: 1;
-		height: 8px;
-		background-color: var(--border-default);
-		border-radius: 9999px;
-		overflow: hidden;
-	}
-
-	.progress-fill {
-		height: 100%;
-		background-color: var(--accent-primary);
-		border-radius: 9999px;
-		transition: width 0.3s ease;
-	}
-
-	.progress-text {
-		font-size: 14px;
-		color: var(--text-secondary);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		max-width: 300px;
-	}
-
-	.progress-percentage {
-		font-size: 14px;
-		font-weight: 600;
-		color: var(--text-primary);
-		min-width: 48px;
-		text-align: right;
-	}
-
-	.library-container {
-		max-width: 1280px;
-		margin: 0 auto;
-		padding: 32px 24px;
-	}
-
-	.library-container.list-mode {
-		max-width: none;
-		width: 100%;
-	}
-
-	/* Books Grid */
-	.books-grid {
-		display: grid;
-		grid-template-columns: repeat(3, 1fr);
-		gap: 24px;
-	}
-
-	@media (min-width: 768px) {
-		.books-grid {
-			grid-template-columns: repeat(4, 1fr);
-		}
-	}
-
-	@media (min-width: 1024px) {
-		.books-grid {
-			grid-template-columns: repeat(5, 1fr);
-		}
-	}
-
-	@media (min-width: 1280px) {
-		.books-grid {
-			grid-template-columns: repeat(6, 1fr);
-		}
-	}
-
-	/* Books List */
-	.books-list {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-2); /* 8px - Conforme UI-SPEC linha 80 */
-	}
-
-	/* Empty State */
-	.empty-state {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		gap: 16px;
-		padding: 64px 32px;
-		text-align: center;
-	}
-
-	.empty-icon {
-		width: 64px;
-		height: 64px;
-		color: var(--text-tertiary);
-	}
-
-	.empty-icon svg {
-		width: 100%;
-		height: 100%;
-	}
-
-	.empty-title {
-		margin: 0;
-		font-size: 20px;
-		font-weight: 600;
-		color: var(--text-primary);
-	}
-
-	.empty-description {
-		margin: 0;
-		font-size: 16px;
-		color: var(--text-secondary);
-		max-width: 400px;
-	}
-
-	.action-btn {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		gap: 8px;
-		padding: 12px 24px;
-		font-size: 14px;
-		font-weight: 500;
-		border: none;
-		border-radius: 8px;
-		cursor: pointer;
-		transition: all 0.2s ease;
-		background-color: var(--accent-primary);
-		color: white;
-	}
-
-	.action-btn:hover {
-		background-color: var(--accent-primary-hover);
-	}
-
-	.btn-icon {
-		width: 16px;
-		height: 16px;
-	}
-
-	/* Responsive */
-	@media (max-width: 640px) {
-		.library-container {
-			padding: 16px;
-		}
-
-		.books-grid {
-			grid-template-columns: repeat(2, 1fr);
-			gap: 16px;
-		}
-
-		.progress-text {
-			max-width: 150px;
-		}
-	}
-</style>
+</div>

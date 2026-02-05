@@ -19,6 +19,7 @@
 	import type { ExportConfig, ThemePreference, ViewMode, SortPreference } from '../types';
 	import CustomCheckbox from './CustomCheckbox.svelte';
 	import CustomRadio from './CustomRadio.svelte';
+	import Button from './Button.svelte';
 
 	// Props
 	interface Props {
@@ -183,40 +184,41 @@
 </script>
 
 <div
-	class="settings-panel"
+	class="flex flex-col bg-white dark:bg-neutral-900 rounded-lg min-w-[700px] max-w-[900px] max-h-[80vh] overflow-hidden shadow-xl"
 	role="dialog"
 	aria-labelledby="settings-title"
 	aria-modal="true"
 >
-	<div class="settings-header">
-		<h2 id="settings-title" class="settings-title">Settings</h2>
-		<button
-			class="close-button"
+	<div class="flex justify-between items-center p-6 border-b border-neutral-200 dark:border-neutral-800">
+		<h2 id="settings-title" class="text-xl font-semibold text-neutral-900 dark:text-neutral-100 m-0">Settings</h2>
+		<Button
+			variant="icon"
 			onclick={handleCancel}
-			aria-label="Close settings"
+			ariaLabel="Close settings"
 		>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				width="24"
-				height="24"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-			>
-				<line x1="18" y1="6" x2="6" y2="18"></line>
-				<line x1="6" y1="6" x2="18" y2="18"></line>
-			</svg>
-		</button>
+			{#snippet icon()}
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="24"
+					height="24"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<line x1="18" y1="6" x2="6" y2="18"></line>
+					<line x1="6" y1="6" x2="18" y2="18"></line>
+				</svg>
+			{/snippet}
+		</Button>
 	</div>
 
 	<!-- Tabs -->
-	<div class="settings-tabs" role="tablist" aria-label="Settings tabs">
+	<div class="flex gap-2 px-6 py-3 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/50" role="tablist" aria-label="Settings tabs">
 		<button
-			class="tab-button"
-			class:active={activeTab === 'export'}
+			class="flex items-center gap-3 px-4 py-2 border-b-2 font-medium text-sm transition-all duration-150 {activeTab === 'export' ? 'border-neutral-900 text-neutral-900 dark:border-white dark:text-white' : 'border-transparent text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100'}"
 			onclick={() => (activeTab = 'export')}
 			role="tab"
 			aria-selected={activeTab === 'export'}
@@ -241,8 +243,7 @@
 			Export
 		</button>
 		<button
-			class="tab-button"
-			class:active={activeTab === 'appearance'}
+			class="flex items-center gap-3 px-4 py-2 border-b-2 font-medium text-sm transition-all duration-150 {activeTab === 'appearance' ? 'border-neutral-900 text-neutral-900 dark:border-white dark:text-white' : 'border-transparent text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100'}"
 			onclick={() => (activeTab = 'appearance')}
 			role="tab"
 			aria-selected={activeTab === 'appearance'}
@@ -275,73 +276,75 @@
 	</div>
 
 	<!-- Tab Panels -->
-	<div class="settings-content">
+	<div class="flex-1 overflow-y-auto p-6">
 		{#if activeTab === 'export'}
 			<div
 				id="export-panel"
 				role="tabpanel"
 				aria-labelledby="export-tab"
-				class="tab-panel"
+				class="flex flex-col gap-8"
 			>
 				<!-- Export Path -->
-				<section class="settings-section">
-					<h3 class="section-title">Export Folder</h3>
-					<div class="form-group">
-						<label for="export-path" class="form-label">Path</label>
-						<div class="input-with-button">
+				<section class="flex flex-col gap-4">
+					<h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 m-0">Export Folder</h3>
+					<div class="flex flex-col gap-2">
+						<label for="export-path" class="text-sm font-medium text-neutral-600 dark:text-neutral-400">Path</label>
+						<div class="flex gap-2 items-center">
 							<input
 								id="export-path"
 								type="text"
-								class="form-input"
+								class="flex-1 px-4 py-2 border border-neutral-200 dark:border-neutral-700 rounded-md bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
 								value={exportConfig.exportPath}
 								oninput={handleExportPathChange}
 								placeholder="~/Documents/Kobo Highlights"
 							/>
-							<button
-								type="button"
-								class="browse-button"
+							<Button
+								variant="secondary"
 								onclick={handleBrowseFolder}
-								aria-label="Browse for export folder"
+								ariaLabel="Browse for export folder"
+								class="whitespace-nowrap"
 							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									width="18"
-									height="18"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-								>
-									<path
-										d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
-									></path>
-								</svg>
+								{#snippet icon()}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="18"
+										height="18"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+									>
+										<path
+											d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+										></path>
+									</svg>
+								{/snippet}
 								Browse
-							</button>
+							</Button>
 						</div>
-						<p class="form-hint">
+						<p class="text-xs text-neutral-500 dark:text-neutral-400 m-0">
 							Markdown files will be saved in this folder.
 						</p>
 					</div>
 				</section>
 
 				<!-- Metadata Options -->
-				<section class="settings-section">
-					<h3 class="section-title">Metadata to Include</h3>
-					<p class="section-description">
+				<section class="flex flex-col gap-4">
+					<h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 m-0">Metadata to Include</h3>
+					<p class="text-sm text-neutral-500 dark:text-neutral-400 m-0 -mt-2">
 						Select which metadata to include in the exported files.
 					</p>
-					<div class="checkbox-group">
+					<div class="grid grid-cols-2 gap-x-4 gap-y-0.5">
 						{#each metadataOptions as option}
-							<label class="checkbox-label">
+							<label class="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
 								<CustomCheckbox
 									checked={exportConfig.metadata[option.key]}
 									onChange={() =>
 										handleMetadataToggle(option.key)}
 								/>
-								<span class="checkbox-text">{option.label}</span
+								<span class="text-sm text-neutral-900 dark:text-neutral-100">{option.label}</span
 								>
 							</label>
 						{/each}
@@ -349,11 +352,11 @@
 				</section>
 
 				<!-- Date Format -->
-				<section class="settings-section">
-					<h3 class="section-title">Date Format</h3>
-					<div class="radio-group">
+				<section class="flex flex-col gap-4">
+					<h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 m-0">Date Format</h3>
+					<div class="flex flex-col gap-0.5">
 						{#each dateFormats as format}
-							<label class="radio-label">
+							<label class="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
 								<CustomRadio
 									name="date-format"
 									value={format}
@@ -361,7 +364,7 @@
 									onChange={() =>
 										handleDateFormatChange(format)}
 								/>
-								<span class="radio-text"
+								<span class="text-sm text-neutral-900 dark:text-neutral-100"
 									>{getEnglishDateFormatLabel(format)}</span
 								>
 							</label>
@@ -374,16 +377,15 @@
 				id="appearance-panel"
 				role="tabpanel"
 				aria-labelledby="appearance-tab"
-				class="tab-panel"
+				class="flex flex-col gap-8"
 			>
 				<!-- Theme -->
-				<section class="settings-section">
-					<h3 class="section-title">Theme</h3>
-					<div class="button-group">
+				<section class="flex flex-col gap-4">
+					<h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 m-0">Theme</h3>
+					<div class="flex rounded-lg border border-neutral-200 dark:border-neutral-700 overflow-hidden w-fit">
 						{#each themes as theme}
 							<button
-								class="theme-button"
-								class:active={uiPreferences.theme === theme}
+								class="flex items-center gap-2 px-3 py-2 text-sm transition-colors border-r last:border-r-0 border-neutral-200 dark:border-neutral-700 {uiPreferences.theme === theme ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-black' : 'bg-white text-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800'}"
 								onclick={() => handleThemeChange(theme)}
 								aria-pressed={uiPreferences.theme === theme}
 							>
@@ -482,14 +484,12 @@
 				</section>
 
 				<!-- View Mode -->
-				<section class="settings-section">
-					<h3 class="section-title">Library View Mode</h3>
-					<div class="button-group">
+				<section class="flex flex-col gap-4">
+					<h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 m-0">Library View Mode</h3>
+					<div class="flex rounded-lg border border-neutral-200 dark:border-neutral-700 overflow-hidden w-fit">
 						{#each viewModes as mode}
 							<button
-								class="view-mode-button"
-								class:active={uiPreferences.libraryViewMode ===
-									mode}
+								class="flex items-center gap-2 px-3 py-2 text-sm transition-colors border-r last:border-r-0 border-neutral-200 dark:border-neutral-700 {uiPreferences.libraryViewMode === mode ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-black' : 'bg-white text-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800'}"
 								onclick={() => handleViewModeChange(mode)}
 								aria-pressed={uiPreferences.libraryViewMode ===
 									mode}
@@ -548,20 +548,20 @@
 				</section>
 
 				<!-- Auto-import on connect -->
-				<section class="settings-section">
-					<h3 class="section-title">Device Connection</h3>
-					<p class="section-description">
+				<section class="flex flex-col gap-4">
+					<h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 m-0">Device Connection</h3>
+					<p class="text-sm text-neutral-500 dark:text-neutral-400 m-0 -mt-2">
 						Automatically import highlights when a Kobo device is
 						connected.
 					</p>
-					<label class="checkbox-label">
+					<label class="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
 						<input
 							type="checkbox"
 							checked={uiPreferences.autoImportOnConnect}
 							onchange={handleAutoImportToggle}
-							class="checkbox-input"
+							class="w-4 h-4 rounded border-neutral-300 text-blue-600 focus:ring-blue-500"
 						/>
-						<span class="checkbox-text"
+						<span class="text-sm text-neutral-900 dark:text-neutral-100"
 							>Auto-import on device connect</span
 						>
 					</label>
@@ -572,7 +572,7 @@
 
 	<!-- Error Message -->
 	{#if saveError}
-		<div class="error-message" role="alert">
+		<div class="flex items-center gap-2 mx-6 my-2 p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800/50 rounded-md text-sm" role="alert">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				width="18"
@@ -593,469 +593,30 @@
 	{/if}
 
 	<!-- Footer -->
-	<div class="settings-footer">
-		<button
-			class="button button-secondary"
+	<div class="flex justify-between items-center p-6 border-t border-neutral-200 dark:border-neutral-800 gap-4 max-sm:flex-col max-sm:items-stretch">
+		<Button
+			variant="secondary"
 			onclick={handleReset}
 			disabled={isLoading}
 		>
 			Reset Defaults
-		</button>
-		<div class="footer-actions">
-			<button
-				class="button button-secondary"
+		</Button>
+		<div class="flex gap-3 max-sm:flex-col">
+			<Button
+				variant="secondary"
 				onclick={handleCancel}
 				disabled={isLoading}
 			>
 				Cancel
-			</button>
-			<button
-				class="button button-primary"
+			</Button>
+			<Button
+				variant="primary"
 				onclick={handleSave}
 				disabled={isLoading || !hasChanges}
+				loading={isLoading}
 			>
-				{#if isLoading}
-					<span class="spinner"></span>
-					Saving...
-				{:else}
-					Save Changes
-				{/if}
-			</button>
+				Save Changes
+			</Button>
 		</div>
 	</div>
 </div>
-
-<style>
-	.settings-panel {
-		display: flex;
-		flex-direction: column;
-		background: var(--surface-primary);
-		border-radius: var(--radius-lg);
-		min-width: 700px;
-		max-width: 900px;
-		max-height: 80vh;
-		overflow: hidden;
-	}
-
-	.settings-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: var(--space-6);
-		border-bottom: 1px solid var(--border-default);
-	}
-
-	.settings-title {
-		font-size: var(--text-xl);
-		font-weight: var(--font-semibold);
-		color: var(--text-primary);
-		margin: 0;
-	}
-
-	.close-button {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 36px;
-		height: 36px;
-		border: none;
-		border-radius: var(--radius-md);
-		background: transparent;
-		color: var(--text-secondary);
-		cursor: pointer;
-		transition: all var(--transition-fast);
-	}
-
-	.close-button:hover {
-		background: var(--surface-tertiary);
-		color: var(--text-primary);
-	}
-
-	.close-button:focus-visible {
-		outline: 2px solid var(--color-primary-500);
-		outline-offset: 2px;
-	}
-
-	/* Tabs */
-	.settings-tabs {
-		display: flex;
-		gap: var(--space-2);
-		padding: var(--space-3) var(--space-6);
-		border-bottom: 1px solid var(--border-default);
-		background: var(--surface-secondary);
-	}
-
-	.tab-button {
-		display: flex;
-		align-items: center;
-		gap: var(--space-3);
-		padding: var(--space-2) var(--space-4);
-		border: none;
-		border-bottom: 2px solid transparent;
-		border-radius: 0;
-		background: transparent;
-		color: var(--text-secondary);
-		font-size: var(--text-sm);
-		font-weight: var(--font-medium);
-		cursor: pointer;
-		transition: all var(--transition-fast);
-	}
-
-	.tab-button:hover {
-		color: var(--text-primary);
-	}
-
-	.tab-button.active {
-		border-bottom-color: rgb(10, 10, 10);
-		color: var(--text-primary);
-	}
-
-	:global(.dark) .tab-button.active {
-		border-bottom-color: white;
-	}
-
-	.tab-button:focus-visible {
-		outline: 2px solid var(--color-primary-500);
-		outline-offset: 2px;
-	}
-
-	/* Content */
-	.settings-content {
-		flex: 1;
-		overflow-y: auto;
-		padding: var(--space-5);
-	}
-
-	.tab-panel {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-6);
-	}
-
-	.settings-section {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-4);
-	}
-
-	.section-title {
-		font-size: var(--text-base);
-		font-weight: var(--font-semibold);
-		color: var(--text-primary);
-		margin: 0;
-	}
-
-	.section-description {
-		font-size: var(--text-sm);
-		color: var(--text-secondary);
-		margin: 0;
-		margin-top: calc(-1 * var(--space-2));
-	}
-
-	/* Form Elements */
-	.form-group {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-2);
-	}
-
-	.form-label {
-		font-size: var(--text-sm);
-		font-weight: var(--font-medium);
-		color: var(--text-secondary);
-	}
-
-	.form-input {
-		padding: var(--space-2) var(--space-4);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-md);
-		background: var(--surface-primary);
-		color: var(--text-primary);
-		font-size: var(--text-sm);
-		transition: border-color var(--transition-fast);
-	}
-
-	.form-input:focus {
-		outline: none;
-		border-color: var(--color-primary-500);
-		box-shadow: 0 0 0 3px var(--color-primary-100);
-	}
-
-	.form-hint {
-		font-size: var(--text-xs);
-		color: var(--text-tertiary);
-		margin: 0;
-    }
-
-	/* Checkbox Group */
-	.checkbox-group {
-		display: grid;
-		grid-template-columns: repeat(2, 1fr);
-		gap: 2px var(--space-4);
-	}
-
-	.checkbox-label {
-		display: flex;
-		align-items: center;
-		gap: var(--space-3);
-		padding: var(--space-2);
-		border-radius: var(--radius-md);
-		cursor: pointer;
-		transition: background var(--transition-fast);
-	}
-
-	.checkbox-label:hover {
-		background: var(--surface-secondary);
-	}
-
-	.checkbox-text {
-		font-size: var(--text-sm);
-		color: var(--text-primary);
-	}
-
-	/* Radio Group */
-	.radio-group {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-    }
-
-	.radio-label {
-		display: flex;
-		align-items: center;
-		gap: var(--space-3);
-		padding: var(--space-2);
-		border-radius: var(--radius-md);
-		cursor: pointer;
-		transition: background var(--transition-fast);
-	}
-
-	.radio-label:hover {
-		background: var(--surface-secondary);
-	}
-
-	.radio-text {
-		font-size: var(--text-sm);
-		color: var(--text-primary);
-	}
-
-	/* Button Group */
-	.button-group {
-		display: flex;
-		gap: var(--space-3);
-		flex-wrap: wrap;
-	}
-
-	.theme-button,
-	.view-mode-button {
-		display: flex;
-		align-items: center;
-		gap: var(--space-3);
-		padding: var(--space-2) var(--space-4);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-md);
-		background: var(--surface-primary);
-		color: var(--text-secondary);
-		font-size: var(--text-sm);
-		cursor: pointer;
-		transition: all var(--transition-fast);
-	}
-
-	.theme-button:hover,
-	.view-mode-button:hover {
-		border-color: var(--color-primary-500);
-		color: var(--text-primary);
-	}
-
-	.theme-button.active,
-	.view-mode-button.active {
-		background: white;
-		color: var(--text-primary);
-		border-color: var(--border-default);
-	}
-
-	/* Dark mode variant */
-	:global(.dark) .theme-button.active,
-	:global(.dark) .view-mode-button.active {
-		background: var(--surface-secondary);
-		color: var(--text-primary);
-		border-color: var(--border-default);
-	}
-
-	.theme-button:focus-visible,
-	.view-mode-button:focus-visible {
-		outline: 2px solid var(--color-primary-500);
-		outline-offset: 2px;
-	}
-
-	/* Error Message */
-	.error-message {
-		display: flex;
-		align-items: center;
-		gap: var(--space-2);
-		margin: 0 var(--space-6);
-		padding: var(--space-3) var(--space-4);
-		background: var(--color-error-50);
-		color: var(--color-error-700);
-		border-radius: var(--radius-md);
-		font-size: var(--text-sm);
-	}
-
-	/* Footer */
-	.settings-footer {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: var(--space-6);
-		border-top: 1px solid var(--border-default);
-		gap: var(--space-4);
-	}
-
-	.footer-actions {
-		display: flex;
-		gap: var(--space-3);
-	}
-
-	.button {
-		display: flex;
-		align-items: center;
-		gap: var(--space-2);
-		padding: var(--space-2) var(--space-4);
-		border: 1px solid transparent;
-		border-radius: var(--radius-md);
-		font-size: var(--text-sm);
-		font-weight: var(--font-medium);
-		cursor: pointer;
-		transition: all var(--transition-fast);
-	}
-
-	.button:disabled {
-		opacity: 0.6;
-		cursor: not-allowed;
-	}
-
-	.button-primary {
-		background: rgb(10, 10, 10);
-		color: white;
-		border-color: rgb(10, 10, 10);
-	}
-
-	:global(.dark) .button-primary {
-		background: white;
-		color: rgb(10, 10, 10);
-		border-color: white;
-	}
-
-	.button-primary:hover:not(:disabled) {
-		background: rgb(40, 40, 40);
-		border-color: rgb(40, 40, 40);
-    }
-
-	:global(.dark) .button-primary:hover:not(:disabled) {
-		background: rgb(240, 240, 240);
-		border-color: rgb(240, 240, 240);
-	}
-
-	.button-primary:focus-visible {
-		outline: 2px solid var(--color-primary-500);
-		outline-offset: 2px;
-	}
-
-	.button-secondary {
-		background: var(--surface-secondary);
-		color: var(--text-primary);
-		border-color: var(--border-default);
-	}
-
-	.button-secondary:hover:not(:disabled) {
-		background: var(--surface-tertiary);
-		border-color: var(--border-hover);
-	}
-
-	.button-secondary:focus-visible {
-		outline: 2px solid var(--color-primary-500);
-		outline-offset: 2px;
-	}
-
-	/* Spinner */
-	.spinner {
-		width: 16px;
-		height: 16px;
-		border: 2px solid var(--border-default);
-		border-top-color: var(--text-primary);
-		border-radius: 50%;
-		animation: spin 0.8s linear infinite;
-	}
-
-	@keyframes spin {
-		to {
-			transform: rotate(360deg);
-		}
-	}
-
-	/* Input with Button */
-	.input-with-button {
-		display: flex;
-		gap: var(--space-2);
-		align-items: center;
-	}
-
-	.input-with-button .form-input {
-		flex: 1;
-	}
-
-	.browse-button {
-		display: flex;
-		align-items: center;
-		gap: var(--space-2);
-		padding: var(--space-2) var(--space-3);
-		border: 1px solid var(--border-default);
-		border-radius: var(--radius-md);
-		background: var(--surface-secondary);
-		color: var(--text-primary);
-		font-size: var(--text-sm);
-		font-weight: var(--font-medium);
-		cursor: pointer;
-		transition: all var(--transition-fast);
-		white-space: nowrap;
-	}
-
-	.browse-button:hover {
-		background: var(--surface-tertiary);
-		border-color: var(--color-primary-500);
-		color: var(--color-primary-600);
-	}
-
-	.browse-button:focus-visible {
-		outline: 2px solid var(--color-primary-500);
-		outline-offset: 2px;
-    }
-
-	/* Responsive */
-	@media (max-width: 640px) {
-		.settings-panel {
-			min-width: auto;
-			max-width: 100%;
-			max-height: 100vh;
-			border-radius: 0;
-		}
-
-		.checkbox-group {
-			grid-template-columns: 1fr;
-		}
-
-		.settings-footer {
-			flex-direction: column;
-			align-items: stretch;
-		}
-
-		.footer-actions {
-			justify-content: stretch;
-		}
-
-		.footer-actions .button {
-			flex: 1;
-			justify-content: center;
-		}
-	}
-</style>

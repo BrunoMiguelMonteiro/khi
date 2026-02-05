@@ -56,42 +56,14 @@
 </script>
 
 <div
-  class="highlight-item"
+  class="flex flex-col gap-2"
   data-testid="highlight-item"
   data-highlight-id={highlight.id}
 >
-  <blockquote class="highlight-text">
+  <blockquote class="m-0 py-1 px-4 border-l-4 border-neutral-300 dark:border-neutral-600 text-base leading-relaxed text-neutral-900 dark:text-neutral-100">
     {highlight.text}
   </blockquote>
   {#if highlight.chapterTitle}
-    <p class="location-label">{formatChapterTitle(highlight.chapterTitle)}</p>
+    <p class="m-0 pl-4 text-xs text-neutral-500 dark:text-neutral-400">{formatChapterTitle(highlight.chapterTitle)}</p>
   {/if}
 </div>
-
-<style>
-  .highlight-item {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2); /* 8px gap between quote and location */
-  }
-
-  .highlight-text {
-    margin: 0;
-    padding: 4px var(--space-4); /* 4px vertical, 16px horizontal */
-    border-left: 4px solid var(--color-neutral-300);
-    font-size: var(--text-base); /* 16px */
-    line-height: var(--leading-relaxed); /* 1.625 */
-    color: var(--text-primary);
-  }
-
-  :global(.dark) .highlight-text {
-    border-left-color: var(--color-neutral-400);
-  }
-
-  .location-label {
-    margin: 0;
-    padding-left: var(--space-4); /* Aligned with quote */
-    font-size: var(--text-xs); /* 12px */
-    color: var(--text-tertiary);
-  }
-</style>

@@ -3,8 +3,7 @@
 </script>
 
 <div
-  class="flex flex-col items-center justify-center min-h-screen gap-8"
-  style="background-color: var(--surface-primary);"
+  class="flex flex-col items-center justify-center h-full gap-8 bg-white dark:bg-neutral-900"
   role="status"
   aria-live="polite"
 >

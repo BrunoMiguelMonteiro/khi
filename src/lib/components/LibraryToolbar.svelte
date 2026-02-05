@@ -1,4 +1,6 @@
 <script lang="ts">
+	import Button from './Button.svelte';
+
 	interface Props {
 		selectedCount: number;
 		viewMode: 'grid' | 'list';
@@ -32,57 +34,66 @@
 	];
 </script>
 
-<div class="toolbar">
-	<div class="left-actions">
-		<button class="btn btn-ghost" onclick={onExportAll}>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				width="16"
-				height="16"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				aria-hidden="true"
-			>
-				<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-				<polyline points="7 10 12 15 17 10" />
-				<line x1="12" y1="15" x2="12" y2="3" />
-			</svg>
+<div class="flex items-center justify-between gap-4 px-6 py-3 bg-neutral-100 dark:bg-neutral-800 border-t border-b border-neutral-200 dark:border-neutral-700 max-sm:flex-col max-sm:items-stretch max-sm:px-4">
+	<div class="flex items-center gap-2 flex-wrap">
+		<Button variant="ghost" onclick={onExportAll}>
+			{#snippet icon()}
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="16"
+					height="16"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+				>
+					<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+					<polyline points="7 10 12 15 17 10" />
+					<line x1="12" y1="15" x2="12" y2="3" />
+				</svg>
+			{/snippet}
 			Export All
-		</button>
+		</Button>
 
-		<button class="btn btn-ghost" disabled={selectedCount === 0} onclick={onExportSelected}>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				width="16"
-				height="16"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				aria-hidden="true"
-			>
-				<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-				<polyline points="7 10 12 15 17 10" />
-				<line x1="12" y1="15" x2="12" y2="3" />
-			</svg>
+		<Button variant="ghost" disabled={selectedCount === 0} onclick={onExportSelected}>
+			{#snippet icon()}
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="16"
+					height="16"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+				>
+					<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+					<polyline points="7 10 12 15 17 10" />
+					<line x1="12" y1="15" x2="12" y2="3" />
+				</svg>
+			{/snippet}
 			Export Selected {#if selectedCount > 0}({selectedCount}){/if}
-		</button>
+		</Button>
 
 		{#if selectedCount > 0}
-			<button class="btn btn-ghost" onclick={onClearSelection}> Clear Selection </button>
+			<Button variant="ghost" onclick={onClearSelection}> Clear Selection </Button>
 		{/if}
 	</div>
 
-	<div class="right-actions">
+	<div class="flex items-center gap-2 flex-wrap max-sm:justify-between">
 		<!-- Sort Dropdown -->
-		<div class="dropdown">
-			<select class="sort-select" value={sortBy} onchange={(e) => onSortChange(e.currentTarget.value)}>
+		<div class="relative">
+			<select 
+				class="appearance-none pl-3 pr-8 py-2 text-sm font-medium bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 border border-neutral-200 dark:border-neutral-700 rounded-md cursor-pointer transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" 
+				value={sortBy} 
+				onchange={(e) => onSortChange(e.currentTarget.value)}
+				style="background-image: url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E&quot;); background-repeat: no-repeat; background-position: right 8px center; background-size: 16px;"
+			>
 				{#each sortOptions as option}
 					<option value={option.value}>{option.label}</option>
 				{/each}
@@ -90,10 +101,9 @@
 		</div>
 
 		<!-- View Mode Toggle -->
-		<div class="view-toggle" role="group" aria-label="View mode">
+		<div class="flex bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-md p-0.5" role="group" aria-label="View mode">
 			<button
-				class="toggle-btn"
-				class:active={viewMode === 'grid'}
+				class="flex items-center justify-center p-1.5 transition-colors rounded-sm {viewMode === 'grid' ? 'bg-neutral-100 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'}"
 				onclick={() => onViewModeChange('grid')}
 				aria-label="Grid view"
 			>
@@ -115,8 +125,7 @@
 				</svg>
 			</button>
 			<button
-				class="toggle-btn"
-				class:active={viewMode === 'list'}
+				class="flex items-center justify-center p-1.5 transition-colors rounded-sm {viewMode === 'list' ? 'bg-neutral-100 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'}"
 				onclick={() => onViewModeChange('list')}
 				aria-label="List view"
 			>
@@ -142,174 +151,31 @@
 		</div>
 
 		<!-- Settings Button -->
-		<button class="btn btn-icon" onclick={onOpenSettings} aria-label="Settings">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				width="16"
-				height="16"
-				viewBox="0 0 24 24"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-			>
-				<path
-					d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
-				/>
-				<circle cx="12" cy="12" r="3" />
-			</svg>
-		</button>
+		<Button 
+			variant="secondary" 
+			size="sm"
+			onclick={onOpenSettings} 
+			ariaLabel="Settings"
+			class="p-2"
+		>
+			{#snippet icon()}
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="16"
+					height="16"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				>
+					<path
+						d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
+					/>
+					<circle cx="12" cy="12" r="3" />
+				</svg>
+			{/snippet}
+		</Button>
 	</div>
 </div>
-
-<style>
-	.toolbar {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 16px;
-		padding: 12px 24px;
-		background-color: var(--surface-secondary);
-		border-bottom: 1px solid var(--border-default);
-	}
-
-	.left-actions,
-	.right-actions {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-	}
-
-	/* Buttons */
-	.btn {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		gap: 6px;
-		padding: 8px 16px;
-		font-size: 14px;
-		font-weight: 500;
-		border-radius: 8px;
-		border: none;
-		cursor: pointer;
-		transition: all 0.15s ease;
-		white-space: nowrap;
-	}
-
-	.btn:disabled {
-		opacity: 0.4;
-		cursor: not-allowed;
-	}
-
-	.btn-ghost {
-		background-color: transparent;
-		color: var(--text-primary);
-	}
-
-	.btn-ghost:hover:not(:disabled) {
-		background-color: var(--surface-hover);
-	}
-
-	.btn-ghost svg {
-		width: 16px;
-		height: 16px;
-		flex-shrink: 0;
-	}
-
-	.btn-icon {
-		padding: 8px;
-		background-color: var(--surface-primary);
-		color: var(--text-secondary);
-		border: 1px solid var(--border-default);
-	}
-
-	.btn-icon:hover {
-		background-color: var(--surface-secondary);
-		color: var(--text-primary);
-	}
-
-	/* Sort Dropdown */
-	.dropdown {
-		position: relative;
-	}
-
-	.sort-select {
-		appearance: none;
-		padding: 8px 32px 8px 12px;
-		font-size: 14px;
-		font-weight: 500;
-		background-color: var(--surface-primary);
-		color: var(--text-primary);
-		border: 1px solid var(--border-default);
-		border-radius: 8px;
-		cursor: pointer;
-		transition: all 0.2s ease;
-		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-		background-repeat: no-repeat;
-		background-position: right 8px center;
-		background-size: 16px;
-	}
-
-	.sort-select:hover {
-		background-color: var(--surface-secondary);
-	}
-
-	.sort-select:focus {
-		outline: 2px solid var(--accent-primary);
-		outline-offset: 2px;
-	}
-
-	/* View Toggle */
-	.view-toggle {
-		display: flex;
-		gap: 0;
-		background-color: var(--surface-primary);
-		border: 1px solid var(--border-default);
-		border-radius: 8px;
-		padding: 2px;
-	}
-
-	.toggle-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding: 6px;
-		background-color: transparent;
-		color: var(--text-secondary);
-		border: none;
-		border-radius: 6px;
-		cursor: pointer;
-		transition: all 0.2s ease;
-	}
-
-	.toggle-btn:hover {
-		background-color: var(--surface-secondary);
-		color: var(--text-primary);
-	}
-
-	.toggle-btn.active {
-		background-color: var(--surface-secondary);
-		color: var(--text-primary);
-	}
-
-	/* Responsive */
-	@media (max-width: 640px) {
-		.toolbar {
-			flex-direction: column;
-			align-items: stretch;
-			gap: 12px;
-			padding: 12px 16px;
-		}
-
-		.left-actions,
-		.right-actions {
-			flex-wrap: wrap;
-		}
-
-		.btn {
-			flex: 1;
-			min-width: fit-content;
-		}
-	}
-</style>

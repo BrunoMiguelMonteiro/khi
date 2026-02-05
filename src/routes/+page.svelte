@@ -214,10 +214,14 @@
 
 <!-- Notificações globais -->
 {#if exportNotification?.visible}
-	<div class="export-notification {exportNotification.type}" role="status" aria-live="polite">
-		<div class="notification-content">
+	<div 
+		class="fixed top-4 right-4 z-[1000] flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg animate-in fade-in slide-in-from-right duration-300 max-sm:left-4 {exportNotification.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}" 
+		role="status" 
+		aria-live="polite"
+	>
+		<div class="flex items-center gap-2">
 			<svg
-				class="notification-icon"
+				class="w-5 h-5 shrink-0"
 				viewBox="0 0 24 24"
 				fill="none"
 				xmlns="http://www.w3.org/2000/svg"
@@ -235,15 +239,15 @@
 					/>
 				{/if}
 			</svg>
-			<span class="notification-text">{exportNotification.message}</span>
+			<span class="text-sm font-medium">{exportNotification.message}</span>
 		</div>
 		<button
 			type="button"
-			class="notification-close"
+			class="flex items-center justify-center w-6 h-6 p-0 bg-white/20 hover:bg-white/30 border-none rounded-md color-white cursor-pointer transition-colors"
 			onclick={() => exportNotification && (exportNotification.visible = false)}
 			aria-label="Close notification"
 		>
-			<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+			<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 				<path
 					d="M18 6L6 18M6 6l12 12"
 					stroke="currentColor"
@@ -256,46 +260,47 @@
 {/if}
 
 <!-- Conteúdo principal -->
-{#if library.uiState === 'no-device'}
-	<EmptyStateNoDevice />
-{:else if library.uiState === 'importing'}
-	<ImportingState />
-{:else if library.uiState === 'book-details' && library.viewingBook}
-	<BookDetailsView book={library.viewingBook} onClose={handleCloseBookDetails} />
-{:else if library.uiState === 'library'}
-	<!-- Books Library Screen -->
-	<div class="screen">
-		<!-- Header -->
-		<header class="library-header">
-			<h1 class="brand">khi</h1>
-		</header>
+<div class="flex flex-col h-screen bg-white dark:bg-neutral-900 overflow-hidden">
+	<!-- Header ÚNICO e GLOBAL -->
+	<header class="px-6 py-4 border-b border-neutral-200 dark:border-neutral-800 shrink-0 bg-white dark:bg-neutral-900 z-30">
+		<h1 class="m-0 text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100 font-['Geist']">khi</h1>
+	</header>
 
-		<!-- Toolbar -->
-		<LibraryToolbar
-			selectedCount={library.selectedBookIds.length}
-			{viewMode}
-			{sortBy}
-			onExportAll={handleExportAll}
-			onExportSelected={handleExportSelected}
-			onClearSelection={handleClearSelection}
-			onSortChange={(sort) => (sortBy = sort)}
-			onViewModeChange={(mode) => (viewMode = mode)}
-			onOpenSettings={handleOpenSettings}
-		/>
+	<main class="flex-1 relative overflow-hidden flex flex-col">
+		{#if library.uiState === 'no-device'}
+			<EmptyStateNoDevice />
+		{:else if library.uiState === 'importing'}
+			<ImportingState />
+		{:else if library.uiState === 'book-details' && library.viewingBook}
+			<BookDetailsView book={library.viewingBook} onClose={handleCloseBookDetails} />
+		{:else if library.uiState === 'library'}
+			<!-- Toolbar -->
+			<LibraryToolbar
+				selectedCount={library.selectedBookIds.length}
+				{viewMode}
+				{sortBy}
+				onExportAll={handleExportAll}
+				onExportSelected={handleExportSelected}
+				onClearSelection={handleClearSelection}
+				onSortChange={(sort) => (sortBy = sort)}
+				onViewModeChange={(mode) => (viewMode = mode)}
+				onOpenSettings={handleOpenSettings}
+			/>
 
-		<!-- Content -->
-		<LibraryView
-			books={sortedBooks}
-			selectedBookIds={library.selectedBookIds}
-			{viewMode}
-			onSelectionChange={handleSelectionChange}
-			onBookClick={handleBookClick}
-			onBooksImport={handleImport}
-			isImporting={library.isImporting}
-			importProgress={library.importProgress}
-		/>
-	</div>
-{/if}
+			<!-- Content -->
+			<LibraryView
+				books={sortedBooks}
+				selectedBookIds={library.selectedBookIds}
+				{viewMode}
+				onSelectionChange={handleSelectionChange}
+				onBookClick={handleBookClick}
+				onBooksImport={handleImport}
+				isImporting={library.isImporting}
+				importProgress={library.importProgress}
+			/>
+		{/if}
+	</main>
+</div>
 
 <!-- Settings Modal (overlay) -->
 {#if showSettings}
@@ -303,130 +308,3 @@
 		<SettingsPanel onClose={handleCloseSettings} />
 	</Modal>
 {/if}
-
-<style>
-	:global(body) {
-		margin: 0;
-		padding: 0;
-		font-family: var(
-			--font-sans,
-			-apple-system,
-			BlinkMacSystemFont,
-			'Segoe UI',
-			Roboto,
-			sans-serif
-		);
-	}
-
-	.screen {
-		min-height: 100vh;
-		background-color: var(--surface-primary);
-		display: flex;
-		flex-direction: column;
-	}
-
-	.library-header {
-		padding: 24px 32px;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-	}
-
-	.brand {
-		font-family: 'Geist', sans-serif;
-		font-size: 24px;
-		font-weight: 800;
-		letter-spacing: -0.05em;
-		color: var(--text-primary);
-		margin: 0;
-	}
-
-	@keyframes slideIn {
-		from {
-			transform: translateX(100%);
-			opacity: 0;
-		}
-		to {
-			transform: translateX(0);
-			opacity: 1;
-		}
-	}
-
-	.notification-content {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-	}
-
-	.notification-icon {
-		width: 20px;
-		height: 20px;
-		flex-shrink: 0;
-	}
-
-	.notification-text {
-		font-size: 14px;
-		font-weight: 500;
-	}
-
-	.notification-close {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 24px;
-		height: 24px;
-		padding: 0;
-		background: rgba(255, 255, 255, 0.2);
-		border: none;
-		border-radius: 6px;
-		color: white;
-		cursor: pointer;
-		transition: background-color 0.15s ease;
-	}
-
-	.notification-close:hover {
-		background: rgba(255, 255, 255, 0.3);
-	}
-
-	.notification-close svg {
-		width: 16px;
-		height: 16px;
-	}
-
-	/* Export Notification */
-	.export-notification {
-		position: fixed;
-		top: 16px;
-		right: 16px;
-		z-index: 1000;
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		padding: 12px 16px;
-		border-radius: 8px;
-		box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-		animation: slideIn 0.3s ease;
-	}
-
-	.export-notification.success {
-		background-color: #16a34a;
-		color: white;
-	}
-
-	.export-notification.error {
-		background-color: #dc2626;
-		color: white;
-	}
-
-	/* Responsive */
-	@media (max-width: 640px) {
-		.export-notification {
-			left: 16px;
-			right: 16px;
-		}
-
-		.library-header {
-			padding: 16px;
-		}
-	}
-</style>

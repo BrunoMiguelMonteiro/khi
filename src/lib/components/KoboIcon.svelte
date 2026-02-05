@@ -56,46 +56,16 @@
 </script>
 
 <div
-  class="kobo-icon text-neutral-300 dark:text-neutral-700"
+  class="kobo-icon block transition-opacity duration-300 text-neutral-300 dark:text-neutral-700"
   class:text-neutral-900={!disabled && variant === 'solid'}
   class:dark:text-neutral-100={!disabled && variant === 'solid'}
-  class:animate={animate}
+  class:animate-pulse={animate}
+  class:motion-reduce:animate-none={animate}
   style="width: {size}px; height: auto;"
   role="img"
   aria-label="Kobo e-reader device"
 >
-  {@html iconSvg()}
+  <div class="[&>svg]:w-full [&>svg]:h-auto [&>svg]:block">
+    {@html iconSvg()}
+  </div>
 </div>
-
-<style>
-  .kobo-icon {
-    display: block;
-    transition: opacity 300ms;
-  }
-
-  .kobo-icon :global(svg) {
-    width: 100%;
-    height: auto;
-    display: block;
-  }
-
-  .kobo-icon.animate {
-    animation: breathe 2s ease-in-out infinite;
-  }
-
-  @keyframes breathe {
-    0%, 100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.6;
-    }
-  }
-
-  /* Respect reduced motion preference */
-  @media (prefers-reduced-motion: reduce) {
-    .kobo-icon.animate {
-      animation: none;
-    }
-  }
-</style>

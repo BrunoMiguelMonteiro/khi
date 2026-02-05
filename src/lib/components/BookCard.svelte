@@ -39,9 +39,8 @@
 </script>
 
 <div
-    class="book-card"
-    class:selected={isSelected}
-    class:hovered={isHovered}
+    class="relative flex flex-col items-stretch border-2 border-transparent text-left w-full transition-all duration-200 group {isHovered ? '-translate-y-0.5' : ''}"
+    class:translate-y-0={!isHovered}
     onmouseenter={onMouseEnter}
     onmouseleave={onMouseLeave}
     data-testid="book-card"
@@ -50,14 +49,17 @@
 >
     <button
         type="button"
-        class="selection-btn"
+        class="absolute top-2 left-2 w-6 h-6 bg-transparent border-none cursor-pointer z-10 flex items-center justify-center p-0 focus:outline-none"
         onclick={(e) => {
             e.stopPropagation();
             onToggleSelection?.();
         }}
         aria-label={isSelected ? "Deselect" : "Select"}
     >
-        <div class="selection-indicator" aria-hidden="true">
+        <div 
+            class="w-5 h-5 text-neutral-100 transition-all duration-200 {isSelected || isHovered ? 'opacity-100' : 'opacity-0'} group-hover:opacity-100" 
+            aria-hidden="true"
+        >
             <svg
                 viewBox="0 0 24 24"
                 fill="none"
@@ -77,233 +79,35 @@
         </div>
     </button>
 
-    <button type="button" class="content-btn" onclick={onClick}>
-        <div class="cover-container">
+    <button type="button" class="flex flex-col items-start gap-0 p-0 w-full h-full bg-none border-none cursor-pointer text-left font-inherit text-inherit m-0 focus:outline-none" onclick={onClick}>
+        <div class="relative w-full pb-[150%] rounded-lg overflow-hidden shadow-sm">
             {#if book.coverPath}
                 <img
                     src={book.coverPath}
                     alt=""
-                    class="cover-image"
+                    class="absolute inset-0 w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
                     loading="lazy"
                 />
             {:else}
-                <div class="cover-placeholder bg-gradient-to-br {gradient}">
-                    <span class="placeholder-text"
+                <div class="absolute inset-0 w-full h-full flex items-center justify-center bg-gradient-to-br {gradient}">
+                    <span class="text-xl font-bold text-white drop-shadow-md"
                         >{getInitials(book.title)}</span
                     >
                 </div>
             {/if}
         </div>
 
-        <div class="book-info">
-            <h3 class="book-title" title={book.title}>{book.title}</h3>
-            <p class="book-author">
+        <div class="flex-1 min-w-0 flex flex-col gap-1 px-3 py-3 mt-3 max-sm:px-2">
+            <h3 class="m-0 text-sm font-semibold leading-snug text-neutral-900 dark:text-neutral-100 line-clamp-2 normal-case overflow-hidden" title={book.title}>{book.title}</h3>
+            <p class="m-0 text-xs text-neutral-600 dark:text-neutral-400 overflow-hidden text-overflow-ellipsis whitespace-nowrap">
                 {book.author || $_("screens.bookDetails.unknownAuthor")}
             </p>
 
-            <div class="book-meta">
-                <span class="meta-item highlight-count">
+            <div class="mt-1">
+                <span class="text-xs text-neutral-500 dark:text-neutral-500">
                     {formatHighlightCount(book.highlights.length)}
                 </span>
             </div>
         </div>
     </button>
 </div>
-
-<style>
-    .book-card {
-        display: flex;
-        flex-direction: column;
-        align-items: stretch;
-        border: 2px solid transparent;
-        text-align: left;
-        width: 100%;
-        transition: all var(--transition-fast);
-        position: relative;
-    }
-
-    .content-btn {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0;
-        padding: 0;
-        width: 100%;
-        height: 100%;
-        background: none;
-        border: none;
-        cursor: pointer;
-        text-align: left;
-        font-family: inherit;
-        color: inherit;
-        margin: 0;
-    }
-
-    .book-card:hover,
-    .book-card.hovered {
-        transform: translateY(-2px);
-        /* box-shadow: var(--shadow-md); */
-        /* border-color: var(--border-hover); */
-    }
-
-    .book-card.selected {
-        /*  border-color: var(--color-primary-500); */
-        /* background: var(--color-primary-50); */
-        /* box-shadow:
-            0 0 0 1px var(--color-primary-500),
-            var(--shadow-md); */
-    }
-
-    .content-btn:focus-visible {
-        outline: none;
-    }
-    /*
-    .book-card:has(.content-btn:focus-visible) {
-        box-shadow: var(--shadow-focus);
-        border-color: var(--color-primary-500);
-    } */
-
-    /* Selection Button */
-    .selection-btn {
-        position: absolute;
-        top: 8px;
-        left: 8px;
-        width: 24px;
-        height: 24px;
-        background: transparent;
-        border: none;
-        cursor: pointer;
-        z-index: 10;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0;
-    }
-
-    .selection-btn:focus-visible {
-        outline: none;
-    }
-
-    .selection-btn:focus-visible .selection-indicator {
-        opacity: 1;
-        transform: scale(1.1);
-    }
-
-    /* Selection Indicator */
-    .selection-indicator {
-        width: 20px;
-        height: 20px;
-        color: var(--color-neutral-100);
-        opacity: 0;
-        transition: all var(--transition-fast);
-    }
-
-    .book-card:hover .selection-indicator,
-    .book-card.selected .selection-indicator,
-    .selection-btn:focus-visible .selection-indicator,
-    .selection-btn:hover .selection-indicator {
-        opacity: 1;
-    }
-
-    .selection-indicator svg {
-        width: 100%;
-        height: 100%;
-    }
-
-    /* Cover Styles */
-    .cover-container {
-        width: 100%;
-        height: 0;
-        padding-bottom: 150%; /* 2:3 aspect ratio */
-        position: relative;
-        border-radius: var(--radius-lg);
-        overflow: hidden;
-        box-shadow: var(--shadow-sm);
-    }
-
-    .cover-image {
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        transition: transform var(--transition-base);
-    }
-
-    .book-card:hover .cover-image {
-        transform: scale(1.05);
-    }
-
-    .cover-placeholder {
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .cover-placeholder.selected {
-        border: 2px solid var(--color-neutral-100);
-        border-radius: var(--radius-lg);
-    }
-
-    .placeholder-text {
-        font-size: var(--text-xl);
-        font-weight: var(--font-bold);
-        color: var(--text-inverse);
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-    }
-
-    /* Book Info */
-    .book-info {
-        flex: 1;
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-        gap: var(--space-1);
-        padding: var(--space-3);
-        margin-top: var(--space-3);
-    }
-
-    .book-title {
-        margin: 0;
-        font-size: var(--text-sm);
-        font-weight: var(--font-semibold);
-        line-height: var(--leading-snug);
-        color: var(--text-primary);
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-        white-space: normal;
-    }
-
-    .book-author {
-        margin: 0;
-        font-size: var(--text-xs);
-        color: var(--text-secondary);
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    /* Meta Info */
-    .book-meta {
-        margin-top: var(--space-1);
-    }
-
-    .meta-item {
-        font-size: var(--text-xs);
-        color: var(--text-tertiary);
-    }
-
-    /* Responsive */
-    @media (max-width: 640px) {
-        .book-info {
-            padding: var(--space-2);
-        }
-    }
-</style>

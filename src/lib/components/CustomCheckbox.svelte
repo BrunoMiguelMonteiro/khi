@@ -11,83 +11,29 @@
 
 <button
 	type="button"
-	class="custom-checkbox"
-	class:checked
+	class="w-5 h-5 border-2 rounded-md flex items-center justify-center cursor-pointer p-0 transition-all duration-150 ease-in-out bg-white border-neutral-300 hover:border-neutral-400 dark:bg-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-500"
+	class:bg-black={checked}
+	class:border-black={checked}
+	class:dark:bg-white={checked}
+	class:dark:border-white={checked}
 	onclick={handleClick}
 	aria-checked={checked}
 	role="checkbox"
 >
 	{#if checked}
-		<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			width="14"
+			height="14"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			stroke-width="3"
+			stroke-linecap="round"
+			stroke-linejoin="round"
+			class="text-white dark:text-black"
+		>
 			<polyline points="20 6 9 17 4 12"></polyline>
 		</svg>
 	{/if}
 </button>
-
-<style>
-	.custom-checkbox {
-		width: 20px;
-		height: 20px;
-		border: 2px solid;
-		border-radius: 0.375rem;
-		background-color: white;
-		border-color: rgb(212 212 212);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		cursor: pointer;
-		padding: 0;
-		transition: all 150ms ease;
-	}
-
-	.custom-checkbox:hover {
-		border-color: rgb(163 163 163);
-	}
-
-	.custom-checkbox.checked {
-		background-color: black;
-		border-color: black;
-	}
-
-	.custom-checkbox.checked svg {
-		color: white;
-	}
-
-	@media (prefers-color-scheme: dark) {
-		.custom-checkbox {
-			background-color: rgb(23 23 23);
-			border-color: rgb(82 82 82);
-		}
-
-		.custom-checkbox:hover {
-			border-color: rgb(115 115 115);
-		}
-
-		.custom-checkbox.checked {
-			background-color: white;
-			border-color: white;
-		}
-
-		.custom-checkbox.checked svg {
-			color: black;
-		}
-	}
-
-	:global(.dark) .custom-checkbox {
-		background-color: rgb(23 23 23);
-		border-color: rgb(82 82 82);
-	}
-
-	:global(.dark) .custom-checkbox:hover {
-		border-color: rgb(115 115 115);
-	}
-
-	:global(.dark) .custom-checkbox.checked {
-		background-color: white;
-		border-color: white;
-	}
-
-	:global(.dark) .custom-checkbox.checked svg {
-		color: black;
-	}
-</style>
