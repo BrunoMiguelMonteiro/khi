@@ -1,7 +1,7 @@
 <script lang="ts">
     import type { Book, Highlight } from "../types";
     import HighlightItem from "./HighlightItem.svelte";
-    import { getExportConfig } from "../stores/settings.svelte";
+    import { settings } from "../stores/settings.svelte";
     import { _ } from "$lib/i18n";
     import { getBookGradient } from "$lib/utils/gradients";
     import { FileDown } from "lucide-svelte";
@@ -23,7 +23,7 @@
     }
 
     async function handleExport() {
-        const exportConfig = getExportConfig();
+        const exportConfig = settings.exportConfig;
         const exportPath = exportConfig.exportPath;
 
         try {
