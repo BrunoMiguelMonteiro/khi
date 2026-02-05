@@ -160,3 +160,4 @@ export interface LastImportSettingsRecord {
   /** Number of highlights imported */
   highlightsCount: number;
 }
+export type UiState = 'no-device' | 'scanning' | 'importing' | 'library' | 'book-details';
