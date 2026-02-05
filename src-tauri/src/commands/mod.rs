@@ -287,7 +287,6 @@ pub fn clear_cover_cache(app_handle: tauri::AppHandle) -> Result<(), String> {
 mod tests {
     use super::*;
     use crate::models::{Book, DateFormat, ExportConfig, Highlight, MetadataConfig};
-    use tempfile::TempDir;
 
     fn create_test_book() -> Book {
         Book {

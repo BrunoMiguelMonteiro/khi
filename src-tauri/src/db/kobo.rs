@@ -15,33 +15,7 @@ impl KoboDatabase {
     pub fn extract_books_with_highlights(&self) -> Result<Vec<Book>> {
         log::info!("Starting extract_books_with_highlights");
 
-        // DEBUG: Log all tables and columns to understand the schema
-        let tables_query = "SELECT name FROM sqlite_master WHERE type='table'";
-        let mut tables_stmt = self.conn.prepare(tables_query)?;
-        let table_names: Vec<String> = tables_stmt
-            .query_map([], |row| row.get(0))?
-            .filter_map(Result::ok)
-            .collect();
-
-        log::info!("Tables found: {:?}", table_names);
-
-        for table in &table_names {
-            if table == "Bookmark" || table == "Content" {
-                let columns_query = format!("PRAGMA table_info({})", table);
-                let mut cols_stmt = self.conn.prepare(&columns_query)?;
-                let columns: Vec<String> = cols_stmt
-                    .query_map([], |row| {
-                        let name: String = row.get(1)?;
-                        Ok(name)
-                    })?
-                    .filter_map(Result::ok)
-                    .collect();
-                log::info!("Columns in {}: {:?}", table, columns);
-            }
-        }
-
         // First, check if tables exist and have data
-        // Wrap in try-catch logic to log specific error
         let count_result: Result<i64, _> = self.conn.query_row(
             "SELECT COUNT(*) FROM Bookmark WHERE Text IS NOT NULL AND Text != ''",
             [],

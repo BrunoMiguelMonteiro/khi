@@ -2,7 +2,6 @@ use chrono::Local;
 use log::{Level, Metadata, Record};
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
-use std::path::PathBuf;
 use std::sync::Mutex;
 
 static LOGGER: SimpleLogger = SimpleLogger {
