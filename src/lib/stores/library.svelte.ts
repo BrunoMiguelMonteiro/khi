@@ -149,3 +149,22 @@ class LibraryStore {
 }
 
 export const library = new LibraryStore();
+
+export async function getDefaultExportPath(): Promise<string> {
+	try {
+		return await invoke<string>('get_default_export_path');
+	} catch (error) {
+		console.error('Failed to get default export path:', error);
+		// Fallback to Documents folder
+		return '~/Documents/Kobo Highlights';
+	}
+}
+
+export async function validateExportPath(path: string): Promise<boolean> {
+	try {
+		return await invoke<boolean>('validate_export_path', { path });
+	} catch (error) {
+		console.error('Failed to validate export path:', error);
+		return false;
+	}
+}

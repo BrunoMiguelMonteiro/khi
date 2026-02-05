@@ -10,13 +10,7 @@
 	import ImportingState from '$lib/components/ImportingState.svelte';
 	import { _ } from '$lib/i18n';
 	import { library } from '$lib/stores/library.svelte';
-	import {
-		getExportConfig,
-		getSettings,
-		getUiPreferences,
-		getIsLoading,
-		loadSettings
-	} from '$lib/stores/settings.svelte';
+	import { settings } from '$lib/stores/settings.svelte';
 	import type { Book, KoboDevice } from '$lib/types';
 	import { createApplicationMenu } from '$lib/menu';
 
@@ -94,7 +88,6 @@
 					library.setConnectedDevice(device);
 
 					// Check if auto-import should happen
-					const settings = getSettings();
 					const autoImportEnabled = settings.uiPreferences.autoImportOnConnect ?? true;
 
 					if (autoImportEnabled && library.shouldAutoImport(device)) {
@@ -132,7 +125,6 @@
 	async function handleScanForDevice() {
 		const device = await library.scanForDevice();
 		if (device) {
-			const settings = getSettings();
 			const autoImportEnabled = settings.uiPreferences.autoImportOnConnect ?? true;
 
 			if (autoImportEnabled && library.shouldAutoImport(device)) {
@@ -168,7 +160,6 @@
 
 	async function handleExport() {
 		try {
-			const settings = getSettings();
 			const exportPath = settings.exportConfig.exportPath;
 			await library.exportBooks(exportPath);
 			showNotification($_('notifications.exportSuccess'), 'success');
