@@ -2203,7 +2203,7 @@ dependencies = [
 
 [[package]]
 name = "khi"
-version = "0.1.1"
+version = "1.0.0"
 dependencies = [
  "chrono",
  "dirs",

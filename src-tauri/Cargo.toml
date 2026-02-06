@@ -1,6 +1,6 @@
 [package]
 name = "khi"
-version = "0.1.1"
+version = "1.0.0"
 description = "A macOS app to export Kobo highlights to Markdown"
 authors = ["you"]
 edition = "2021"

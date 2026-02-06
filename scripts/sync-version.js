@@ -17,4 +17,11 @@ let cargo = readFileSync(cargoPath, 'utf8');
 cargo = cargo.replace(/^version = ".*"/m, `version = "${version}"`);
 writeFileSync(cargoPath, cargo);
 
+// Update tauri.conf.json
+const tauriConfPath = join(__dirname, '../src-tauri/tauri.conf.json');
+let tauriConf = readFileSync(tauriConfPath, 'utf8');
+tauriConf = tauriConf.replace(/"version":\s*".*"/m, `"version": "${version}"`);
+writeFileSync(tauriConfPath, tauriConf);
+
 console.log(`✅ Cargo.toml version synced to ${version}`);
+console.log(`✅ tauri.conf.json version synced to ${version}`);
