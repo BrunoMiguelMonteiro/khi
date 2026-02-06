@@ -2,18 +2,27 @@
 
 Native macOS application to extract highlights from Kobo Libra II and export them to Markdown files.
 
+## Preview
+
+<img src="khi_light_theme.png" alt="Khi Application - Light Theme" width="800">
+
 ## Features
 
 - **Automatic Detection**: Automatically detects when Kobo is connected via USB
+- **Auto-Import**: Automatically imports highlights when Kobo is connected (configurable)
 - **Preview**: View all books and highlights before exporting
-- **Inline Editing**: Edit highlights and add personal notes before exporting
+- **Smart Library Management**: Grid/List view toggle with multiple sort options
+- **Progress Tracking**: Real-time progress bar during import showing current book
+- **Cover Extraction**: Intelligent EPUB cover extraction with caching
 - **Markdown Export**: Generates clean, well-structured Markdown files
 - **Customizable Settings**: Choose which metadata to include and date format
-- **Modern Design**: Native macOS interface with dark mode
+- **Modern Design**: Native macOS interface with dark mode support
 
 ## Tech Stack
 
-- **Frontend**: Tauri 2.x + Svelte 5 + TypeScript
+- **Frontend**: Tauri 2.x + Svelte 5 + TypeScript + Tailwind CSS
+- **Framework**: SvelteKit with adapter-static (SPA mode)
+- **Build Tool**: Vite 6.x
 - **Backend**: Rust
 - **Database**: SQLite (reading from Kobo)
 - **Testing**: Vitest (frontend) + Rust test framework (backend)
@@ -52,16 +61,17 @@ Since the application is not signed by Apple (yet), you may see a security warni
 
 - Use Ctrl/Cmd+click to select multiple books
 - Use Shift+click to select ranges
-- Click "Select All" to export the entire library
+- Click "Export All" to export the entire library without selecting individual books
+- Use the view toggle to switch between Grid and List views
+- Sort books by Title, Author, Date Last Read, or Highlight Count
 
-### 3. Edit Highlights (Optional)
+### 3. Preview Book Highlights
 
-- Click on a book to view its highlights
-- Edit the text of any highlight
-- Add personal notes
-- Exclude highlights you don't want to export
+- Click on a book to view all its highlights
+- Review chapter titles and highlight text
+- Navigate back to library to select more books
 
-### 4. Export
+### 4. Configure and Export
 
 1. Choose the destination folder
 2. Configure export options (metadata, date format)
@@ -75,17 +85,17 @@ Each book is exported as a separate Markdown file:
 ```markdown
 # Book Title
 
-**Author**: Author Name  
-**ISBN**: 978-1234567890  
-**Export Date**: 01/29/2026
+**Author**: Author Name
+**ISBN**: 978-1234567890
+**Export Date**: 29 January 2026
+
+> Date format is configurable in settings: `DD Month YYYY`, `DD/MM/YYYY`, or `ISO 8601`
 
 ---
 
 ## Chapter 1
 
 > "This is the highlight text..."
-
-**Personal note**: My reflection on this passage.
 
 ---
 
