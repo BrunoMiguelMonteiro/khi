@@ -6,6 +6,7 @@ pub mod export;
 pub mod models;
 pub mod settings;
 pub mod utils;
+pub mod window;
 
 use commands::{
     clear_cover_cache, export_books, get_default_export_path, get_default_settings,
@@ -41,6 +42,9 @@ pub fn run() {
             clear_cover_cache
         ])
         .setup(|app| {
+            // Show window only after frontend signals ready (prevents white flash)
+            window::setup_window_show(app);
+
             // Start device monitoring
             let app_handle = app.handle().clone();
             let monitor = DeviceMonitor::new(app_handle);

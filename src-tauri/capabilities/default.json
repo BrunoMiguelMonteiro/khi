@@ -6,7 +6,9 @@
   "permissions": [
     "core:default",
     "core:path:default",
+    "core:event:default",
     "core:window:allow-set-theme",
+    "core:window:allow-show",
     "core:menu:default",
     "opener:default",
     "dialog:default"

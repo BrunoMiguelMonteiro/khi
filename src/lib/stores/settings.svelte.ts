@@ -246,34 +246,17 @@ class SettingsStore {
     // Remove legacy theme classes
     root.classList.remove("theme-light", "theme-dark");
 
+    // Determinar se deve usar dark mode
     let isDark: boolean;
 
     if (theme === "system") {
-      // For 'system' theme, force window to sync with system then read back
-      try {
-        const { getCurrentWindow } = await import("@tauri-apps/api/window");
-        const appWindow = getCurrentWindow();
-
-        // Force sync with system by setting to null
-        await appWindow.setTheme(null);
-
-        // Wait a bit for the system to update
-        await new Promise((resolve) => setTimeout(resolve, 50));
-
-        // Now read the theme
-        const currentTheme = await appWindow.theme();
-        isDark = currentTheme === "dark";
-      } catch (err) {
-        // Fallback to media query if Tauri API fails
-        console.warn(
-          "[THEME] Could not get theme from Tauri, using media query",
-        );
-        isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      }
+      // Usar matchMedia para detetar tema do sistema (síncrono, sem flash)
+      isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     } else {
       isDark = theme === "dark";
     }
 
+    // Aplicar classe dark ao <html> para Tailwind
     if (isDark) {
       root.classList.add("dark");
     } else {
@@ -281,15 +264,12 @@ class SettingsStore {
     }
 
     // Sincronizar titlebar do macOS com Tauri Window API
-    if (typeof window !== "undefined") {
-      try {
-        const { getCurrentWindow } = await import("@tauri-apps/api/window");
-        const appWindow = getCurrentWindow();
-        await appWindow.setTheme(isDark ? "dark" : "light");
-      } catch (err) {
-        // Falhar silenciosamente se não estiver em ambiente Tauri
-        console.debug("Tauri window theme not available:", err);
-      }
+    try {
+      const { getCurrentWindow } = await import("@tauri-apps/api/window");
+      const appWindow = getCurrentWindow();
+      await appWindow.setTheme(isDark ? "dark" : "light");
+    } catch (err) {
+      console.debug("Tauri window theme not available:", err);
     }
   }
 }
