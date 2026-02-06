@@ -31,7 +31,6 @@ export async function createApplicationMenu(t: MessageFormatter) {
                     item: {
                         About: {
                             name: 'Khi',
-                            version: '0.1.0',
                             copyright: 'Copyright © 2026 Bruno Monteiro. All rights reserved.',
                             ...(icon && { icon }),
                         }
