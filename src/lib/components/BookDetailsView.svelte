@@ -47,9 +47,14 @@
     }
 </script>
 
-<div class="flex flex-col h-full bg-white dark:bg-neutral-900" data-testid="book-details-view">
+<div
+    class="flex flex-col h-full bg-white dark:bg-neutral-900"
+    data-testid="book-details-view"
+>
     <!-- Toolbar -->
-    <div class="sticky top-0 z-20 flex justify-between items-center px-6 py-3 bg-neutral-100 dark:bg-neutral-800 border-t border-b border-neutral-200 dark:border-neutral-700">
+    <div
+        class="sticky top-0 z-20 flex justify-between items-center px-6 py-3 bg-neutral-100 dark:bg-neutral-800 border-t border-b border-neutral-200 dark:border-neutral-700"
+    >
         <Button
             variant="ghost"
             onclick={onClose}
@@ -82,10 +87,7 @@
             {$_("screens.bookDetails.back")}
         </Button>
 
-        <Button
-            variant="ghost"
-            onclick={handleExport}
-        >
+        <Button variant="ghost" onclick={handleExport}>
             {#snippet icon()}
                 <FileDown size={16} />
             {/snippet}
@@ -95,17 +97,26 @@
 
     <!-- Content (Scrollable) -->
     <div class="flex-1 overflow-y-auto">
-        <div class="flex gap-6 max-w-4xl mx-auto mb-12 px-6 py-8 bg-transparent max-sm:flex-col max-sm:items-center max-sm:text-center">
-            <div class="w-32 h-48 shrink-0 rounded-lg overflow-hidden shadow-md max-sm:w-24 max-sm:h-36">
+        <div
+            class="flex gap-6 max-w-4xl mx-auto mb-12 px-6 py-8 bg-transparent max-sm:flex-col max-sm:items-center max-sm:text-center"
+        >
+            <div
+                class="w-32 h-48 shrink-0 rounded-lg overflow-hidden shadow-md max-sm:w-24 max-sm:h-36"
+            >
                 {#if book.coverPath}
-                    <img src={convertFileSrc(book.coverPath)} alt="" class="w-full h-full object-cover" />
+                    <img
+                        src={convertFileSrc(book.coverPath)}
+                        alt=""
+                        class="w-full h-full object-cover"
+                    />
                 {:else}
                     <div
                         class="w-full h-full flex items-center justify-center bg-gradient-to-br {getBookGradient(
                             book.contentId,
                         )}"
                     >
-                        <span class="text-3xl font-bold text-white drop-shadow-md"
+                        <span
+                            class="text-3xl font-bold text-white drop-shadow-md"
                             >{getInitials(book.title)}</span
                         >
                     </div>
@@ -113,8 +124,14 @@
             </div>
 
             <div class="flex-1 flex flex-col gap-2 min-w-0">
-                <h1 class="m-0 mb-2 text-3xl font-semibold leading-tight text-neutral-900 dark:text-neutral-100">{book.title}</h1>
-                <p class="m-0 mb-4 text-lg text-neutral-600 dark:text-neutral-400">
+                <h1
+                    class="m-0 mb-2 text-3xl font-semibold leading-tight text-neutral-900 dark:text-neutral-100"
+                >
+                    {book.title}
+                </h1>
+                <p
+                    class="m-0 mb-4 text-lg text-neutral-600 dark:text-neutral-400"
+                >
                     {book.author || $_("screens.bookDetails.unknownAuthor")}
                 </p>
                 <p class="m-0 text-sm text-neutral-500 dark:text-neutral-500">
@@ -125,7 +142,10 @@
 
         <div class="max-w-4xl mx-auto px-6">
             {#if book.highlights.length === 0}
-                <div class="flex flex-col items-center justify-center gap-4 py-16 text-center text-neutral-500 dark:text-neutral-400" data-testid="book-details-empty">
+                <div
+                    class="flex flex-col items-center justify-center gap-4 py-16 text-center text-neutral-500 dark:text-neutral-400"
+                    data-testid="book-details-empty"
+                >
                     <svg
                         class="w-12 h-12 opacity-50"
                         viewBox="0 0 24 24"
@@ -140,10 +160,15 @@
                             stroke-linecap="round"
                         />
                     </svg>
-                    <p class="m-0 text-base">{$_("screens.bookDetails.noHighlights")}</p>
+                    <p class="m-0 text-base">
+                        {$_("screens.bookDetails.noHighlights")}
+                    </p>
                 </div>
             {:else}
-                <div class="flex flex-col gap-8 pb-16" data-testid="highlights-list">
+                <div
+                    class="flex flex-col gap-8 pb-16"
+                    data-testid="highlights-list"
+                >
                     {#each book.highlights as highlight (highlight.id)}
                         <HighlightItem {highlight} />
                     {/each}

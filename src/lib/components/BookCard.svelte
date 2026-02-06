@@ -40,7 +40,9 @@
 </script>
 
 <div
-    class="relative flex flex-col items-stretch border-2 border-transparent text-left w-full transition-all duration-200 group {isHovered ? '-translate-y-0.5' : ''}"
+    class="relative flex flex-col items-stretch border-none text-left w-full transition-all duration-200 group {isHovered
+        ? '-translate-y-0.5'
+        : ''}"
     class:translate-y-0={!isHovered}
     onmouseenter={onMouseEnter}
     onmouseleave={onMouseLeave}
@@ -57,8 +59,11 @@
         }}
         aria-label={isSelected ? "Deselect" : "Select"}
     >
-        <div 
-            class="w-5 h-5 text-neutral-100 transition-all duration-200 {isSelected || isHovered ? 'opacity-100' : 'opacity-0'} group-hover:opacity-100" 
+        <div
+            class="w-5 h-5 text-neutral-100 transition-all duration-200 {isSelected ||
+            isHovered
+                ? 'opacity-100'
+                : 'opacity-0'} group-hover:opacity-100"
             aria-hidden="true"
         >
             <svg
@@ -80,8 +85,14 @@
         </div>
     </button>
 
-    <button type="button" class="flex flex-col items-start gap-0 p-0 w-full h-full bg-none border-none cursor-pointer text-left font-inherit text-inherit m-0 focus:outline-none" onclick={onClick}>
-        <div class="relative w-full pb-[150%] rounded-lg overflow-hidden shadow-sm">
+    <button
+        type="button"
+        class="flex flex-col items-start gap-0 p-0 w-full h-full bg-none border-none cursor-pointer text-left font-inherit text-inherit m-0 focus:outline-none"
+        onclick={onClick}
+    >
+        <div
+            class="relative w-full pb-[150%] rounded-lg overflow-hidden shadow-sm ring-1 ring-neutral-200 dark:ring-neutral-700"
+        >
             {#if book.coverPath}
                 <img
                     src={convertFileSrc(book.coverPath)}
@@ -90,7 +101,9 @@
                     loading="lazy"
                 />
             {:else}
-                <div class="absolute inset-0 w-full h-full flex items-center justify-center bg-gradient-to-br {gradient}">
+                <div
+                    class="absolute inset-0 w-full h-full flex items-center justify-center bg-gradient-to-br {gradient}"
+                >
                     <span class="text-xl font-bold text-white drop-shadow-md"
                         >{getInitials(book.title)}</span
                     >
@@ -98,9 +111,18 @@
             {/if}
         </div>
 
-        <div class="flex-1 min-w-0 flex flex-col gap-1 px-3 py-3 mt-3 max-sm:px-2">
-            <h3 class="m-0 text-sm font-semibold leading-snug text-neutral-900 dark:text-neutral-100 line-clamp-2 normal-case overflow-hidden" title={book.title}>{book.title}</h3>
-            <p class="m-0 text-xs text-neutral-600 dark:text-neutral-400 overflow-hidden text-overflow-ellipsis whitespace-nowrap">
+        <div
+            class="flex-1 min-w-0 flex flex-col gap-1 px-3 py-3 mt-3 max-sm:px-2"
+        >
+            <h3
+                class="m-0 text-sm font-semibold leading-snug text-neutral-900 dark:text-neutral-100 line-clamp-2 normal-case overflow-hidden"
+                title={book.title}
+            >
+                {book.title}
+            </h3>
+            <p
+                class="m-0 text-xs text-neutral-600 dark:text-neutral-400 overflow-hidden text-overflow-ellipsis whitespace-nowrap"
+            >
                 {book.author || $_("screens.bookDetails.unknownAuthor")}
             </p>
 
