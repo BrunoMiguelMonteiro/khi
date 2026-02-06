@@ -146,7 +146,8 @@
 		</div>
 	{:else if viewMode === 'grid'}
 		<div
-			class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
+			class="grid gap-6"
+			style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));"
 			data-testid="books-grid"
 			role="list"
 			aria-label="Lista de livros"
