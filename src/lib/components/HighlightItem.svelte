@@ -93,7 +93,7 @@
     data-highlight-id={highlight.id}
 >
     <blockquote
-        class="relative m-0 py-1 px-4 border-l-4 border-neutral-300 dark:border-neutral-600 text-base leading-relaxed text-neutral-900 dark:text-neutral-100"
+        class="relative m-0 py-1 pl-4 pr-10 border-l-4 border-neutral-300 dark:border-neutral-600 text-base leading-relaxed text-neutral-900 dark:text-neutral-100"
     >
         {highlight.text}
 
