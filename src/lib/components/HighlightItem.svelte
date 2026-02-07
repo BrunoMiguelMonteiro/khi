@@ -88,12 +88,12 @@
 </script>
 
 <div
-    class="group flex flex-col gap-3 p-4 rounded-lg transition-colors duration-200 hover:bg-neutral-100/70 dark:hover:bg-neutral-800/40"
+    class="group flex flex-col gap-3 p-4 -ml-4 -mt-4 rounded-lg transition-colors duration-200 hover:bg-neutral-100/70 dark:hover:bg-neutral-800/40"
     data-testid="highlight-item"
     data-highlight-id={highlight.id}
 >
     <blockquote
-        class="relative m-0 py-1 pl-4 pr-8 border-l-4 border-neutral-300 dark:border-neutral-600 text-base leading-relaxed text-neutral-900 dark:text-neutral-100 [text-wrap:pretty]"
+        class="relative m-0 py-1 pl-4 pr-4 border-l-4 border-neutral-300 dark:border-neutral-600 text-base leading-relaxed text-neutral-900 dark:text-neutral-100 [text-wrap:pretty]"
     >
         {highlight.text}
 
