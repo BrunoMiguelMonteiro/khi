@@ -107,7 +107,8 @@ describe('HighlightItem', () => {
       await fireEvent.click(copyButton);
 
       await waitFor(() => {
-        expect(screen.getByText('Copied!')).toBeInTheDocument();
+        const button = screen.getByRole('button');
+        expect(button).toHaveAttribute('aria-label', 'Copied!');
       });
     });
 
@@ -122,13 +123,15 @@ describe('HighlightItem', () => {
       await fireEvent.click(copyButton);
 
       await waitFor(() => {
-        expect(screen.getByText('Copied!')).toBeInTheDocument();
+        const button = screen.getByRole('button');
+        expect(button).toHaveAttribute('aria-label', 'Copied!');
       });
 
       vi.advanceTimersByTime(2000);
 
       await waitFor(() => {
-        expect(screen.queryByText('Copied!')).not.toBeInTheDocument();
+        const button = screen.getByRole('button');
+        expect(button).toHaveAttribute('aria-label', 'Copy quote');
       });
 
       vi.useRealTimers();
@@ -144,7 +147,8 @@ describe('HighlightItem', () => {
       await fireEvent.click(copyButton);
 
       await waitFor(() => {
-        expect(screen.getByText('Copy failed')).toBeInTheDocument();
+        const button = screen.getByRole('button');
+        expect(button).toHaveAttribute('aria-label', 'Copy failed');
       });
     });
 

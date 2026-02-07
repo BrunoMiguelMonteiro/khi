@@ -2,7 +2,6 @@
     import type { Highlight } from "../types";
     import { copyToClipboard } from "../utils/clipboard";
     import { t } from "$lib/i18n";
-    import Button from "./Button.svelte";
     import { Copy, Check } from "lucide-svelte";
 
     interface Props {
@@ -89,48 +88,36 @@
 </script>
 
 <div
-    class="flex flex-col gap-3"
+    class="group flex flex-col gap-3"
     data-testid="highlight-item"
     data-highlight-id={highlight.id}
 >
     <blockquote
-        class="m-0 py-1 px-4 border-l-4 border-neutral-300 dark:border-neutral-600 text-base leading-relaxed text-neutral-900 dark:text-neutral-100"
+        class="relative m-0 py-1 px-4 border-l-4 border-neutral-300 dark:border-neutral-600 text-base leading-relaxed text-neutral-900 dark:text-neutral-100"
     >
         {highlight.text}
-    </blockquote>
 
-    <div class="flex items-center justify-between pl-4">
-        {#if highlight.chapterTitle}
-            <p class="m-0 text-xs text-neutral-500 dark:text-neutral-400">
-                {formatChapterTitle(highlight.chapterTitle)}
-            </p>
-        {:else}
-            <div></div>
-        {/if}
-
-        <Button
-            variant="ghost"
-            size="sm"
+        <!-- Copy button - appears on hover -->
+        <button
+            type="button"
+            class="absolute top-1 right-1 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 disabled:opacity-50"
             onclick={handleCopyClick}
-            ariaLabel={copyFeedback === 'idle' ? t('highlight.copy') :
+            aria-label={copyFeedback === 'idle' ? t('highlight.copy') :
                        copyFeedback === 'success' ? t('highlight.copied') :
                        t('highlight.copyError')}
             disabled={copyFeedback !== 'idle'}
         >
-            {#snippet icon()}
-                {#if copyFeedback === 'success'}
-                    <Check class="w-4 h-4" />
-                {:else}
-                    <Copy class="w-4 h-4" />
-                {/if}
-            {/snippet}
             {#if copyFeedback === 'success'}
-                {t('highlight.copied')}
-            {:else if copyFeedback === 'error'}
-                {t('highlight.copyError')}
+                <Check class="w-4 h-4" />
             {:else}
-                {t('highlight.copy')}
+                <Copy class="w-4 h-4" />
             {/if}
-        </Button>
-    </div>
+        </button>
+    </blockquote>
+
+    {#if highlight.chapterTitle}
+        <p class="m-0 pl-4 text-xs text-neutral-500 dark:text-neutral-400">
+            {formatChapterTitle(highlight.chapterTitle)}
+        </p>
+    {/if}
 </div>
