@@ -15,3 +15,14 @@ CLAUDE.md
 .claude/
 .ralphy/
 state-machine.md
+
+# Release automation (private tooling)
+scripts/release.js
+scripts/test-release-modules.js
+scripts/lib/
+scripts/README.md
+docs/RELEASE_AUTOMATION.md
+docs/RELEASE_CHECKLIST.md
+QUICK_START_RELEASE.md
+IMPLEMENTATION_SUMMARY.md
+RELEASE_NOTES_TEMPLATE.md
