@@ -62,7 +62,10 @@
   "highlight": {
     "excluded": "excluded",
     "excludeTitle": "Exclude from export",
-    "includeTitle": "Include in export"
+    "includeTitle": "Include in export",
+    "copy": "Copy quote",
+    "copied": "Copied!",
+    "copyError": "Copy failed"
   },
   "settings": {
     "title": "Settings",

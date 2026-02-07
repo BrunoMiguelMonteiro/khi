@@ -44,7 +44,10 @@
     "deselect": "Deselecionar"
   },
   "highlight": {
-    "excluded": "excluído"
+    "excluded": "excluído",
+    "copy": "Copiar citação",
+    "copied": "Copiado!",
+    "copyError": "Erro ao copiar"
   },
   "settings": {
     "title": "Definições",

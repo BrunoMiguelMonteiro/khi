@@ -3,11 +3,7 @@ import { vi } from 'vitest';
 
 // Mock svelte-i18n store
 const mockT = vi.fn((key: string, params?: Record<string, string | number>) => {
-  // Simple mock that returns the last part of the key or formatted string
-  const parts = key.split('.');
-  const lastPart = parts[parts.length - 1];
-  
-  // Simple translations map for common keys
+  // Simple translations map for common keys (supports full keys and last part)
   const translations: Record<string, string> = {
     'unknownAuthor': 'Unknown author',
     'back': 'Back',
@@ -39,9 +35,18 @@ const mockT = vi.fn((key: string, params?: Record<string, string | number>) => {
     'name': 'Khi',
     'appTitle': 'Khi - Kobo Highlights Exporter',
     'lastRead': 'Last read',
+    'highlight.copy': 'Copy quote',
+    'highlight.copied': 'Copied!',
+    'highlight.copyError': 'Copy failed',
+    'copy': 'Copy quote',
+    'copied': 'Copied!',
+    'copyError': 'Copy failed',
   };
-  
-  let result = translations[lastPart] || key;
+
+  // Try full key first, then last part of key
+  const parts = key.split('.');
+  const lastPart = parts[parts.length - 1];
+  let result = translations[key] || translations[lastPart] || key;
   
   // Replace parameters
   if (params) {
