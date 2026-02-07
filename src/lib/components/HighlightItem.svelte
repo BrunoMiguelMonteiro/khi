@@ -11,7 +11,7 @@
     let { highlight }: Props = $props();
 
     // Estado de feedback de cópia (Svelte 5 runes)
-    let copyFeedback: 'idle' | 'success' | 'error' = $state('idle');
+    let copyFeedback: "idle" | "success" | "error" = $state("idle");
     let copyTimeoutId: number | undefined = $state(undefined);
 
     /**
@@ -67,7 +67,7 @@
      */
     async function handleCopyClick() {
         // Debouncing: prevenir múltiplos cliques
-        if (copyFeedback !== 'idle') return;
+        if (copyFeedback !== "idle") return;
 
         const success = await copyToClipboard(highlight.text);
 
@@ -77,11 +77,11 @@
         }
 
         // Atualizar feedback
-        copyFeedback = success ? 'success' : 'error';
+        copyFeedback = success ? "success" : "error";
 
         // Reset após 2 segundos
         copyTimeoutId = window.setTimeout(() => {
-            copyFeedback = 'idle';
+            copyFeedback = "idle";
             copyTimeoutId = undefined;
         }, 2000);
     }
@@ -93,21 +93,23 @@
     data-highlight-id={highlight.id}
 >
     <blockquote
-        class="relative m-0 py-1 pl-4 pr-10 border-l-4 border-neutral-300 dark:border-neutral-600 text-base leading-relaxed text-neutral-900 dark:text-neutral-100"
+        class="relative m-0 py-1 pl-4 pr-8 border-l-4 border-neutral-300 dark:border-neutral-600 text-base leading-relaxed text-neutral-900 dark:text-neutral-100 [text-wrap:pretty]"
     >
         {highlight.text}
 
         <!-- Copy button - appears on hover -->
         <button
             type="button"
-            class="absolute top-1 right-1 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 disabled:opacity-50"
+            class="absolute top-0 right-0 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 disabled:opacity-50"
             onclick={handleCopyClick}
-            aria-label={copyFeedback === 'idle' ? t('highlight.copy') :
-                       copyFeedback === 'success' ? t('highlight.copied') :
-                       t('highlight.copyError')}
-            disabled={copyFeedback !== 'idle'}
+            aria-label={copyFeedback === "idle"
+                ? t("highlight.copy")
+                : copyFeedback === "success"
+                  ? t("highlight.copied")
+                  : t("highlight.copyError")}
+            disabled={copyFeedback !== "idle"}
         >
-            {#if copyFeedback === 'success'}
+            {#if copyFeedback === "success"}
                 <Check class="w-4 h-4" />
             {:else}
                 <Copy class="w-4 h-4" />
