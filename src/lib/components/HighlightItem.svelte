@@ -88,7 +88,7 @@
 </script>
 
 <div
-    class="group flex flex-col gap-3 p-4 rounded-lg transition-colors duration-200 hover:bg-neutral-50/50 dark:hover:bg-neutral-900/30"
+    class="group flex flex-col gap-3 p-4 rounded-lg transition-colors duration-200 hover:bg-neutral-100/70 dark:hover:bg-neutral-800/40"
     data-testid="highlight-item"
     data-highlight-id={highlight.id}
 >
