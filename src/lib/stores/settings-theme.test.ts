@@ -1,144 +1,235 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { settings } from './settings.svelte';
-import type { AppSettings } from '../types';
 
-// Mock Tauri invoke
+// ── matchMedia mock ──────────────────────────────────────────────────
+type ChangeHandler = (e: { matches: boolean }) => void;
+
+let darkModeMatches = false;
+let mediaChangeHandlers: ChangeHandler[] = [];
+
+function createMockMediaQueryList(query: string): MediaQueryList {
+	return {
+		get matches() { return darkModeMatches; },
+		media: query,
+		onchange: null,
+		addEventListener: (_event: string, handler: ChangeHandler) => {
+			mediaChangeHandlers.push(handler);
+		},
+		removeEventListener: (_event: string, handler: ChangeHandler) => {
+			mediaChangeHandlers = mediaChangeHandlers.filter(h => h !== handler);
+		},
+		addListener: vi.fn(),
+		removeListener: vi.fn(),
+		dispatchEvent: vi.fn()
+	};
+}
+
+// Install matchMedia mock before any import
+window.matchMedia = vi.fn().mockImplementation(createMockMediaQueryList);
+
+/** Simulate OS theme change */
+function simulateSystemThemeChange(dark: boolean) {
+	darkModeMatches = dark;
+	for (const handler of [...mediaChangeHandlers]) {
+		handler({ matches: dark });
+	}
+}
+
+// Mock Tauri APIs
 vi.mock('@tauri-apps/api/core', () => ({
 	invoke: vi.fn(),
-  convertFileSrc: vi.fn((src) => src)
+	convertFileSrc: vi.fn((src) => src)
 }));
 
-import { invoke } from '@tauri-apps/api/core';
-const mockedInvoke = vi.mocked(invoke);
-
-// Mock Tauri window — getCurrentWindow throws so applyTheme falls back to matchMedia
+const mockSetTheme = vi.fn().mockResolvedValue(undefined);
 vi.mock('@tauri-apps/api/window', () => ({
-	getCurrentWindow: () => {
-		throw new Error('Not in Tauri');
-	}
+	getCurrentWindow: () => ({
+		setTheme: mockSetTheme
+	})
 }));
 
-const MOCK_DEFAULTS: AppSettings = {
-  exportConfig: {
-    exportPath: '~/Documents/Kobo Highlights',
-    metadata: {
-      author: true,
-      isbn: true,
-      publisher: true,
-      dateLastRead: true,
-      language: true,
-      description: false
-    },
-    dateFormat: 'dd_month_yyyy'
-  },
-  uiPreferences: {
-    theme: 'system',
-    windowWidth: 1200,
-    windowHeight: 800,
-    isMaximized: false,
-    showOnboarding: true,
-    libraryViewMode: 'grid',
-    librarySort: 'title',
-    autoImportOnConnect: true
-  },
-  lastImport: undefined,
-  version: '0.1.0'
-};
+// Import applyTheme AFTER all mocks are installed
+import { applyTheme } from './settings.svelte';
 
-describe('Settings Store - Theme Application', () => {
-	// Mock matchMedia
-	const matchMediaMock = vi.fn();
+describe('applyTheme - Theme Class Application', () => {
+	let root: HTMLElement;
 
-	beforeEach(async () => {
-		// Reset DOM
-		document.documentElement.className = '';
-
-		// Setup matchMedia mock
-		Object.defineProperty(window, 'matchMedia', {
-			writable: true,
-			value: matchMediaMock
-		});
-
-		matchMediaMock.mockImplementation((query) => ({
-			matches: false, // Default to light mode preference
-			media: query,
-			onchange: null,
-			addListener: vi.fn(), // Deprecated
-			removeListener: vi.fn(), // Deprecated
-			addEventListener: vi.fn(),
-			removeEventListener: vi.fn(),
-			dispatchEvent: vi.fn()
-		}));
-
-    mockedInvoke.mockClear();
-    mockedInvoke.mockImplementation((cmd) => {
-      if (cmd === 'get_default_settings') return Promise.resolve(MOCK_DEFAULTS);
-      return Promise.resolve({});
-    });
-
-		await settings.resetSettings();
+	beforeEach(() => {
+		root = document.createElement('div');
+		darkModeMatches = false;
+		mediaChangeHandlers = [];
+		mockSetTheme.mockClear();
 	});
 
-	afterEach(() => {
-		vi.restoreAllMocks();
+	it('should apply "light" class when theme is "light"', () => {
+		root.classList.add('dark');
+
+		applyTheme('light', root);
+
+		expect(root.classList.contains('light')).toBe(true);
+		expect(root.classList.contains('dark')).toBe(false);
 	});
 
-	it('should apply light theme (remove dark class) when theme is "light"', async () => {
-		// Start with dark to verify removal
-		document.documentElement.classList.add('dark');
+	it('should apply "dark" class when theme is "dark"', () => {
+		applyTheme('dark', root);
 
-		await settings.setTheme('light');
-		expect(document.documentElement.classList.contains('dark')).toBe(false);
+		expect(root.classList.contains('dark')).toBe(true);
+		expect(root.classList.contains('light')).toBe(false);
 	});
 
-	it('should apply dark theme (add dark class) when theme is "dark"', async () => {
-		await settings.setTheme('dark');
-		expect(document.documentElement.classList.contains('dark')).toBe(true);
+	it('should apply system light theme via matchMedia', () => {
+		darkModeMatches = false;
+
+		applyTheme('system', root);
+
+		expect(root.classList.contains('light')).toBe(true);
+		expect(root.classList.contains('dark')).toBe(false);
 	});
 
-	it('should apply system light theme correctly', async () => {
-		// Mock system preferring light
-		matchMediaMock.mockImplementation((query) => ({
-			matches: false,
-			media: query,
-			addEventListener: vi.fn()
-		}));
+	it('should apply system dark theme via matchMedia', () => {
+		darkModeMatches = true;
 
-		// Start with dark to verify removal
-		document.documentElement.classList.add('dark');
+		applyTheme('system', root);
 
-		await settings.setTheme('system');
-
-		expect(document.documentElement.classList.contains('dark')).toBe(false);
+		expect(root.classList.contains('dark')).toBe(true);
+		expect(root.classList.contains('light')).toBe(false);
 	});
 
-	it('should apply system dark theme correctly', async () => {
-		// Mock system preferring dark
-		matchMediaMock.mockImplementation((query) => ({
-			matches: true,
-			media: query,
-			addEventListener: vi.fn()
-		}));
+	it('should remove previous theme class before applying new one', () => {
+		applyTheme('dark', root);
+		expect(root.classList.contains('dark')).toBe(true);
 
-		await settings.setTheme('system');
-
-		expect(document.documentElement.classList.contains('dark')).toBe(true);
+		applyTheme('light', root);
+		expect(root.classList.contains('light')).toBe(true);
+		expect(root.classList.contains('dark')).toBe(false);
 	});
 
-	it('should update theme when switching from specific to system (dark)', async () => {
-		// Start with light (no class)
-		document.documentElement.classList.remove('dark');
+	it('should update classes when system theme changes at runtime', () => {
+		darkModeMatches = false;
 
-		// Mock system preferring dark
-		matchMediaMock.mockImplementation((query) => ({
-			matches: true,
-			media: query,
-			addEventListener: vi.fn()
-		}));
+		applyTheme('system', root);
+		expect(root.classList.contains('light')).toBe(true);
 
-		// Switch to system
-		await settings.setTheme('system');
+		simulateSystemThemeChange(true);
 
-		expect(document.documentElement.classList.contains('dark')).toBe(true);
+		expect(root.classList.contains('dark')).toBe(true);
+		expect(root.classList.contains('light')).toBe(false);
+	});
+
+	it('should correctly transition from light to system (dark)', () => {
+		applyTheme('light', root);
+		expect(root.classList.contains('light')).toBe(true);
+
+		darkModeMatches = true;
+
+		applyTheme('system', root);
+
+		expect(root.classList.contains('dark')).toBe(true);
+		expect(root.classList.contains('light')).toBe(false);
+	});
+});
+
+describe('applyTheme - Listener Management', () => {
+	let root: HTMLElement;
+
+	beforeEach(() => {
+		root = document.createElement('div');
+		darkModeMatches = false;
+		mediaChangeHandlers = [];
+		mockSetTheme.mockClear();
+	});
+
+	it('should add matchMedia listener when theme is "system"', () => {
+		applyTheme('system', root);
+
+		expect(mediaChangeHandlers.length).toBe(1);
+	});
+
+	it('should not add listener for manual themes', () => {
+		applyTheme('dark', root);
+
+		expect(mediaChangeHandlers.length).toBe(0);
+	});
+
+	it('should return cleanup function for "system" theme', () => {
+		const cleanup = applyTheme('system', root);
+
+		expect(typeof cleanup).toBe('function');
+	});
+
+	it('should not return cleanup function for manual themes', () => {
+		const cleanup = applyTheme('dark', root);
+
+		expect(cleanup).toBeUndefined();
+	});
+
+	it('should remove listener when cleanup is called', () => {
+		const cleanup = applyTheme('system', root);
+		expect(mediaChangeHandlers.length).toBe(1);
+
+		cleanup!();
+
+		expect(mediaChangeHandlers.length).toBe(0);
+	});
+
+	it('should not accumulate listeners across apply/cleanup cycles', () => {
+		const cleanup1 = applyTheme('system', root);
+		expect(mediaChangeHandlers.length).toBe(1);
+
+		cleanup1!();
+
+		const cleanup2 = applyTheme('system', root);
+		expect(mediaChangeHandlers.length).toBe(1);
+
+		cleanup2!();
+		expect(mediaChangeHandlers.length).toBe(0);
+	});
+
+	it('should stop responding to system changes after cleanup', () => {
+		darkModeMatches = false;
+		const cleanup = applyTheme('system', root);
+		expect(root.classList.contains('light')).toBe(true);
+
+		cleanup!();
+
+		// Simulate theme change after cleanup — should NOT update classes
+		simulateSystemThemeChange(true);
+		expect(root.classList.contains('light')).toBe(true);
+		expect(root.classList.contains('dark')).toBe(false);
+	});
+});
+
+describe('applyTheme - Titlebar Sync', () => {
+	let root: HTMLElement;
+
+	beforeEach(() => {
+		root = document.createElement('div');
+		darkModeMatches = false;
+		mediaChangeHandlers = [];
+		mockSetTheme.mockClear();
+	});
+
+	it('should call syncTitlebar(null) when theme is "system"', async () => {
+		applyTheme('system', root);
+
+		// syncTitlebar uses dynamic import, so wait for the promise chain
+		await new Promise(r => setTimeout(r, 0));
+
+		expect(mockSetTheme).toHaveBeenCalledWith(null);
+	});
+
+	it('should call syncTitlebar("dark") for dark theme', async () => {
+		applyTheme('dark', root);
+
+		await new Promise(r => setTimeout(r, 0));
+
+		expect(mockSetTheme).toHaveBeenCalledWith('dark');
+	});
+
+	it('should call syncTitlebar("light") for light theme', async () => {
+		applyTheme('light', root);
+
+		await new Promise(r => setTimeout(r, 0));
+
+		expect(mockSetTheme).toHaveBeenCalledWith('light');
 	});
 });

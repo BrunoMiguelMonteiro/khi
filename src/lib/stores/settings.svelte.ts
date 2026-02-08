@@ -53,6 +53,60 @@ function createInitialState(): AppSettings {
   };
 }
 
+/** Sync macOS native titlebar theme (fire-and-forget). Pass null to follow system. */
+function syncTitlebar(theme: "light" | "dark" | null) {
+  import("@tauri-apps/api/window")
+    .then(({ getCurrentWindow }) => getCurrentWindow().setTheme(theme))
+    .catch(() => {});
+}
+
+/**
+ * Apply theme to the document root and configure system theme listener if needed.
+ * Extracted as a standalone function so it can be tested independently of Svelte's
+ * effect scheduler.
+ *
+ * Returns a cleanup function that removes the matchMedia listener (if one was added).
+ */
+export function applyTheme(
+  theme: ThemePreference,
+  root: HTMLElement = document.documentElement,
+): (() => void) | void {
+  root.classList.remove("light", "dark");
+
+  if (theme === "system") {
+    // syncTitlebar(null) is fire-and-forget: the Tauri setTheme(null) may
+    // not take effect before the matchMedia read below. In practice this is
+    // fine because matchMedia reflects the OS preference independently of
+    // Tauri's window theme, and the listener corrects any mismatch later.
+    syncTitlebar(null);
+
+    const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
+      .matches
+      ? "dark"
+      : "light";
+    root.classList.add(systemTheme);
+
+    // Local listener + cleanup — mirrors the astro-editor pattern
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+
+    const handleChange = () => {
+      const newTheme = mediaQuery.matches ? "dark" : "light";
+      if (root.classList.contains(newTheme)) return;
+      root.classList.remove("light", "dark");
+      root.classList.add(newTheme);
+    };
+
+    mediaQuery.addEventListener("change", handleChange);
+
+    return () => {
+      mediaQuery.removeEventListener("change", handleChange);
+    };
+  } else {
+    root.classList.add(theme);
+    syncTitlebar(theme);
+  }
+}
+
 class SettingsStore {
   state = $state<AppSettings>(createInitialState());
   isLoading = $state(false);
@@ -61,6 +115,19 @@ class SettingsStore {
   // Derived state for easier access
   exportConfig = $derived(this.state.exportConfig);
   uiPreferences = $derived(this.state.uiPreferences);
+
+  constructor() {
+    // $effect.root() needed because this class is instantiated at module scope,
+    // outside any Svelte component initialization context
+    $effect.root(() => {
+      $effect(() => {
+        if (typeof window === "undefined") return;
+        const theme = this.state.uiPreferences?.theme;
+        if (!theme) return;
+        return applyTheme(theme);
+      });
+    });
+  }
 
   // ============================================
   // Actions - Settings Management
@@ -113,9 +180,8 @@ class SettingsStore {
   // Actions - UI Preferences
   // ============================================
 
-  async setTheme(theme: ThemePreference) {
+  setTheme(theme: ThemePreference) {
     this.state.uiPreferences.theme = theme;
-    await this.applyTheme(theme);
   }
 
   setViewMode(mode: ViewMode) {
@@ -173,7 +239,7 @@ class SettingsStore {
     try {
       const loadedSettings = await invoke<AppSettings>("load_settings");
       this.state = loadedSettings;
-      await this.applyTheme(this.state.uiPreferences.theme);
+      // $effect will apply theme automatically when state changes
     } catch (err) {
       console.error("Failed to load settings:", err);
       this.error =
@@ -217,61 +283,9 @@ class SettingsStore {
    */
   async initialize() {
     await this.load();
-
-    // Listen for system theme changes
-    // Always add listener, but only apply if theme is 'system'
-    if (typeof window !== "undefined") {
-      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-      mediaQuery.addEventListener("change", async () => {
-        // Only react to system changes if theme preference is 'system'
-        if (this.state.uiPreferences.theme === "system") {
-          await this.applyTheme("system");
-        }
-      });
-    }
+    // $effect in constructor will handle theme setup automatically
   }
 
-  // ============================================
-  // Helpers
-  // ============================================
-
-  /**
-   * Apply theme to document and macOS titlebar
-   */
-  private async applyTheme(theme: ThemePreference) {
-    if (typeof document === "undefined") return;
-
-    const root = document.documentElement;
-
-    // Remove legacy theme classes
-    root.classList.remove("theme-light", "theme-dark");
-
-    // Determinar se deve usar dark mode
-    let isDark: boolean;
-
-    if (theme === "system") {
-      // Usar matchMedia para detetar tema do sistema (síncrono, sem flash)
-      isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    } else {
-      isDark = theme === "dark";
-    }
-
-    // Aplicar classe dark ao <html> para Tailwind
-    if (isDark) {
-      root.classList.add("dark");
-    } else {
-      root.classList.remove("dark");
-    }
-
-    // Sincronizar titlebar do macOS com Tauri Window API
-    try {
-      const { getCurrentWindow } = await import("@tauri-apps/api/window");
-      const appWindow = getCurrentWindow();
-      await appWindow.setTheme(isDark ? "dark" : "light");
-    } catch (err) {
-      console.debug("Tauri window theme not available:", err);
-    }
-  }
 }
 
 export const settings = new SettingsStore();

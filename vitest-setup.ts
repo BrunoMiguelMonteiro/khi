@@ -109,3 +109,19 @@ vi.mock('@tauri-apps/api/window', () => ({
     setTheme: vi.fn().mockResolvedValue(undefined)
   }))
 }));
+
+// jsdom does not implement matchMedia — provide a minimal stub so that
+// module-level code (e.g. the settings store $effect) doesn't throw.
+// Individual tests can override this with a more detailed mock.
+if (typeof window !== 'undefined' && !window.matchMedia) {
+  window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  }));
+}
