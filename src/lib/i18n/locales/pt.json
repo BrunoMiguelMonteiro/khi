@@ -99,10 +99,8 @@
     }
   },
   "notifications": {
-    "importSuccess": "Importação concluída com sucesso",
     "exportSuccess": "Exportação concluída com sucesso",
-    "exportError": "Erro ao exportar destaques",
-    "settingsSaved": "Definições guardadas"
+    "exportError": "Erro ao exportar destaques"
   },
   "errors": {
     "noDevice": "Nenhum dispositivo Kobo encontrado",

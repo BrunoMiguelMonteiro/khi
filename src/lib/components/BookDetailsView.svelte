@@ -11,9 +11,10 @@
     interface Props {
         book: Book;
         onClose?: () => void;
+        onNotification?: (message: string, type: 'success' | 'error') => void;
     }
 
-    let { book, onClose }: Props = $props();
+    let { book, onClose, onNotification }: Props = $props();
 
     function getInitials(title: string): string {
         return title
@@ -28,7 +29,6 @@
         const exportPath = exportConfig.exportPath;
 
         try {
-            // Export apenas este livro (não usa seleção)
             const filePaths = await invoke<string[]>("export_books", {
                 books: [book],
                 config: {
@@ -39,10 +39,11 @@
             });
 
             console.log("[BookDetailsView] Export successful:", filePaths);
-            // TODO: Mostrar notificação de sucesso
+            onNotification?.($_('notifications.exportSuccess'), 'success');
         } catch (error) {
             console.error("[BookDetailsView] Export failed:", error);
-            // TODO: Mostrar notificação de erro
+            const errorMessage = error instanceof Error ? error.message : 'Export failed';
+            onNotification?.(`Export failed: ${errorMessage}`, 'error');
         }
     }
 </script>
@@ -87,12 +88,14 @@
             {$_("screens.bookDetails.back")}
         </Button>
 
-        <Button variant="ghost" onclick={handleExport}>
-            {#snippet icon()}
-                <FileDown size={16} />
-            {/snippet}
-            {$_("screens.bookDetails.exportMarkdown")}
-        </Button>
+        <div class="flex items-center gap-3">
+            <Button variant="ghost" onclick={handleExport}>
+                {#snippet icon()}
+                    <FileDown size={16} />
+                {/snippet}
+                {$_("screens.bookDetails.exportMarkdown")}
+            </Button>
+        </div>
     </div>
 
     <!-- Content (Scrollable) -->

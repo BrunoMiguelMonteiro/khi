@@ -119,11 +119,8 @@
     }
   },
   "notifications": {
-    "close": "Close notification",
-    "importSuccess": "Import completed successfully",
     "exportSuccess": "Export completed successfully",
-    "exportError": "Error exporting highlights",
-    "settingsSaved": "Settings saved"
+    "exportError": "Error exporting highlights"
   },
   "errors": {
     "noDevice": "No Kobo device found",
