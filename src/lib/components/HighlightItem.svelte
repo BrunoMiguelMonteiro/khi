@@ -15,51 +15,20 @@
     let copyTimeoutId: number | undefined = $state(undefined);
 
     /**
-     * Formata chapter titles técnicos (paths EPUB) em títulos legíveis
-     * Exemplos:
-     *   "OEBPS/Text/Section0001.html" → "Section 1"
-     *   "file:///mnt/onboard/Book/xhtml/chapter01.xhtml#intro" → "Intro"
-     *   "content/chapter-3.html" → "Chapter 3"
+     * Formats chapter title for display.
+     * Titles now come clean from the backend (via TOC ContentType 899).
+     * This function only acts as a safety net to filter out any filenames
+     * that might still slip through.
      */
     function formatChapterTitle(rawTitle: string | undefined): string {
-        if (!rawTitle) return "";
+        if (!rawTitle || !rawTitle.trim()) return "";
 
-        let cleaned = rawTitle;
-
-        // Remove file:// protocol
-        cleaned = cleaned.replace(/^file:\/\/\/mnt\/onboard\//, "");
-
-        // Remove common EPUB internal paths
-        cleaned = cleaned.replace(/.*\/(OEBPS|Text|xhtml|html|content)\//, "");
-
-        // Remove file extensions
-        cleaned = cleaned.replace(/\.(xhtml|html|htm|xml).*$/, "");
-
-        // Extract hash anchor if present (e.g., Section0001.html#chapter_1 → chapter_1)
-        const anchorMatch = cleaned.match(/#(.+)$/);
-        if (anchorMatch) {
-            cleaned = anchorMatch[1];
+        // Safety net: if a filename still escapes the backend, don't show it
+        if (/\.(xhtml|html|htm|xml)\b/.test(rawTitle) || rawTitle.includes('/')) {
+            return "";
         }
 
-        // Clean up common patterns
-        cleaned = cleaned
-            .replace(/Section\d+/gi, "") // Remove "Section001"
-            .replace(/chapter[-_]?(\d+)/gi, "Chapter $1") // chapter-1 → Chapter 1
-            .replace(/part[-_]?(\d+)/gi, "Part $1") // part_2 → Part 2
-            .replace(/[-_]/g, " ") // Replace hyphens/underscores with spaces
-            .replace(/\s+/g, " ") // Normalize whitespace
-            .trim();
-
-        // Capitalize first letter of each word
-        cleaned = cleaned
-            .split(" ")
-            .map(
-                (word) =>
-                    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
-            )
-            .join(" ");
-
-        return cleaned || "Unknown Location";
+        return rawTitle.trim();
     }
 
     /**
@@ -117,7 +86,7 @@
         </button>
     </blockquote>
 
-    {#if highlight.chapterTitle}
+    {#if formatChapterTitle(highlight.chapterTitle)}
         <p class="m-0 pl-4 text-xs text-neutral-500 dark:text-neutral-400">
             {formatChapterTitle(highlight.chapterTitle)}
         </p>

@@ -229,32 +229,9 @@ impl MarkdownExporter {
         lines.push("---".to_string());
         lines.push(String::new());
 
-        // Group highlights by chapter
-        let highlights: Vec<&Highlight> = book.highlights.iter().collect();
-        let grouped = group_highlights_by_chapter(&highlights);
-
-        let chapter_keys: Vec<_> = grouped.keys().collect();
-        for (i, chapter) in chapter_keys.iter().enumerate() {
-            let highlights = grouped.get(*chapter).unwrap();
-
-            if *chapter != "Sem Capítulo" {
-                lines.push(format!("## {}", chapter));
-                lines.push(String::new());
-            }
-
-            for (j, highlight) in highlights.iter().enumerate() {
-                lines.push(self.generate_highlight_markdown(highlight, config));
-
-                // Add separator between highlights, but not after the last one
-                let is_last_chapter = i == chapter_keys.len() - 1;
-                let is_last_highlight = j == highlights.len() - 1;
-
-                if !is_last_highlight || !is_last_chapter {
-                    lines.push(String::new());
-                    lines.push("---".to_string());
-                    lines.push(String::new());
-                }
-            }
+        // Render highlights sequentially (no chapter grouping)
+        for highlight in &book.highlights {
+            lines.push(self.generate_highlight_markdown(highlight, config));
         }
 
         lines.join("\n")
@@ -266,9 +243,8 @@ impl MarkdownExporter {
 
         // Highlight text as blockquote
         lines.push(format!("> {}", highlight.text));
-        lines.push(String::new());
 
-        // Location info
+        // Location info (no label, just the value)
         let mut location_parts: Vec<String> = Vec::new();
         if let Some(chapter_title) = &highlight.chapter_title {
             location_parts.push(chapter_title.clone());
@@ -278,12 +254,9 @@ impl MarkdownExporter {
         }
 
         if !location_parts.is_empty() {
-            lines.push(format!("**Localização**: {}", location_parts.join(" · ")));
-        }
-
-        // Date
-        if !highlight.date_created.is_empty() {
-            lines.push(format!("**Data**: {}", highlight.date_created));
+            lines.push(String::new());
+            lines.push(location_parts.join(" · "));
+            lines.push(String::new());
         }
 
         lines.join("\n")
@@ -345,26 +318,6 @@ fn format_date(date_str: &str, format: &DateFormat) -> String {
     } else {
         date_str.to_string()
     }
-}
-
-/// Group highlights by chapter
-fn group_highlights_by_chapter<'a>(
-    highlights: &'a [&'a Highlight],
-) -> std::collections::HashMap<String, Vec<&'a Highlight>> {
-    let mut groups: std::collections::HashMap<String, Vec<&'a Highlight>> =
-        std::collections::HashMap::new();
-
-    for highlight in highlights {
-        let chapter = highlight
-            .chapter_title
-            .as_ref()
-            .map(|t| t.clone())
-            .unwrap_or_else(|| "Sem Capítulo".to_string());
-
-        groups.entry(chapter).or_default().push(highlight);
-    }
-
-    groups
 }
 
 #[derive(Debug)]
