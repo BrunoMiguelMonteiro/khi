@@ -31,10 +31,12 @@ impl KoboDatabase {
         }
 
         // Query to get all bookmarks (highlights) with their content info
-        // We need two JOINs:
+        // We need three JOINs:
         // 1. c_book: joined by VolumeID to get book metadata (author, ISBN, etc.)
-        // 2. c_chapter: joined by ContentID to get chapter title
-        let query = "SELECT 
+        // 2. c_chapter: joined by ContentID to get chapter title (ContentType 9 — XHTML page)
+        // 3. c_toc: joined by ContentID prefix to get real chapter title (ContentType 899 — TOC entry)
+        //    TOC entries have ContentID = page ContentID + suffix "-N" (e.g., "-1", "-2")
+        let query = "SELECT
                 b.BookmarkID,
                 b.ContentID,
                 b.VolumeID,
@@ -44,7 +46,17 @@ impl KoboDatabase {
                 b.ChapterProgress,
                 b.DateCreated,
                 COALESCE(c_book.Title, c_book.BookTitle, c_chapter.BookTitle, c_chapter.Title, 'Unknown Title') as BookTitle,
-                c_chapter.Title as ChapterTitle,
+                COALESCE(
+                    c_toc.Title,
+                    CASE WHEN c_chapter.Title IS NOT NULL
+                              AND c_chapter.Title NOT LIKE '%.xhtml%'
+                              AND c_chapter.Title NOT LIKE '%.html%'
+                              AND c_chapter.Title NOT LIKE '%.htm%'
+                              AND c_chapter.Title NOT LIKE '%/%'
+                         THEN c_chapter.Title
+                         ELSE NULL
+                    END
+                ) as ChapterTitle,
                 c_book.Attribution,
                 c_book.ISBN,
                 c_book.Publisher,
@@ -53,6 +65,8 @@ impl KoboDatabase {
              FROM Bookmark b
              LEFT JOIN content c_book ON b.VolumeID = c_book.ContentID
              LEFT JOIN content c_chapter ON b.ContentID = c_chapter.ContentID
+             LEFT JOIN content c_toc ON c_toc.ContentType = 899
+                AND c_toc.ContentID LIKE b.ContentID || '%'
              WHERE b.Text IS NOT NULL AND b.Text != ''
              ORDER BY BookTitle, b.DateCreated";
 
@@ -340,7 +354,7 @@ mod tests {
 
         // Insert bookmark with empty text (should be ignored)
         conn.execute(
-            "INSERT INTO Bookmark VALUES ('hl3', 'vol1!section1', 'vol1', 
+            "INSERT INTO Bookmark VALUES ('hl3', 'vol1!section1', 'vol1',
              '', NULL, 'OEBPS/ch01.xhtml', 0.75, '2025-01-26', 'red')",
             [],
         )
@@ -348,7 +362,7 @@ mod tests {
 
         // Insert bookmark with NULL text (should be ignored)
         conn.execute(
-            "INSERT INTO Bookmark VALUES ('hl4', 'vol1!section1', 'vol1', 
+            "INSERT INTO Bookmark VALUES ('hl4', 'vol1!section1', 'vol1',
              NULL, NULL, 'OEBPS/ch01.xhtml', 0.80, '2025-01-27', 'green')",
             [],
         )
@@ -360,5 +374,212 @@ mod tests {
         // Should only have hl1, not hl3 or hl4
         assert_eq!(books[0].highlights.len(), 1);
         assert_eq!(books[0].highlights[0].id, "hl1");
+    }
+
+    /// Helper to create a mock DB with ContentType 9 (pages) and 899 (TOC entries)
+    fn create_mock_db_with_toc() -> NamedTempFile {
+        let temp = NamedTempFile::new().unwrap();
+        let conn = Connection::open(temp.path()).unwrap();
+
+        conn.execute(
+            "CREATE TABLE Bookmark (
+                BookmarkID TEXT PRIMARY KEY,
+                ContentID TEXT,
+                VolumeID TEXT,
+                Text TEXT,
+                Annotation TEXT,
+                StartContainerPath TEXT,
+                ChapterProgress REAL,
+                DateCreated TEXT,
+                Color TEXT
+            )",
+            [],
+        )
+        .unwrap();
+
+        conn.execute(
+            "CREATE TABLE Content (
+                ContentID TEXT,
+                BookTitle TEXT,
+                Title TEXT,
+                Attribution TEXT,
+                ISBN TEXT,
+                Publisher TEXT,
+                Language TEXT,
+                DateLastRead TEXT,
+                ContentType INTEGER
+            )",
+            [],
+        )
+        .unwrap();
+
+        // Book-level entry (ContentType 6)
+        conn.execute(
+            "INSERT INTO Content VALUES ('file:///mnt/onboard/book.epub', 'My Book', 'My Book',
+             'Author Name', '978-0000000000', 'Publisher', 'en', '2025-01-24', 6)",
+            [],
+        )
+        .unwrap();
+
+        // Chapter page entry (ContentType 9) — Title is a filename
+        conn.execute(
+            "INSERT INTO Content VALUES ('file:///mnt/onboard/book.epub!xhtml/chapter3.xhtml',
+             'My Book', 'xhtml/chapter3.xhtml', 'Author Name', NULL, NULL, NULL, NULL, 9)",
+            [],
+        )
+        .unwrap();
+
+        // TOC entry (ContentType 899) — Title is the real chapter title
+        conn.execute(
+            "INSERT INTO Content VALUES ('file:///mnt/onboard/book.epub!xhtml/chapter3.xhtml-1',
+             'My Book', 'Chapter 3: Connect Your Notes', NULL, NULL, NULL, NULL, NULL, 899)",
+            [],
+        )
+        .unwrap();
+
+        // Highlight pointing to the chapter page
+        conn.execute(
+            "INSERT INTO Bookmark VALUES ('hl-toc', 'file:///mnt/onboard/book.epub!xhtml/chapter3.xhtml',
+             'file:///mnt/onboard/book.epub', 'A highlight text', NULL, NULL, 0.30,
+             '2025-01-24', NULL)",
+            [],
+        )
+        .unwrap();
+
+        temp
+    }
+
+    #[test]
+    fn test_chapter_title_from_toc() {
+        // TOC entry (ContentType 899) should be preferred over page title (ContentType 9)
+        let mock_db = create_mock_db_with_toc();
+        let db = KoboDatabase::new(mock_db.path()).unwrap();
+
+        let books = db.extract_books_with_highlights().unwrap();
+
+        assert_eq!(books.len(), 1);
+        assert_eq!(books[0].highlights.len(), 1);
+        assert_eq!(
+            books[0].highlights[0].chapter_title,
+            Some("Chapter 3: Connect Your Notes".to_string())
+        );
+    }
+
+    #[test]
+    fn test_chapter_title_filename_filtered() {
+        // When there's no TOC entry (899) and the CT9 title is a filename, it should be NULL
+        let temp = NamedTempFile::new().unwrap();
+        let conn = Connection::open(temp.path()).unwrap();
+
+        conn.execute(
+            "CREATE TABLE Bookmark (
+                BookmarkID TEXT, ContentID TEXT, VolumeID TEXT, Text TEXT,
+                Annotation TEXT, StartContainerPath TEXT, ChapterProgress REAL,
+                DateCreated TEXT, Color TEXT
+            )",
+            [],
+        )
+        .unwrap();
+
+        conn.execute(
+            "CREATE TABLE Content (
+                ContentID TEXT, BookTitle TEXT, Title TEXT, Attribution TEXT,
+                ISBN TEXT, Publisher TEXT, Language TEXT, DateLastRead TEXT,
+                ContentType INTEGER
+            )",
+            [],
+        )
+        .unwrap();
+
+        // Book entry
+        conn.execute(
+            "INSERT INTO Content VALUES ('vol2', 'Filename Book', 'Filename Book',
+             'Author', NULL, NULL, NULL, NULL, 6)",
+            [],
+        )
+        .unwrap();
+
+        // Chapter page with filename as title (no TOC entry exists)
+        conn.execute(
+            "INSERT INTO Content VALUES ('vol2!Text/011.xhtml', 'Filename Book',
+             'Text/011.xhtml', 'Author', NULL, NULL, NULL, NULL, 9)",
+            [],
+        )
+        .unwrap();
+
+        conn.execute(
+            "INSERT INTO Bookmark VALUES ('hl-fn', 'vol2!Text/011.xhtml', 'vol2',
+             'Some highlight', NULL, NULL, 0.10, '2025-01-25', NULL)",
+            [],
+        )
+        .unwrap();
+
+        let db = KoboDatabase::new(temp.path()).unwrap();
+        let books = db.extract_books_with_highlights().unwrap();
+
+        assert_eq!(books.len(), 1);
+        // Filename should be filtered to NULL (not shown)
+        assert_eq!(books[0].highlights[0].chapter_title, None);
+    }
+
+    #[test]
+    fn test_chapter_title_fallback_to_ct9() {
+        // When there's no TOC entry but CT9 title is a good title (not a filename),
+        // it should be used as fallback
+        let temp = NamedTempFile::new().unwrap();
+        let conn = Connection::open(temp.path()).unwrap();
+
+        conn.execute(
+            "CREATE TABLE Bookmark (
+                BookmarkID TEXT, ContentID TEXT, VolumeID TEXT, Text TEXT,
+                Annotation TEXT, StartContainerPath TEXT, ChapterProgress REAL,
+                DateCreated TEXT, Color TEXT
+            )",
+            [],
+        )
+        .unwrap();
+
+        conn.execute(
+            "CREATE TABLE Content (
+                ContentID TEXT, BookTitle TEXT, Title TEXT, Attribution TEXT,
+                ISBN TEXT, Publisher TEXT, Language TEXT, DateLastRead TEXT,
+                ContentType INTEGER
+            )",
+            [],
+        )
+        .unwrap();
+
+        // Book entry (sideloaded EPUB with good chapter titles in CT9)
+        conn.execute(
+            "INSERT INTO Content VALUES ('vol3', 'Good Book', 'Good Book',
+             'Good Author', NULL, NULL, NULL, NULL, 6)",
+            [],
+        )
+        .unwrap();
+
+        // Chapter page with a good human-readable title (no TOC entry)
+        conn.execute(
+            "INSERT INTO Content VALUES ('vol3!ch1', 'Good Book',
+             'Introduction', 'Good Author', NULL, NULL, NULL, NULL, 9)",
+            [],
+        )
+        .unwrap();
+
+        conn.execute(
+            "INSERT INTO Bookmark VALUES ('hl-good', 'vol3!ch1', 'vol3',
+             'A good highlight', NULL, NULL, 0.05, '2025-01-26', NULL)",
+            [],
+        )
+        .unwrap();
+
+        let db = KoboDatabase::new(temp.path()).unwrap();
+        let books = db.extract_books_with_highlights().unwrap();
+
+        assert_eq!(books.len(), 1);
+        // Good title from CT9 should be used as fallback
+        assert_eq!(
+            books[0].highlights[0].chapter_title,
+            Some("Introduction".to_string())
+        );
     }
 }
