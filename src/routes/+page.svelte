@@ -8,6 +8,7 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import EmptyStateNoDevice from '$lib/components/EmptyStateNoDevice.svelte';
 	import ImportingState from '$lib/components/ImportingState.svelte';
+	import InlineNotification from '$lib/components/InlineNotification.svelte';
 	import { _ } from '$lib/i18n';
 	import { library } from '$lib/stores/library.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
@@ -20,11 +21,14 @@
 
 	// Local state
 	let showSettings = $state(false);
-	let exportNotification = $state<{
-		message: string;
-		type: 'success' | 'error';
-		visible: boolean;
-	} | null>(null);
+	let notification = $state<{ message: string; type: 'success' | 'error' } | null>(null);
+	let notificationTimer: ReturnType<typeof setTimeout> | undefined;
+
+	function showNotification(message: string, type: 'success' | 'error') {
+		notification = { message, type };
+		clearTimeout(notificationTimer);
+		notificationTimer = setTimeout(() => { notification = null; }, 4000);
+	}
 
 	// Event unlisten functions for cleanup
 	let unlistenDeviceDetected: UnlistenFn | undefined;
@@ -200,68 +204,14 @@
 		showSettings = false;
 	}
 
-	function showNotification(message: string, type: 'success' | 'error') {
-		exportNotification = { message, type, visible: true };
-		setTimeout(() => {
-			if (exportNotification) {
-				exportNotification.visible = false;
-			}
-		}, 5000);
-	}
 </script>
-
-<!-- Notificações globais -->
-{#if exportNotification?.visible}
-	<div 
-		class="fixed top-4 right-4 z-[1000] flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg animate-in fade-in slide-in-from-right duration-300 max-sm:left-4 {exportNotification.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}" 
-		role="status" 
-		aria-live="polite"
-	>
-		<div class="flex items-center gap-2">
-			<svg
-				class="w-5 h-5 shrink-0"
-				viewBox="0 0 24 24"
-				fill="none"
-				xmlns="http://www.w3.org/2000/svg"
-				aria-hidden="true"
-			>
-				{#if exportNotification.type === 'success'}
-					<path
-						d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
-						fill="currentColor"
-					/>
-				{:else}
-					<path
-						d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"
-						fill="currentColor"
-					/>
-				{/if}
-			</svg>
-			<span class="text-sm font-medium">{exportNotification.message}</span>
-		</div>
-		<button
-			type="button"
-			class="flex items-center justify-center w-6 h-6 p-0 bg-white/20 hover:bg-white/30 border-none rounded-md color-white cursor-pointer transition-colors"
-			onclick={() => exportNotification && (exportNotification.visible = false)}
-			aria-label="Close notification"
-		>
-			<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-				<path
-					d="M18 6L6 18M6 6l12 12"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-				/>
-			</svg>
-		</button>
-	</div>
-{/if}
 
 <!-- Conteúdo principal -->
 <div class="flex flex-col h-screen bg-white dark:bg-neutral-900 overflow-hidden">
 	<!-- Header ÚNICO e GLOBAL -->
-	<header class="px-6 py-4 border-b border-neutral-200 dark:border-neutral-800 shrink-0 bg-white dark:bg-neutral-900 z-30">
+	<header class="flex items-center justify-between px-6 py-4 border-b border-neutral-200 dark:border-neutral-800 shrink-0 bg-white dark:bg-neutral-900 z-30">
 		<h1 class="m-0 text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100 font-['Geist']">khi</h1>
+		<InlineNotification message={notification?.message ?? null} type={notification?.type ?? 'success'} />
 	</header>
 
 	<main class="flex-1 relative overflow-hidden flex flex-col">
@@ -270,7 +220,7 @@
 		{:else if library.uiState === 'importing'}
 			<ImportingState />
 		{:else if library.uiState === 'book-details' && library.viewingBook}
-			<BookDetailsView book={library.viewingBook} onClose={handleCloseBookDetails} />
+			<BookDetailsView book={library.viewingBook} onClose={handleCloseBookDetails} onNotification={showNotification} />
 		{:else if library.uiState === 'library'}
 			<!-- Toolbar -->
 			<LibraryToolbar
