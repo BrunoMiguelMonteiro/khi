@@ -10,6 +10,9 @@
 
     let { highlight }: Props = $props();
 
+    // Kobo stores "" for highlights without a note: empty or whitespace-only is no note.
+    let note = $derived(highlight.annotation?.trim() ?? "");
+
     // Estado de feedback de cópia (Svelte 5 runes)
     let copyFeedback: "idle" | "success" | "error" = $state("idle");
     let copyTimeoutId: number | undefined = $state(undefined);
@@ -85,6 +88,13 @@
             {/if}
         </button>
     </blockquote>
+
+    {#if note}
+        <p
+            class="m-0 pl-4 text-sm leading-relaxed text-neutral-700 dark:text-neutral-300 whitespace-pre-line [text-wrap:pretty]"
+            data-testid="highlight-note"
+        ><span class="font-medium text-neutral-500 dark:text-neutral-400">{t("highlight.note")}:</span> {note}</p>
+    {/if}
 
     {#if highlight.removedAt}
         <p

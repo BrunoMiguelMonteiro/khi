@@ -219,4 +219,29 @@ describe('HighlightItem', () => {
     render(HighlightItem, { props: { highlight: mockHighlight } });
     expect(screen.queryByTestId('removed-mark')).toBeNull();
   });
+  describe('note (Kobo annotation)', () => {
+    it('shows the note under the quote', () => {
+      render(HighlightItem, { props: { highlight: { ...mockHighlight, annotation: 'My own thought' } } });
+      const note = screen.getByTestId('highlight-note');
+      expect(note).toHaveTextContent('Note: My own thought');
+      const quote = screen.getByText('This is the highlight text');
+      // The note follows the quote in document order.
+      expect(quote.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('shows no note when annotation is null', () => {
+      render(HighlightItem, { props: { highlight: mockHighlight } });
+      expect(screen.queryByTestId('highlight-note')).toBeNull();
+    });
+
+    it('shows no note when Kobo stores an empty string', () => {
+      render(HighlightItem, { props: { highlight: { ...mockHighlight, annotation: '' } } });
+      expect(screen.queryByTestId('highlight-note')).toBeNull();
+    });
+
+    it('shows no note when annotation is only whitespace', () => {
+      render(HighlightItem, { props: { highlight: { ...mockHighlight, annotation: '  \n\t ' } } });
+      expect(screen.queryByTestId('highlight-note')).toBeNull();
+    });
+  });
 });
