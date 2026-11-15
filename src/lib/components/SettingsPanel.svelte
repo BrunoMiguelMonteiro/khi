@@ -53,15 +53,32 @@
 		}
 	}
 
-	/** The active Reader's export folder; empty means «base folder/Reader name» (R21). */
-	async function handleReaderExportPath(event: Event) {
-		const path = (event.currentTarget as HTMLInputElement).value.trim();
-		if (!activeReader || (path || null) === activeReader.exportPath) return;
-		try {
-			await library.setReaderExportPath(activeReader.id, path || null);
-		} catch (error) {
-			saveError = error instanceof Error ? error.message : String(error);
-		}
+	// With a Reader open, the folder field is that Reader's folder (R21);
+	// the base folder only seeds the default «base/Reader name».
+	const defaultReaderFolder = $derived(
+		activeReader ? `${exportConfig.exportPath}/${activeReader.name}` : ''
+	);
+	let readerFolderDraft = $state<string | null>(null);
+	const readerFolder = $derived(
+		readerFolderDraft ?? activeReader?.exportPath ?? defaultReaderFolder
+	);
+
+	function setFolder(path: string) {
+		if (activeReader) readerFolderDraft = path;
+		else settings.setExportPath(path);
+		hasChanges = true;
+	}
+
+	/** Saves the Reader's folder; the default folder is stored as null so it
+	 * follows the base folder and the Reader's name. */
+	async function saveReaderFolder() {
+		if (!activeReader || readerFolderDraft === null) return;
+		const path = readerFolderDraft.trim();
+		await library.setReaderExportPath(
+			activeReader.id,
+			path === '' || path === defaultReaderFolder ? null : path
+		);
+		readerFolderDraft = null;
 	}
 
 	// Metadata options configuration
@@ -121,19 +138,15 @@
 
 	// Handlers
 	function handleExportPathChange(event: Event) {
-		const target = event.target as HTMLInputElement;
-		settings.setExportPath(target.value);
-		hasChanges = true;
+		setFolder((event.target as HTMLInputElement).value);
 	}
 
 	async function handleBrowseFolder() {
 		try {
-			const selectedPath = await commands.pickExportFolder(exportConfig.exportPath);
+			const current = activeReader ? readerFolder : exportConfig.exportPath;
+			const selectedPath = await commands.pickExportFolder(current);
 
-			if (selectedPath) {
-				settings.setExportPath(selectedPath);
-				hasChanges = true;
-			}
+			if (selectedPath) setFolder(selectedPath);
 		} catch (error) {
 			console.error('Failed to pick folder:', error);
 		}
@@ -167,6 +180,7 @@
 	async function handleSave() {
 		saveError = null;
 		try {
+			await saveReaderFolder();
 			await settings.save();
 			hasChanges = false;
 			onSave?.();
@@ -322,18 +336,6 @@
 								class="px-3 py-2 text-sm rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
 							/>
 						</div>
-						<div class="flex flex-col gap-2">
-							<label for="reader-export-path" class="text-sm font-medium text-neutral-600 dark:text-neutral-400">Export folder</label>
-							<input
-								id="reader-export-path"
-								data-testid="reader-export-path"
-								type="text"
-								value={activeReader.exportPath ?? ''}
-								placeholder={`${exportConfig.exportPath}/${activeReader.name}`}
-								onchange={handleReaderExportPath}
-								class="px-3 py-2 text-sm rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
-							/>
-						</div>
 					</section>
 				{/if}
 
@@ -347,7 +349,7 @@
 								id="export-path"
 								type="text"
 								class="flex-1 px-4 py-2 border border-neutral-200 dark:border-neutral-700 rounded-md bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-								value={exportConfig.exportPath}
+								value={activeReader ? readerFolder : exportConfig.exportPath}
 								oninput={handleExportPathChange}
 								placeholder="~/Documents/Kobo Highlights"
 							/>
@@ -378,7 +380,9 @@
 							</Button>
 						</div>
 						<p class="text-xs text-neutral-500 dark:text-neutral-400 m-0">
-							Markdown files will be saved in this folder.
+							{activeReader
+								? `${activeReader.name}'s books are exported to this folder.`
+								: 'Markdown files will be saved in this folder.'}
 						</p>
 					</div>
 				</section>

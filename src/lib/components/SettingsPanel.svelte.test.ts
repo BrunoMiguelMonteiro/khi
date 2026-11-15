@@ -115,28 +115,52 @@ describe('SettingsPanel', () => {
 		expect(screen.queryByText(/delete reader/i)).toBeNull();
 	});
 
-	it('edits the active reader export folder', async () => {
-		// A tiny Library: the saved folder comes back on the next list_readers
-		let bruno: { id: number; name: string; exportPath: string | null } = { id: 3, name: 'Bruno', exportPath: null };
-		vi.mocked(invoke).mockImplementation((cmd: string, args?: unknown) => {
-			if (cmd === 'set_reader_export_path') bruno = { ...bruno, exportPath: (args as { path: string | null }).path };
-			return Promise.resolve(cmd === 'list_readers' ? [bruno] : null);
-		});
-		library.readers = [bruno];
+	it('with a reader open, one folder field shows where that reader exports', () => {
+		library.readers = [{ id: 3, name: 'Bruno', exportPath: null }];
 		library.activeReaderId = 3;
 		render(SettingsPanel, { onClose: mockOnClose });
 
-		const input = screen.getByTestId('reader-export-path') as HTMLInputElement;
-		expect(input.value).toBe('');
-		expect(input.placeholder).toBe('~/Documents/Kobo Highlights/Bruno');
-		await fireEvent.input(input, { target: { value: '/x/Bruno' } });
-		await fireEvent.change(input);
-		expect(invoke).toHaveBeenCalledWith('set_reader_export_path', { readerId: 3, path: '/x/Bruno' });
+		expect(screen.getAllByLabelText(/path/i)).toHaveLength(1);
+		expect(screen.getByLabelText(/path/i)).toHaveValue('~/Documents/Kobo Highlights/Bruno');
+	});
 
-		await waitFor(() => expect(library.readers[0].exportPath).toBe('/x/Bruno'));
-		await fireEvent.input(input, { target: { value: '  ' } });
-		await fireEvent.change(input);
-		expect(invoke).toHaveBeenCalledWith('set_reader_export_path', { readerId: 3, path: null });
+	it('shows the reader custom folder when it has one', () => {
+		library.readers = [{ id: 3, name: 'Bruno', exportPath: '/x/Bruno' }];
+		library.activeReaderId = 3;
+		render(SettingsPanel, { onClose: mockOnClose });
+
+		expect(screen.getByLabelText(/path/i)).toHaveValue('/x/Bruno');
+	});
+
+	it('saving a new folder sets the reader folder, not the base folder', async () => {
+		vi.mocked(settings.save).mockResolvedValue(undefined);
+		library.readers = [{ id: 3, name: 'Bruno', exportPath: null }];
+		library.activeReaderId = 3;
+		render(SettingsPanel, { onClose: mockOnClose });
+
+		await fireEvent.input(screen.getByLabelText(/path/i), { target: { value: '/x/Bruno' } });
+		await fireEvent.click(screen.getByRole('button', { name: /save changes/i }));
+
+		await waitFor(() =>
+			expect(invoke).toHaveBeenCalledWith('set_reader_export_path', { readerId: 3, path: '/x/Bruno' })
+		);
+		expect(settings.setExportPath).not.toHaveBeenCalled();
+	});
+
+	it('saving the default folder keeps the reader on the default', async () => {
+		vi.mocked(settings.save).mockResolvedValue(undefined);
+		library.readers = [{ id: 3, name: 'Bruno', exportPath: '/x/Bruno' }];
+		library.activeReaderId = 3;
+		render(SettingsPanel, { onClose: mockOnClose });
+
+		await fireEvent.input(screen.getByLabelText(/path/i), {
+			target: { value: '~/Documents/Kobo Highlights/Bruno' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: /save changes/i }));
+
+		await waitFor(() =>
+			expect(invoke).toHaveBeenCalledWith('set_reader_export_path', { readerId: 3, path: null })
+		);
 	});
 
 	it('hides the reader name without an open reader', () => {
