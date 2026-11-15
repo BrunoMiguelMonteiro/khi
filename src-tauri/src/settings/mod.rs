@@ -173,6 +173,20 @@ pub fn data_dir() -> Result<PathBuf, SettingsError> {
     Ok(dir)
 }
 
+/// The v2 settings file in `dir`. v1 writes `settings.json` in the same
+/// folder and drops what it does not know, so v2 keeps its own file. On
+/// the first v2 run it starts from a copy of v1's; v1's is never written.
+fn settings_path_in(dir: &Path) -> PathBuf {
+    let path = dir.join("settings-v2.json");
+    let v1 = dir.join("settings.json");
+    if !path.exists() && v1.exists() {
+        if let Err(e) = fs::copy(&v1, &path) {
+            log::warn!("Could not start from the v1 settings: {}", e);
+        }
+    }
+    path
+}
+
 /// Settings manager for loading, saving, and accessing settings
 pub struct SettingsManager {
     pub settings: AppSettings,
@@ -183,8 +197,7 @@ impl SettingsManager {
     /// Create a new SettingsManager with the default config path
     pub fn new() -> Result<Self, SettingsError> {
         let config_dir = Self::get_config_dir()?;
-        let config_path = config_dir.join("settings.json");
-        Self::with_path(config_path)
+        Self::with_path(settings_path_in(&config_dir))
     }
 
     /// Create a SettingsManager with a custom config path (useful for testing)
@@ -405,6 +418,53 @@ impl std::error::Error for SettingsError {}
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn settings_with_path(path: &str) -> AppSettings {
+        let mut s = AppSettings::default();
+        s.export_config.export_path = path.to_string();
+        s
+    }
+
+    fn write(path: &Path, settings: &AppSettings) {
+        fs::write(path, serde_json::to_string_pretty(settings).unwrap()).unwrap();
+    }
+
+    #[test]
+    fn v2_does_not_use_v1_settings_file() {
+        let dir = TempDir::new().unwrap();
+
+        let path = settings_path_in(dir.path());
+
+        assert_eq!(path, dir.path().join("settings-v2.json"));
+        assert!(!path.exists(), "nothing to copy, nothing written");
+    }
+
+    #[test]
+    fn first_v2_run_starts_from_v1_settings() {
+        let dir = TempDir::new().unwrap();
+        let v1 = dir.path().join("settings.json");
+        write(&v1, &settings_with_path("/v1/export"));
+        let v1_before = fs::read(&v1).unwrap();
+
+        let path = settings_path_in(dir.path());
+        let mut manager = SettingsManager::with_path(path).unwrap();
+        assert_eq!(manager.settings.export_config.export_path, "/v1/export");
+        manager.settings.export_config.export_path = "/v2/export".to_string();
+        manager.save().unwrap();
+
+        assert_eq!(fs::read(&v1).unwrap(), v1_before, "v1's file is never written");
+    }
+
+    #[test]
+    fn existing_v2_settings_are_not_replaced_by_v1() {
+        let dir = TempDir::new().unwrap();
+        write(&dir.path().join("settings.json"), &settings_with_path("/v1/export"));
+        write(&dir.path().join("settings-v2.json"), &settings_with_path("/v2/export"));
+
+        let manager = SettingsManager::with_path(settings_path_in(dir.path())).unwrap();
+
+        assert_eq!(manager.settings.export_config.export_path, "/v2/export");
+    }
 
     #[test]
     fn debug_builds_use_their_own_data_folder() {
