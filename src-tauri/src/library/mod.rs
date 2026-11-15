@@ -34,7 +34,6 @@ const META_LAST_READER: &str = "last_reader";
 
 pub struct Library {
     conn: Connection,
-    #[allow(dead_code)]
     covers_dir: PathBuf,
 }
 

@@ -1,10 +1,12 @@
 mod common;
 
 use common::{hl, kobo_book, library_conn, snapshot, BOOK_A, BOOK_B};
+use khi_lib::covers::CoverExtractor;
 use khi_lib::library::{Library, LibraryError};
-use khi_lib::models::KoboHighlight;
+use khi_lib::models::{KoboBook, KoboHighlight};
 use rusqlite::OptionalExtension;
 use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::path::PathBuf;
 use tempfile::TempDir;
 
 const KOBO_A: &str = "SERIAL-A";
@@ -70,12 +72,68 @@ fn book_titles(dir: &TempDir) -> Vec<String> {
 
 fn no_progress(_: u32, _: u32) {}
 
+fn no_cover(_: &KoboBook) -> Option<PathBuf> {
+    None
+}
+
+fn book_id(dir: &TempDir) -> u32 {
+    library_conn(dir.path())
+        .query_row("SELECT id FROM books", [], |r| r.get(0))
+        .unwrap()
+}
+
+#[test]
+fn cover_is_copied_once() {
+    let (dir, mut lib, _) = setup();
+    let images = TempDir::new().unwrap();
+    let first = images.path().join("first.jpg");
+    let second = images.path().join("second.jpg");
+    std::fs::write(&first, b"first cover").unwrap();
+    std::fs::write(&second, b"second cover").unwrap();
+    let snap = snapshot(vec![kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![hl("a1", "Primeiro")])]);
+
+    lib.sync(KOBO_A, &snap, &|_: &KoboBook| Some(first.clone()), no_progress).unwrap();
+    lib.sync(KOBO_A, &snap, &|_: &KoboBook| Some(second.clone()), no_progress).unwrap();
+
+    let stored = dir.path().join("covers").join(format!("{}.jpg", book_id(&dir)));
+    assert_eq!(std::fs::read(&stored).unwrap(), b"first cover");
+}
+
+#[test]
+fn placeholder_is_not_persisted() {
+    let (dir, mut lib, _) = setup();
+    let images = TempDir::new().unwrap();
+    let placeholder = images.path().join("abc123_placeholder.svg");
+    std::fs::write(&placeholder, b"<svg/>").unwrap();
+    let snap = snapshot(vec![kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![hl("a1", "Primeiro")])]);
+
+    lib.sync(KOBO_A, &snap, &|_: &KoboBook| Some(placeholder.clone()), no_progress).unwrap();
+
+    let stored = dir.path().join("covers").join(format!("{}.jpg", book_id(&dir)));
+    assert!(!stored.exists(), "a placeholder would block the real cover forever");
+}
+
+#[test]
+fn cover_survives_cache_clear() {
+    let (dir, mut lib, _) = setup();
+    let cache = TempDir::new().unwrap();
+    let image = cache.path().join("cached.jpg");
+    std::fs::write(&image, b"cover").unwrap();
+    let snap = snapshot(vec![kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![hl("a1", "Primeiro")])]);
+    lib.sync(KOBO_A, &snap, &|_: &KoboBook| Some(image.clone()), no_progress).unwrap();
+
+    CoverExtractor::new(cache.path().to_path_buf()).clear_cache().unwrap();
+
+    let stored = dir.path().join("covers").join(format!("{}.jpg", book_id(&dir)));
+    assert!(stored.exists());
+}
+
 #[test]
 fn new_highlight_is_inserted_with_origin() {
     let (dir, mut lib, _) = setup();
     let snap = snapshot(vec![kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![hl("a1", "Primeiro")])]);
 
-    let report = lib.sync(KOBO_A, &snap, no_progress).unwrap();
+    let report = lib.sync(KOBO_A, &snap, &no_cover, no_progress).unwrap();
 
     assert_eq!(report.added, 1);
     assert_eq!(report.books, 1);
@@ -88,7 +146,7 @@ fn new_highlight_is_inserted_with_origin() {
 #[test]
 fn kobo_wins_on_text_note_chapter_progress() {
     let (dir, mut lib, _) = setup();
-    lib.sync(KOBO_A, &snapshot(vec![kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![hl("a1", "Primeiro")])]), no_progress)
+    lib.sync(KOBO_A, &snapshot(vec![kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![hl("a1", "Primeiro")])]), &no_cover, no_progress)
         .unwrap();
 
     let edited = KoboHighlight {
@@ -98,7 +156,7 @@ fn kobo_wins_on_text_note_chapter_progress() {
         ..hl("a1", "Primeiro, corrigido")
     };
     let report = lib
-        .sync(KOBO_A, &snapshot(vec![kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![edited])]), no_progress)
+        .sync(KOBO_A, &snapshot(vec![kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![edited])]), &no_cover, no_progress)
         .unwrap();
 
     assert_eq!(report.updated, 1);
@@ -116,12 +174,13 @@ fn missing_highlight_is_marked_removed_with_date() {
     lib.sync(
         KOBO_A,
         &snapshot(vec![kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![hl("a1", "Primeiro"), hl("a2", "Segundo")])]),
+        &no_cover,
         no_progress,
     )
     .unwrap();
 
     let report = lib
-        .sync(KOBO_A, &snapshot(vec![kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![hl("a1", "Primeiro")])]), no_progress)
+        .sync(KOBO_A, &snapshot(vec![kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![hl("a1", "Primeiro")])]), &no_cover, no_progress)
         .unwrap();
 
     assert_eq!(report.removed, 1);
@@ -135,11 +194,11 @@ fn missing_highlight_is_marked_removed_with_date() {
 fn removed_then_back_clears_mark() {
     let (dir, mut lib, _) = setup();
     let with_a1 = snapshot(vec![kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![hl("a1", "Primeiro")])]);
-    lib.sync(KOBO_A, &with_a1, no_progress).unwrap();
-    lib.sync(KOBO_A, &snapshot(vec![]), no_progress).unwrap();
+    lib.sync(KOBO_A, &with_a1, &no_cover, no_progress).unwrap();
+    lib.sync(KOBO_A, &snapshot(vec![]), &no_cover, no_progress).unwrap();
     assert!(row(&dir, "a1").unwrap().removed_at.is_some());
 
-    let report = lib.sync(KOBO_A, &with_a1, no_progress).unwrap();
+    let report = lib.sync(KOBO_A, &with_a1, &no_cover, no_progress).unwrap();
 
     assert_eq!(report.restored, 1);
     assert_eq!(row(&dir, "a1").unwrap().removed_at, None);
@@ -148,10 +207,10 @@ fn removed_then_back_clears_mark() {
 #[test]
 fn other_kobo_highlights_are_untouched() {
     let (dir, mut lib, _) = setup();
-    lib.sync(KOBO_A, &snapshot(vec![kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![hl("a1", "Primeiro")])]), no_progress)
+    lib.sync(KOBO_A, &snapshot(vec![kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![hl("a1", "Primeiro")])]), &no_cover, no_progress)
         .unwrap();
 
-    lib.sync(KOBO_B, &snapshot(vec![kobo_book(BOOK_B, "Duly Noted", "Jorge Arango", vec![hl("b1", "Terceiro")])]), no_progress)
+    lib.sync(KOBO_B, &snapshot(vec![kobo_book(BOOK_B, "Duly Noted", "Jorge Arango", vec![hl("b1", "Terceiro")])]), &no_cover, no_progress)
         .unwrap();
 
     assert_eq!(row(&dir, "a1").unwrap().removed_at, None, "B never marks A's highlights");
@@ -161,26 +220,26 @@ fn other_kobo_highlights_are_untouched() {
 #[test]
 fn same_bookmark_from_second_kobo_keeps_origin() {
     let (dir, mut lib, _) = setup();
-    lib.sync(KOBO_A, &snapshot(vec![kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![hl("a1", "Primeiro")])]), no_progress)
+    lib.sync(KOBO_A, &snapshot(vec![kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![hl("a1", "Primeiro")])]), &no_cover, no_progress)
         .unwrap();
 
-    lib.sync(KOBO_B, &snapshot(vec![kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![hl("a1", "Primeiro, no B")])]), no_progress)
+    lib.sync(KOBO_B, &snapshot(vec![kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![hl("a1", "Primeiro, no B")])]), &no_cover, no_progress)
         .unwrap();
     let r = row(&dir, "a1").unwrap();
     assert_eq!(r.text, "Primeiro, no B");
     assert_eq!(r.kobo_serial.as_deref(), Some(KOBO_A));
 
-    lib.sync(KOBO_B, &snapshot(vec![]), no_progress).unwrap();
+    lib.sync(KOBO_B, &snapshot(vec![]), &no_cover, no_progress).unwrap();
     assert_eq!(row(&dir, "a1").unwrap().removed_at, None, "only the origin Kobo marks removal");
 }
 
 #[test]
 fn empty_text_counts_as_missing() {
     let (dir, mut lib, _) = setup();
-    lib.sync(KOBO_A, &snapshot(vec![kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![hl("a1", "Primeiro")])]), no_progress)
+    lib.sync(KOBO_A, &snapshot(vec![kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![hl("a1", "Primeiro")])]), &no_cover, no_progress)
         .unwrap();
 
-    lib.sync(KOBO_A, &snapshot(vec![kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![hl("a1", "  ")])]), no_progress)
+    lib.sync(KOBO_A, &snapshot(vec![kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![hl("a1", "  ")])]), &no_cover, no_progress)
         .unwrap();
 
     let r = row(&dir, "a1").unwrap();
@@ -192,10 +251,10 @@ fn empty_text_counts_as_missing() {
 fn same_book_by_other_path_joins_existing() {
     let (dir, mut lib, _) = setup();
     let a = common::kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![hl("a1", "Primeiro")]);
-    lib.sync(KOBO_A, &snapshot(vec![a]), no_progress).unwrap();
+    lib.sync(KOBO_A, &snapshot(vec![a]), &no_cover, no_progress).unwrap();
 
     let moved = kobo_book("file:///mnt/onboard/livros/confianca.epub", "CONFIANÇA", "Hernan Diaz", vec![hl("a9", "Outro")]);
-    lib.sync(KOBO_B, &snapshot(vec![moved]), no_progress).unwrap();
+    lib.sync(KOBO_B, &snapshot(vec![moved]), &no_cover, no_progress).unwrap();
 
     assert_eq!(book_count(&dir), 1);
     assert_eq!(row(&dir, "a1").unwrap().book_id, row(&dir, "a9").unwrap().book_id);
@@ -213,7 +272,7 @@ fn unknown_titles_do_not_merge() {
         kobo_book("file:///mnt/onboard/y.pdf", "Unknown Title", "Unknown Author", vec![hl("y1", "Y")]),
     ]);
 
-    lib.sync(KOBO_A, &snap, no_progress).unwrap();
+    lib.sync(KOBO_A, &snap, &no_cover, no_progress).unwrap();
 
     assert_eq!(book_count(&dir), 2);
 }
@@ -221,13 +280,13 @@ fn unknown_titles_do_not_merge() {
 #[test]
 fn metadata_refreshes_each_sync() {
     let (dir, mut lib, _) = setup();
-    lib.sync(KOBO_A, &snapshot(vec![kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![hl("a1", "Primeiro")])]), no_progress)
+    lib.sync(KOBO_A, &snapshot(vec![kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![hl("a1", "Primeiro")])]), &no_cover, no_progress)
         .unwrap();
 
     let mut refreshed = kobo_book(BOOK_A, "Confiança (edição revista)", "Hernán Díaz", vec![hl("a1", "Primeiro")]);
     refreshed.publisher = Some("Nova editora".into());
     refreshed.date_last_read = Some("2026-11-10T10:00:00Z".into());
-    lib.sync(KOBO_A, &snapshot(vec![refreshed]), no_progress).unwrap();
+    lib.sync(KOBO_A, &snapshot(vec![refreshed]), &no_cover, no_progress).unwrap();
 
     let (title, publisher, last_read): (String, Option<String>, Option<String>) = library_conn(dir.path())
         .query_row("SELECT title, publisher, date_last_read FROM books", [], |r| {
@@ -242,10 +301,10 @@ fn metadata_refreshes_each_sync() {
 #[test]
 fn book_without_highlights_stays() {
     let (dir, mut lib, _) = setup();
-    lib.sync(KOBO_A, &snapshot(vec![kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![hl("a1", "Primeiro")])]), no_progress)
+    lib.sync(KOBO_A, &snapshot(vec![kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![hl("a1", "Primeiro")])]), &no_cover, no_progress)
         .unwrap();
 
-    lib.sync(KOBO_A, &snapshot(vec![]), no_progress).unwrap();
+    lib.sync(KOBO_A, &snapshot(vec![]), &no_cover, no_progress).unwrap();
 
     assert_eq!(book_titles(&dir), vec!["Confiança".to_string()]);
 }
@@ -253,7 +312,7 @@ fn book_without_highlights_stays() {
 #[test]
 fn failed_sync_changes_nothing() {
     let (dir, mut lib, _) = setup();
-    lib.sync(KOBO_A, &snapshot(vec![kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![hl("a1", "Primeiro")])]), no_progress)
+    lib.sync(KOBO_A, &snapshot(vec![kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![hl("a1", "Primeiro")])]), &no_cover, no_progress)
         .unwrap();
     let before = (book_titles(&dir), row(&dir, "a1"));
 
@@ -262,7 +321,7 @@ fn failed_sync_changes_nothing() {
         kobo_book(BOOK_B, "Duly Noted", "Jorge Arango", vec![hl("b1", "Terceiro")]),
     ]);
     let result = catch_unwind(AssertUnwindSafe(|| {
-        lib.sync(KOBO_A, &snap, |done, _total| {
+        lib.sync(KOBO_A, &snap, &no_cover, |done, _total| {
             if done == 1 {
                 panic!("Kobo unplugged mid-sync");
             }
@@ -279,7 +338,7 @@ fn unknown_kobo_is_rejected() {
     let (dir, mut lib, _) = setup();
 
     let err = lib
-        .sync("NEVER-SEEN", &snapshot(vec![kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![hl("a1", "Primeiro")])]), no_progress)
+        .sync("NEVER-SEEN", &snapshot(vec![kobo_book(BOOK_A, "Confiança", "Hernán Díaz", vec![hl("a1", "Primeiro")])]), &no_cover, no_progress)
         .unwrap_err();
 
     assert!(matches!(err, LibraryError::NotFound));

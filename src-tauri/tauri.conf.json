@@ -26,7 +26,11 @@
       "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: https://asset.localhost",
       "assetProtocol": {
         "enable": true,
-        "scope": ["$APPCACHEDIR/**", "$HOME/Library/Caches/com.bruno.khi/**"]
+        "scope": [
+          "$APPCACHEDIR/**",
+          "$HOME/Library/Caches/com.bruno.khi/**",
+          "$HOME/Library/Application Support/KoboHighlightsExporter/covers/**"
+        ]
       }
     }
   },

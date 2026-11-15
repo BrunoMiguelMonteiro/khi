@@ -6,6 +6,7 @@ use crate::models::{KoboBook, KoboHighlight, KoboSnapshot};
 use rusqlite::{params, OptionalExtension, Transaction};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -29,6 +30,7 @@ impl Library {
         &mut self,
         serial: &str,
         snapshot: &KoboSnapshot,
+        cover_source: &dyn Fn(&KoboBook) -> Option<PathBuf>,
         mut progress: impl FnMut(u32, u32),
     ) -> Result<SyncReport> {
         let reader_id = self.kobo(serial)?.ok_or(LibraryError::NotFound)?.reader_id;
@@ -37,6 +39,7 @@ impl Library {
         let tx = self.conn.transaction()?;
         let mut report = SyncReport::default();
         let mut seen: HashSet<&str> = HashSet::new();
+        let mut synced: Vec<(u32, &KoboBook)> = Vec::new();
         let total = snapshot.books.len() as u32;
 
         for (index, book) in snapshot.books.iter().enumerate() {
@@ -47,6 +50,7 @@ impl Library {
                     upsert_highlight(&tx, reader_id, book_id, serial, h, &mut report)?;
                 }
                 report.books += 1;
+                synced.push((book_id, book));
             }
             progress(index as u32 + 1, total);
         }
@@ -57,8 +61,47 @@ impl Library {
             params![now, serial],
         )?;
         tx.commit()?;
+
+        for (book_id, book) in synced {
+            self.store_cover(book_id, book, cover_source);
+        }
         Ok(report)
     }
+
+    /// R12: copies the book's cover into `covers/` the first time one is
+    /// available. Placeholders are skipped so a real cover can still arrive
+    /// later. A failure is logged and never fails the sync.
+    fn store_cover(&self, book_id: u32, book: &KoboBook, cover_source: &dyn Fn(&KoboBook) -> Option<PathBuf>) {
+        let file_name = format!("{}.jpg", book_id);
+        let target = self.covers_dir.join(&file_name);
+        if target.exists() {
+            return;
+        }
+        let Some(source) = cover_source(book) else { return };
+        if is_placeholder(&source) {
+            return;
+        }
+        let stored = std::fs::copy(&source, &target)
+            .map_err(LibraryError::from)
+            .and_then(|_| {
+                self.conn
+                    .execute(
+                        "UPDATE books SET cover_file = ?1 WHERE id = ?2",
+                        params![file_name, book_id],
+                    )
+                    .map_err(LibraryError::from)
+            });
+        if let Err(e) = stored {
+            log::warn!("Could not store cover for book {}: {}", book_id, e);
+        }
+    }
+}
+
+/// `CoverExtractor` names its generated covers `{key}_placeholder.svg`.
+fn is_placeholder(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(|n| n.ends_with("_placeholder.svg"))
 }
 
 /// Finds or creates the Library book (R10), refreshes its metadata (R11) and
