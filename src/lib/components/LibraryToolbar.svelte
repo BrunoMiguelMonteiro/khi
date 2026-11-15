@@ -5,6 +5,9 @@
 		selectedCount: number;
 		viewMode: 'grid' | 'list';
 		sortBy: string;
+		/** The active Reader's Kobo is connected and no Sync is running. */
+		canSync?: boolean;
+		onSync?: () => void;
 		onExportAll: () => void;
 		onExportSelected: () => void;
 		onClearSelection: () => void;
@@ -17,6 +20,8 @@
 		selectedCount,
 		viewMode,
 		sortBy,
+		canSync = false,
+		onSync,
 		onExportAll,
 		onExportSelected,
 		onClearSelection,
@@ -35,6 +40,31 @@
 
 <div class="flex items-center justify-between gap-4 px-6 py-3 bg-neutral-100 dark:bg-neutral-800 border-t border-b border-neutral-200 dark:border-neutral-700 max-sm:flex-col max-sm:items-stretch max-sm:px-4">
 	<div class="flex items-center gap-2 flex-wrap">
+		{#if onSync}
+			<Button variant="ghost" disabled={!canSync} onclick={onSync}>
+				{#snippet icon()}
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="16"
+						height="16"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						aria-hidden="true"
+					>
+						<path d="M21 12a9 9 0 0 1-15.5 6.2L3 16" />
+						<path d="M3 12a9 9 0 0 1 15.5-6.2L21 8" />
+						<polyline points="21 3 21 8 16 8" />
+						<polyline points="3 21 3 16 8 16" />
+					</svg>
+				{/snippet}
+				Sync
+			</Button>
+		{/if}
+
 		<Button variant="ghost" onclick={onExportAll}>
 			{#snippet icon()}
 				<svg

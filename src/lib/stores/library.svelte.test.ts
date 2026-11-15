@@ -36,7 +36,7 @@ function answer(responses: Record<string, unknown>) {
 describe('Library Store', () => {
 	beforeEach(() => {
 		library.clearBooks();
-		library.setConnectedDevice(undefined);
+		library.deviceDisconnected();
 		library.activeReaderId = null;
 		library.setUiState('library');
 		vi.clearAllMocks();
@@ -159,21 +159,56 @@ describe('Library Store', () => {
 		});
 	});
 
-	describe('importHighlights', () => {
-		it('should throw error if no device connected', async () => {
-			await expect(library.importHighlights()).rejects.toThrow('No device connected');
-		});
-
-		it('syncs a known kobo and opens its reader', async () => {
-			library.setConnectedDevice(kobo);
+	describe('Sync', () => {
+		it('known kobo syncs on connect when enabled', async () => {
 			answer({ reader_for_kobo: 5, sync_kobo: { added: 2 }, get_library: mockBooks });
 
-			await library.importHighlights();
+			const outcome = await library.deviceConnected(kobo, true);
 
+			expect(outcome).toBe('synced');
 			expect(invoke).toHaveBeenCalledWith('sync_kobo', { device: kobo });
 			expect(invoke).toHaveBeenCalledWith('get_library', { readerId: 5 });
 			expect(library.books).toEqual(mockBooks);
 			expect(library.isImporting).toBe(false);
+		});
+
+		it('does not sync when syncOnConnect is off', async () => {
+			library.activeReaderId = 5;
+			answer({ reader_for_kobo: 5, get_library: mockBooks });
+
+			const outcome = await library.deviceConnected(kobo, false);
+
+			expect(outcome).toBe('idle');
+			expect(invoke).not.toHaveBeenCalledWith('sync_kobo', expect.anything());
+			expect(library.connectedDevice).toEqual(kobo);
+		});
+
+		it('an unknown kobo is reported and never synced', async () => {
+			answer({ reader_for_kobo: null });
+
+			const outcome = await library.deviceConnected(kobo, true);
+
+			expect(outcome).toBe('unknown');
+			expect(invoke).not.toHaveBeenCalledWith('sync_kobo', expect.anything());
+		});
+
+		it('sync button disabled without the reader\'s kobo', async () => {
+			answer({ reader_for_kobo: 5, get_library: mockBooks });
+			expect(library.canSync).toBe(false);
+
+			library.activeReaderId = 7;
+			await library.deviceConnected(kobo, false);
+			expect(library.canSync).toBe(false);
+
+			library.activeReaderId = 5;
+			expect(library.canSync).toBe(true);
+
+			library.deviceDisconnected();
+			expect(library.canSync).toBe(false);
+		});
+
+		it('sync without a known connected kobo throws', async () => {
+			await expect(library.sync()).rejects.toThrow('No known Kobo connected');
 		});
 	});
 

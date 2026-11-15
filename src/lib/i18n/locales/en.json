@@ -9,7 +9,8 @@
       "subtitle": "Connect your Kobo to view your highlights"
     },
     "importing": {
-      "title": "Importing highlights..."
+      "title": "Syncing highlights...",
+      "progress": "{done} of {total} books"
     },
     "library": {
       "title": "Library",

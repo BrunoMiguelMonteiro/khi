@@ -1,5 +1,7 @@
 import { commands } from '../bindings';
-import type { Book, KoboDevice, ImportProgress, Reader, UiState } from '../types';
+import type { Book, KoboDevice, Reader, SyncReport, UiState } from '../types';
+
+export type ConnectOutcome = 'unknown' | 'idle' | 'synced';
 
 class LibraryStore {
 	books = $state<Book[]>([]);
@@ -7,17 +9,26 @@ class LibraryStore {
 	/** The Reader whose Library is on screen (R5). */
 	activeReaderId = $state<number | null>(null);
 	readers = $state<Reader[]>([]);
+	/** A Sync is running. */
 	isImporting = $state(false);
-	importProgress = $state<ImportProgress | undefined>(undefined);
+	/** Books processed so far in the running Sync (R16). */
+	syncProgress = $state<{ done: number; total: number } | null>(null);
 	connectedDevice = $state<KoboDevice | undefined>(undefined);
 	isScanning = $state(false);
 	uiState = $state<UiState>('no-device');
-	hasImportedInSession = $state(false);
-	lastDeviceSerial = $state<string | null>(null);
+	/** The Reader that owns the connected Kobo, when it is known. */
+	connectedReaderId = $state<number | null>(null);
 	viewingBookId = $state<number | null>(null);
 
 	// Derived state
 	selectedBooks = $derived(this.books.filter((book) => this.selectedBookIds.includes(book.id)));
+	/** «Sincronizar» works only with the active Reader's Kobo connected. */
+	canSync = $derived(
+		this.connectedDevice !== undefined &&
+			this.connectedReaderId !== null &&
+			this.connectedReaderId === this.activeReaderId &&
+			!this.isImporting
+	);
 	viewingBook = $derived(this.viewingBookId ? this.books.find((b) => b.id === this.viewingBookId) : undefined);
 
 	// Actions
@@ -55,22 +66,11 @@ class LibraryStore {
 	 * connection indicator changes. */
 	deviceDisconnected() {
 		this.connectedDevice = undefined;
-	}
-
-	markImportComplete(deviceSerial: string) {
-		this.uiState = 'library';
-		this.hasImportedInSession = true;
-		this.lastDeviceSerial = deviceSerial;
+		this.connectedReaderId = null;
 	}
 
 	setViewingBookId(bookId: number | null) {
 		this.viewingBookId = bookId;
-	}
-
-	shouldAutoImport(device: KoboDevice): boolean {
-		if (!this.hasImportedInSession) return true;
-		if (device.serialNumber && device.serialNumber !== this.lastDeviceSerial) return true;
-		return false;
 	}
 
 	// Readers
@@ -134,34 +134,43 @@ class LibraryStore {
 	}
 
 	/**
-	 * Syncs the connected Kobo into its Reader's Library and shows it.
-	 * A Kobo with no Reader yet is left alone (association comes first, R7).
+	 * A Kobo was connected. A Kobo with no Reader is reported, never synced
+	 * (R7). A known one syncs when «Sincronizar ao ligar» is on (R6), every
+	 * time it is connected, not once per session.
 	 */
-	async importHighlights(): Promise<Book[]> {
-		if (!this.connectedDevice) throw new Error('No device connected');
+	async deviceConnected(device: KoboDevice, syncOnConnect: boolean): Promise<ConnectOutcome> {
+		this.connectedDevice = device;
+		this.connectedReaderId = device.serialNumber
+			? await commands.readerForKobo(device.serialNumber)
+			: null;
+		if (this.connectedReaderId === null) return 'unknown';
+
+		if (syncOnConnect) {
+			await this.sync();
+			return 'synced';
+		}
+		if (this.activeReaderId === null) await this.openReader(this.connectedReaderId);
+		return 'idle';
+	}
+
+	/** Syncs the connected Kobo into its Reader's Library and shows it (R16). */
+	async sync(): Promise<SyncReport> {
 		const device = this.connectedDevice;
-		const readerId = device.serialNumber ? await commands.readerForKobo(device.serialNumber) : null;
-		if (readerId === null) return this.books;
+		const readerId = this.connectedReaderId;
+		if (!device || readerId === null) throw new Error('No known Kobo connected');
 
 		this.isImporting = true;
-		this.importProgress = {
-			currentBook: 'Starting...',
-			booksProcessed: 0,
-			totalBooks: 0,
-			highlightsFound: 0,
-			percentage: 0
-		};
-
+		this.syncProgress = { done: 0, total: 0 };
 		try {
-			await commands.syncKobo(device);
+			const report = await commands.syncKobo(device);
 			await this.openReader(readerId);
-			return this.books;
+			return report;
 		} catch (error) {
 			console.error('Failed to sync the Kobo:', error);
 			throw error;
 		} finally {
 			this.isImporting = false;
-			this.importProgress = undefined;
+			this.syncProgress = null;
 		}
 	}
 

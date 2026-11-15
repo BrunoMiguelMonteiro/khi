@@ -39,6 +39,8 @@
 	let unlistenDeviceDetected: UnlistenFn | undefined;
 	let unlistenDeviceDisconnected: UnlistenFn | undefined;
 	let unlistenSettings: UnlistenFn | undefined;
+	let unlistenSyncProgress: UnlistenFn | undefined;
+	let unlistenSyncFinished: UnlistenFn | undefined;
 
 	// Sort books based on selected option
 	let sortedBooks = $derived(
@@ -76,6 +78,8 @@
 			unlistenDeviceDetected?.();
 			unlistenDeviceDisconnected?.();
 			unlistenSettings?.();
+			unlistenSyncProgress?.();
+			unlistenSyncFinished?.();
 		};
 	});
 
@@ -90,6 +94,18 @@
 			unlistenDeviceDetected = await events.deviceDetected.listen((event) => {
 				console.log('Device detected:', event.payload);
 				handleDeviceConnected(event.payload.device);
+			});
+
+			// «N de M livros» while a Sync runs (R16)
+			unlistenSyncProgress = await events.syncProgress.listen((event) => {
+				library.syncProgress = event.payload;
+			});
+
+			// Reload the Library the Sync wrote to, if it is on screen
+			unlistenSyncFinished = await events.syncFinished.listen((event) => {
+				if (event.payload.readerId === library.activeReaderId) {
+					library.openReader(event.payload.readerId).catch((e) => console.error(e));
+				}
 			});
 
 			// The Library stays on screen without the Kobo (R17)
@@ -107,31 +123,25 @@
 		library.setUiState(library.activeReaderId !== null ? 'library' : 'no-device');
 	}
 
+	/** A Kobo was connected: ask whose it is if unknown (R7), else sync
+	 * when «Sincronizar ao ligar» is on (R6). */
 	async function handleDeviceConnected(device: KoboDevice) {
-		library.setConnectedDevice(device);
-
-		if (device.serialNumber && (await library.readerForKobo(device.serialNumber)) === null) {
-			unknownDevice = device;
-			showLibraryOrEmpty();
-			return;
+		try {
+			const outcome = await library.deviceConnected(device, settings.uiPreferences.syncOnConnect ?? true);
+			if (outcome === 'unknown' && device.serialNumber) unknownDevice = device;
+		} catch (error) {
+			console.error('Sync on connect failed:', error);
+			showNotification($_('notifications.syncError'), 'error');
 		}
-		const autoImportEnabled = settings.uiPreferences.syncOnConnect ?? true;
-
-		if (autoImportEnabled && library.shouldAutoImport(device)) {
-			library.setUiState('importing');
-			await handleAutoImport(device);
-		} else {
-			showLibraryOrEmpty();
-		}
+		showLibraryOrEmpty();
 	}
 
-	async function handleAutoImport(device: KoboDevice) {
-		console.log('Auto-importing from device:', device);
+	/** «Sincronizar» in the toolbar (R6). */
+	async function handleSync() {
 		try {
-			await handleImport();
-			library.markImportComplete(device.serialNumber || 'unknown');
+			await library.sync();
 		} catch (error) {
-			console.error('Auto-import failed:', error);
+			console.error('Sync failed:', error);
 			showNotification($_('notifications.syncError'), 'error');
 		}
 		showLibraryOrEmpty();
@@ -183,10 +193,6 @@
 	async function handleSelectReader(readerId: number) {
 		await library.openReader(readerId);
 		showLibraryOrEmpty();
-	}
-
-	async function handleImport() {
-		return library.importHighlights();
 	}
 
 	async function handleExportAll() {
@@ -262,10 +268,10 @@
 	</header>
 
 	<main class="flex-1 relative overflow-hidden flex flex-col">
-		{#if library.uiState === 'no-device'}
+		{#if library.isImporting}
+			<ImportingState progress={library.syncProgress} />
+		{:else if library.uiState === 'no-device'}
 			<EmptyStateNoDevice />
-		{:else if library.uiState === 'importing'}
-			<ImportingState />
 		{:else if library.uiState === 'book-details' && library.viewingBook}
 			<BookDetailsView book={library.viewingBook} onClose={handleCloseBookDetails} onNotification={showNotification} />
 		{:else if library.uiState === 'library'}
@@ -274,6 +280,8 @@
 				selectedCount={library.selectedBookIds.length}
 				{viewMode}
 				{sortBy}
+				canSync={library.canSync}
+				onSync={handleSync}
 				onExportAll={handleExportAll}
 				onExportSelected={handleExportSelected}
 				onClearSelection={handleClearSelection}
@@ -289,9 +297,7 @@
 				{viewMode}
 				onSelectionChange={handleSelectionChange}
 				onBookClick={handleBookClick}
-				onBooksImport={handleImport}
-				isImporting={library.isImporting}
-				importProgress={library.importProgress}
+				onBooksImport={library.canSync ? handleSync : undefined}
 			/>
 		{/if}
 	</main>

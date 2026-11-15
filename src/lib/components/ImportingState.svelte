@@ -1,6 +1,13 @@
 <script lang="ts">
   import { _ } from '$lib/i18n';
   import KoboIcon from './KoboIcon.svelte';
+
+  interface Props {
+    /** Books processed so far in the running Sync (R16). */
+    progress?: { done: number; total: number } | null;
+  }
+
+  let { progress = null }: Props = $props();
 </script>
 
 <div class="flex flex-col items-center justify-center h-full p-12 text-center bg-white dark:bg-neutral-900" role="status" aria-live="polite">
@@ -9,4 +16,9 @@
   </div>
 
   <h2 class="m-0 mb-2 text-xl font-semibold text-neutral-900 dark:text-neutral-100">{$_('screens.importing.title')}</h2>
+  {#if progress && progress.total > 0}
+    <p class="m-0 text-sm text-neutral-600 dark:text-neutral-400 tabular-nums" data-testid="sync-progress">
+      {$_('screens.importing.progress', { done: progress.done, total: progress.total })}
+    </p>
+  {/if}
 </div>

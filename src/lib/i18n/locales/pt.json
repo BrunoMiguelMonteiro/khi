@@ -9,7 +9,8 @@
       "subtitle": "Liga o teu Kobo para ver os teus destaques"
     },
     "importing": {
-      "title": "A importar destaques..."
+      "title": "A sincronizar destaques...",
+      "progress": "{done} de {total} livros"
     },
     "library": {
       "title": "Biblioteca",
