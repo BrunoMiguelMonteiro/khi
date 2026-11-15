@@ -39,17 +39,25 @@ pub fn import_highlights(app_handle: tauri::AppHandle, device: KoboDevice) -> Re
     log::info!("Database path: {:?}", db_path);
 
     // Open the database and extract books
-    let db = KoboDatabase::new(&db_path).map_err(|e| {
+    let db = KoboDatabase::open_read_only(&db_path).map_err(|e| {
         log::error!("Failed to open database: {}", e);
         format!("Failed to open database: {}", e)
     })?;
 
     log::info!("Database opened successfully");
 
-    let mut books = db.extract_books_with_highlights().map_err(|e| {
+    let started = std::time::Instant::now();
+    let snapshot = db.read_snapshot().map_err(|e| {
         log::error!("Failed to extract highlights: {}", e);
         format!("Failed to extract highlights: {}", e)
     })?;
+    log::info!(
+        "Read Kobo snapshot in {} ms",
+        started.elapsed().as_millis()
+    );
+
+    let mut books: Vec<Book> = snapshot.books.into_iter().map(Book::from).collect();
+    books.sort_by(|a, b| a.title.cmp(&b.title));
 
     log::info!("Extracted {} books with highlights", books.len());
 

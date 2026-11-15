@@ -1,15 +1,104 @@
-use crate::models::{Book, Highlight};
-use rusqlite::{Connection, Result};
+use crate::models::{Book, Highlight, KoboBook, KoboHighlight, KoboSnapshot};
+use rusqlite::{Connection, OpenFlags, Result};
 use std::collections::HashMap;
 
 pub struct KoboDatabase {
     conn: Connection,
 }
 
+/// Same columns as `extract_books_with_highlights`, plus Description and
+/// DateModified. The TOC title is a range lookup on content's primary key
+/// instead of `LIKE ContentID || '%'`, which scanned the whole table per row.
+const SNAPSHOT_QUERY: &str = "SELECT
+        b.BookmarkID,
+        b.VolumeID,
+        b.Text,
+        b.Annotation,
+        b.StartContainerPath,
+        b.ChapterProgress,
+        b.DateCreated,
+        b.DateModified,
+        COALESCE(c_book.Title, c_book.BookTitle, c_chapter.BookTitle, c_chapter.Title, 'Unknown Title') AS BookTitle,
+        COALESCE(
+            (SELECT c_toc.Title FROM content c_toc
+              WHERE c_toc.ContentType = 899
+                AND c_toc.ContentID >= b.ContentID
+                AND c_toc.ContentID < b.ContentID || '~'
+              LIMIT 1),
+            CASE WHEN c_chapter.Title IS NOT NULL
+                      AND c_chapter.Title NOT LIKE '%.xhtml%'
+                      AND c_chapter.Title NOT LIKE '%.html%'
+                      AND c_chapter.Title NOT LIKE '%.htm%'
+                      AND c_chapter.Title NOT LIKE '%/%'
+                 THEN c_chapter.Title
+            END
+        ) AS ChapterTitle,
+        c_book.Attribution,
+        c_book.ISBN,
+        c_book.Publisher,
+        c_book.Language,
+        c_book.Description,
+        c_book.DateLastRead
+     FROM Bookmark b
+     LEFT JOIN content c_book ON b.VolumeID = c_book.ContentID
+     LEFT JOIN content c_chapter ON b.ContentID = c_chapter.ContentID
+     WHERE b.Text IS NOT NULL AND b.Text != ''
+     ORDER BY b.VolumeID, b.ChapterProgress, b.DateCreated";
+
 impl KoboDatabase {
     pub fn new(path: &std::path::Path) -> Result<Self> {
         let conn = Connection::open(path)?;
         Ok(Self { conn })
+    }
+
+    /// Opens the Kobo database without write access (spec R15).
+    pub fn open_read_only(path: &std::path::Path) -> Result<Self> {
+        let conn = Connection::open_with_flags(
+            path,
+            OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+        )?;
+        Ok(Self { conn })
+    }
+
+    /// Reads every highlight with text, grouped by book, in one query.
+    pub fn read_snapshot(&self) -> Result<KoboSnapshot> {
+        let mut stmt = self.conn.prepare(SNAPSHOT_QUERY)?;
+        let mut rows = stmt.query([])?;
+        let mut books: Vec<KoboBook> = Vec::new();
+
+        while let Some(row) = rows.next()? {
+            let volume_id: String = row.get("VolumeID")?;
+            if books.last().map(|b| &b.volume_id) != Some(&volume_id) {
+                books.push(KoboBook {
+                    volume_id: volume_id.clone(),
+                    title: row.get("BookTitle")?,
+                    author: row
+                        .get::<_, Option<String>>("Attribution")?
+                        .unwrap_or_else(|| "Unknown Author".to_string()),
+                    isbn: row.get("ISBN")?,
+                    publisher: row.get("Publisher")?,
+                    language: row.get("Language")?,
+                    description: row.get("Description")?,
+                    date_last_read: row.get("DateLastRead")?,
+                    highlights: Vec::new(),
+                });
+            }
+            let book = books.last_mut().expect("pushed above");
+            book.highlights.push(KoboHighlight {
+                bookmark_id: row.get("BookmarkID")?,
+                text: row.get("Text")?,
+                annotation: row.get("Annotation")?,
+                chapter_title: row.get("ChapterTitle")?,
+                chapter_progress: row.get("ChapterProgress")?,
+                container_path: row.get("StartContainerPath")?,
+                date_created: row
+                    .get::<_, Option<String>>("DateCreated")?
+                    .unwrap_or_else(|| "Unknown".to_string()),
+                date_modified: row.get("DateModified")?,
+            });
+        }
+
+        Ok(KoboSnapshot { books })
     }
 
     pub fn extract_books_with_highlights(&self) -> Result<Vec<Book>> {
@@ -580,6 +669,19 @@ mod tests {
         assert_eq!(
             books[0].highlights[0].chapter_title,
             Some("Introduction".to_string())
+        );
+    }
+
+    #[test]
+    fn opening_is_read_only() {
+        let mock_db = create_mock_db();
+        let db = KoboDatabase::open_read_only(mock_db.path()).unwrap();
+
+        let err = db.conn.execute("DELETE FROM Bookmark", []).unwrap_err();
+
+        assert_eq!(
+            err.sqlite_error_code(),
+            Some(rusqlite::ErrorCode::ReadOnly)
         );
     }
 }

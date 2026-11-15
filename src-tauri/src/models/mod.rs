@@ -112,6 +112,74 @@ pub struct MetadataConfig {
     pub description: bool,
 }
 
+/// Everything the Khi reads from a Kobo in one pass, before merging it into
+/// the Library. Read-only view of the device; never sent over IPC.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct KoboSnapshot {
+    pub books: Vec<KoboBook>,
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct KoboBook {
+    /// Path of the book on the Kobo, e.g. `file:///mnt/onboard/a.epub`
+    pub volume_id: String,
+    pub title: String,
+    pub author: String,
+    pub isbn: Option<String>,
+    pub publisher: Option<String>,
+    pub language: Option<String>,
+    pub description: Option<String>,
+    pub date_last_read: Option<String>,
+    pub highlights: Vec<KoboHighlight>,
+}
+
+impl From<KoboBook> for Book {
+    fn from(k: KoboBook) -> Self {
+        let file_path = k
+            .volume_id
+            .strip_prefix("file:///mnt/onboard/")
+            .map(str::to_string);
+        Book {
+            content_id: k.volume_id,
+            title: k.title,
+            author: k.author,
+            isbn: k.isbn,
+            publisher: k.publisher,
+            language: k.language,
+            date_last_read: k.date_last_read,
+            description: k.description,
+            file_path,
+            cover_path: None,
+            highlights: k
+                .highlights
+                .into_iter()
+                .map(|h| Highlight {
+                    id: h.bookmark_id,
+                    text: h.text,
+                    annotation: h.annotation,
+                    chapter_title: h.chapter_title,
+                    chapter_progress: h.chapter_progress,
+                    container_path: h.container_path,
+                    date_created: h.date_created,
+                    color: None,
+                })
+                .collect(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct KoboHighlight {
+    pub bookmark_id: String,
+    pub text: String,
+    pub annotation: Option<String>,
+    pub chapter_title: Option<String>,
+    pub chapter_progress: Option<f64>,
+    pub container_path: Option<String>,
+    pub date_created: String,
+    pub date_modified: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, specta::Type)]
 #[serde(rename_all = "snake_case")]
 pub enum DateFormat {

@@ -74,7 +74,10 @@ impl DeviceDetector {
 
     /// Validate that the SQLite database is accessible
     fn validate_sqlite(&self, sqlite_path: &Path) -> bool {
-        match rusqlite::Connection::open(sqlite_path) {
+        match rusqlite::Connection::open_with_flags(
+            sqlite_path,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+        ) {
             Ok(conn) => {
                 // Try a simple query to verify the database is valid
                 // Use query_row instead of execute for SELECT statements
@@ -89,10 +92,11 @@ impl DeviceDetector {
         let version_path = kobo_dir.join("version");
         if version_path.exists() {
             if let Ok(content) = fs::read_to_string(&version_path) {
-                // The version file typically contains the serial number
-                let trimmed = content.trim();
-                if !trimmed.is_empty() {
-                    return Some(trimmed.to_string());
+                // The version file is "serial,firmware,..."; the serial is
+                // the first field and the stable identity of the Kobo.
+                let serial = content.trim().split(',').next().unwrap_or("").trim();
+                if !serial.is_empty() {
+                    return Some(serial.to_string());
                 }
             }
         }
@@ -263,6 +267,22 @@ mod tests {
             device.unwrap().serial_number,
             Some("SN12345678".to_string())
         );
+    }
+
+    #[test]
+    fn serial_is_first_field_of_version_file() {
+        let temp = TempDir::new().unwrap();
+        let device_path = create_mock_kobo_device(temp.path(), "KOBOeReader");
+        fs::write(
+            device_path.join(".kobo").join("version"),
+            "N4181B5025147,4.1.15,4.38.23697,4.1.15,4.1.15,00000000-0000-0000-0000-000000000388\n",
+        )
+        .unwrap();
+
+        let detector = DeviceDetector::new(temp.path().to_path_buf());
+        let device = detector.scan_for_kobo().unwrap().unwrap();
+
+        assert_eq!(device.serial_number, Some("N4181B5025147".to_string()));
     }
 
     #[test]
