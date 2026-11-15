@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { commands } from '../bindings';
 import type { Book, KoboDevice, ImportProgress, ExportConfig, UiState } from '../types';
 
 class LibraryStore {
@@ -74,7 +74,7 @@ class LibraryStore {
 	async scanForDevice(): Promise<KoboDevice | null> {
 		this.isScanning = true;
 		try {
-			const device = await invoke<KoboDevice | null>('scan_for_device');
+			const device = await commands.scanForDevice();
 			this.setConnectedDevice(device || undefined);
 			return device;
 		} catch (error) {
@@ -99,9 +99,7 @@ class LibraryStore {
 		};
 
 		try {
-			const importedBooks = await invoke<Book[]>('import_highlights', {
-				device: this.connectedDevice
-			});
+			const importedBooks = await commands.importHighlights(this.connectedDevice);
 			this.addBooks(importedBooks);
 			return importedBooks;
 		} catch (error) {
@@ -136,10 +134,7 @@ class LibraryStore {
 		if (this.selectedBooks.length === 0) throw new Error('No books selected for export');
 
 		try {
-			const exportedFiles = await invoke<string[]>('export_books', {
-				books: this.selectedBooks,
-				config
-			});
+			const exportedFiles = await commands.exportBooks(this.selectedBooks, config);
 			return exportedFiles;
 		} catch (error) {
 			console.error('Failed to export books:', error);
@@ -152,7 +147,7 @@ export const library = new LibraryStore();
 
 export async function getDefaultExportPath(): Promise<string> {
 	try {
-		return await invoke<string>('get_default_export_path');
+		return await commands.getDefaultExportPath();
 	} catch (error) {
 		console.error('Failed to get default export path:', error);
 		// Fallback to Documents folder
@@ -162,7 +157,7 @@ export async function getDefaultExportPath(): Promise<string> {
 
 export async function validateExportPath(path: string): Promise<boolean> {
 	try {
-		return await invoke<boolean>('validate_export_path', { path });
+		return await commands.validateExportPath(path);
 	} catch (error) {
 		console.error('Failed to validate export path:', error);
 		return false;

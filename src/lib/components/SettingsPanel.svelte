@@ -9,7 +9,7 @@
 -->
 
 <script lang="ts">
-	import { invoke } from '@tauri-apps/api/core';
+	import { commands } from '$lib/bindings';
 	import {
 		settings,
 		getViewModeLabel,
@@ -103,9 +103,7 @@
 
 	async function handleBrowseFolder() {
 		try {
-			const selectedPath = await invoke<string | null>('pick_export_folder', {
-				defaultPath: exportConfig.exportPath
-			});
+			const selectedPath = await commands.pickExportFolder(exportConfig.exportPath);
 
 			if (selectedPath) {
 				settings.setExportPath(selectedPath);

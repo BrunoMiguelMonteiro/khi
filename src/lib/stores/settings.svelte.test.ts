@@ -46,7 +46,7 @@ const MOCK_DEFAULTS: AppSettings = {
     librarySort: 'title',
     autoImportOnConnect: true
   },
-  lastImport: undefined,
+  lastImport: null,
   version: '0.1.0'
 };
 
@@ -186,13 +186,14 @@ describe('Settings Store - Last Import Actions', () => {
 	it('should clear last import record', () => {
 		settings.setLastImport({
 			timestamp: '2025-01-29T14:00:00Z',
+			deviceId: null,
 			booksCount: 1,
 			highlightsCount: 1
 		});
 
 		settings.clearLastImport();
 
-		expect(settings.state.lastImport).toBeUndefined();
+		expect(settings.state.lastImport).toBeNull();
 	});
 });
 
@@ -301,7 +302,7 @@ describe('Settings Store - Tauri Integration', () => {
 				librarySort: 'author',
 				autoImportOnConnect: false
 			},
-			lastImport: undefined,
+			lastImport: null,
 			version: '0.1.0'
 		};
 

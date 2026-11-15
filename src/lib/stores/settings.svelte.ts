@@ -10,7 +10,7 @@
  * This store uses the Backend (Rust) as the Single Source of Truth for defaults.
  */
 
-import { invoke } from "@tauri-apps/api/core";
+import { commands } from "../bindings";
 import type {
   AppSettings,
   ExportConfig,
@@ -49,6 +49,7 @@ function createInitialState(): AppSettings {
       librarySort: "title",
       autoImportOnConnect: true,
     },
+    lastImport: null,
     version: "0.1.0",
   };
 }
@@ -147,7 +148,7 @@ class SettingsStore {
   async resetSettings() {
     this.isLoading = true;
     try {
-      const defaults = await invoke<AppSettings>("get_default_settings");
+      const defaults = await commands.getDefaultSettings();
       this.state = defaults;
     } catch (err) {
       console.error("Failed to fetch default settings:", err);
@@ -222,7 +223,7 @@ class SettingsStore {
   }
 
   clearLastImport() {
-    this.state.lastImport = undefined;
+    this.state.lastImport = null;
   }
 
   // ============================================
@@ -237,7 +238,7 @@ class SettingsStore {
     this.error = null;
 
     try {
-      const loadedSettings = await invoke<AppSettings>("load_settings");
+      const loadedSettings = await commands.loadSettings();
       this.state = loadedSettings;
       // $effect will apply theme automatically when state changes
     } catch (err) {
@@ -259,7 +260,7 @@ class SettingsStore {
     this.error = null;
 
     try {
-      await invoke("save_settings", { settings: this.state });
+      await commands.saveSettings(this.state);
     } catch (err) {
       console.error("Failed to save settings:", err);
       this.error =

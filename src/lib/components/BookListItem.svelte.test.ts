@@ -2,9 +2,10 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/svelte';
 import BookListItem from './BookListItem.svelte';
 import type { Book } from '$lib/types';
+import { makeBook } from '$lib/test-fixtures';
 
 describe('BookListItem', () => {
-	const mockBook: Book = {
+	const mockBook: Book = makeBook({
 		contentId: 'test-book-1',
 		title: 'Test Book Title',
 		author: 'Test Author',
@@ -19,9 +20,8 @@ describe('BookListItem', () => {
 				text: 'Test highlight 2',
 				dateCreated: '2024-01-02'
 			}
-		],
-		isSelected: false
-	};
+		]
+	});
 
 	const mockGradient = 'from-blue-400 to-blue-600';
 

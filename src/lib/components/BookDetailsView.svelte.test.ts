@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/svelte';
 import BookDetailsView from './BookDetailsView.svelte';
 import type { Book, Highlight } from '../types';
+import { makeBook, makeHighlight } from '../test-fixtures';
 
 const mockHighlights: Highlight[] = [
   {
@@ -26,9 +27,9 @@ const mockHighlights: Highlight[] = [
     chapterProgress: 0.5,
     dateCreated: '2025-01-26',
   },
-];
+].map(makeHighlight);
 
-const mockBook: Book = {
+const mockBook: Book = makeBook({
   contentId: 'book-1',
   title: 'Test Book Title',
   author: 'Test Author',
@@ -37,25 +38,22 @@ const mockBook: Book = {
   dateLastRead: '2025-01-20T10:30:00Z',
   description: 'A test book description',
   highlights: mockHighlights,
-  isSelected: true,
   coverPath: '/path/to/cover.jpg',
-};
+});
 
-const mockBookNoHighlights: Book = {
+const mockBookNoHighlights: Book = makeBook({
   contentId: 'book-2',
   title: 'Empty Book',
   author: 'Author',
   highlights: [],
-  isSelected: false,
-};
+});
 
-const mockBookMinimal: Book = {
+const mockBookMinimal: Book = makeBook({
   contentId: 'book-3',
   title: 'Minimal Book',
   author: '',
   highlights: [mockHighlights[0]],
-  isSelected: false,
-};
+});
 
 describe('BookDetailsView', () => {
   it('renders book details view', () => {

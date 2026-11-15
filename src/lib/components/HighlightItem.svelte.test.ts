@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import HighlightItem from './HighlightItem.svelte';
 import type { Highlight } from '../types';
+import { makeHighlight } from '../test-fixtures';
 import * as clipboardUtils from '../utils/clipboard';
 
 // Mock clipboard utility
@@ -9,13 +10,13 @@ vi.mock('../utils/clipboard', () => ({
   copyToClipboard: vi.fn()
 }));
 
-const mockHighlight: Highlight = {
+const mockHighlight: Highlight = makeHighlight({
   id: 'hl1',
   text: 'This is the highlight text',
   chapterTitle: 'Chapter 1',
   chapterProgress: 0.25,
   dateCreated: '2025-01-24',
-};
+});
 
 describe('HighlightItem', () => {
   beforeEach(() => {
@@ -41,7 +42,7 @@ describe('HighlightItem', () => {
   it('renders without chapter title when not provided', () => {
     const highlightWithoutChapter: Highlight = {
       ...mockHighlight,
-      chapterTitle: undefined,
+      chapterTitle: null,
     };
     render(HighlightItem, { props: { highlight: highlightWithoutChapter } });
     expect(screen.queryByText('Chapter 1')).not.toBeInTheDocument();

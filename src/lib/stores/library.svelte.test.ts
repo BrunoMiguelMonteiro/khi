@@ -5,6 +5,7 @@ import {
 	validateExportPath
 } from './library.svelte';
 import type { Book, KoboDevice, ExportConfig } from '../types';
+import { makeBook, makeDevice } from '../test-fixtures';
 
 // Mock Tauri API
 vi.mock('@tauri-apps/api/core', () => ({
@@ -18,17 +19,15 @@ const mockBooks: Book[] = [
 		contentId: 'book-1',
 		title: 'Book One',
 		author: 'Author One',
-		highlights: [],
-		isSelected: false
+		highlights: []
 	},
 	{
 		contentId: 'book-2',
 		title: 'Book Two',
 		author: 'Author Two',
-		highlights: [],
-		isSelected: false
+		highlights: []
 	}
-];
+].map(makeBook);
 
 describe('Library Store', () => {
 	beforeEach(() => {
@@ -86,12 +85,12 @@ describe('Library Store', () => {
 	describe('Tauri command wrappers', () => {
 		describe('scanForDevice', () => {
 			it('should scan for device and update connectedDevice', async () => {
-				const mockDevice: KoboDevice = {
+				const mockDevice: KoboDevice = makeDevice({
 					name: 'Kobo Clara',
 					path: '/Volumes/KOBOeReader',
 					isValid: true,
 					serialNumber: '12345'
-				};
+				});
 				vi.mocked(invoke).mockResolvedValueOnce(mockDevice);
 
 				const result = await library.scanForDevice();
@@ -127,11 +126,11 @@ describe('Library Store', () => {
 			});
 
 			it('should import highlights and add books', async () => {
-				const mockDevice: KoboDevice = {
+				const mockDevice: KoboDevice = makeDevice({
 					name: 'Kobo Clara',
 					path: '/Volumes/KOBOeReader',
 					isValid: true
-				};
+				});
 				vi.mocked(invoke).mockResolvedValueOnce(mockDevice);
 				await library.scanForDevice();
 
@@ -140,10 +139,9 @@ describe('Library Store', () => {
 						contentId: 'new-1',
 						title: 'New Book',
 						author: 'Author',
-						highlights: [],
-						isSelected: false
+						highlights: []
 					}
-				];
+				].map(makeBook);
 				vi.mocked(invoke).mockResolvedValueOnce(importedBooks);
 
 				const result = await library.importHighlights();
@@ -154,11 +152,11 @@ describe('Library Store', () => {
 			});
 
 			it('should set importing state during import', async () => {
-				const mockDevice: KoboDevice = {
+				const mockDevice: KoboDevice = makeDevice({
 					name: 'Kobo Clara',
 					path: '/Volumes/KOBOeReader',
 					isValid: true
-				};
+				});
 				vi.mocked(invoke).mockResolvedValueOnce(mockDevice);
 				await library.scanForDevice();
 

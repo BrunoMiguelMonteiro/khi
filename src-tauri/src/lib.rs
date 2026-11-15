@@ -8,13 +8,31 @@ pub mod settings;
 pub mod utils;
 pub mod window;
 
-use commands::{
-    clear_cover_cache, export_books, get_default_export_path, get_default_settings,
-    get_export_preview, import_highlights, load_settings, pick_export_folder, reset_settings,
-    save_settings, scan_for_device, update_last_import, validate_export_path,
-};
-
 use device::monitor::DeviceMonitor;
+use tauri_specta::{collect_commands, Builder};
+
+/// Where the generated TypeScript bindings live, relative to `src-tauri/`.
+pub const BINDINGS_PATH: &str = "../src/lib/bindings.ts";
+
+/// Single source of truth for the commands exposed to the frontend.
+/// Used both to serve IPC calls and to generate `src/lib/bindings.ts`.
+pub fn specta_builder() -> Builder<tauri::Wry> {
+    Builder::<tauri::Wry>::new().commands(collect_commands![
+        commands::scan_for_device,
+        commands::import_highlights,
+        commands::export_books,
+        commands::get_export_preview,
+        commands::get_default_export_path,
+        commands::get_default_settings,
+        commands::validate_export_path,
+        commands::load_settings,
+        commands::save_settings,
+        commands::update_last_import,
+        commands::reset_settings,
+        commands::pick_export_folder,
+        commands::clear_cover_cache,
+    ])
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -23,24 +41,17 @@ pub fn run() {
         eprintln!("Failed to initialize logger: {}", e);
     }
 
+    let builder = specta_builder();
+
+    #[cfg(debug_assertions)]
+    builder
+        .export(specta_typescript::Typescript::default(), BINDINGS_PATH)
+        .expect("Failed to export typescript bindings");
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![
-            scan_for_device,
-            import_highlights,
-            export_books,
-            get_export_preview,
-            get_default_export_path,
-            get_default_settings,
-            validate_export_path,
-            load_settings,
-            save_settings,
-            update_last_import,
-            reset_settings,
-            pick_export_folder,
-            clear_cover_cache
-        ])
+        .invoke_handler(builder.invoke_handler())
         .setup(|app| {
             // Show window only after frontend signals ready (prevents white flash)
             window::setup_window_show(app);
@@ -55,4 +66,37 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod bindings_tests {
+    use super::*;
+    use std::path::Path;
+
+    /// Fails when `src/lib/bindings.ts` no longer matches the Rust commands and types.
+    /// Regenerate with: `UPDATE_BINDINGS=1 cargo test bindings_are_up_to_date`
+    #[test]
+    fn bindings_are_up_to_date() {
+        let committed = Path::new(env!("CARGO_MANIFEST_DIR")).join(BINDINGS_PATH);
+
+        if std::env::var_os("UPDATE_BINDINGS").is_some() {
+            specta_builder()
+                .export(specta_typescript::Typescript::default(), &committed)
+                .expect("Failed to export typescript bindings");
+            return;
+        }
+
+        let dir = tempfile::TempDir::new().unwrap();
+        let fresh = dir.path().join("bindings.ts");
+        specta_builder()
+            .export(specta_typescript::Typescript::default(), &fresh)
+            .expect("Failed to export typescript bindings");
+
+        let expected = std::fs::read_to_string(&fresh).unwrap();
+        let actual = std::fs::read_to_string(&committed).unwrap_or_default();
+        assert!(
+            actual == expected,
+            "src/lib/bindings.ts is out of date. Run: UPDATE_BINDINGS=1 cargo test bindings_are_up_to_date"
+        );
+    }
 }

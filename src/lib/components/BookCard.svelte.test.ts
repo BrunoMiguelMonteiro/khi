@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/svelte';
 import BookCard from './BookCard.svelte';
 import type { Book } from '../types';
+import { makeBook } from '../test-fixtures';
 
 // Mock i18n
 vi.mock('$lib/i18n', () => ({
@@ -19,7 +20,7 @@ vi.mock('$lib/i18n', () => ({
   }
 }));
 
-const mockBook: Book = {
+const mockBook: Book = makeBook({
   contentId: 'book-1',
   title: 'Test Book Title',
   author: 'Test Author',
@@ -36,27 +37,24 @@ const mockBook: Book = {
       dateCreated: '2025-01-16',
     },
   ],
-  isSelected: false,
   dateLastRead: '2025-01-20T10:30:00Z',
   coverPath: '/path/to/cover.jpg',
-};
+});
 
-const mockBookNoCover: Book = {
+const mockBookNoCover: Book = makeBook({
   contentId: 'book-2',
   title: 'Book Without Cover',
   author: 'Another Author',
   highlights: [],
-  isSelected: false,
-};
+});
 
-const mockBookLongTitle: Book = {
+const mockBookLongTitle: Book = makeBook({
   contentId: 'book-3',
   title: 'A Very Long Book Title That Should Be Truncated When Displayed In The Card',
   author: 'Some Author With A Very Long Name',
   highlights: [{ id: 'hl1', text: 'Test', dateCreated: '2025-01-15' }],
-  isSelected: false,
   dateLastRead: '2025-01-10T08:00:00Z',
-};
+});
 
 describe('BookCard', () => {
   it('renders book title', () => {

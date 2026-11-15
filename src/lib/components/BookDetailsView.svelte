@@ -6,7 +6,8 @@
     import { _ } from "$lib/i18n";
     import { getBookGradient } from "$lib/utils/gradients";
     import { FileDown } from "lucide-svelte";
-    import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+    import { convertFileSrc } from "@tauri-apps/api/core";
+    import { commands } from "$lib/bindings";
 
     interface Props {
         book: Book;
@@ -29,13 +30,10 @@
         const exportPath = exportConfig.exportPath;
 
         try {
-            const filePaths = await invoke<string[]>("export_books", {
-                books: [book],
-                config: {
-                    exportPath,
-                    metadata: exportConfig.metadata,
-                    dateFormat: exportConfig.dateFormat,
-                },
+            const filePaths = await commands.exportBooks([book], {
+                exportPath,
+                metadata: exportConfig.metadata,
+                dateFormat: exportConfig.dateFormat,
             });
 
             console.log("[BookDetailsView] Export successful:", filePaths);

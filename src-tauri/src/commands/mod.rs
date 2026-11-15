@@ -9,6 +9,7 @@ use tauri::Manager;
 
 /// Scan for connected Kobo devices
 #[tauri::command]
+#[specta::specta]
 pub fn scan_for_device() -> Result<Option<KoboDevice>, String> {
     // On macOS, volumes are mounted under /Volumes
     let volumes_path = PathBuf::from("/Volumes");
@@ -22,6 +23,7 @@ pub fn scan_for_device() -> Result<Option<KoboDevice>, String> {
 
 /// Import highlights from a connected Kobo device
 #[tauri::command]
+#[specta::specta]
 pub fn import_highlights(app_handle: tauri::AppHandle, device: KoboDevice) -> Result<Vec<Book>, String> {
     // Get the database path from the device
     let volumes_path = PathBuf::from("/Volumes");
@@ -72,6 +74,7 @@ pub fn import_highlights(app_handle: tauri::AppHandle, device: KoboDevice) -> Re
 
 /// Export books to markdown files
 #[tauri::command]
+#[specta::specta]
 pub fn export_books(books: Vec<Book>, config: ExportConfig) -> Result<Vec<String>, String> {
     log::info!("[EXPORT RUST] ==========================================");
     log::info!("[EXPORT RUST] Comando export_books invocado");
@@ -140,6 +143,7 @@ pub fn export_books(books: Vec<Book>, config: ExportConfig) -> Result<Vec<String
 
 /// Get a preview of the markdown export for a single book
 #[tauri::command]
+#[specta::specta]
 pub fn get_export_preview(book: Book, config: ExportConfig) -> Result<String, String> {
     let export_path = PathBuf::from(&config.export_path);
     let exporter = MarkdownExporter::new(export_path);
@@ -161,6 +165,7 @@ pub fn get_export_preview(book: Book, config: ExportConfig) -> Result<String, St
 
 /// Get the default export path
 #[tauri::command]
+#[specta::specta]
 pub fn get_default_export_path() -> String {
     // Default to ~/Documents/Kobo Highlights
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
@@ -169,6 +174,7 @@ pub fn get_default_export_path() -> String {
 
 /// Validate if a path is valid for export
 #[tauri::command]
+#[specta::specta]
 pub fn validate_export_path(path: String) -> Result<bool, String> {
     let path = PathBuf::from(path);
 
@@ -193,8 +199,13 @@ pub fn validate_export_path(path: String) -> Result<bool, String> {
     }
 }
 
+fn settings_manager() -> Result<SettingsManager, String> {
+    SettingsManager::new().map_err(|e| format!("Failed to initialize settings manager: {}", e))
+}
+
 /// Load application settings from disk
 #[tauri::command]
+#[specta::specta]
 pub fn load_settings() -> Result<AppSettings, String> {
     let manager = SettingsManager::new().map_err(|e| format!("Failed to load settings: {}", e))?;
 
@@ -203,16 +214,19 @@ pub fn load_settings() -> Result<AppSettings, String> {
 
 /// Get the default application settings
 #[tauri::command]
+#[specta::specta]
 pub fn get_default_settings() -> AppSettings {
     AppSettings::default()
 }
 
 /// Save application settings to disk
 #[tauri::command]
+#[specta::specta]
 pub fn save_settings(settings: AppSettings) -> Result<(), String> {
-    let mut manager = SettingsManager::new()
-        .map_err(|e| format!("Failed to initialize settings manager: {}", e))?;
+    save_settings_with(settings_manager()?, settings)
+}
 
+fn save_settings_with(mut manager: SettingsManager, settings: AppSettings) -> Result<(), String> {
     // Update all settings fields
     *manager.get_mut() = settings;
 
@@ -225,10 +239,12 @@ pub fn save_settings(settings: AppSettings) -> Result<(), String> {
 
 /// Update the last import record
 #[tauri::command]
+#[specta::specta]
 pub fn update_last_import(record: LastImportRecord) -> Result<(), String> {
-    let mut manager = SettingsManager::new()
-        .map_err(|e| format!("Failed to initialize settings manager: {}", e))?;
+    update_last_import_with(settings_manager()?, record)
+}
 
+fn update_last_import_with(mut manager: SettingsManager, record: LastImportRecord) -> Result<(), String> {
     manager
         .set_last_import(record)
         .map_err(|e| format!("Failed to update last import: {}", e))?;
@@ -238,10 +254,12 @@ pub fn update_last_import(record: LastImportRecord) -> Result<(), String> {
 
 /// Reset settings to defaults
 #[tauri::command]
+#[specta::specta]
 pub fn reset_settings() -> Result<AppSettings, String> {
-    let mut manager = SettingsManager::new()
-        .map_err(|e| format!("Failed to initialize settings manager: {}", e))?;
+    reset_settings_with(settings_manager()?)
+}
 
+fn reset_settings_with(mut manager: SettingsManager) -> Result<AppSettings, String> {
     manager
         .reset_to_defaults()
         .map_err(|e| format!("Failed to reset settings: {}", e))?;
@@ -251,6 +269,7 @@ pub fn reset_settings() -> Result<AppSettings, String> {
 
 /// Open a folder picker dialog to select export directory
 #[tauri::command]
+#[specta::specta]
 pub async fn pick_export_folder(app_handle: tauri::AppHandle, default_path: Option<String>) -> Result<Option<String>, String> {
     use tauri_plugin_dialog::DialogExt;
     
@@ -282,6 +301,7 @@ pub async fn pick_export_folder(app_handle: tauri::AppHandle, default_path: Opti
 
 /// Clear the application cover cache
 #[tauri::command]
+#[specta::specta]
 pub fn clear_cover_cache(app_handle: tauri::AppHandle) -> Result<(), String> {
     let cache_dir = app_handle.path().app_cache_dir().map_err(|e| e.to_string())?;
     let extractor = CoverExtractor::new(cache_dir);
@@ -358,76 +378,49 @@ mod tests {
         assert!(!result.unwrap());
     }
 
-    #[test]
-    fn test_load_settings_returns_default_when_no_file() {
-        // This test verifies that load_settings() returns default settings
-        // when no settings file exists. The SettingsManager handles this internally.
-        // We just verify the command returns successfully.
-        let result = load_settings();
-
-        // The command may fail if the config directory doesn't exist,
-        // but the SettingsManager tests verify the actual functionality
-        if result.is_ok() {
-            let settings = result.unwrap();
-            assert!(settings.export_config.metadata.author);
-        }
-        // If result is Err, we accept it as the config directory may not exist in test env
+    // Settings commands are tested through the `*_with` helpers so that no test
+    // ever touches the real settings file in ~/Library/Application Support.
+    fn temp_manager(dir: &tempfile::TempDir) -> SettingsManager {
+        SettingsManager::with_path(dir.path().join("settings.json")).unwrap()
     }
 
     #[test]
-    fn test_save_and_load_settings_roundtrip() {
-        // This test verifies the save_settings and load_settings commands work.
-        // The actual SettingsManager tests in settings/mod.rs verify the full roundtrip.
-        // Here we just verify the commands don't panic.
+    fn test_save_settings_roundtrip() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let mut settings = AppSettings::default();
+        settings.export_config.metadata.author = false;
+        settings.ui_preferences.theme = crate::settings::ThemePreference::Dark;
 
-        // Try to load settings - may fail if config dir doesn't exist
-        let load_result = load_settings();
+        save_settings_with(temp_manager(&dir), settings.clone()).unwrap();
 
-        // If we can load settings, try to save them back
-        if let Ok(settings) = load_result {
-            let save_result = save_settings(settings);
-            // Save may fail in test environment, but shouldn't panic
-            if save_result.is_ok() {
-                // Successfully saved
-            }
-        }
-        // Test passes if we get here without panicking
-        assert!(true);
+        assert_eq!(temp_manager(&dir).get(), &settings);
     }
 
     #[test]
     fn test_update_last_import() {
-        let _record = LastImportRecord {
+        let dir = tempfile::TempDir::new().unwrap();
+        let record = LastImportRecord {
             timestamp: "2025-01-29T14:00:00Z".to_string(),
             device_id: Some("Kobo123".to_string()),
             books_count: 5,
             highlights_count: 42,
         };
 
-        // This will use the default config path, but that's okay for testing
-        // The test verifies the command structure works
-        // Note: In a real scenario, we'd mock the SettingsManager
-        // Just verify the test runs without error
-        assert!(true);
+        update_last_import_with(temp_manager(&dir), record.clone()).unwrap();
+
+        assert_eq!(temp_manager(&dir).get().last_import, Some(record));
     }
 
     #[test]
     fn test_reset_settings() {
-        // This test verifies the reset_settings command works.
-        // The actual SettingsManager tests in settings/mod.rs verify the full functionality.
-        // Here we just verify the command doesn't panic.
+        let dir = tempfile::TempDir::new().unwrap();
+        let mut changed = AppSettings::default();
+        changed.ui_preferences.theme = crate::settings::ThemePreference::Dark;
+        save_settings_with(temp_manager(&dir), changed).unwrap();
 
-        let result = reset_settings();
+        let settings = reset_settings_with(temp_manager(&dir)).unwrap();
 
-        // The command may fail if the config directory doesn't exist,
-        // but if it succeeds, verify default values
-        if let Ok(settings) = result {
-            assert!(settings.export_config.metadata.author);
-            assert_eq!(
-                settings.ui_preferences.theme,
-                crate::settings::ThemePreference::System
-            );
-        }
-        // Test passes if we get here without panicking
+        assert_eq!(settings, AppSettings::default());
+        assert_eq!(temp_manager(&dir).get(), &AppSettings::default());
     }
 }

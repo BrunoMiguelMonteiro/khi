@@ -20,7 +20,7 @@
      * This function only acts as a safety net to filter out any filenames
      * that might still slip through.
      */
-    function formatChapterTitle(rawTitle: string | undefined): string {
+    function formatChapterTitle(rawTitle: string | null | undefined): string {
         if (!rawTitle || !rawTitle.trim()) return "";
 
         // Safety net: if a filename still escapes the backend, don't show it

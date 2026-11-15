@@ -11,7 +11,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 /// Application settings structure
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
     /// Export configuration
@@ -28,7 +28,7 @@ pub struct AppSettings {
 }
 
 /// UI preferences
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct UiPreferences {
     /// Theme preference
@@ -51,10 +51,17 @@ pub struct UiPreferences {
     /// Sort preference for library
     #[serde(alias = "library_sort")]
     pub library_sort: SortPreference,
+    /// Whether to import automatically when a Kobo is connected
+    #[serde(default = "default_true", alias = "auto_import_on_connect")]
+    pub auto_import_on_connect: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 /// Theme preference
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default, specta::Type)]
 #[serde(rename_all = "snake_case")]
 pub enum ThemePreference {
     #[default]
@@ -66,7 +73,7 @@ pub enum ThemePreference {
 }
 
 /// View mode for library
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default, specta::Type)]
 #[serde(rename_all = "snake_case")]
 pub enum ViewMode {
     #[default]
@@ -77,7 +84,7 @@ pub enum ViewMode {
 }
 
 /// Sort preference for library
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default, specta::Type)]
 #[serde(rename_all = "snake_case")]
 pub enum SortPreference {
     #[default]
@@ -92,7 +99,7 @@ pub enum SortPreference {
 }
 
 /// Last import record
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct LastImportRecord {
     /// Timestamp of the import
@@ -102,10 +109,10 @@ pub struct LastImportRecord {
     pub device_id: Option<String>,
     /// Number of books imported
     #[serde(alias = "books_count")]
-    pub books_count: usize,
+    pub books_count: u32,
     /// Number of highlights imported
     #[serde(alias = "highlights_count")]
-    pub highlights_count: usize,
+    pub highlights_count: u32,
 }
 
 impl Default for AppSettings {
@@ -129,6 +136,7 @@ impl Default for UiPreferences {
             show_onboarding: true,
             library_view_mode: ViewMode::Grid,
             library_sort: SortPreference::DateLastRead,
+            auto_import_on_connect: true,
         }
     }
 }
@@ -492,6 +500,7 @@ mod tests {
             show_onboarding: false,
             library_view_mode: ViewMode::List,
             library_sort: SortPreference::Author,
+            auto_import_on_connect: false,
         };
 
         manager.set_ui_preferences(new_prefs).unwrap();
@@ -637,6 +646,36 @@ mod tests {
         assert!(config.export_path.contains("Kobo Highlights"));
         assert!(config.metadata.author);
         assert_eq!(config.date_format, DateFormat::DdMonthYyyy);
+    }
+
+    #[test]
+    fn test_auto_import_on_connect_defaults_to_true_for_old_files() {
+        let json = r#"{
+            "theme": "system",
+            "windowWidth": 1200,
+            "windowHeight": 800,
+            "isMaximized": false,
+            "showOnboarding": true,
+            "libraryViewMode": "grid",
+            "librarySort": "date_last_read"
+        }"#;
+
+        let prefs: UiPreferences = serde_json::from_str(json).unwrap();
+
+        assert!(prefs.auto_import_on_connect);
+    }
+
+    #[test]
+    fn test_auto_import_on_connect_disabled_survives_save() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("settings.json");
+
+        let mut manager = SettingsManager::with_path(config_path.clone()).unwrap();
+        manager.settings.ui_preferences.auto_import_on_connect = false;
+        manager.save().unwrap();
+
+        let reloaded = SettingsManager::with_path(config_path).unwrap();
+        assert!(!reloaded.get().ui_preferences.auto_import_on_connect);
     }
 
     #[test]
