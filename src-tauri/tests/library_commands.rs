@@ -44,10 +44,11 @@ fn sync_kobo_with_reads_fixture() {
 #[test]
 fn cover_comes_from_kobo_images_without_an_epub() {
     let (volume, data, cache, device, reader_id) = kobo_and_library();
-    // qhash("file____mnt_onboard_a_epub") = 101943762 → 210/137 (Calibre)
-    let images = volume.path().join(".kobo-images/210/137");
+    // Where a Kobo Libra 2 keeps this ImageId: the folders come from it,
+    // not from the book's ContentID
+    let images = volume.path().join(".kobo-images/85/194");
     std::fs::create_dir_all(&images).unwrap();
-    std::fs::write(images.join("file____mnt_onboard_a_epub - N3_FULL.parsed"), b"jpeg").unwrap();
+    std::fs::write(images.join("c6c0e484-4956-40c0-83a0-c9b4e01c0645 - N3_FULL.parsed"), b"jpeg").unwrap();
 
     sync_kobo_with(data.path(), cache.path(), &device, |_, _| {}).unwrap();
 

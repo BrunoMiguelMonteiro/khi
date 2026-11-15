@@ -78,7 +78,8 @@ pub fn kobo_db(dir: &Path) -> PathBuf {
             '2026-10-05T10:00:00Z', 0.6, NULL);
 
          ALTER TABLE content ADD COLUMN ImageId TEXT;
-         UPDATE content SET ImageId = 'file____mnt_onboard_a_epub'
+         -- Not the ContentID: on a real Kobo the two differ
+         UPDATE content SET ImageId = 'c6c0e484-4956-40c0-83a0-c9b4e01c0645'
             WHERE ContentID = 'file:///mnt/onboard/a.epub';",
     )
     .unwrap();

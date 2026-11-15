@@ -42,6 +42,6 @@ fn snapshot_reads_image_id() {
 
     let a = snap.books.iter().find(|b| b.volume_id == BOOK_A).unwrap();
     let b = snap.books.iter().find(|b| b.volume_id == BOOK_B).unwrap();
-    assert_eq!(a.image_id.as_deref(), Some("file____mnt_onboard_a_epub"));
+    assert_eq!(a.image_id.as_deref(), Some("c6c0e484-4956-40c0-83a0-c9b4e01c0645"));
     assert_eq!(b.image_id, None);
 }
