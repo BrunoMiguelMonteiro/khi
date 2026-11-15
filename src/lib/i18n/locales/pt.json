@@ -58,7 +58,8 @@
     "copy": "Copiar citação",
     "copied": "Copiado!",
     "copyError": "Erro ao copiar",
-    "removedFromKobo": "Removido do Kobo"
+    "removedFromKobo": "Removido do Kobo",
+    "note": "Nota"
   },
   "settings": {
     "title": "Definições",

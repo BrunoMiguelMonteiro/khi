@@ -76,7 +76,8 @@
     "copy": "Copy quote",
     "copied": "Copied!",
     "copyError": "Copy failed",
-    "removedFromKobo": "Removed from Kobo"
+    "removedFromKobo": "Removed from Kobo",
+    "note": "Note"
   },
   "settings": {
     "title": "Settings",

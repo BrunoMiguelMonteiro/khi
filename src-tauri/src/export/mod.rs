@@ -158,7 +158,7 @@ impl MarkdownExporter {
                     chapter: h.chapter_title.clone(),
                     location,
                     date: h.date_created.clone(),
-                    note: None,
+                    note: note_text(h).map(str::to_string),
                     is_edited: false,
                 }
             })
@@ -244,6 +244,17 @@ impl MarkdownExporter {
         // Highlight text as blockquote
         lines.push(format!("> {}", highlight.text));
 
+        // Kobo note, if any, right under its quote
+        if let Some(note) = note_text(highlight) {
+            let body: Vec<&str> = note
+                .lines()
+                .map(str::trim)
+                .filter(|l| !l.is_empty())
+                .collect();
+            lines.push(String::new());
+            lines.push(format!("**Nota:** {}", body.join("  \n")));
+        }
+
         // Location info (no label, just the value)
         let mut location_parts: Vec<String> = Vec::new();
         if let Some(chapter_title) = &highlight.chapter_title {
@@ -266,6 +277,16 @@ impl MarkdownExporter {
     pub fn export_dir(&self) -> &Path {
         &self.export_dir
     }
+}
+
+/// The highlight's Kobo note, or `None` when it has none. Kobo stores `""`
+/// for highlights without a note, so empty and whitespace-only count as none.
+fn note_text(highlight: &Highlight) -> Option<&str> {
+    highlight
+        .annotation
+        .as_deref()
+        .map(str::trim)
+        .filter(|n| !n.is_empty())
 }
 
 /// Generate a filename for the book
@@ -531,5 +552,49 @@ mod tests {
 
         let filename = generate_filename(&book);
         assert_eq!(filename, "My Book - John Doe.md");
+    }
+    fn book_with_annotation(annotation: Option<&str>) -> Book {
+        let mut book = create_test_book_2();
+        book.highlights[0].annotation = annotation.map(str::to_string);
+        book
+    }
+
+    fn markdown_for(book: &Book) -> String {
+        let temp = TempDir::new().unwrap();
+        let exporter = MarkdownExporter::new(temp.path().to_path_buf());
+        exporter.generate_markdown(book, &create_test_config())
+    }
+
+    #[test]
+    fn test_markdown_writes_note_under_quote() {
+        let md = markdown_for(&book_with_annotation(Some("My own thought")));
+        assert!(
+            md.contains("> Another highlight\n\n**Nota:** My own thought"),
+            "note must follow its quote:\n{md}"
+        );
+    }
+
+    #[test]
+    fn test_markdown_note_keeps_line_breaks() {
+        let md = markdown_for(&book_with_annotation(Some("  line one\nline two  ")));
+        assert!(
+            md.contains("**Nota:** line one  \nline two"),
+            "multi-line note stays one paragraph with hard breaks:\n{md}"
+        );
+    }
+
+    #[test]
+    fn test_markdown_without_note_has_no_note_line() {
+        let md = markdown_for(&book_with_annotation(None));
+        assert!(md.contains("> Another highlight"));
+        assert!(!md.contains("Nota:"), "{md}");
+    }
+
+    #[test]
+    fn test_markdown_empty_string_note_is_no_note() {
+        for empty in ["", "   ", "\n\t "] {
+            let md = markdown_for(&book_with_annotation(Some(empty)));
+            assert!(!md.contains("Nota:"), "{empty:?} must not write a note:\n{md}");
+        }
     }
 }

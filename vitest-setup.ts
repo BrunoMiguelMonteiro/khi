@@ -43,6 +43,7 @@ const mockT = vi.fn((key: string, params?: Record<string, string | number>) => {
     'copyError': 'Copy failed',
     'exportMarkdown': 'Export to Markdown',
     'removedFromKobo': 'Removed from Kobo',
+    'highlight.note': 'Note',
     'showRemoved': 'Show removed',
     'deleteBook': 'Delete book',
   };
