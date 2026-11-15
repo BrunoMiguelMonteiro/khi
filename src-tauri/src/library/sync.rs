@@ -103,8 +103,6 @@ impl Library {
     }
 }
 
-/// `CoverExtractor` names its generated covers `{key}_placeholder.svg`.
-
 /// Finds or creates the Library book (R10), refreshes its metadata (R11) and
 /// records the Kobo path as one of its sources. A book never seen before is
 /// only created when it brings highlights.
