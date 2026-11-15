@@ -3,6 +3,7 @@ pub mod covers;
 pub mod db;
 pub mod device;
 pub mod export;
+pub mod library;
 pub mod models;
 pub mod settings;
 pub mod utils;
