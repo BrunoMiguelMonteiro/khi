@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+	import { events } from '$lib/bindings';
 	import LibraryToolbar from '$lib/components/LibraryToolbar.svelte';
 	import LibraryView from '$lib/components/LibraryView.svelte';
 	import BookDetailsView from '$lib/components/BookDetailsView.svelte';
@@ -82,8 +83,7 @@
 			});
 
 			// Listen for device detected events
-			unlistenDeviceDetected = await listen<{ device: KoboDevice }>(
-				'device-detected',
+			unlistenDeviceDetected = await events.deviceDetected.listen(
 				(event) => {
 					console.log('Device detected:', event.payload);
 					const device = event.payload.device;
@@ -102,7 +102,7 @@
 			);
 
 			// Listen for device disconnected events
-			unlistenDeviceDisconnected = await listen<void>('device-disconnected', () => {
+			unlistenDeviceDisconnected = await events.deviceDisconnected.listen(() => {
 				console.log('Device disconnected');
 				library.setConnectedDevice(undefined);
 				library.setUiState('no-device');

@@ -9,12 +9,13 @@ pub mod utils;
 pub mod window;
 
 use device::monitor::DeviceMonitor;
-use tauri_specta::{collect_commands, Builder};
+use device::monitor::{DeviceDetectedEvent, DeviceDisconnectedEvent};
+use tauri_specta::{collect_commands, collect_events, Builder};
 
 /// Where the generated TypeScript bindings live, relative to `src-tauri/`.
 pub const BINDINGS_PATH: &str = "../src/lib/bindings.ts";
 
-/// Single source of truth for the commands exposed to the frontend.
+/// Single source of truth for the commands and events shared with the frontend.
 /// Used both to serve IPC calls and to generate `src/lib/bindings.ts`.
 pub fn specta_builder() -> Builder<tauri::Wry> {
     Builder::<tauri::Wry>::new().commands(collect_commands![
@@ -32,6 +33,7 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         commands::pick_export_folder,
         commands::clear_cover_cache,
     ])
+    .events(collect_events![DeviceDetectedEvent, DeviceDisconnectedEvent])
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -52,7 +54,10 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(builder.invoke_handler())
-        .setup(|app| {
+        .setup(move |app| {
+            // Register typed events before anything emits them
+            builder.mount_events(app);
+
             // Show window only after frontend signals ready (prevents white flash)
             window::setup_window_show(app);
 
