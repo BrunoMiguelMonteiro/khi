@@ -190,6 +190,14 @@ pub enum DateFormat {
     Iso8601,
 }
 
+/// The language of the interface and of the exported Markdown.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
+#[serde(rename_all = "lowercase")]
+pub enum Language {
+    En,
+    Pt,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

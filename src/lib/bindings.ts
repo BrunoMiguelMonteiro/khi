@@ -55,6 +55,11 @@ export type AppSettings = AppSettings_Serialize | AppSettings_Deserialize;
 
 /**  Application settings structure */
 export type AppSettings_Deserialize = {
+	/**
+	 *  Language of the interface and of the exported Markdown. A file
+	 *  without it, from before this setting, follows the system.
+	 */
+	language?: Language,
 	/**  Version for migration support */
 	version: string,
 } & ((({
@@ -77,6 +82,11 @@ export type AppSettings_Serialize = {
 	exportConfig: ExportConfig_Serialize,
 	/**  UI preferences */
 	uiPreferences: UiPreferences_Serialize,
+	/**
+	 *  Language of the interface and of the exported Markdown. A file
+	 *  without it, from before this setting, follows the system.
+	 */
+	language: Language,
 	/**  Version for migration support */
 	version: string,
 };
@@ -134,6 +144,9 @@ export type KoboDevice_Serialize = {
 	isValid: boolean,
 	serialNumber: string | null,
 };
+
+/**  The language of the interface and of the exported Markdown. */
+export type Language = "en" | "pt";
 
 /**
  *  A book as the Library holds it, with every highlight ever synced,

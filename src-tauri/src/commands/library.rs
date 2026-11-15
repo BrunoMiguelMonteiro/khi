@@ -174,8 +174,10 @@ pub async fn export_library_books(
     book_ids: Vec<u32>,
 ) -> Result<Vec<String>, String> {
     with_library(app, move |lib| {
-        let config = SettingsManager::new().map_err(err)?.get().export_config.clone();
-        let files = lib.export(reader_id, &book_ids, &config).map_err(err)?;
+        let settings = SettingsManager::new().map_err(err)?.get().clone();
+        let files = lib
+            .export(reader_id, &book_ids, &settings.export_config, settings.language)
+            .map_err(err)?;
         Ok(files.into_iter().map(|p| p.to_string_lossy().into_owned()).collect())
     })
     .await

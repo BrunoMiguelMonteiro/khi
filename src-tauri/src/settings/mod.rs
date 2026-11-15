@@ -5,7 +5,7 @@
 //! - UI preferences (theme, window size/position)
 //! - Last import/export records
 
-use crate::models::{DateFormat, ExportConfig, MetadataConfig};
+use crate::models::{DateFormat, ExportConfig, Language, MetadataConfig};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -20,6 +20,10 @@ pub struct AppSettings {
     /// UI preferences
     #[serde(alias = "ui_preferences")]
     pub ui_preferences: UiPreferences,
+    /// Language of the interface and of the exported Markdown. A file
+    /// without it, from before this setting, follows the system.
+    #[serde(default = "system_language")]
+    pub language: Language,
     /// Version for migration support
     pub version: String,
 }
@@ -106,6 +110,7 @@ impl Default for AppSettings {
         Self {
             export_config: ExportConfig::default(),
             ui_preferences: UiPreferences::default(),
+            language: system_language(),
             version: env!("CARGO_PKG_VERSION").to_string(),
         }
     }
@@ -147,6 +152,28 @@ impl Default for MetadataConfig {
             language: true,
             description: false,
         }
+    }
+}
+
+/// The Mac's first preferred language, if it is one Khi speaks; else English.
+fn system_language() -> Language {
+    std::process::Command::new("defaults")
+        .args(["read", "-g", "AppleLanguages"])
+        .output()
+        .map(|out| language_from_apple_languages(&String::from_utf8_lossy(&out.stdout)))
+        .unwrap_or(Language::En)
+}
+
+/// Reads the first entry of `defaults read -g AppleLanguages`, e.g.
+/// `("en-US", "pt-PT")`, one entry per line.
+fn language_from_apple_languages(output: &str) -> Language {
+    let first = output
+        .lines()
+        .map(|line| line.trim().trim_matches(|c| c == '"' || c == ','))
+        .find(|entry| !entry.is_empty() && *entry != "(" && *entry != ")");
+    match first {
+        Some(tag) if tag.to_ascii_lowercase().starts_with("pt") => Language::Pt,
+        _ => Language::En,
     }
 }
 
@@ -427,6 +454,45 @@ mod tests {
 
     fn write(path: &Path, settings: &AppSettings) {
         fs::write(path, serde_json::to_string_pretty(settings).unwrap()).unwrap();
+    }
+
+    #[test]
+    fn settings_without_language_keep_their_values() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("settings-v2.json");
+        let mut old = serde_json::to_value(settings_with_path("/mine")).unwrap();
+        old["uiPreferences"]["syncOnConnect"] = serde_json::json!(false);
+        old.as_object_mut().unwrap().remove("language");
+        fs::write(&path, serde_json::to_string_pretty(&old).unwrap()).unwrap();
+
+        let manager = SettingsManager::with_path(path.clone()).unwrap();
+
+        assert_eq!(manager.settings.export_config.export_path, "/mine");
+        assert!(!manager.settings.ui_preferences.sync_on_connect);
+        assert!(!path.with_extension("json.corrupted").exists());
+    }
+
+    #[test]
+    fn chosen_language_survives_save() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("settings-v2.json");
+        let mut manager = SettingsManager::with_path(path.clone()).unwrap();
+        manager.settings.language = Language::Pt;
+        manager.save().unwrap();
+
+        assert_eq!(SettingsManager::with_path(path).unwrap().settings.language, Language::Pt);
+    }
+
+    #[test]
+    fn system_language_is_the_first_preferred_language() {
+        let en_first = "(\n    \"en-US\",\n    \"pt-PT\"\n)\n";
+        let pt_first = "(\n    \"pt-PT\",\n    \"en-US\"\n)\n";
+        assert_eq!(language_from_apple_languages(en_first), Language::En);
+        assert_eq!(language_from_apple_languages(pt_first), Language::Pt);
+        assert_eq!(language_from_apple_languages("(\n    pt,\n    en\n)\n"), Language::Pt);
+        assert_eq!(language_from_apple_languages("(\n    \"pt-BR\"\n)\n"), Language::Pt);
+        assert_eq!(language_from_apple_languages("(\n    \"fr-FR\",\n    \"pt-PT\"\n)\n"), Language::En);
+        assert_eq!(language_from_apple_languages(""), Language::En);
     }
 
     #[test]
