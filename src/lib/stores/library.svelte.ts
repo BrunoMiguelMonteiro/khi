@@ -152,6 +152,20 @@ class LibraryStore {
 	 * time it is connected, not once per session.
 	 */
 	async deviceConnected(device: KoboDevice, syncOnConnect: boolean): Promise<ConnectOutcome> {
+		// Already handled since it was plugged in: at startup the scan and the
+		// monitor's first device-detected (2 s later) report the same Kobo.
+		// Keyed on connectedReaderId, which only a handled connect sets and
+		// deviceDisconnected clears; the scan sets connectedDevice alone.
+		const handled =
+			this.connectedReaderId !== null &&
+			device.serialNumber !== null &&
+			this.connectedDevice?.serialNumber === device.serialNumber;
+		if (handled) {
+			if (!this.running) return 'idle';
+			await this.running;
+			return 'synced';
+		}
+
 		this.connectedDevice = device;
 		this.connectedReaderId = device.serialNumber
 			? await commands.readerForKobo(device.serialNumber)

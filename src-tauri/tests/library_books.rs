@@ -101,3 +101,22 @@ fn delete_allowed_when_all_removed_and_cover_gone() {
     assert!(!cover.exists());
     assert!(matches!(lib.delete_book(reader_id, book.id), Err(LibraryError::NotFound)));
 }
+
+#[test]
+fn deleted_book_comes_back_when_highlighted_again() {
+    let dir = TempDir::new().unwrap();
+    let mut lib = Library::open(dir.path()).unwrap();
+    let reader_id = reader_with_kobo(&lib, "Bruno", "A");
+    lib.sync("A", &confianca(&["a1"]), &no_cover, |_, _| {}).unwrap();
+    lib.sync("A", &snapshot(vec![]), &no_cover, |_, _| {}).unwrap();
+    let old_id = lib.books(reader_id).unwrap()[0].id;
+    lib.delete_book(reader_id, old_id).unwrap();
+
+    // Same volume_id on the Kobo, a new highlight
+    lib.sync("A", &confianca(&["b1"]), &no_cover, |_, _| {}).unwrap();
+
+    let books = lib.books(reader_id).unwrap();
+    assert_eq!(books.len(), 1);
+    assert_eq!(books[0].highlights.len(), 1);
+    assert_eq!(books[0].highlights[0].id, "b1");
+}
