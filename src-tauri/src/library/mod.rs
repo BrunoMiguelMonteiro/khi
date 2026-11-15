@@ -3,6 +3,9 @@
 
 pub mod identity;
 pub mod schema;
+pub mod sync;
+
+pub use sync::SyncReport;
 
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};

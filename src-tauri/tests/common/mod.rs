@@ -2,8 +2,38 @@
 //! caller's temp dir; the personal KoboReader.sqlite never enters the repo.
 #![allow(dead_code)]
 
+use khi_lib::models::{KoboBook, KoboHighlight, KoboSnapshot};
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
+
+pub fn hl(bookmark_id: &str, text: &str) -> KoboHighlight {
+    KoboHighlight {
+        bookmark_id: bookmark_id.to_string(),
+        text: text.to_string(),
+        date_created: "2026-10-01T10:00:00Z".to_string(),
+        ..Default::default()
+    }
+}
+
+pub fn kobo_book(volume_id: &str, title: &str, author: &str, highlights: Vec<KoboHighlight>) -> KoboBook {
+    KoboBook {
+        volume_id: volume_id.to_string(),
+        title: title.to_string(),
+        author: author.to_string(),
+        highlights,
+        ..Default::default()
+    }
+}
+
+pub fn snapshot(books: Vec<KoboBook>) -> KoboSnapshot {
+    KoboSnapshot { books }
+}
+
+/// Opens library.sqlite in `dir` with a plain connection, to check what the
+/// Library wrote without depending on its read API.
+pub fn library_conn(dir: &Path) -> Connection {
+    Connection::open(dir.join("library.sqlite")).unwrap()
+}
 
 pub const BOOK_A: &str = "file:///mnt/onboard/a.epub";
 pub const BOOK_B: &str = "file:///mnt/onboard/b.epub";
