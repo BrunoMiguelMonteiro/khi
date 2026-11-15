@@ -7,6 +7,8 @@ pub mod sync;
 
 pub use sync::SyncReport;
 
+use crate::export::{ExportError, MarkdownExporter};
+use crate::models::{Book, ExportConfig, Highlight};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -61,6 +63,54 @@ pub struct LibraryHighlight {
     pub chapter_progress: Option<f64>,
 }
 
+/// Lets the `MarkdownExporter` export Library books unchanged. Removed
+/// highlights are included with no mark (D1).
+impl From<&LibraryBook> for Book {
+    fn from(b: &LibraryBook) -> Self {
+        Book {
+            content_id: b.id.to_string(),
+            title: b.title.clone(),
+            author: b.author.clone(),
+            isbn: b.isbn.clone(),
+            publisher: b.publisher.clone(),
+            language: b.language.clone(),
+            date_last_read: b.date_last_read.clone(),
+            description: b.description.clone(),
+            file_path: None,
+            cover_path: b.cover_path.clone(),
+            highlights: b
+                .highlights
+                .iter()
+                .map(|h| Highlight {
+                    id: h.id.clone(),
+                    text: h.text.clone(),
+                    annotation: h.annotation.clone(),
+                    chapter_title: h.chapter_title.clone(),
+                    chapter_progress: h.chapter_progress,
+                    container_path: h.container_path.clone(),
+                    date_created: h.date_created.clone(),
+                    color: None,
+                })
+                .collect(),
+        }
+    }
+}
+
+/// A Reader name made safe as one folder name: `/`, `:` and NUL become `-`
+/// so the name never opens subfolders (Review Focus 5).
+pub fn safe_dir_name(name: &str) -> String {
+    let safe: String = name
+        .chars()
+        .map(|c| if matches!(c, '/' | ':' | '\0') { '-' } else { c })
+        .collect();
+    let safe = safe.trim();
+    if safe.is_empty() || safe == "." || safe == ".." {
+        "Leitor".to_string()
+    } else {
+        safe.to_string()
+    }
+}
+
 const META_LAST_READER: &str = "last_reader";
 
 const BOOK_COLUMNS: &str = "id, title, author, isbn, publisher, language, description, date_last_read, cover_file";
@@ -102,6 +152,14 @@ impl From<rusqlite::Error> for LibraryError {
 impl From<std::io::Error> for LibraryError {
     fn from(e: std::io::Error) -> Self {
         LibraryError::Io(e)
+    }
+}
+
+impl From<ExportError> for LibraryError {
+    fn from(e: ExportError) -> Self {
+        match e {
+            ExportError::Io(e) => LibraryError::Io(e),
+        }
     }
 }
 
@@ -259,6 +317,37 @@ impl Library {
             }
         }
         Ok(())
+    }
+
+    /// The Reader's own export folder, or `base/<safe Reader name>` (R21).
+    pub fn export_dir(&self, reader_id: u32, base: &str) -> Result<PathBuf> {
+        let (name, export_path): (String, Option<String>) = self
+            .conn
+            .query_row(
+                "SELECT name, export_path FROM readers WHERE id = ?1",
+                [reader_id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()?
+            .ok_or(LibraryError::NotFound)?;
+        Ok(match export_path {
+            Some(path) => PathBuf::from(path),
+            None => Path::new(base).join(safe_dir_name(&name)),
+        })
+    }
+
+    /// Exports the Reader's books `ids` as Markdown into the Reader's folder.
+    /// Same ids and same config give the same bytes (R22).
+    pub fn export(&self, reader_id: u32, ids: &[u32], config: &ExportConfig) -> Result<Vec<PathBuf>> {
+        let dir = self.export_dir(reader_id, &config.export_path)?;
+        // Created here so a bad path is an error, not the exporter's panic.
+        std::fs::create_dir_all(&dir)?;
+        let books: Vec<Book> = self.books_by_ids(reader_id, ids)?.iter().map(Book::from).collect();
+        MarkdownExporter::new(dir)
+            .export_books(&books, config)
+            .into_iter()
+            .map(|r| r.map_err(LibraryError::from))
+            .collect()
     }
 
     fn query_books(&self, sql: &str, values: &[&dyn rusqlite::ToSql]) -> Result<Vec<LibraryBook>> {
