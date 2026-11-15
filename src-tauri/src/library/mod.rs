@@ -1,6 +1,7 @@
 //! The persistent Library: every book and highlight the Khi has ever read from
 //! a Kobo, kept in `library.sqlite` so it is available with no Kobo connected.
 
+pub mod identity;
 pub mod schema;
 
 use rusqlite::{params, Connection, OptionalExtension};
