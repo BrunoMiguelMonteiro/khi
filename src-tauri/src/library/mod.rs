@@ -30,7 +30,40 @@ pub struct KoboInfo {
     pub last_sync_at: Option<String>,
 }
 
+/// A book as the Library holds it, with every highlight ever synced,
+/// including the ones removed from the Kobo.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryBook {
+    pub id: u32,
+    pub title: String,
+    pub author: String,
+    pub isbn: Option<String>,
+    pub publisher: Option<String>,
+    pub language: Option<String>,
+    pub description: Option<String>,
+    pub date_last_read: Option<String>,
+    /// Absolute path inside `covers/`.
+    pub cover_path: Option<String>,
+    pub highlights: Vec<LibraryHighlight>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryHighlight {
+    pub id: String,
+    pub text: String,
+    pub date_created: String,
+    pub annotation: Option<String>,
+    pub chapter_title: Option<String>,
+    pub container_path: Option<String>,
+    pub removed_at: Option<String>,
+    pub chapter_progress: Option<f64>,
+}
+
 const META_LAST_READER: &str = "last_reader";
+
+const BOOK_COLUMNS: &str = "id, title, author, isbn, publisher, language, description, date_last_read, cover_file";
 
 pub struct Library {
     conn: Connection,
@@ -169,6 +202,109 @@ impl Library {
             params![META_LAST_READER, id.to_string()],
         )?;
         Ok(())
+    }
+
+    /// Every book of the Reader, by title; works with no Kobo connected (R17).
+    pub fn books(&self, reader_id: u32) -> Result<Vec<LibraryBook>> {
+        self.query_books(
+            &format!(
+                "SELECT {} FROM books WHERE reader_id = ?1 ORDER BY title COLLATE NOCASE, id",
+                BOOK_COLUMNS
+            ),
+            &[&reader_id],
+        )
+    }
+
+    /// The Reader's books among `ids`; ids of other Readers are ignored.
+    pub fn books_by_ids(&self, reader_id: u32, ids: &[u32]) -> Result<Vec<LibraryBook>> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let placeholders = vec!["?"; ids.len()].join(", ");
+        let sql = format!(
+            "SELECT {} FROM books WHERE reader_id = ? AND id IN ({}) ORDER BY title COLLATE NOCASE, id",
+            BOOK_COLUMNS, placeholders
+        );
+        let mut values: Vec<&dyn rusqlite::ToSql> = vec![&reader_id];
+        values.extend(ids.iter().map(|id| id as &dyn rusqlite::ToSql));
+        self.query_books(&sql, &values)
+    }
+
+    /// R19: only a book whose highlights were all removed from the Kobo can
+    /// be deleted. Its highlights, sources and cover go with it.
+    pub fn delete_book(&mut self, reader_id: u32, book_id: u32) -> Result<()> {
+        let tx = self.conn.transaction()?;
+        let cover_file: Option<String> = tx
+            .query_row(
+                "SELECT cover_file FROM books WHERE id = ?1 AND reader_id = ?2",
+                params![book_id, reader_id],
+                |r| r.get(0),
+            )
+            .optional()?
+            .ok_or(LibraryError::NotFound)?;
+        let live: u32 = tx.query_row(
+            "SELECT COUNT(*) FROM highlights WHERE book_id = ?1 AND removed_at IS NULL",
+            [book_id],
+            |r| r.get(0),
+        )?;
+        if live > 0 {
+            return Err(LibraryError::BookHasLiveHighlights);
+        }
+        tx.execute("DELETE FROM books WHERE id = ?1", [book_id])?;
+        tx.commit()?;
+
+        if let Some(file) = cover_file {
+            if let Err(e) = std::fs::remove_file(self.covers_dir.join(file)) {
+                log::warn!("Could not delete cover of book {}: {}", book_id, e);
+            }
+        }
+        Ok(())
+    }
+
+    fn query_books(&self, sql: &str, values: &[&dyn rusqlite::ToSql]) -> Result<Vec<LibraryBook>> {
+        let mut stmt = self.conn.prepare(sql)?;
+        let mut books = stmt
+            .query_map(values, |r| {
+                let cover_file: Option<String> = r.get(8)?;
+                Ok(LibraryBook {
+                    id: r.get(0)?,
+                    title: r.get(1)?,
+                    author: r.get(2)?,
+                    isbn: r.get(3)?,
+                    publisher: r.get(4)?,
+                    language: r.get(5)?,
+                    description: r.get(6)?,
+                    date_last_read: r.get(7)?,
+                    cover_path: cover_file
+                        .map(|f| self.covers_dir.join(f).to_string_lossy().into_owned()),
+                    highlights: Vec::new(),
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+
+        let mut stmt = self.conn.prepare(
+            "SELECT bookmark_id, text, date_created, annotation, chapter_title, container_path,
+                    removed_at, chapter_progress
+             FROM highlights WHERE book_id = ?1
+             ORDER BY chapter_progress, date_created",
+        )?;
+        for book in &mut books {
+            book.highlights = stmt
+                .query_map([book.id], |r| {
+                    Ok(LibraryHighlight {
+                        id: r.get(0)?,
+                        text: r.get(1)?,
+                        date_created: r.get::<_, Option<String>>(2)?.unwrap_or_default(),
+                        annotation: r.get(3)?,
+                        chapter_title: r.get(4)?,
+                        container_path: r.get(5)?,
+                        removed_at: r.get(6)?,
+                        chapter_progress: r.get(7)?,
+                    })
+                })?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+        }
+        Ok(books)
     }
 
     pub fn set_reader_export_path(&self, id: u32, path: Option<&str>) -> Result<()> {
