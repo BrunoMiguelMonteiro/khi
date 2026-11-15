@@ -14,8 +14,13 @@
 
 	let { readers, activeReaderId, onSelect }: Props = $props();
 
+	/** The picker shows the open Reader: a choice asks to open another and
+	 * the picker follows activeReaderId, so a failed open leaves it as is. */
 	function handleChange(event: Event) {
-		onSelect(Number((event.currentTarget as HTMLSelectElement).value));
+		const select = event.currentTarget as HTMLSelectElement;
+		const chosen = Number(select.value);
+		select.value = activeReaderId === null ? '' : String(activeReaderId);
+		onSelect(chosen);
 	}
 </script>
 

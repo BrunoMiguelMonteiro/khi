@@ -24,4 +24,15 @@ describe('ReaderPicker', () => {
 
 		expect(onSelect).toHaveBeenCalledWith(2);
 	});
+
+	it('stays on the open reader until the chosen one opens', async () => {
+		const { rerender } = render(ReaderPicker, { readers: [bruno, ana], activeReaderId: 1, onSelect: vi.fn() });
+		const select = screen.getByTestId('reader-picker') as HTMLSelectElement;
+
+		await fireEvent.change(select, { target: { value: '2' } });
+		expect(select.value).toBe('1');
+
+		await rerender({ readers: [bruno, ana], activeReaderId: 2, onSelect: vi.fn() });
+		expect(select.value).toBe('2');
+	});
 });
