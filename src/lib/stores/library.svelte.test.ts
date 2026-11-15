@@ -207,6 +207,27 @@ describe('Library Store', () => {
 			expect(library.canSync).toBe(false);
 		});
 
+		it('a second connect while syncing reuses the running sync', async () => {
+			let finish!: (r: unknown) => void;
+			vi.mocked(invoke).mockImplementation((cmd: string) => {
+				if (cmd === 'reader_for_kobo') return Promise.resolve(5);
+				if (cmd === 'get_library') return Promise.resolve(mockBooks);
+				if (cmd === 'sync_kobo') return new Promise((resolve) => (finish = resolve));
+				return Promise.reject(new Error(`unexpected ${cmd}`));
+			});
+
+			// Startup scan and the monitor's first device-detected, 2 s apart
+			const first = library.deviceConnected(kobo, true);
+			await vi.waitFor(() => expect(invoke).toHaveBeenCalledWith('sync_kobo', { device: kobo }));
+			const second = library.deviceConnected(kobo, true);
+			await new Promise((r) => setTimeout(r, 0));
+			finish({ added: 1 });
+
+			expect(await first).toBe('synced');
+			expect(await second).toBe('synced');
+			expect(vi.mocked(invoke).mock.calls.filter(([cmd]) => cmd === 'sync_kobo')).toHaveLength(1);
+		});
+
 		it('sync without a known connected kobo throws', async () => {
 			await expect(library.sync()).rejects.toThrow('No known Kobo connected');
 		});

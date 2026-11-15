@@ -166,12 +166,25 @@ class LibraryStore {
 		return 'idle';
 	}
 
-	/** Syncs the connected Kobo into its Reader's Library and shows it (R16). */
-	async sync(): Promise<SyncReport> {
+	/** The Sync in flight, shared by every caller until it ends. */
+	private running: Promise<SyncReport> | null = null;
+
+	/** Syncs the connected Kobo into its Reader's Library and shows it (R16).
+	 * A call while a Sync runs gets that Sync: at startup the scan and the
+	 * monitor's first device-detected both arrive for the same Kobo. */
+	sync(): Promise<SyncReport> {
+		if (this.running) return this.running;
 		const device = this.connectedDevice;
 		const readerId = this.connectedReaderId;
-		if (!device || readerId === null) throw new Error('No known Kobo connected');
+		if (!device || readerId === null) return Promise.reject(new Error('No known Kobo connected'));
 
+		this.running = this.runSync(device, readerId).finally(() => {
+			this.running = null;
+		});
+		return this.running;
+	}
+
+	private async runSync(device: KoboDevice, readerId: number): Promise<SyncReport> {
 		this.isImporting = true;
 		this.syncProgress = { done: 0, total: 0 };
 		try {
