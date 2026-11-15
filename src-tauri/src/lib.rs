@@ -22,9 +22,6 @@ pub const BINDINGS_PATH: &str = "../src/lib/bindings.ts";
 pub fn specta_builder() -> Builder<tauri::Wry> {
     Builder::<tauri::Wry>::new().commands(collect_commands![
         commands::scan_for_device,
-        commands::import_highlights,
-        commands::export_books,
-        commands::get_export_preview,
         commands::get_default_export_path,
         commands::get_default_settings,
         commands::validate_export_path,

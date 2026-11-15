@@ -1,10 +1,8 @@
 pub mod library;
 
-use crate::db::kobo::KoboDatabase;
 use crate::device::DeviceDetector;
-use crate::export::MarkdownExporter;
 use crate::covers::CoverExtractor;
-use crate::models::{Book, ExportConfig, KoboDevice};
+use crate::models::KoboDevice;
 use crate::settings::{AppSettings, SettingsManager};
 use std::path::PathBuf;
 use tauri::Manager;
@@ -21,156 +19,6 @@ pub fn scan_for_device() -> Result<Option<KoboDevice>, String> {
         Ok(device) => Ok(device),
         Err(e) => Err(format!("Failed to scan for devices: {}", e)),
     }
-}
-
-/// Import highlights from a connected Kobo device
-#[tauri::command]
-#[specta::specta]
-pub fn import_highlights(app_handle: tauri::AppHandle, device: KoboDevice) -> Result<Vec<Book>, String> {
-    // Get the database path from the device
-    let volumes_path = PathBuf::from("/Volumes");
-    let detector = DeviceDetector::new(volumes_path);
-
-    log::info!("Importing highlights from device: {:?}", device);
-
-    let db_path = detector.get_database_path(&device).ok_or_else(|| {
-        log::error!("Could not find Kobo database at path: {}", device.path);
-        "Could not find Kobo database".to_string()
-    })?;
-
-    log::info!("Database path: {:?}", db_path);
-
-    // Open the database and extract books
-    let db = KoboDatabase::open_read_only(&db_path).map_err(|e| {
-        log::error!("Failed to open database: {}", e);
-        format!("Failed to open database: {}", e)
-    })?;
-
-    log::info!("Database opened successfully");
-
-    let started = std::time::Instant::now();
-    let snapshot = db.read_snapshot().map_err(|e| {
-        log::error!("Failed to extract highlights: {}", e);
-        format!("Failed to extract highlights: {}", e)
-    })?;
-    log::info!(
-        "Read Kobo snapshot in {} ms",
-        started.elapsed().as_millis()
-    );
-
-    let mut books: Vec<Book> = snapshot.books.into_iter().map(Book::from).collect();
-    books.sort_by(|a, b| a.title.cmp(&b.title));
-
-    log::info!("Extracted {} books with highlights", books.len());
-
-    // Extract covers
-    let cache_dir = app_handle.path().app_cache_dir().map_err(|e| e.to_string())?;
-    let extractor = CoverExtractor::new(cache_dir);
-
-    for book in &mut books {
-        if let Some(file_path) = &book.file_path {
-            let epub_path = PathBuf::from(&device.path).join(file_path);
-            
-            if epub_path.exists() {
-                if let Ok(Some(cover_path)) = extractor.extract_cover(&epub_path) {
-                    book.cover_path = Some(cover_path.to_string_lossy().to_string());
-                }
-            }
-        }
-    }
-
-    Ok(books)
-}
-
-/// Export books to markdown files
-#[tauri::command]
-#[specta::specta]
-pub fn export_books(books: Vec<Book>, config: ExportConfig) -> Result<Vec<String>, String> {
-    log::info!("[EXPORT RUST] ==========================================");
-    log::info!("[EXPORT RUST] Comando export_books invocado");
-    log::info!("[EXPORT RUST] Número de livros recebidos: {}", books.len());
-
-    // Log detalhes de cada livro recebido
-    for (i, book) in books.iter().enumerate() {
-        log::info!(
-            "[EXPORT RUST] Livro {}/{}: '{}' ({} highlights)",
-            i + 1,
-            books.len(),
-            book.title,
-            book.highlights.len()
-        );
-        log::info!("[EXPORT RUST]   - content_id: {}", book.content_id);
-        log::info!("[EXPORT RUST]   - author: {}", book.author);
-    }
-
-    // Log config recebida
-    log::info!("[EXPORT RUST] Config recebida:");
-    log::info!("[EXPORT RUST]   - export_path: {}", config.export_path);
-    log::info!("[EXPORT RUST]   - date_format: {:?}", config.date_format);
-    log::info!(
-        "[EXPORT RUST]   - metadata.author: {}",
-        config.metadata.author
-    );
-    log::info!("[EXPORT RUST]   - metadata.isbn: {}", config.metadata.isbn);
-
-    log::info!("[EXPORT RUST] A criar PathBuf...");
-    let export_path = PathBuf::from(&config.export_path);
-    log::info!("[EXPORT RUST] PathBuf criado: {:?}", export_path);
-
-    log::info!("[EXPORT RUST] A criar MarkdownExporter...");
-    let exporter = MarkdownExporter::new(export_path);
-    log::info!("[EXPORT RUST] MarkdownExporter criado com sucesso");
-
-    log::info!("[EXPORT RUST] A chamar exporter.export_books()...");
-    let results = exporter.export_books(&books, &config);
-    log::info!(
-        "[EXPORT RUST] exporter.export_books() concluído - {} resultados",
-        results.len()
-    );
-
-    let mut exported_files = Vec::new();
-    for (i, result) in results.iter().enumerate() {
-        match result {
-            Ok(path) => {
-                let path_str = path.to_string_lossy().to_string();
-                log::info!("[EXPORT RUST] ✅ Livro {} exportado: {}", i, path_str);
-                exported_files.push(path_str);
-            }
-            Err(e) => {
-                log::error!("[EXPORT RUST] ❌ Erro no livro {}: {}", i, e);
-                return Err(format!("Export failed: {}", e));
-            }
-        }
-    }
-
-    log::info!(
-        "[EXPORT RUST] ✅ Exportação concluída com sucesso - {} ficheiros",
-        exported_files.len()
-    );
-    log::info!("[EXPORT RUST] ==========================================");
-    Ok(exported_files)
-}
-
-/// Get a preview of the markdown export for a single book
-#[tauri::command]
-#[specta::specta]
-pub fn get_export_preview(book: Book, config: ExportConfig) -> Result<String, String> {
-    let export_path = PathBuf::from(&config.export_path);
-    let exporter = MarkdownExporter::new(export_path);
-
-    // Generate the markdown content
-    let markdown = exporter
-        .export_book(&book, &config)
-        .map_err(|e| format!("Failed to generate preview: {}", e))?;
-
-    // Read the generated file
-    let content =
-        std::fs::read_to_string(&markdown).map_err(|e| format!("Failed to read preview: {}", e))?;
-
-    // Clean up the temporary file
-    let _ = std::fs::remove_file(&markdown);
-
-    Ok(content)
 }
 
 /// Get the default export path
@@ -307,47 +155,6 @@ pub fn clear_cover_cache(app_handle: tauri::AppHandle) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{Book, DateFormat, ExportConfig, Highlight, MetadataConfig};
-
-    fn create_test_book() -> Book {
-        Book {
-            content_id: "book1".to_string(),
-            title: "Test Book".to_string(),
-            author: "Test Author".to_string(),
-            isbn: None,
-            publisher: None,
-            language: None,
-            date_last_read: None,
-            description: None,
-            file_path: None,
-            cover_path: None,
-            highlights: vec![Highlight {
-                id: "hl1".to_string(),
-                text: "Test highlight".to_string(),
-                annotation: None,
-                chapter_title: None,
-                chapter_progress: None,
-                container_path: None,
-                date_created: "2025-01-24".to_string(),
-                color: None,
-            }],
-        }
-    }
-
-    fn create_test_config() -> ExportConfig {
-        ExportConfig {
-            export_path: "/tmp/test_export".to_string(),
-            metadata: MetadataConfig {
-                author: true,
-                isbn: false,
-                publisher: false,
-                date_last_read: false,
-                language: false,
-                description: false,
-            },
-            date_format: DateFormat::DdMonthYyyy,
-        }
-    }
 
     #[test]
     fn test_get_default_export_path() {

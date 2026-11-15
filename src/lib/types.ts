@@ -50,12 +50,6 @@ export interface AppState {
   settings: ExportConfig;
 }
 
-export interface LastImportRecord {
-  lastImportDate: string;
-  deviceId: string;
-  booksImported: BookImportRecord[];
-}
-
 export interface BookImportRecord {
   isbn?: string;
   title: string;

@@ -7,12 +7,6 @@ import * as __TAURI_EVENT from "@tauri-apps/api/event";
 export const commands = {
 	/**  Scan for connected Kobo devices */
 	scanForDevice: () => __TAURI_INVOKE<KoboDevice_Serialize | null>("scan_for_device"),
-	/**  Import highlights from a connected Kobo device */
-	importHighlights: (device: KoboDevice_Deserialize) => __TAURI_INVOKE<Book_Serialize[]>("import_highlights", { device }),
-	/**  Export books to markdown files */
-	exportBooks: (books: Book_Deserialize[], config: ExportConfig_Deserialize) => __TAURI_INVOKE<string[]>("export_books", { books, config }),
-	/**  Get a preview of the markdown export for a single book */
-	getExportPreview: (book: Book_Deserialize, config: ExportConfig_Deserialize) => __TAURI_INVOKE<string>("get_export_preview", { book, config }),
 	/**  Get the default export path */
 	getDefaultExportPath: () => __TAURI_INVOKE<string>("get_default_export_path"),
 	/**  Get the default application settings */
@@ -87,34 +81,6 @@ export type AppSettings_Serialize = {
 	version: string,
 };
 
-export type Book = Book_Serialize | Book_Deserialize;
-
-export type Book_Deserialize = {
-	contentId: string,
-	title: string,
-	author: string,
-	isbn?: string | null,
-	publisher?: string | null,
-	language?: string | null,
-	dateLastRead?: string | null,
-	description?: string | null,
-	coverPath?: string | null,
-	highlights: Highlight_Deserialize[],
-};
-
-export type Book_Serialize = {
-	contentId: string,
-	title: string,
-	author: string,
-	isbn: string | null,
-	publisher: string | null,
-	language: string | null,
-	dateLastRead: string | null,
-	description: string | null,
-	coverPath: string | null,
-	highlights: Highlight_Serialize[],
-};
-
 export type DateFormat = "dd_mm_yyyy" | "dd_month_yyyy" | "iso8601";
 
 /**  Event emitted when a device is detected */
@@ -151,30 +117,6 @@ export type ExportConfig_Serialize = {
 	exportPath: string,
 	metadata: MetadataConfig_Serialize,
 	dateFormat: DateFormat,
-};
-
-export type Highlight = Highlight_Serialize | Highlight_Deserialize;
-
-export type Highlight_Deserialize = {
-	id: string,
-	text: string,
-	annotation?: string | null,
-	chapterTitle?: string | null,
-	chapterProgress?: number | null,
-	containerPath?: string | null,
-	dateCreated: string,
-	color?: string | null,
-};
-
-export type Highlight_Serialize = {
-	id: string,
-	text: string,
-	annotation: string | null,
-	chapterTitle: string | null,
-	chapterProgress: number | null,
-	containerPath: string | null,
-	dateCreated: string,
-	color: string | null,
 };
 
 export type KoboDevice = KoboDevice_Serialize | KoboDevice_Deserialize;
