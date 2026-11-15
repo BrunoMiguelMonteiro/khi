@@ -35,10 +35,10 @@ Kobo Libra 2, 11 livros e 115 highlights no primeiro contacto.
 
 ### Encontrado no teste (fora desta branch)
 
-- As notas não aparecem no Khi, nem no detalhe nem no Markdown. O exportador nunca as escreveu, já na v1.
+- As notas não aparecem no Khi, nem no detalhe nem no Markdown. O exportador nunca as escreveu, já na v1. Resolvido no PR #8 (merge `d1ed1c0`): as notas aparecem no detalhe e vão para o Markdown numa linha `**Nota:**`.
 - Os livros comprados na loja Kobo (caminho com UUID, `.kobo/kepub`) ficam sem capa, já na v1. O Kobo guarda miniaturas em `.kobo-images/`. Resolvido em `379c3b9` (ver «Capas dos livros da loja»).
 - A v1 instalada (`/Applications/Khi.app`) abriu sozinha ao lado da build dev. As duas têm o identificador `com.bruno.khi` e partilham o `settings.json`.
-- As Definições mostram dois campos de pasta de export, o do Leitor e o Path global, o que confunde.
+- As Definições mostram dois campos de pasta de export, o do Leitor e o Path global, o que confunde. Resolvido em `4956448`: com um Leitor ativo, há um só campo, o da pasta do Leitor.
 
 ## Capas dos livros da loja (15 nov 2026, `npm run dev:app`)
 
