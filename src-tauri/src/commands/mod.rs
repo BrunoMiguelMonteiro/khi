@@ -3,7 +3,7 @@ use crate::device::DeviceDetector;
 use crate::export::MarkdownExporter;
 use crate::covers::CoverExtractor;
 use crate::models::{Book, ExportConfig, KoboDevice};
-use crate::settings::{AppSettings, LastImportRecord, SettingsManager};
+use crate::settings::{AppSettings, SettingsManager};
 use std::path::PathBuf;
 use tauri::Manager;
 
@@ -245,21 +245,6 @@ fn save_settings_with(mut manager: SettingsManager, settings: AppSettings) -> Re
     Ok(())
 }
 
-/// Update the last import record
-#[tauri::command]
-#[specta::specta]
-pub fn update_last_import(record: LastImportRecord) -> Result<(), String> {
-    update_last_import_with(settings_manager()?, record)
-}
-
-fn update_last_import_with(mut manager: SettingsManager, record: LastImportRecord) -> Result<(), String> {
-    manager
-        .set_last_import(record)
-        .map_err(|e| format!("Failed to update last import: {}", e))?;
-
-    Ok(())
-}
-
 /// Reset settings to defaults
 #[tauri::command]
 #[specta::specta]
@@ -402,21 +387,6 @@ mod tests {
         save_settings_with(temp_manager(&dir), settings.clone()).unwrap();
 
         assert_eq!(temp_manager(&dir).get(), &settings);
-    }
-
-    #[test]
-    fn test_update_last_import() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let record = LastImportRecord {
-            timestamp: "2025-01-29T14:00:00Z".to_string(),
-            device_id: Some("Kobo123".to_string()),
-            books_count: 5,
-            highlights_count: 42,
-        };
-
-        update_last_import_with(temp_manager(&dir), record.clone()).unwrap();
-
-        assert_eq!(temp_manager(&dir).get().last_import, Some(record));
     }
 
     #[test]

@@ -23,8 +23,6 @@ export const commands = {
 	loadSettings: () => __TAURI_INVOKE<AppSettings_Serialize>("load_settings"),
 	/**  Save application settings to disk */
 	saveSettings: (settings: AppSettings_Deserialize) => __TAURI_INVOKE<null>("save_settings", { settings }),
-	/**  Update the last import record */
-	updateLastImport: (record: LastImportRecord_Deserialize) => __TAURI_INVOKE<null>("update_last_import", { record }),
 	/**  Reset settings to defaults */
 	resetSettings: () => __TAURI_INVOKE<AppSettings_Serialize>("reset_settings"),
 	/**  Open a folder picker dialog to select export directory */
@@ -59,13 +57,7 @@ export type AppSettings_Deserialize = {
 } & {
 	/**  UI preferences */
 	ui_preferences: UiPreferences_Deserialize,
-}) extends infer T extends object ? { [K in keyof T]: { [P in keyof T as P extends K ? P : never]: T[P] } & { [P in keyof T as P extends K ? never : P]?: never } }[keyof T] & object : never)) & ({
-	/**  Last import record */
-	lastImport?: LastImportRecord_Deserialize | null,
-} & {
-	/**  Last import record */
-	last_import?: LastImportRecord_Deserialize | null,
-});
+}) extends infer T extends object ? { [K in keyof T]: { [P in keyof T as P extends K ? P : never]: T[P] } & { [P in keyof T as P extends K ? never : P]?: never } }[keyof T] & object : never));
 
 /**  Application settings structure */
 export type AppSettings_Serialize = {
@@ -73,8 +65,6 @@ export type AppSettings_Serialize = {
 	exportConfig: ExportConfig_Serialize,
 	/**  UI preferences */
 	uiPreferences: UiPreferences_Serialize,
-	/**  Last import record */
-	lastImport: LastImportRecord_Serialize | null,
 	/**  Version for migration support */
 	version: string,
 };
@@ -185,45 +175,6 @@ export type KoboDevice_Serialize = {
 	serialNumber: string | null,
 };
 
-/**  Last import record */
-export type LastImportRecord = LastImportRecord_Serialize | LastImportRecord_Deserialize;
-
-/**  Last import record */
-export type LastImportRecord_Deserialize = {
-	/**  Timestamp of the import */
-	timestamp: string,
-} & ({
-	/**  Device ID (if available) */
-	deviceId?: string | null,
-} & {
-	/**  Device ID (if available) */
-	device_id?: string | null,
-}) & ((({
-	/**  Number of books imported */
-	booksCount: number,
-} & {
-	/**  Number of books imported */
-	books_count: number,
-}) extends infer T extends object ? { [K in keyof T]: { [P in keyof T as P extends K ? P : never]: T[P] } & { [P in keyof T as P extends K ? never : P]?: never } }[keyof T] & object : never)) & ((({
-	/**  Number of highlights imported */
-	highlightsCount: number,
-} & {
-	/**  Number of highlights imported */
-	highlights_count: number,
-}) extends infer T extends object ? { [K in keyof T]: { [P in keyof T as P extends K ? P : never]: T[P] } & { [P in keyof T as P extends K ? never : P]?: never } }[keyof T] & object : never));
-
-/**  Last import record */
-export type LastImportRecord_Serialize = {
-	/**  Timestamp of the import */
-	timestamp: string,
-	/**  Device ID (if available) */
-	deviceId: string | null,
-	/**  Number of books imported */
-	booksCount: number,
-	/**  Number of highlights imported */
-	highlightsCount: number,
-};
-
 export type MetadataConfig = MetadataConfig_Serialize | MetadataConfig_Deserialize;
 
 export type MetadataConfig_Deserialize = {
@@ -311,11 +262,29 @@ export type UiPreferences_Deserialize = {
 	/**  Sort preference for library */
 	library_sort: SortPreference_Deserialize,
 }) extends infer T extends object ? { [K in keyof T]: { [P in keyof T as P extends K ? P : never]: T[P] } & { [P in keyof T as P extends K ? never : P]?: never } }[keyof T] & object : never)) & ({
-	/**  Whether to import automatically when a Kobo is connected */
+	/**
+	 *  Whether to sync automatically when a known Kobo is connected (R23).
+	 *  Old files stored it as `autoImportOnConnect`.
+	 */
+	syncOnConnect?: boolean,
+} & {
+	/**
+	 *  Whether to sync automatically when a known Kobo is connected (R23).
+	 *  Old files stored it as `autoImportOnConnect`.
+	 */
 	autoImportOnConnect?: boolean,
 } & {
-	/**  Whether to import automatically when a Kobo is connected */
+	/**
+	 *  Whether to sync automatically when a known Kobo is connected (R23).
+	 *  Old files stored it as `autoImportOnConnect`.
+	 */
 	auto_import_on_connect?: boolean,
+} & {
+	/**
+	 *  Whether to sync automatically when a known Kobo is connected (R23).
+	 *  Old files stored it as `autoImportOnConnect`.
+	 */
+	sync_on_connect?: boolean,
 });
 
 /**  UI preferences */
@@ -334,8 +303,11 @@ export type UiPreferences_Serialize = {
 	libraryViewMode: ViewMode_Serialize,
 	/**  Sort preference for library */
 	librarySort: SortPreference_Serialize,
-	/**  Whether to import automatically when a Kobo is connected */
-	autoImportOnConnect: boolean,
+	/**
+	 *  Whether to sync automatically when a known Kobo is connected (R23).
+	 *  Old files stored it as `autoImportOnConnect`.
+	 */
+	syncOnConnect: boolean,
 };
 
 /**  View mode for library */

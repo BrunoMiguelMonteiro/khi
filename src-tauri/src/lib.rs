@@ -29,7 +29,6 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         commands::validate_export_path,
         commands::load_settings,
         commands::save_settings,
-        commands::update_last_import,
         commands::reset_settings,
         commands::pick_export_folder,
         commands::clear_cover_cache,

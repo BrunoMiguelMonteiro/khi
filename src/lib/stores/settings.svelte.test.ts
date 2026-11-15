@@ -44,9 +44,8 @@ const MOCK_DEFAULTS: AppSettings = {
     showOnboarding: true,
     libraryViewMode: 'grid',
     librarySort: 'title',
-    autoImportOnConnect: true
+    syncOnConnect: true
   },
-  lastImport: null,
   version: '0.1.0'
 };
 
@@ -160,43 +159,6 @@ describe('Settings Store - UI Preferences Actions', () => {
 	});
 });
 
-describe('Settings Store - Last Import Actions', () => {
-	beforeEach(async () => {
-    mockedInvoke.mockClear();
-    mockedInvoke.mockImplementation((cmd) => {
-      if (cmd === 'get_default_settings') return Promise.resolve(MOCK_DEFAULTS);
-      return Promise.resolve({});
-    });
-		await settings.resetSettings();
-	});
-
-	it('should set last import record', () => {
-		const record = {
-			timestamp: '2025-01-29T14:00:00Z',
-			deviceId: 'Kobo123',
-			booksCount: 5,
-			highlightsCount: 42
-		};
-
-		settings.setLastImport(record);
-
-		expect(settings.state.lastImport).toEqual(record);
-	});
-
-	it('should clear last import record', () => {
-		settings.setLastImport({
-			timestamp: '2025-01-29T14:00:00Z',
-			deviceId: null,
-			booksCount: 1,
-			highlightsCount: 1
-		});
-
-		settings.clearLastImport();
-
-		expect(settings.state.lastImport).toBeNull();
-	});
-});
-
 describe('Settings Store - Settings Management', () => {
 	beforeEach(async () => {
     mockedInvoke.mockClear();
@@ -229,13 +191,7 @@ describe('Settings Store - Settings Management', () => {
 				showOnboarding: false,
 				libraryViewMode: 'list' as ViewMode,
 				librarySort: 'author' as SortPreference,
-				autoImportOnConnect: true
-			},
-			lastImport: {
-				timestamp: '2025-01-29T14:00:00Z',
-				deviceId: 'Kobo123',
-				booksCount: 5,
-				highlightsCount: 42
+				syncOnConnect: true
 			},
 			version: '0.1.0'
 		};
@@ -300,9 +256,8 @@ describe('Settings Store - Tauri Integration', () => {
 				showOnboarding: false,
 				libraryViewMode: 'list',
 				librarySort: 'author',
-				autoImportOnConnect: false
+				syncOnConnect: false
 			},
-			lastImport: null,
 			version: '0.1.0'
 		};
 
@@ -337,6 +292,19 @@ describe('Settings Store - Tauri Integration', () => {
 		expect(mockedInvoke).toHaveBeenCalledWith('save_settings', {
 			settings: expect.any(Object)
 		});
+	});
+
+	it('sends syncOnConnect: false when "Sincronizar ao ligar" is off', async () => {
+		mockedInvoke.mockResolvedValueOnce(undefined);
+
+		settings.setSyncOnConnect(false);
+		await settings.save();
+
+		const payload = mockedInvoke.mock.calls.at(-1)?.[1] as { settings: AppSettings };
+		expect(mockedInvoke.mock.calls.at(-1)?.[0]).toBe('save_settings');
+		expect(payload.settings.uiPreferences.syncOnConnect).toBe(false);
+		expect(payload.settings.uiPreferences).not.toHaveProperty('autoImportOnConnect');
+		expect(payload.settings).not.toHaveProperty('lastImport');
 	});
 
 	it('should handle save settings error', async () => {

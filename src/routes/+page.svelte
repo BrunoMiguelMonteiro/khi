@@ -90,7 +90,7 @@
 					library.setConnectedDevice(device);
 
 					// Check if auto-import should happen
-					const autoImportEnabled = settings.uiPreferences.autoImportOnConnect ?? true;
+					const autoImportEnabled = settings.uiPreferences.syncOnConnect ?? true;
 
 					if (autoImportEnabled && library.shouldAutoImport(device)) {
 						library.setUiState('importing');
@@ -127,7 +127,7 @@
 	async function handleScanForDevice() {
 		const device = await library.scanForDevice();
 		if (device) {
-			const autoImportEnabled = settings.uiPreferences.autoImportOnConnect ?? true;
+			const autoImportEnabled = settings.uiPreferences.syncOnConnect ?? true;
 
 			if (autoImportEnabled && library.shouldAutoImport(device)) {
 				library.setUiState('importing');

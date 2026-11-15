@@ -31,7 +31,7 @@ vi.mock('../stores/settings.svelte', () => ({
 			showOnboarding: true,
 			libraryViewMode: 'grid',
 			librarySort: 'title',
-			autoImportOnConnect: true
+			syncOnConnect: true
 		},
 		isLoading: false,
 		setExportPath: vi.fn(),
@@ -40,7 +40,7 @@ vi.mock('../stores/settings.svelte', () => ({
 		setTheme: vi.fn(),
 		setViewMode: vi.fn(),
 		setSortPreference: vi.fn(),
-		setAutoImportOnConnect: vi.fn(),
+		setSyncOnConnect: vi.fn(),
 		save: vi.fn(),
 		resetAndSave: vi.fn()
 	},

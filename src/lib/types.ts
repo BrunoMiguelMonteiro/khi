@@ -13,7 +13,6 @@ import type {
   ExportConfig_Serialize,
   Highlight_Serialize,
   KoboDevice_Serialize,
-  LastImportRecord_Serialize,
   SortPreference_Serialize,
   ThemePreference_Serialize,
   UiPreferences_Serialize,
@@ -93,6 +92,5 @@ export type UiPreferences = UiPreferences_Serialize;
 export type ThemePreference = ThemePreference_Serialize;
 export type ViewMode = ViewMode_Serialize;
 export type SortPreference = SortPreference_Serialize;
-export type LastImportSettingsRecord = LastImportRecord_Serialize;
 
 export type UiState = 'no-device' | 'scanning' | 'importing' | 'library' | 'book-details';

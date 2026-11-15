@@ -20,9 +20,6 @@ pub struct AppSettings {
     /// UI preferences
     #[serde(alias = "ui_preferences")]
     pub ui_preferences: UiPreferences,
-    /// Last import record
-    #[serde(default, alias = "last_import")]
-    pub last_import: Option<LastImportRecord>,
     /// Version for migration support
     pub version: String,
 }
@@ -51,9 +48,15 @@ pub struct UiPreferences {
     /// Sort preference for library
     #[serde(alias = "library_sort")]
     pub library_sort: SortPreference,
-    /// Whether to import automatically when a Kobo is connected
-    #[serde(default = "default_true", alias = "auto_import_on_connect")]
-    pub auto_import_on_connect: bool,
+    /// Whether to sync automatically when a known Kobo is connected (R23).
+    /// Old files stored it as `autoImportOnConnect`.
+    #[serde(
+        default = "default_true",
+        alias = "autoImportOnConnect",
+        alias = "auto_import_on_connect",
+        alias = "sync_on_connect"
+    )]
+    pub sync_on_connect: bool,
 }
 
 fn default_true() -> bool {
@@ -98,29 +101,11 @@ pub enum SortPreference {
     HighlightCount,
 }
 
-/// Last import record
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct LastImportRecord {
-    /// Timestamp of the import
-    pub timestamp: String,
-    /// Device ID (if available)
-    #[serde(alias = "device_id")]
-    pub device_id: Option<String>,
-    /// Number of books imported
-    #[serde(alias = "books_count")]
-    pub books_count: u32,
-    /// Number of highlights imported
-    #[serde(alias = "highlights_count")]
-    pub highlights_count: u32,
-}
-
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
             export_config: ExportConfig::default(),
             ui_preferences: UiPreferences::default(),
-            last_import: None,
             version: env!("CARGO_PKG_VERSION").to_string(),
         }
     }
@@ -136,7 +121,7 @@ impl Default for UiPreferences {
             show_onboarding: true,
             library_view_mode: ViewMode::Grid,
             library_sort: SortPreference::DateLastRead,
-            auto_import_on_connect: true,
+            sync_on_connect: true,
         }
     }
 }
@@ -365,12 +350,6 @@ impl SettingsManager {
         self.save()
     }
 
-    /// Update the last import record
-    pub fn set_last_import(&mut self, record: LastImportRecord) -> Result<(), SettingsError> {
-        self.settings.last_import = Some(record);
-        self.save()
-    }
-
     /// Reset settings to defaults
     pub fn reset_to_defaults(&mut self) -> Result<(), SettingsError> {
         self.settings = AppSettings::default();
@@ -423,7 +402,6 @@ mod tests {
         assert!(settings.ui_preferences.show_onboarding);
         assert_eq!(settings.ui_preferences.theme, ThemePreference::System);
         assert_eq!(settings.ui_preferences.library_view_mode, ViewMode::Grid);
-        assert!(settings.last_import.is_none());
     }
 
     #[test]
@@ -500,7 +478,7 @@ mod tests {
             show_onboarding: false,
             library_view_mode: ViewMode::List,
             library_sort: SortPreference::Author,
-            auto_import_on_connect: false,
+            sync_on_connect: false,
         };
 
         manager.set_ui_preferences(new_prefs).unwrap();
@@ -516,29 +494,6 @@ mod tests {
     }
 
     #[test]
-    fn test_set_last_import() {
-        let temp_dir = TempDir::new().unwrap();
-        let config_path = temp_dir.path().join("settings.json");
-
-        let mut manager = SettingsManager::with_path(config_path).unwrap();
-
-        let record = LastImportRecord {
-            timestamp: "2025-01-29T14:00:00Z".to_string(),
-            device_id: Some("Kobo123".to_string()),
-            books_count: 5,
-            highlights_count: 42,
-        };
-
-        manager.set_last_import(record.clone()).unwrap();
-
-        let saved_record = manager.get().last_import.as_ref().unwrap();
-        assert_eq!(saved_record.timestamp, "2025-01-29T14:00:00Z");
-        assert_eq!(saved_record.device_id, Some("Kobo123".to_string()));
-        assert_eq!(saved_record.books_count, 5);
-        assert_eq!(saved_record.highlights_count, 42);
-    }
-
-    #[test]
     fn test_reset_to_defaults() {
         let temp_dir = TempDir::new().unwrap();
         let config_path = temp_dir.path().join("settings.json");
@@ -548,12 +503,6 @@ mod tests {
         // Modify settings
         manager.settings.export_config.metadata.author = false;
         manager.settings.ui_preferences.theme = ThemePreference::Dark;
-        manager.settings.last_import = Some(LastImportRecord {
-            timestamp: "2025-01-29".to_string(),
-            device_id: None,
-            books_count: 1,
-            highlights_count: 1,
-        });
 
         // Reset
         manager.reset_to_defaults().unwrap();
@@ -561,7 +510,6 @@ mod tests {
         // Verify defaults restored
         assert!(manager.get().export_config.metadata.author);
         assert_eq!(manager.get().ui_preferences.theme, ThemePreference::System);
-        assert!(manager.get().last_import.is_none());
     }
 
     #[test]
@@ -649,7 +597,47 @@ mod tests {
     }
 
     #[test]
-    fn test_auto_import_on_connect_defaults_to_true_for_old_files() {
+    fn old_file_auto_import_false_maps_to_sync_on_connect_false() {
+        let json = r#"{
+            "theme": "system",
+            "windowWidth": 1200,
+            "windowHeight": 800,
+            "isMaximized": false,
+            "showOnboarding": true,
+            "libraryViewMode": "grid",
+            "librarySort": "date_last_read",
+            "autoImportOnConnect": false
+        }"#;
+
+        let prefs: UiPreferences = serde_json::from_str(json).unwrap();
+
+        assert!(!prefs.sync_on_connect);
+        let saved = serde_json::to_string(&prefs).unwrap();
+        assert!(saved.contains("\"syncOnConnect\":false"));
+        assert!(!saved.contains("autoImport"));
+    }
+
+    #[test]
+    fn old_file_with_last_import_still_loads() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("settings.json");
+        let mut old = serde_json::to_value(AppSettings::default()).unwrap();
+        old["lastImport"] = serde_json::json!({
+            "timestamp": "2025-01-29T14:00:00Z",
+            "deviceId": "Kobo123",
+            "booksCount": 5,
+            "highlightsCount": 42
+        });
+        old["uiPreferences"]["theme"] = serde_json::json!("dark");
+        fs::write(&config_path, serde_json::to_string(&old).unwrap()).unwrap();
+
+        let manager = SettingsManager::with_path(config_path).unwrap();
+
+        assert_eq!(manager.get().ui_preferences.theme, ThemePreference::Dark);
+    }
+
+    #[test]
+    fn test_sync_on_connect_defaults_to_true_for_old_files() {
         let json = r#"{
             "theme": "system",
             "windowWidth": 1200,
@@ -662,20 +650,20 @@ mod tests {
 
         let prefs: UiPreferences = serde_json::from_str(json).unwrap();
 
-        assert!(prefs.auto_import_on_connect);
+        assert!(prefs.sync_on_connect);
     }
 
     #[test]
-    fn test_auto_import_on_connect_disabled_survives_save() {
+    fn test_sync_on_connect_disabled_survives_save() {
         let temp_dir = TempDir::new().unwrap();
         let config_path = temp_dir.path().join("settings.json");
 
         let mut manager = SettingsManager::with_path(config_path.clone()).unwrap();
-        manager.settings.ui_preferences.auto_import_on_connect = false;
+        manager.settings.ui_preferences.sync_on_connect = false;
         manager.save().unwrap();
 
         let reloaded = SettingsManager::with_path(config_path).unwrap();
-        assert!(!reloaded.get().ui_preferences.auto_import_on_connect);
+        assert!(!reloaded.get().ui_preferences.sync_on_connect);
     }
 
     #[test]

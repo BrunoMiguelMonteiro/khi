@@ -18,7 +18,6 @@ import type {
   ThemePreference,
   ViewMode,
   SortPreference,
-  LastImportSettingsRecord,
 } from "../types";
 
 /**
@@ -47,9 +46,8 @@ function createInitialState(): AppSettings {
       showOnboarding: true,
       libraryViewMode: "grid",
       librarySort: "title",
-      autoImportOnConnect: true,
+      syncOnConnect: true,
     },
-    lastImport: null,
     version: "0.1.0",
   };
 }
@@ -206,24 +204,12 @@ class SettingsStore {
     this.state.uiPreferences.showOnboarding = show;
   }
 
-  setAutoImportOnConnect(enabled: boolean) {
-    this.state.uiPreferences.autoImportOnConnect = enabled;
+  setSyncOnConnect(enabled: boolean) {
+    this.state.uiPreferences.syncOnConnect = enabled;
   }
 
   updateUiPreferences(prefs: Partial<UiPreferences>) {
     this.state.uiPreferences = { ...this.state.uiPreferences, ...prefs };
-  }
-
-  // ============================================
-  // Actions - Last Import
-  // ============================================
-
-  setLastImport(record: LastImportSettingsRecord) {
-    this.state.lastImport = record;
-  }
-
-  clearLastImport() {
-    this.state.lastImport = null;
   }
 
   // ============================================

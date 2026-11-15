@@ -135,7 +135,7 @@
 	}
 
 	function handleAutoImportToggle() {
-		settings.setAutoImportOnConnect(!uiPreferences.autoImportOnConnect);
+		settings.setSyncOnConnect(!uiPreferences.syncOnConnect);
 		hasChanges = true;
 	}
 
@@ -555,7 +555,7 @@
 					<label class="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
 						<input
 							type="checkbox"
-							checked={uiPreferences.autoImportOnConnect}
+							checked={uiPreferences.syncOnConnect}
 							onchange={handleAutoImportToggle}
 							class="w-4 h-4 rounded border-neutral-300 text-blue-600 focus:ring-blue-500"
 						/>
