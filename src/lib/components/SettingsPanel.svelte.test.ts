@@ -78,7 +78,14 @@ vi.mock('../stores/settings.svelte', () => ({
 	})
 }));
 
+vi.mock('@tauri-apps/api/core', () => ({
+	invoke: vi.fn(() => Promise.resolve(null)),
+	convertFileSrc: vi.fn((src: string) => src)
+}));
+
 import { settings } from '../stores/settings.svelte';
+import { library } from '../stores/library.svelte';
+import { invoke } from '@tauri-apps/api/core';
 
 describe('SettingsPanel', () => {
 	const mockOnClose = vi.fn();
@@ -86,6 +93,28 @@ describe('SettingsPanel', () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
+		library.readers = [];
+		library.activeReaderId = null;
+	});
+
+	it('renames the active reader and offers no delete', async () => {
+		library.readers = [{ id: 3, name: 'Bruno', exportPath: null }];
+		library.activeReaderId = 3;
+		render(SettingsPanel, { onClose: mockOnClose });
+
+		const input = screen.getByTestId('reader-name') as HTMLInputElement;
+		expect(input.value).toBe('Bruno');
+		await fireEvent.input(input, { target: { value: 'Bruno M.' } });
+		await fireEvent.change(input);
+
+		expect(invoke).toHaveBeenCalledWith('rename_reader', { id: 3, name: 'Bruno M.' });
+		expect(screen.queryByText(/delete reader/i)).toBeNull();
+	});
+
+	it('hides the reader name without an open reader', () => {
+		render(SettingsPanel, { onClose: mockOnClose });
+
+		expect(screen.queryByTestId('reader-name')).toBeNull();
 	});
 
 	it('should render the settings panel with title', () => {

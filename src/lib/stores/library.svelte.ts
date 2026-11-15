@@ -87,6 +87,27 @@ class LibraryStore {
 		this.selectedBookIds = [];
 	}
 
+	async readerForKobo(serial: string): Promise<number | null> {
+		return commands.readerForKobo(serial);
+	}
+
+	/** Remembers whose Kobo this is (R1). */
+	async associateKobo(serial: string, readerId: number): Promise<void> {
+		await commands.associateKobo(serial, readerId);
+	}
+
+	async createReader(name: string): Promise<Reader> {
+		const reader = await commands.createReader(name);
+		await this.loadReaders();
+		return reader;
+	}
+
+	/** Readers are renamed, never deleted (R3). */
+	async renameReader(readerId: number, name: string): Promise<void> {
+		await commands.renameReader(readerId, name);
+		await this.loadReaders();
+	}
+
 	/** The connected Kobo's Reader if it is known, else the last one (R5). */
 	async initialReader(connectedSerial?: string | null): Promise<number | null> {
 		if (connectedSerial) {

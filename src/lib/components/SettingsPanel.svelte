@@ -16,6 +16,7 @@
 		getThemeLabel,
 		getDateFormatLabel
 	} from '../stores/settings.svelte';
+	import { library } from '../stores/library.svelte';
 	import type { ExportConfig, ThemePreference, ViewMode, SortPreference } from '../types';
 	import CustomCheckbox from './CustomCheckbox.svelte';
 	import CustomRadio from './CustomRadio.svelte';
@@ -38,6 +39,19 @@
 	const exportConfig = $derived(settings.exportConfig);
 	const uiPreferences = $derived(settings.uiPreferences);
 	const isLoading = $derived(settings.isLoading);
+	const activeReader = $derived(library.readers.find((r) => r.id === library.activeReaderId));
+
+	/** Renames the active Reader straight away: the name lives in the
+	 * Library, not in settings.json, so it does not wait for Save (R3). */
+	async function handleRenameReader(event: Event) {
+		const name = (event.currentTarget as HTMLInputElement).value.trim();
+		if (!activeReader || name === '' || name === activeReader.name) return;
+		try {
+			await library.renameReader(activeReader.id, name);
+		} catch (error) {
+			saveError = error instanceof Error ? error.message : String(error);
+		}
+	}
 
 	// Metadata options configuration
 	const metadataOptions: {
@@ -282,6 +296,24 @@
 				aria-labelledby="export-tab"
 				class="flex flex-col gap-8"
 			>
+				{#if activeReader}
+					<!-- Active Reader -->
+					<section class="flex flex-col gap-4">
+						<h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 m-0">Reader</h3>
+						<div class="flex flex-col gap-2">
+							<label for="reader-name" class="text-sm font-medium text-neutral-600 dark:text-neutral-400">Name</label>
+							<input
+								id="reader-name"
+								data-testid="reader-name"
+								type="text"
+								value={activeReader.name}
+								onchange={handleRenameReader}
+								class="px-3 py-2 text-sm rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+							/>
+						</div>
+					</section>
+				{/if}
+
 				<!-- Export Path -->
 				<section class="flex flex-col gap-4">
 					<h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 m-0">Export Folder</h3>

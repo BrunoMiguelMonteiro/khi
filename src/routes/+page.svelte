@@ -10,6 +10,8 @@
 	import EmptyStateNoDevice from '$lib/components/EmptyStateNoDevice.svelte';
 	import ImportingState from '$lib/components/ImportingState.svelte';
 	import InlineNotification from '$lib/components/InlineNotification.svelte';
+	import UnknownKoboDialog from '$lib/components/UnknownKoboDialog.svelte';
+	import ReaderPicker from '$lib/components/ReaderPicker.svelte';
 	import { _ } from '$lib/i18n';
 	import { library } from '$lib/stores/library.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
@@ -22,6 +24,8 @@
 
 	// Local state
 	let showSettings = $state(false);
+	/** A connected Kobo with no Reader yet: asked before any Sync (R7). */
+	let unknownDevice = $state<KoboDevice | null>(null);
 	let notification = $state<{ message: string; type: 'success' | 'error' } | null>(null);
 	let notificationTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -105,6 +109,12 @@
 
 	async function handleDeviceConnected(device: KoboDevice) {
 		library.setConnectedDevice(device);
+
+		if (device.serialNumber && (await library.readerForKobo(device.serialNumber)) === null) {
+			unknownDevice = device;
+			showLibraryOrEmpty();
+			return;
+		}
 		const autoImportEnabled = settings.uiPreferences.syncOnConnect ?? true;
 
 		if (autoImportEnabled && library.shouldAutoImport(device)) {
@@ -141,6 +151,38 @@
 		}
 		showLibraryOrEmpty();
 		if (device) await handleDeviceConnected(device);
+	}
+
+	/** The user said whose Kobo it is: remember it, show that Library and
+	 * only then sync (R1, R7). */
+	async function handleChooseReader(readerId: number) {
+		const device = unknownDevice;
+		if (!device?.serialNumber) return;
+		unknownDevice = null;
+		try {
+			await library.associateKobo(device.serialNumber, readerId);
+			await library.openReader(readerId);
+			await handleDeviceConnected(device);
+		} catch (error) {
+			console.error('Failed to associate the Kobo:', error);
+			showNotification($_('notifications.syncError'), 'error');
+			showLibraryOrEmpty();
+		}
+	}
+
+	async function handleCreateReader(name: string) {
+		try {
+			const reader = await library.createReader(name);
+			await handleChooseReader(reader.id);
+		} catch (error) {
+			console.error('Failed to create the reader:', error);
+			showNotification($_('notifications.syncError'), 'error');
+		}
+	}
+
+	async function handleSelectReader(readerId: number) {
+		await library.openReader(readerId);
+		showLibraryOrEmpty();
 	}
 
 	async function handleImport() {
@@ -214,6 +256,7 @@
 				></span>
 				{library.connectedDevice ? $_('screens.library.koboConnected') : $_('screens.library.koboDisconnected')}
 			</span>
+			<ReaderPicker readers={library.readers} activeReaderId={library.activeReaderId} onSelect={handleSelectReader} />
 		</div>
 		<InlineNotification message={notification?.message ?? null} type={notification?.type ?? 'success'} />
 	</header>
@@ -253,6 +296,15 @@
 		{/if}
 	</main>
 </div>
+
+{#if unknownDevice}
+	<UnknownKoboDialog
+		device={unknownDevice}
+		readers={library.readers}
+		onChoose={handleChooseReader}
+		onCreate={handleCreateReader}
+	/>
+{/if}
 
 <!-- Settings Modal (overlay) -->
 {#if showSettings}

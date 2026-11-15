@@ -131,5 +131,14 @@
     "databaseError": "Error reading Kobo database",
     "exportPathInvalid": "Invalid export path",
     "generic": "An error occurred"
+  },
+  "readers": {
+    "label": "Reader",
+    "unknownKoboTitle": "New Kobo",
+    "unknownKoboSubtitle": "Whose Kobo is this? Its highlights go to that reader's Library.",
+    "existing": "Existing readers",
+    "newReader": "New reader",
+    "newReaderName": "Reader name",
+    "create": "Create reader"
   }
 }

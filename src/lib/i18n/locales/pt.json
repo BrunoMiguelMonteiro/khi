@@ -111,5 +111,14 @@
     "databaseError": "Erro ao ler a base de dados do Kobo",
     "exportPathInvalid": "Caminho de exportação inválido",
     "generic": "Ocorreu um erro"
+  },
+  "readers": {
+    "label": "Leitor",
+    "unknownKoboTitle": "Kobo novo",
+    "unknownKoboSubtitle": "De quem é este Kobo? Os destaques ficam na Biblioteca desse leitor.",
+    "existing": "Leitores existentes",
+    "newReader": "Novo leitor",
+    "newReaderName": "Nome do leitor",
+    "create": "Criar leitor"
   }
 }
