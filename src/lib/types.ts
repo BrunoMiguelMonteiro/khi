@@ -8,22 +8,28 @@
  */
 import type {
   AppSettings_Serialize,
-  Book_Serialize,
   DateFormat,
   ExportConfig_Serialize,
-  Highlight_Serialize,
   KoboDevice_Serialize,
+  LibraryBook_Serialize,
+  LibraryHighlight_Serialize,
+  Reader_Serialize,
+  SyncReport,
   SortPreference_Serialize,
   ThemePreference_Serialize,
   UiPreferences_Serialize,
   ViewMode_Serialize
 } from './bindings';
 
-export type { DateFormat };
+export type { DateFormat, SyncReport };
 
-/** Selection state lives in `library.selectedBookIds`, not on the book. */
-export type Book = Book_Serialize;
-export type Highlight = Highlight_Serialize;
+/**
+ * A book of the persistent Library (`id` is the Library's, not the Kobo's).
+ * Selection state lives in `library.selectedBookIds`, not on the book.
+ */
+export type Book = LibraryBook_Serialize;
+export type Highlight = LibraryHighlight_Serialize;
+export type Reader = Reader_Serialize;
 export type KoboDevice = KoboDevice_Serialize;
 export type ExportConfig = ExportConfig_Serialize;
 

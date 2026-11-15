@@ -9,7 +9,7 @@ import type { Book, Highlight, KoboDevice } from './types';
 
 type HighlightInput = Pick<Highlight, 'id' | 'text' | 'dateCreated'> & Partial<Highlight>;
 
-type BookInput = Pick<Book, 'contentId' | 'title' | 'author'> &
+type BookInput = Pick<Book, 'id' | 'title' | 'author'> &
 	Partial<Omit<Book, 'highlights'>> & { highlights?: HighlightInput[] };
 
 type DeviceInput = Pick<KoboDevice, 'name' | 'path' | 'isValid'> & Partial<KoboDevice>;
@@ -20,7 +20,7 @@ export function makeHighlight(fields: HighlightInput): Highlight {
 		chapterTitle: null,
 		chapterProgress: null,
 		containerPath: null,
-		color: null,
+		removedAt: null,
 		...fields
 	};
 }

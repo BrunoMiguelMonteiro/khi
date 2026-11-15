@@ -6,7 +6,7 @@ import { makeBook } from '$lib/test-fixtures';
 
 describe('BookListItem', () => {
 	const mockBook: Book = makeBook({
-		contentId: 'test-book-1',
+		id: 1,
 		title: 'Test Book Title',
 		author: 'Test Author',
 		highlights: [

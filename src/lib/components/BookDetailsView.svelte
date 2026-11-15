@@ -2,12 +2,11 @@
     import type { Book, Highlight } from "../types";
     import HighlightItem from "./HighlightItem.svelte";
     import Button from "./Button.svelte";
-    import { settings } from "../stores/settings.svelte";
+    import { library } from "../stores/library.svelte";
     import { _ } from "$lib/i18n";
     import { getBookGradient } from "$lib/utils/gradients";
     import { FileDown } from "lucide-svelte";
     import { convertFileSrc } from "@tauri-apps/api/core";
-    import { commands } from "$lib/bindings";
 
     interface Props {
         book: Book;
@@ -26,15 +25,9 @@
     }
 
     async function handleExport() {
-        const exportConfig = settings.exportConfig;
-        const exportPath = exportConfig.exportPath;
-
         try {
-            const filePaths = await commands.exportBooks([book], {
-                exportPath,
-                metadata: exportConfig.metadata,
-                dateFormat: exportConfig.dateFormat,
-            });
+            // Same command and settings as the toolbar export (R22)
+            const filePaths = await library.exportIds([book.id]);
 
             console.log("[BookDetailsView] Export successful:", filePaths);
             onNotification?.($_('notifications.exportSuccess'), 'success');
@@ -113,7 +106,7 @@
                 {:else}
                     <div
                         class="w-full h-full flex items-center justify-center bg-gradient-to-br {getBookGradient(
-                            book.contentId,
+                            String(book.id),
                         )}"
                     >
                         <span

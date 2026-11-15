@@ -34,7 +34,9 @@
       "noBooksSubtitle": "Connect your Kobo and import your highlights",
       "gridView": "Grid",
       "listView": "List",
-      "importProgress": "Import progress"
+      "importProgress": "Import progress",
+      "koboConnected": "Kobo connected",
+      "koboDisconnected": "Kobo disconnected"
     },
     "bookDetails": {
       "back": "Back",
@@ -120,7 +122,8 @@
   },
   "notifications": {
     "exportSuccess": "Export completed successfully",
-    "exportError": "Error exporting highlights"
+    "exportError": "Error exporting highlights",
+    "syncError": "Could not sync the Kobo"
   },
   "errors": {
     "noDevice": "No Kobo device found",

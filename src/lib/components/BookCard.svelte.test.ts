@@ -21,7 +21,7 @@ vi.mock('$lib/i18n', () => ({
 }));
 
 const mockBook: Book = makeBook({
-  contentId: 'book-1',
+  id: 1,
   title: 'Test Book Title',
   author: 'Test Author',
   isbn: '978-1234567890',
@@ -42,14 +42,14 @@ const mockBook: Book = makeBook({
 });
 
 const mockBookNoCover: Book = makeBook({
-  contentId: 'book-2',
+  id: 2,
   title: 'Book Without Cover',
   author: 'Another Author',
   highlights: [],
 });
 
 const mockBookLongTitle: Book = makeBook({
-  contentId: 'book-3',
+  id: 3,
   title: 'A Very Long Book Title That Should Be Truncated When Displayed In The Card',
   author: 'Some Author With A Very Long Name',
   highlights: [{ id: 'hl1', text: 'Test', dateCreated: '2025-01-15' }],

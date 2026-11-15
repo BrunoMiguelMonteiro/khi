@@ -30,7 +30,7 @@ const mockHighlights: Highlight[] = [
 ].map(makeHighlight);
 
 const mockBook: Book = makeBook({
-  contentId: 'book-1',
+  id: 1,
   title: 'Test Book Title',
   author: 'Test Author',
   isbn: '978-1234567890',
@@ -42,14 +42,14 @@ const mockBook: Book = makeBook({
 });
 
 const mockBookNoHighlights: Book = makeBook({
-  contentId: 'book-2',
+  id: 2,
   title: 'Empty Book',
   author: 'Author',
   highlights: [],
 });
 
 const mockBookMinimal: Book = makeBook({
-  contentId: 'book-3',
+  id: 3,
   title: 'Minimal Book',
   author: '',
   highlights: [mockHighlights[0]],

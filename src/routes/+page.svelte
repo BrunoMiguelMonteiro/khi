@@ -64,8 +64,8 @@
 		// Setup event listeners for device monitoring
 		setupDeviceListeners();
 
-		// Initial device scan
-		handleScanForDevice();
+		// Open the Library, then look for a Kobo
+		handleStartup();
 
 		// Cleanup on unmount
 		return () => {
@@ -83,32 +83,35 @@
 			});
 
 			// Listen for device detected events
-			unlistenDeviceDetected = await events.deviceDetected.listen(
-				(event) => {
-					console.log('Device detected:', event.payload);
-					const device = event.payload.device;
-					library.setConnectedDevice(device);
+			unlistenDeviceDetected = await events.deviceDetected.listen((event) => {
+				console.log('Device detected:', event.payload);
+				handleDeviceConnected(event.payload.device);
+			});
 
-					// Check if auto-import should happen
-					const autoImportEnabled = settings.uiPreferences.syncOnConnect ?? true;
-
-					if (autoImportEnabled && library.shouldAutoImport(device)) {
-						library.setUiState('importing');
-						handleAutoImport(device);
-					} else {
-						library.setUiState('library');
-					}
-				}
-			);
-
-			// Listen for device disconnected events
+			// The Library stays on screen without the Kobo (R17)
 			unlistenDeviceDisconnected = await events.deviceDisconnected.listen(() => {
 				console.log('Device disconnected');
-				library.setConnectedDevice(undefined);
-				library.setUiState('no-device');
+				library.deviceDisconnected();
 			});
 		} catch (error) {
 			console.error('Failed to setup device listeners:', error);
+		}
+	}
+
+	/** Shows the Library when a Reader is open, the empty state otherwise. */
+	function showLibraryOrEmpty() {
+		library.setUiState(library.activeReaderId !== null ? 'library' : 'no-device');
+	}
+
+	async function handleDeviceConnected(device: KoboDevice) {
+		library.setConnectedDevice(device);
+		const autoImportEnabled = settings.uiPreferences.syncOnConnect ?? true;
+
+		if (autoImportEnabled && library.shouldAutoImport(device)) {
+			library.setUiState('importing');
+			await handleAutoImport(device);
+		} else {
+			showLibraryOrEmpty();
 		}
 	}
 
@@ -117,42 +120,35 @@
 		try {
 			await handleImport();
 			library.markImportComplete(device.serialNumber || 'unknown');
-			library.setUiState('library');
 		} catch (error) {
 			console.error('Auto-import failed:', error);
-			library.setUiState('no-device');
+			showNotification($_('notifications.syncError'), 'error');
 		}
+		showLibraryOrEmpty();
 	}
 
-	async function handleScanForDevice() {
-		const device = await library.scanForDevice();
-		if (device) {
-			const autoImportEnabled = settings.uiPreferences.syncOnConnect ?? true;
-
-			if (autoImportEnabled && library.shouldAutoImport(device)) {
-				library.setUiState('importing');
-				await handleAutoImport(device);
-			} else {
-				library.setUiState('library');
-			}
+	/** On start: open the Library of the connected Kobo's Reader, else the
+	 * last Reader (R5), with or without a Kobo (R17). */
+	async function handleStartup() {
+		let device: KoboDevice | null = null;
+		try {
+			await library.loadReaders();
+			device = await library.scanForDevice();
+			const readerId = await library.initialReader(device?.serialNumber);
+			if (readerId !== null) await library.openReader(readerId);
+		} catch (error) {
+			console.error('Failed to open the Library:', error);
 		}
+		showLibraryOrEmpty();
+		if (device) await handleDeviceConnected(device);
 	}
 
 	async function handleImport() {
-		try {
-			const importedBooks = await library.importHighlights();
-			if (library.connectedDevice) {
-				library.markImportComplete(library.connectedDevice.serialNumber || 'unknown');
-			}
-			return importedBooks;
-		} catch (error) {
-			console.error('Import failed:', error);
-			throw error;
-		}
+		return library.importHighlights();
 	}
 
 	async function handleExportAll() {
-		library.setSelectedBookIds(library.books.map((b) => b.contentId));
+		library.setSelectedBookIds(library.books.map((b) => b.id));
 		await handleExport();
 	}
 
@@ -162,8 +158,7 @@
 
 	async function handleExport() {
 		try {
-			const exportPath = settings.exportConfig.exportPath;
-			await library.exportBooks(exportPath);
+			await library.exportSelected();
 			showNotification($_('notifications.exportSuccess'), 'success');
 		} catch (error) {
 			console.error('Export failed:', error);
@@ -172,7 +167,7 @@
 		}
 	}
 
-	function handleSelectionChange(newSelection: string[]) {
+	function handleSelectionChange(newSelection: number[]) {
 		library.setSelectedBookIds(newSelection);
 	}
 
@@ -185,7 +180,7 @@
 		const isShift = event.shiftKey;
 
 		if (!isCtrlOrCmd && !isShift) {
-			library.setViewingBookId(book.contentId);
+			library.setViewingBookId(book.id);
 			library.setUiState('book-details');
 			showSettings = false;
 		}
@@ -210,7 +205,16 @@
 <div class="flex flex-col h-screen bg-white dark:bg-neutral-900 overflow-hidden">
 	<!-- Header ÚNICO e GLOBAL -->
 	<header class="flex items-center justify-between px-6 py-4 border-b border-neutral-200 dark:border-neutral-800 shrink-0 bg-white dark:bg-neutral-900 z-30">
-		<h1 class="m-0 text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100 font-['Geist']">khi</h1>
+		<div class="flex items-center gap-3">
+			<h1 class="m-0 text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100 font-['Geist']">khi</h1>
+			<span class="flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400" data-testid="kobo-indicator">
+				<span
+					class="w-2 h-2 rounded-full {library.connectedDevice ? 'bg-green-500' : 'bg-neutral-300 dark:bg-neutral-600'}"
+					aria-hidden="true"
+				></span>
+				{library.connectedDevice ? $_('screens.library.koboConnected') : $_('screens.library.koboDisconnected')}
+			</span>
+		</div>
 		<InlineNotification message={notification?.message ?? null} type={notification?.type ?? 'success'} />
 	</header>
 

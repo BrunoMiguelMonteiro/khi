@@ -1,9 +1,12 @@
 import { commands } from '../bindings';
-import type { Book, KoboDevice, ImportProgress, ExportConfig, UiState } from '../types';
+import type { Book, KoboDevice, ImportProgress, Reader, UiState } from '../types';
 
 class LibraryStore {
 	books = $state<Book[]>([]);
-	selectedBookIds = $state<string[]>([]);
+	selectedBookIds = $state<number[]>([]);
+	/** The Reader whose Library is on screen (R5). */
+	activeReaderId = $state<number | null>(null);
+	readers = $state<Reader[]>([]);
 	isImporting = $state(false);
 	importProgress = $state<ImportProgress | undefined>(undefined);
 	connectedDevice = $state<KoboDevice | undefined>(undefined);
@@ -11,33 +14,27 @@ class LibraryStore {
 	uiState = $state<UiState>('no-device');
 	hasImportedInSession = $state(false);
 	lastDeviceSerial = $state<string | null>(null);
-	viewingBookId = $state<string | null>(null);
+	viewingBookId = $state<number | null>(null);
 
 	// Derived state
-	selectedBooks = $derived(this.books.filter((book) => this.selectedBookIds.includes(book.contentId)));
-	viewingBook = $derived(this.viewingBookId ? this.books.find((b) => b.contentId === this.viewingBookId) : undefined);
+	selectedBooks = $derived(this.books.filter((book) => this.selectedBookIds.includes(book.id)));
+	viewingBook = $derived(this.viewingBookId ? this.books.find((b) => b.id === this.viewingBookId) : undefined);
 
 	// Actions
 	setBooks(newBooks: Book[]) {
 		this.books = newBooks;
 	}
 
-	setSelectedBookIds(ids: string[]) {
+	setSelectedBookIds(ids: number[]) {
 		this.selectedBookIds = ids;
 	}
 
-	addBooks(newBooks: Book[]) {
-		const existingIds = new Set(this.books.map((b) => b.contentId));
-		const uniqueNewBooks = newBooks.filter((b) => !existingIds.has(b.contentId));
-		this.books = [...this.books, ...uniqueNewBooks];
-	}
-
 	updateBook(updatedBook: Book) {
-		this.books = this.books.map((book) => (book.contentId === updatedBook.contentId ? updatedBook : book));
+		this.books = this.books.map((book) => (book.id === updatedBook.id ? updatedBook : book));
 	}
 
-	removeBook(bookId: string) {
-		this.books = this.books.filter((book) => book.contentId !== bookId);
+	removeBook(bookId: number) {
+		this.books = this.books.filter((book) => book.id !== bookId);
 		this.selectedBookIds = this.selectedBookIds.filter((id) => id !== bookId);
 	}
 
@@ -54,13 +51,19 @@ class LibraryStore {
 		this.connectedDevice = device;
 	}
 
+	/** The Library stays on screen without the Kobo (R17); only the
+	 * connection indicator changes. */
+	deviceDisconnected() {
+		this.connectedDevice = undefined;
+	}
+
 	markImportComplete(deviceSerial: string) {
 		this.uiState = 'library';
 		this.hasImportedInSession = true;
 		this.lastDeviceSerial = deviceSerial;
 	}
 
-	setViewingBookId(bookId: string | null) {
+	setViewingBookId(bookId: number | null) {
 		this.viewingBookId = bookId;
 	}
 
@@ -68,6 +71,29 @@ class LibraryStore {
 		if (!this.hasImportedInSession) return true;
 		if (device.serialNumber && device.serialNumber !== this.lastDeviceSerial) return true;
 		return false;
+	}
+
+	// Readers
+	async loadReaders(): Promise<Reader[]> {
+		this.readers = await commands.listReaders();
+		return this.readers;
+	}
+
+	/** Shows the Reader's Library, read from Rust; no Kobo needed (R17). */
+	async openReader(readerId: number): Promise<void> {
+		const books = await commands.getLibrary(readerId);
+		this.activeReaderId = readerId;
+		this.books = books;
+		this.selectedBookIds = [];
+	}
+
+	/** The connected Kobo's Reader if it is known, else the last one (R5). */
+	async initialReader(connectedSerial?: string | null): Promise<number | null> {
+		if (connectedSerial) {
+			const owner = await commands.readerForKobo(connectedSerial);
+			if (owner !== null) return owner;
+		}
+		return commands.lastReader();
 	}
 
 	// Tauri commands
@@ -86,8 +112,15 @@ class LibraryStore {
 		}
 	}
 
+	/**
+	 * Syncs the connected Kobo into its Reader's Library and shows it.
+	 * A Kobo with no Reader yet is left alone (association comes first, R7).
+	 */
 	async importHighlights(): Promise<Book[]> {
 		if (!this.connectedDevice) throw new Error('No device connected');
+		const device = this.connectedDevice;
+		const readerId = device.serialNumber ? await commands.readerForKobo(device.serialNumber) : null;
+		if (readerId === null) return this.books;
 
 		this.isImporting = true;
 		this.importProgress = {
@@ -99,11 +132,11 @@ class LibraryStore {
 		};
 
 		try {
-			const importedBooks = await commands.importHighlights(this.connectedDevice);
-			this.addBooks(importedBooks);
-			return importedBooks;
+			await commands.syncKobo(device);
+			await this.openReader(readerId);
+			return this.books;
 		} catch (error) {
-			console.error('Failed to import highlights:', error);
+			console.error('Failed to sync the Kobo:', error);
 			throw error;
 		} finally {
 			this.isImporting = false;
@@ -111,35 +144,16 @@ class LibraryStore {
 		}
 	}
 
-	async exportBooks(exportPath: string): Promise<string[]> {
-		if (this.selectedBooks.length === 0) throw new Error('No books selected for export');
-
-		const config: ExportConfig = {
-			exportPath,
-			metadata: {
-				author: true,
-				isbn: true,
-				publisher: true,
-				dateLastRead: true,
-				language: true,
-				description: true
-			},
-			dateFormat: 'dd_month_yyyy'
-		};
-
-		return this.exportBooksWithConfig(config);
+	/** Exports the selected books of the active Reader with the Export
+	 * settings, which Rust reads itself (R22). */
+	async exportSelected(): Promise<string[]> {
+		return this.exportIds(this.selectedBookIds);
 	}
 
-	async exportBooksWithConfig(config: ExportConfig): Promise<string[]> {
-		if (this.selectedBooks.length === 0) throw new Error('No books selected for export');
-
-		try {
-			const exportedFiles = await commands.exportBooks(this.selectedBooks, config);
-			return exportedFiles;
-		} catch (error) {
-			console.error('Failed to export books:', error);
-			throw error;
-		}
+	async exportIds(bookIds: number[]): Promise<string[]> {
+		if (bookIds.length === 0) throw new Error('No books selected for export');
+		if (this.activeReaderId === null) throw new Error('No reader open');
+		return commands.exportLibraryBooks(this.activeReaderId, bookIds);
 	}
 }
 
