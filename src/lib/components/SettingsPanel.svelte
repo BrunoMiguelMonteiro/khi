@@ -53,6 +53,17 @@
 		}
 	}
 
+	/** The active Reader's export folder; empty means «base folder/Reader name» (R21). */
+	async function handleReaderExportPath(event: Event) {
+		const path = (event.currentTarget as HTMLInputElement).value.trim();
+		if (!activeReader || (path || null) === activeReader.exportPath) return;
+		try {
+			await library.setReaderExportPath(activeReader.id, path || null);
+		} catch (error) {
+			saveError = error instanceof Error ? error.message : String(error);
+		}
+	}
+
 	// Metadata options configuration
 	const metadataOptions: {
 		key: keyof ExportConfig['metadata'];
@@ -308,6 +319,18 @@
 								type="text"
 								value={activeReader.name}
 								onchange={handleRenameReader}
+								class="px-3 py-2 text-sm rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+							/>
+						</div>
+						<div class="flex flex-col gap-2">
+							<label for="reader-export-path" class="text-sm font-medium text-neutral-600 dark:text-neutral-400">Export folder</label>
+							<input
+								id="reader-export-path"
+								data-testid="reader-export-path"
+								type="text"
+								value={activeReader.exportPath ?? ''}
+								placeholder={`${exportConfig.exportPath}/${activeReader.name}`}
+								onchange={handleReaderExportPath}
 								class="px-3 py-2 text-sm rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
 							/>
 						</div>

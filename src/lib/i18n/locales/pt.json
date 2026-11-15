@@ -36,7 +36,14 @@
       "highlights": "Destaques",
       "noHighlights": "Não existem destaques disponíveis para este livro",
       "page": "Página {number}",
-      "chapter": "Capítulo {number}"
+      "chapter": "Capítulo {number}",
+      "showRemoved": "Mostrar removidos",
+      "deleteBook": "Apagar livro",
+      "deleteBookTitle": "Apagar este livro?",
+      "deleteBookBody": "Todos os destaques foram removidos do Kobo. O livro e os destaques saem da Biblioteca de vez.",
+      "deleteBookConfirm": "Apagar",
+      "cancel": "Cancelar",
+      "deleteBookError": "Não foi possível apagar o livro"
     }
   },
   "book": {
@@ -50,7 +57,8 @@
     "excluded": "excluído",
     "copy": "Copiar citação",
     "copied": "Copiado!",
-    "copyError": "Erro ao copiar"
+    "copyError": "Erro ao copiar",
+    "removedFromKobo": "Removido do Kobo"
   },
   "settings": {
     "title": "Definições",

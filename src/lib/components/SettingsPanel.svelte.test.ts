@@ -93,6 +93,10 @@ describe('SettingsPanel', () => {
 
 	beforeEach(() => {
 		vi.clearAllMocks();
+		// list_readers answers with the readers on screen, never null
+		vi.mocked(invoke).mockImplementation((cmd: string) =>
+			Promise.resolve(cmd === 'list_readers' ? library.readers : null)
+		);
 		library.readers = [];
 		library.activeReaderId = null;
 	});
@@ -109,6 +113,30 @@ describe('SettingsPanel', () => {
 
 		expect(invoke).toHaveBeenCalledWith('rename_reader', { id: 3, name: 'Bruno M.' });
 		expect(screen.queryByText(/delete reader/i)).toBeNull();
+	});
+
+	it('edits the active reader export folder', async () => {
+		// A tiny Library: the saved folder comes back on the next list_readers
+		let bruno: { id: number; name: string; exportPath: string | null } = { id: 3, name: 'Bruno', exportPath: null };
+		vi.mocked(invoke).mockImplementation((cmd: string, args?: unknown) => {
+			if (cmd === 'set_reader_export_path') bruno = { ...bruno, exportPath: (args as { path: string | null }).path };
+			return Promise.resolve(cmd === 'list_readers' ? [bruno] : null);
+		});
+		library.readers = [bruno];
+		library.activeReaderId = 3;
+		render(SettingsPanel, { onClose: mockOnClose });
+
+		const input = screen.getByTestId('reader-export-path') as HTMLInputElement;
+		expect(input.value).toBe('');
+		expect(input.placeholder).toBe('~/Documents/Kobo Highlights/Bruno');
+		await fireEvent.input(input, { target: { value: '/x/Bruno' } });
+		await fireEvent.change(input);
+		expect(invoke).toHaveBeenCalledWith('set_reader_export_path', { readerId: 3, path: '/x/Bruno' });
+
+		await waitFor(() => expect(library.readers[0].exportPath).toBe('/x/Bruno'));
+		await fireEvent.input(input, { target: { value: '  ' } });
+		await fireEvent.change(input);
+		expect(invoke).toHaveBeenCalledWith('set_reader_export_path', { readerId: 3, path: null });
 	});
 
 	it('hides the reader name without an open reader', () => {

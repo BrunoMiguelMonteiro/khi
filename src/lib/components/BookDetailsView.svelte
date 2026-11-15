@@ -2,10 +2,11 @@
     import type { Book, Highlight } from "../types";
     import HighlightItem from "./HighlightItem.svelte";
     import Button from "./Button.svelte";
+    import Modal from "./Modal.svelte";
     import { library } from "../stores/library.svelte";
     import { _ } from "$lib/i18n";
     import { getBookGradient } from "$lib/utils/gradients";
-    import { FileDown } from "lucide-svelte";
+    import { FileDown, Trash2 } from "lucide-svelte";
     import { convertFileSrc } from "@tauri-apps/api/core";
 
     interface Props {
@@ -15,6 +16,29 @@
     }
 
     let { book, onClose, onNotification }: Props = $props();
+
+    // Removed highlights stay visible unless the user hides them (R18)
+    let showRemoved = $state(true);
+    const hasRemoved = $derived(book.highlights.some((h) => h.removedAt !== null));
+    const visibleHighlights = $derived(
+        showRemoved ? book.highlights : book.highlights.filter((h) => h.removedAt === null),
+    );
+    // A book can only be deleted once nothing of it is left on the Kobo (R19)
+    const canDelete = $derived(
+        book.highlights.length > 0 && book.highlights.every((h) => h.removedAt !== null),
+    );
+    let confirmingDelete = $state(false);
+
+    async function handleDelete() {
+        confirmingDelete = false;
+        try {
+            await library.deleteBook(book.id);
+            onClose?.();
+        } catch (error) {
+            console.error("[BookDetailsView] Delete failed:", error);
+            onNotification?.($_("screens.bookDetails.deleteBookError"), "error");
+        }
+    }
 
     function getInitials(title: string): string {
         return title
@@ -80,6 +104,14 @@
         </Button>
 
         <div class="flex items-center gap-3">
+            {#if canDelete}
+                <Button variant="ghost" onclick={() => (confirmingDelete = true)}>
+                    {#snippet icon()}
+                        <Trash2 size={16} />
+                    {/snippet}
+                    {$_("screens.bookDetails.deleteBook")}
+                </Button>
+            {/if}
             <Button variant="ghost" onclick={handleExport}>
                 {#snippet icon()}
                     <FileDown size={16} />
@@ -159,11 +191,23 @@
                     </p>
                 </div>
             {:else}
+                {#if hasRemoved}
+                    <label
+                        class="flex items-center gap-2 mb-6 text-sm text-neutral-600 dark:text-neutral-400"
+                    >
+                        <input
+                            type="checkbox"
+                            data-testid="show-removed"
+                            bind:checked={showRemoved}
+                        />
+                        {$_("screens.bookDetails.showRemoved")}
+                    </label>
+                {/if}
                 <div
                     class="flex flex-col gap-8 pb-16"
                     data-testid="highlights-list"
                 >
-                    {#each book.highlights as highlight (highlight.id)}
+                    {#each visibleHighlights as highlight (highlight.id)}
                         <HighlightItem {highlight} />
                     {/each}
                 </div>
@@ -171,3 +215,23 @@
         </div>
     </div>
 </div>
+
+<Modal
+    isOpen={confirmingDelete}
+    onClose={() => (confirmingDelete = false)}
+    title={$_("screens.bookDetails.deleteBookTitle")}
+>
+    {#snippet content()}
+        <p class="m-0 text-sm text-neutral-600 dark:text-neutral-400">
+            {$_("screens.bookDetails.deleteBookBody")}
+        </p>
+    {/snippet}
+    {#snippet footer()}
+        <Button variant="secondary" onclick={() => (confirmingDelete = false)}>
+            {$_("screens.bookDetails.cancel")}
+        </Button>
+        <span data-testid="confirm-delete-book" class="contents">
+            <Button onclick={handleDelete}>{$_("screens.bookDetails.deleteBookConfirm")}</Button>
+        </span>
+    {/snippet}
+</Modal>

@@ -51,7 +51,14 @@
       "active": "Active",
       "excluded": "Excluded",
       "withNotes": "With notes",
-      "noChapter": "No chapter"
+      "noChapter": "No chapter",
+      "showRemoved": "Show removed",
+      "deleteBook": "Delete book",
+      "deleteBookTitle": "Delete this book?",
+      "deleteBookBody": "Its highlights were all removed from the Kobo. The book and its highlights leave the Library for good.",
+      "deleteBookConfirm": "Delete",
+      "cancel": "Cancel",
+      "deleteBookError": "Could not delete the book"
     }
   },
   "book": {
@@ -68,7 +75,8 @@
     "includeTitle": "Include in export",
     "copy": "Copy quote",
     "copied": "Copied!",
-    "copyError": "Copy failed"
+    "copyError": "Copy failed",
+    "removedFromKobo": "Removed from Kobo"
   },
   "settings": {
     "title": "Settings",

@@ -209,4 +209,14 @@ describe('HighlightItem', () => {
       });
     });
   });
+
+  it('removed highlight shows mark', () => {
+    render(HighlightItem, { props: { highlight: { ...mockHighlight, removedAt: '2026-11-01T10:00:00Z' } } });
+    expect(screen.getByTestId('removed-mark')).toHaveTextContent('Removed from Kobo');
+  });
+
+  it('live highlight has no removed mark', () => {
+    render(HighlightItem, { props: { highlight: mockHighlight } });
+    expect(screen.queryByTestId('removed-mark')).toBeNull();
+  });
 });

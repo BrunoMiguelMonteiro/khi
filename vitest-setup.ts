@@ -41,6 +41,10 @@ const mockT = vi.fn((key: string, params?: Record<string, string | number>) => {
     'copy': 'Copy quote',
     'copied': 'Copied!',
     'copyError': 'Copy failed',
+    'exportMarkdown': 'Export to Markdown',
+    'removedFromKobo': 'Removed from Kobo',
+    'showRemoved': 'Show removed',
+    'deleteBook': 'Delete book',
   };
 
   // Try full key first, then last part of key

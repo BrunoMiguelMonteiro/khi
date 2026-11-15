@@ -1,9 +1,17 @@
 import '@testing-library/jest-dom';
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/svelte';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/svelte';
 import BookDetailsView from './BookDetailsView.svelte';
 import type { Book, Highlight } from '../types';
 import { makeBook, makeHighlight } from '../test-fixtures';
+import { library } from '../stores/library.svelte';
+
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: vi.fn(() => Promise.resolve(null)),
+  convertFileSrc: vi.fn((src: string) => src)
+}));
+
+import { invoke } from '@tauri-apps/api/core';
 
 const mockHighlights: Highlight[] = [
   {
@@ -113,5 +121,74 @@ describe('BookDetailsView', () => {
   it('shows empty state when no highlights', () => {
     render(BookDetailsView, { props: { book: mockBookNoHighlights } });
     expect(screen.getByText(/no highlights/i)).toBeInTheDocument();
+  });
+
+  describe('removed highlights and delete', () => {
+    const removed = (h: Highlight): Highlight => ({ ...h, removedAt: '2026-11-01T10:00:00Z' });
+    const mixedBook = makeBook({ id: 4, title: 'Mixed', author: 'A', highlights: [mockHighlights[0], removed(mockHighlights[1])] });
+    const goneBook = makeBook({ id: 5, title: 'Gone', author: 'A', highlights: mockHighlights.map(removed) });
+
+    beforeEach(() => {
+      vi.clearAllMocks();
+      library.activeReaderId = 9;
+      // jsdom has no Web Animations; the Modal's transitions need one
+      Element.prototype.animate ??= vi.fn(() => ({ cancel: vi.fn(), finished: Promise.resolve(), onfinish: null })) as never;
+    });
+
+    it('show removed is on by default', () => {
+      render(BookDetailsView, { props: { book: mixedBook } });
+      expect(screen.getByTestId('show-removed')).toBeChecked();
+      expect(screen.getAllByTestId('highlight-item')).toHaveLength(2);
+    });
+
+    it('filter hides removed', async () => {
+      render(BookDetailsView, { props: { book: mixedBook } });
+      await fireEvent.click(screen.getByTestId('show-removed'));
+      expect(screen.getAllByTestId('highlight-item')).toHaveLength(1);
+      expect(screen.getByText('First highlight')).toBeInTheDocument();
+    });
+
+    it('no filter without removed highlights', () => {
+      render(BookDetailsView, { props: { book: mockBook } });
+      expect(screen.queryByTestId('show-removed')).toBeNull();
+    });
+
+    it('delete hidden while a highlight is live', () => {
+      render(BookDetailsView, { props: { book: mixedBook } });
+      expect(screen.queryByRole('button', { name: /delete book/i })).toBeNull();
+    });
+
+    it('delete asks to confirm, then deletes the book', async () => {
+      const onClose = vi.fn();
+      library.setBooks([goneBook]);
+      render(BookDetailsView, { props: { book: goneBook, onClose } });
+
+      await fireEvent.click(screen.getByRole('button', { name: /delete book/i }));
+      expect(invoke).not.toHaveBeenCalledWith('delete_book', expect.anything());
+
+      await fireEvent.click(within(screen.getByTestId('confirm-delete-book')).getByRole('button'));
+
+      await waitFor(() => {
+        expect(invoke).toHaveBeenCalledWith('delete_book', { readerId: 9, bookId: 5 });
+        expect(library.books).toEqual([]);
+        expect(onClose).toHaveBeenCalled();
+      });
+    });
+
+    it('toolbar and details export call the same command with the same ids', async () => {
+      render(BookDetailsView, { props: { book: mockBook } });
+      await fireEvent.click(screen.getByRole('button', { name: /export to markdown/i }));
+      await waitFor(() => expect(invoke).toHaveBeenCalledTimes(1));
+      const fromDetails = vi.mocked(invoke).mock.calls[0];
+
+      vi.clearAllMocks();
+      library.setBooks([mockBook]);
+      library.setSelectedBookIds([mockBook.id]);
+      await library.exportSelected();
+      const fromToolbar = vi.mocked(invoke).mock.calls[0];
+
+      expect(fromDetails).toEqual(['export_library_books', { readerId: 9, bookIds: [1] }]);
+      expect(fromToolbar).toEqual(fromDetails);
+    });
   });
 });

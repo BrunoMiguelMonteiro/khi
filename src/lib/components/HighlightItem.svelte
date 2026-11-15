@@ -86,6 +86,15 @@
         </button>
     </blockquote>
 
+    {#if highlight.removedAt}
+        <p
+            class="m-0 pl-4 text-xs font-medium text-amber-700 dark:text-amber-400"
+            data-testid="removed-mark"
+        >
+            {t("highlight.removedFromKobo")}
+        </p>
+    {/if}
+
     {#if formatChapterTitle(highlight.chapterTitle)}
         <p class="m-0 pl-4 text-xs text-neutral-500 dark:text-neutral-400">
             {formatChapterTitle(highlight.chapterTitle)}

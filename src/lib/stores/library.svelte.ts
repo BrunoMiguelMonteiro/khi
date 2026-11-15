@@ -108,6 +108,19 @@ class LibraryStore {
 		await this.loadReaders();
 	}
 
+	/** Where this Reader's books are exported; null means the default (R21). */
+	async setReaderExportPath(readerId: number, path: string | null): Promise<void> {
+		await commands.setReaderExportPath(readerId, path);
+		await this.loadReaders();
+	}
+
+	/** Deletes a book whose highlights were all removed from the Kobo (R19). */
+	async deleteBook(bookId: number): Promise<void> {
+		if (this.activeReaderId === null) throw new Error('No reader open');
+		await commands.deleteBook(this.activeReaderId, bookId);
+		this.removeBook(bookId);
+	}
+
 	/** The connected Kobo's Reader if it is known, else the last one (R5). */
 	async initialReader(connectedSerial?: string | null): Promise<number | null> {
 		if (connectedSerial) {
