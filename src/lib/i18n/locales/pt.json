@@ -1,7 +1,11 @@
 {
   "app": {
     "name": "Khi",
-    "title": "Khi - Kobo Highlights Exporter"
+    "title": "Khi - Kobo Highlights Exporter",
+    "menuEdit": "Editar",
+    "close": "Fechar",
+    "loading": "A carregar...",
+    "koboDevice": "Leitor Kobo"
   },
   "screens": {
     "noKobo": {
@@ -28,7 +32,27 @@
       "gridView": "Grelha",
       "listView": "Lista",
       "koboConnected": "Kobo ligado",
-      "koboDisconnected": "Kobo desligado"
+      "koboDisconnected": "Kobo desligado",
+      "clear": "Limpar",
+      "clearTitle": "Limpar seleção",
+      "import": "Importar",
+      "importProgress": "Progresso da importação",
+      "importTitle": "Importar do Kobo",
+      "invert": "Inverter",
+      "invertTitle": "Inverter seleção",
+      "noBooksSubtitle": "Liga o teu Kobo e sincroniza os teus destaques",
+      "selectAllTitle": "Selecionar todos (Ctrl+A)",
+      "sync": "Sincronizar",
+      "viewMode": "Modo de vista",
+      "gridViewLabel": "Vista em grelha",
+      "listViewLabel": "Vista em lista",
+      "sort": {
+        "title": "Título (A-Z)",
+        "author": "Autor (A-Z)",
+        "recent": "Lidos recentemente",
+        "count": "N.º de destaques"
+      },
+      "booksListLabel": "Lista de livros"
     },
     "bookDetails": {
       "back": "Voltar",
@@ -43,7 +67,13 @@
       "deleteBookBody": "Todos os destaques foram removidos do Kobo. O livro e os destaques saem da Biblioteca de vez.",
       "deleteBookConfirm": "Apagar",
       "cancel": "Cancelar",
-      "deleteBookError": "Não foi possível apagar o livro"
+      "deleteBookError": "Não foi possível apagar o livro",
+      "active": "Ativos",
+      "excluded": "Excluídos",
+      "lastRead": "Última leitura",
+      "noChapter": "Sem capítulo",
+      "unknownAuthor": "Autor desconhecido",
+      "withNotes": "Com notas"
     }
   },
   "book": {
@@ -51,7 +81,8 @@
     "highlightsCount_one": "1 destaque",
     "highlightsCount_other": "{count} destaques",
     "select": "Selecionar",
-    "deselect": "Deselecionar"
+    "deselect": "Deselecionar",
+    "noHighlights": "Este livro não tem destaques"
   },
   "highlight": {
     "excluded": "excluído",
@@ -59,7 +90,9 @@
     "copied": "Copiado!",
     "copyError": "Erro ao copiar",
     "removedFromKobo": "Removido do Kobo",
-    "note": "Nota"
+    "note": "Nota",
+    "excludeTitle": "Excluir da exportação",
+    "includeTitle": "Incluir na exportação"
   },
   "settings": {
     "title": "Definições",
@@ -68,7 +101,28 @@
       "defaultFormat": "Formato Padrão",
       "includeMetadata": "Incluir metadados do livro nas exportações",
       "exportPath": "Pasta de exportação",
-      "chooseFolder": "Escolher pasta"
+      "chooseFolder": "Escolher pasta",
+      "path": "Caminho",
+      "browse": "Escolher",
+      "browseLabel": "Escolher a pasta de exportação",
+      "folderHint": "Os ficheiros Markdown são guardados nesta pasta.",
+      "readerFolderHint": "Os livros de {name} são exportados para esta pasta.",
+      "metadataTitle": "Metadados a incluir",
+      "metadataHint": "Escolhe os metadados a incluir nos ficheiros exportados.",
+      "metadata": {
+        "author": "Autor",
+        "isbn": "ISBN",
+        "publisher": "Editora",
+        "dateLastRead": "Data de leitura",
+        "language": "Idioma",
+        "description": "Descrição"
+      },
+      "dateFormat": "Formato da data",
+      "dateFormats": {
+        "dd_mm_yyyy": "DD/MM/AAAA (24/01/2025)",
+        "dd_month_yyyy": "24 Janeiro 2025",
+        "iso8601": "ISO 8601 (2025-01-24)"
+      }
     },
     "appearance": {
       "tab": "Aparência",
@@ -82,12 +136,40 @@
       "sortBy": "Ordenar por",
       "sortByTitle": "Título",
       "sortByAuthor": "Autor",
-      "sortByDate": "Data"
+      "sortByDate": "Data",
+      "language": "Idioma",
+      "languageHint": "Usado também no Markdown exportado.",
+      "languages": {
+        "en": "English",
+        "pt": "Português"
+      },
+      "themeSystem": "Sistema",
+      "viewModeTitle": "Vista da Biblioteca"
     },
     "actions": {
       "save": "Guardar",
       "cancel": "Cancelar",
-      "reset": "Repor padrões"
+      "reset": "Repor padrões",
+      "saveChanges": "Guardar alterações"
+    },
+    "close": "Fechar definições",
+    "tabs": "Separadores das definições",
+    "reader": {
+      "title": "Leitor",
+      "name": "Nome"
+    },
+    "device": {
+      "title": "Ligação do Kobo",
+      "syncOnConnectHint": "Sincroniza a Biblioteca quando ligas um Kobo conhecido.",
+      "syncOnConnect": "Sincronizar ao ligar"
+    },
+    "confirm": {
+      "reset": "Repor as definições por defeito?",
+      "unsaved": "Tens alterações por guardar. Sair sem guardar?"
+    },
+    "errors": {
+      "save": "Erro ao guardar as definições",
+      "reset": "Erro ao repor as definições"
     }
   },
   "export": {
@@ -102,7 +184,9 @@
       "publisher": "Editora",
       "language": "Idioma",
       "dateLastRead": "Data da última leitura",
-      "description": "Descrição"
+      "description": "Descrição",
+      "date": "Data",
+      "location": "Localização"
     },
     "dateFormat": {
       "iso": "ISO 8601 (AAAA-MM-DD)",

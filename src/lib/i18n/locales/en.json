@@ -1,7 +1,11 @@
 {
   "app": {
     "name": "Khi",
-    "title": "Khi - Kobo Highlights Exporter"
+    "title": "Khi - Kobo Highlights Exporter",
+    "menuEdit": "Edit",
+    "close": "Close",
+    "loading": "Loading...",
+    "koboDevice": "Kobo e-reader device"
   },
   "screens": {
     "noKobo": {
@@ -37,7 +41,18 @@
       "listView": "List",
       "importProgress": "Import progress",
       "koboConnected": "Kobo connected",
-      "koboDisconnected": "Kobo disconnected"
+      "koboDisconnected": "Kobo disconnected",
+      "sync": "Sync",
+      "viewMode": "View mode",
+      "gridViewLabel": "Grid view",
+      "listViewLabel": "List view",
+      "sort": {
+        "title": "Title (A-Z)",
+        "author": "Author (A-Z)",
+        "recent": "Recently Read",
+        "count": "Highlight Count"
+      },
+      "booksListLabel": "Book list"
     },
     "bookDetails": {
       "back": "Back",
@@ -86,7 +101,28 @@
       "defaultFormat": "Default Format",
       "includeMetadata": "Include book metadata in exports",
       "exportPath": "Export folder",
-      "chooseFolder": "Choose folder"
+      "chooseFolder": "Choose folder",
+      "path": "Path",
+      "browse": "Browse",
+      "browseLabel": "Browse for export folder",
+      "folderHint": "Markdown files will be saved in this folder.",
+      "readerFolderHint": "{name}'s books are exported to this folder.",
+      "metadataTitle": "Metadata to Include",
+      "metadataHint": "Select which metadata to include in the exported files.",
+      "metadata": {
+        "author": "Author",
+        "isbn": "ISBN",
+        "publisher": "Publisher",
+        "dateLastRead": "Last Read Date",
+        "language": "Language",
+        "description": "Description"
+      },
+      "dateFormat": "Date Format",
+      "dateFormats": {
+        "dd_mm_yyyy": "DD/MM/YYYY (24/01/2025)",
+        "dd_month_yyyy": "24 January 2025",
+        "iso8601": "ISO 8601 (2025-01-24)"
+      }
     },
     "appearance": {
       "tab": "Appearance",
@@ -100,12 +136,40 @@
       "sortBy": "Sort by",
       "sortByTitle": "Title",
       "sortByAuthor": "Author",
-      "sortByDate": "Date"
+      "sortByDate": "Date",
+      "language": "Language",
+      "languageHint": "Also used in the exported Markdown.",
+      "languages": {
+        "en": "English",
+        "pt": "Português"
+      },
+      "themeSystem": "System",
+      "viewModeTitle": "Library View Mode"
     },
     "actions": {
       "save": "Save",
       "cancel": "Cancel",
-      "reset": "Reset to defaults"
+      "reset": "Reset to defaults",
+      "saveChanges": "Save Changes"
+    },
+    "close": "Close settings",
+    "tabs": "Settings tabs",
+    "reader": {
+      "title": "Reader",
+      "name": "Name"
+    },
+    "device": {
+      "title": "Device Connection",
+      "syncOnConnectHint": "Sync the Library when a known Kobo is connected.",
+      "syncOnConnect": "Sync on connect"
+    },
+    "confirm": {
+      "reset": "Are you sure you want to reset to default settings?",
+      "unsaved": "You have unsaved changes. Do you want to exit without saving?"
+    },
+    "errors": {
+      "save": "Error saving settings",
+      "reset": "Error resetting settings"
     }
   },
   "export": {

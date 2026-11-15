@@ -33,7 +33,9 @@ vi.mock('../stores/settings.svelte', () => ({
 			librarySort: 'title',
 			syncOnConnect: true
 		},
+		language: 'en',
 		isLoading: false,
+		setLanguage: vi.fn(),
 		setExportPath: vi.fn(),
 		setMetadataOption: vi.fn(),
 		setDateFormat: vi.fn(),
@@ -259,6 +261,16 @@ describe('SettingsPanel', () => {
 
 		expect(appearanceTab).toHaveAttribute('aria-selected', 'true');
 		expect(screen.getByRole('heading', { name: /theme/i })).toBeInTheDocument();
+	});
+
+	it('choosing Português switches the language', async () => {
+		render(SettingsPanel, { props: { onClose: mockOnClose, onSave: mockOnSave } });
+		await fireEvent.click(screen.getByRole('tab', { name: /appearance/i }));
+
+		expect(screen.getByRole('button', { name: 'English' })).toHaveAttribute('aria-pressed', 'true');
+		await fireEvent.click(screen.getByRole('button', { name: 'Português' }));
+
+		expect(settings.setLanguage).toHaveBeenCalledWith('pt');
 	});
 
 	it('should render theme buttons in appearance tab', async () => {

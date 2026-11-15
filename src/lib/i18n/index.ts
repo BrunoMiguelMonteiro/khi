@@ -1,4 +1,4 @@
-import { writable, derived } from 'svelte/store';
+import { writable, derived, get } from 'svelte/store';
 import en from './locales/en.json';
 import pt from './locales/pt.json';
 import { config } from './config';
@@ -21,8 +21,8 @@ function getNestedValue(obj: any, path: string): string | undefined {
 }
 
 export function t(key: string, params?: Record<string, string | number>): string {
-  const locale = defaultLocale;
-  const messages = translations[locale as keyof typeof translations];
+  const locale = get(currentLocale);
+  const messages = translations[locale as keyof typeof translations] || translations[defaultLocale];
   let value = getNestedValue(messages, key);
   
   if (value === undefined) {

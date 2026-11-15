@@ -34,6 +34,6 @@ describe('+page', () => {
 
 		await fireEvent.change(picker, { target: { value: '2' } });
 
-		expect(await screen.findByText('notifications.openReaderError')).toBeInTheDocument();
+		expect(await screen.findByText("Could not open this reader's Library")).toBeInTheDocument();
 	});
 });

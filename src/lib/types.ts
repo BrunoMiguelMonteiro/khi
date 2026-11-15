@@ -11,6 +11,7 @@ import type {
   DateFormat,
   ExportConfig_Serialize,
   KoboDevice_Serialize,
+  Language,
   LibraryBook_Serialize,
   LibraryHighlight_Serialize,
   Reader_Serialize,
@@ -21,7 +22,7 @@ import type {
   ViewMode_Serialize
 } from './bindings';
 
-export type { DateFormat, SyncReport };
+export type { DateFormat, Language, SyncReport };
 
 /**
  * A book of the persistent Library (`id` is the Library's, not the Kobo's).

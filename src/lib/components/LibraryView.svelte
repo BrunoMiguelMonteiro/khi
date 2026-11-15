@@ -150,7 +150,7 @@
 			style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));"
 			data-testid="books-grid"
 			role="list"
-			aria-label="Lista de livros"
+			aria-label={$_('screens.library.booksListLabel')}
 		>
 			{#each books as book, index (book.id)}
 				<div role="listitem">
@@ -169,7 +169,7 @@
 		</div>
 	{:else}
 		<!-- List view -->
-		<div class="flex flex-col gap-2" data-testid="books-list" role="list" aria-label="Lista de livros">
+		<div class="flex flex-col gap-2" data-testid="books-list" role="list" aria-label={$_('screens.library.booksListLabel')}>
 			{#each books as book, index (book.id)}
 				<div role="listitem">
 					<BookListItem

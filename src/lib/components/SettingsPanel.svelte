@@ -10,6 +10,7 @@
 
 <script lang="ts">
 	import { commands } from '$lib/bindings';
+	import { _ } from '$lib/i18n';
 	import {
 		settings,
 		getViewModeLabel,
@@ -17,7 +18,7 @@
 		getDateFormatLabel
 	} from '../stores/settings.svelte';
 	import { library } from '../stores/library.svelte';
-	import type { ExportConfig, ThemePreference, ViewMode, SortPreference } from '../types';
+	import type { ExportConfig, Language, ThemePreference, ViewMode, SortPreference } from '../types';
 	import CustomCheckbox from './CustomCheckbox.svelte';
 	import CustomRadio from './CustomRadio.svelte';
 	import Button from './Button.svelte';
@@ -38,6 +39,7 @@
 	// Get current values from store
 	const exportConfig = $derived(settings.exportConfig);
 	const uiPreferences = $derived(settings.uiPreferences);
+	const language = $derived(settings.language);
 	const isLoading = $derived(settings.isLoading);
 	const activeReader = $derived(library.readers.find((r) => r.id === library.activeReaderId));
 
@@ -82,20 +84,20 @@
 	}
 
 	// Metadata options configuration
-	const metadataOptions: {
-		key: keyof ExportConfig['metadata'];
-		label: string;
-	}[] = [
-		{ key: 'author', label: 'Author' },
-		{ key: 'isbn', label: 'ISBN' },
-		{ key: 'publisher', label: 'Publisher' },
-		{ key: 'dateLastRead', label: 'Last Read Date' },
-		{ key: 'language', label: 'Language' },
-		{ key: 'description', label: 'Description' }
+	const metadataOptions: (keyof ExportConfig['metadata'])[] = [
+		'author',
+		'isbn',
+		'publisher',
+		'dateLastRead',
+		'language',
+		'description'
 	];
 
 	// Date format options
 	const dateFormats: ExportConfig['dateFormat'][] = ['dd_month_yyyy', 'dd_mm_yyyy', 'iso8601'];
+
+	// Language options, each named in its own language
+	const languages: Language[] = ['en', 'pt'];
 
 	// Theme options
 	const themes: ThemePreference[] = ['system', 'light', 'dark'];
@@ -103,38 +105,16 @@
 	// View mode options
 	const viewModes: ViewMode[] = ['grid', 'list'];
 
-	function getEnglishThemeLabel(theme: ThemePreference): string {
-		switch (theme) {
-			case 'system':
-				return 'System';
-			case 'light':
-				return 'Light';
-			case 'dark':
-				return 'Dark';
-			default:
-				return theme;
-		}
-	}
+	const themeLabelKeys: Record<ThemePreference, string> = {
+		system: 'settings.appearance.themeSystem',
+		light: 'settings.appearance.themeLight',
+		dark: 'settings.appearance.themeDark'
+	};
 
-	function getEnglishViewModeLabel(mode: ViewMode): string {
-		switch (mode) {
-			case 'grid':
-				return 'Grid';
-			case 'list':
-				return 'List';
-			default:
-				return mode;
-		}
-	}
-
-	function getEnglishDateFormatLabel(format: ExportConfig['dateFormat']): string {
-		const labels: Record<string, string> = {
-			dd_mm_yyyy: 'DD/MM/YYYY (24/01/2025)',
-			dd_month_yyyy: '24 January 2025',
-			iso8601: 'ISO 8601 (2025-01-24)'
-		};
-		return labels[format] || format;
-	}
+	const viewModeLabelKeys: Record<ViewMode, string> = {
+		grid: 'settings.appearance.viewModeGrid',
+		list: 'settings.appearance.viewModeList'
+	};
 
 	// Handlers
 	function handleExportPathChange(event: Event) {
@@ -159,6 +139,11 @@
 
 	function handleDateFormatChange(format: ExportConfig['dateFormat']) {
 		settings.setDateFormat(format);
+		hasChanges = true;
+	}
+
+	function handleLanguageChange(choice: Language) {
+		settings.setLanguage(choice);
 		hasChanges = true;
 	}
 
@@ -192,26 +177,26 @@
 			} else if (typeof err === 'string') {
 				saveError = err;
 			} else {
-				saveError = 'Error saving settings: ' + JSON.stringify(err);
+				saveError = `${$_('settings.errors.save')}: ${JSON.stringify(err)}`;
 			}
 		}
 	}
 
 	async function handleReset() {
-		if (confirm('Are you sure you want to reset to default settings?')) {
+		if (confirm($_('settings.confirm.reset'))) {
 			try {
 				await settings.resetAndSave();
 				hasChanges = false;
 				onSave?.();
 			} catch (err) {
-				saveError = err instanceof Error ? err.message : 'Error resetting settings';
+				saveError = err instanceof Error ? err.message : $_('settings.errors.reset');
 			}
 		}
 	}
 
 	function handleCancel() {
 		if (hasChanges) {
-			if (confirm('You have unsaved changes. Do you want to exit without saving?')) {
+			if (confirm($_('settings.confirm.unsaved'))) {
 				onClose?.();
 			}
 		} else {
@@ -227,11 +212,11 @@
 	aria-modal="true"
 >
 	<div class="flex justify-between items-center p-6 border-b border-neutral-200 dark:border-neutral-800">
-		<h2 id="settings-title" class="text-xl font-semibold text-neutral-900 dark:text-neutral-100 m-0">Settings</h2>
+		<h2 id="settings-title" class="text-xl font-semibold text-neutral-900 dark:text-neutral-100 m-0">{$_('settings.title')}</h2>
 		<Button
 			variant="icon"
 			onclick={handleCancel}
-			ariaLabel="Close settings"
+			ariaLabel={$_('settings.close')}
 		>
 			{#snippet icon()}
 				<svg
@@ -253,7 +238,7 @@
 	</div>
 
 	<!-- Tabs -->
-	<div class="flex gap-2 px-6 py-3 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/50" role="tablist" aria-label="Settings tabs">
+	<div class="flex gap-2 px-6 py-3 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/50" role="tablist" aria-label={$_('settings.tabs')}>
 		<button
 			class="flex items-center gap-3 px-4 py-2 border-b-2 font-medium text-sm transition-all duration-150 {activeTab === 'export' ? 'border-neutral-900 text-neutral-900 dark:border-white dark:text-white' : 'border-transparent text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100'}"
 			onclick={() => (activeTab = 'export')}
@@ -277,7 +262,7 @@
 				<polyline points="7 10 12 15 17 10"></polyline>
 				<line x1="12" y1="15" x2="12" y2="3"></line>
 			</svg>
-			Export
+			{$_('settings.export.tab')}
 		</button>
 		<button
 			class="flex items-center gap-3 px-4 py-2 border-b-2 font-medium text-sm transition-all duration-150 {activeTab === 'appearance' ? 'border-neutral-900 text-neutral-900 dark:border-white dark:text-white' : 'border-transparent text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100'}"
@@ -308,7 +293,7 @@
 				<line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
 				<line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
 			</svg>
-			Appearance
+			{$_('settings.appearance.tab')}
 		</button>
 	</div>
 
@@ -324,9 +309,9 @@
 				{#if activeReader}
 					<!-- Active Reader -->
 					<section class="flex flex-col gap-4">
-						<h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 m-0">Reader</h3>
+						<h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 m-0">{$_('settings.reader.title')}</h3>
 						<div class="flex flex-col gap-2">
-							<label for="reader-name" class="text-sm font-medium text-neutral-600 dark:text-neutral-400">Name</label>
+							<label for="reader-name" class="text-sm font-medium text-neutral-600 dark:text-neutral-400">{$_('settings.reader.name')}</label>
 							<input
 								id="reader-name"
 								data-testid="reader-name"
@@ -341,9 +326,9 @@
 
 				<!-- Export Path -->
 				<section class="flex flex-col gap-4">
-					<h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 m-0">Export Folder</h3>
+					<h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 m-0">{$_('settings.export.exportPath')}</h3>
 					<div class="flex flex-col gap-2">
-						<label for="export-path" class="text-sm font-medium text-neutral-600 dark:text-neutral-400">Path</label>
+						<label for="export-path" class="text-sm font-medium text-neutral-600 dark:text-neutral-400">{$_('settings.export.path')}</label>
 						<div class="flex gap-2 items-center">
 							<input
 								id="export-path"
@@ -356,7 +341,7 @@
 							<Button
 								variant="secondary"
 								onclick={handleBrowseFolder}
-								ariaLabel="Browse for export folder"
+								ariaLabel={$_('settings.export.browseLabel')}
 								class="whitespace-nowrap"
 							>
 								{#snippet icon()}
@@ -376,32 +361,32 @@
 										></path>
 									</svg>
 								{/snippet}
-								Browse
+								{$_('settings.export.browse')}
 							</Button>
 						</div>
 						<p class="text-xs text-neutral-500 dark:text-neutral-400 m-0">
 							{activeReader
-								? `${activeReader.name}'s books are exported to this folder.`
-								: 'Markdown files will be saved in this folder.'}
+								? $_('settings.export.readerFolderHint', { name: activeReader.name })
+								: $_('settings.export.folderHint')}
 						</p>
 					</div>
 				</section>
 
 				<!-- Metadata Options -->
 				<section class="flex flex-col gap-4">
-					<h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 m-0">Metadata to Include</h3>
+					<h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 m-0">{$_('settings.export.metadataTitle')}</h3>
 					<p class="text-sm text-neutral-500 dark:text-neutral-400 m-0 -mt-2">
-						Select which metadata to include in the exported files.
+						{$_('settings.export.metadataHint')}
 					</p>
 					<div class="grid grid-cols-2 gap-x-4 gap-y-0.5">
 						{#each metadataOptions as option}
 							<label class="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
 								<CustomCheckbox
-									checked={exportConfig.metadata[option.key]}
+									checked={exportConfig.metadata[option]}
 									onChange={() =>
-										handleMetadataToggle(option.key)}
+										handleMetadataToggle(option)}
 								/>
-								<span class="text-sm text-neutral-900 dark:text-neutral-100">{option.label}</span
+								<span class="text-sm text-neutral-900 dark:text-neutral-100">{$_(`settings.export.metadata.${option}`)}</span
 								>
 							</label>
 						{/each}
@@ -410,7 +395,7 @@
 
 				<!-- Date Format -->
 				<section class="flex flex-col gap-4">
-					<h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 m-0">Date Format</h3>
+					<h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 m-0">{$_('settings.export.dateFormat')}</h3>
 					<div class="flex flex-col gap-0.5">
 						{#each dateFormats as format}
 							<label class="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
@@ -422,7 +407,7 @@
 										handleDateFormatChange(format)}
 								/>
 								<span class="text-sm text-neutral-900 dark:text-neutral-100"
-									>{getEnglishDateFormatLabel(format)}</span
+									>{$_(`settings.export.dateFormats.${format}`)}</span
 								>
 							</label>
 						{/each}
@@ -436,9 +421,29 @@
 				aria-labelledby="appearance-tab"
 				class="flex flex-col gap-8"
 			>
+				<!-- Language: the interface's and the exported Markdown's -->
+				<section class="flex flex-col gap-4">
+					<h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 m-0">{$_('settings.appearance.language')}</h3>
+					<p class="text-sm text-neutral-500 dark:text-neutral-400 m-0 -mt-2">
+						{$_('settings.appearance.languageHint')}
+					</p>
+					<div class="flex rounded-lg border border-neutral-200 dark:border-neutral-700 overflow-hidden w-fit">
+						{#each languages as choice}
+							<button
+								class="px-3 py-2 text-sm transition-colors border-r last:border-r-0 border-neutral-200 dark:border-neutral-700 {language === choice ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-black' : 'bg-white text-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800'}"
+								onclick={() => handleLanguageChange(choice)}
+								aria-pressed={language === choice}
+								lang={choice}
+							>
+								{$_(`settings.appearance.languages.${choice}`)}
+							</button>
+						{/each}
+					</div>
+				</section>
+
 				<!-- Theme -->
 				<section class="flex flex-col gap-4">
-					<h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 m-0">Theme</h3>
+					<h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 m-0">{$_('settings.appearance.theme')}</h3>
 					<div class="flex rounded-lg border border-neutral-200 dark:border-neutral-700 overflow-hidden w-fit">
 						{#each themes as theme}
 							<button
@@ -534,7 +539,7 @@
 										></path>
 									</svg>
 								{/if}
-								{getEnglishThemeLabel(theme)}
+								{$_(themeLabelKeys[theme])}
 							</button>
 						{/each}
 					</div>
@@ -542,7 +547,7 @@
 
 				<!-- View Mode -->
 				<section class="flex flex-col gap-4">
-					<h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 m-0">Library View Mode</h3>
+					<h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 m-0">{$_('settings.appearance.viewModeTitle')}</h3>
 					<div class="flex rounded-lg border border-neutral-200 dark:border-neutral-700 overflow-hidden w-fit">
 						{#each viewModes as mode}
 							<button
@@ -598,7 +603,7 @@
 										></line>
 									</svg>
 								{/if}
-								{getEnglishViewModeLabel(mode)}
+								{$_(viewModeLabelKeys[mode])}
 							</button>
 						{/each}
 					</div>
@@ -606,10 +611,9 @@
 
 				<!-- Auto-import on connect -->
 				<section class="flex flex-col gap-4">
-					<h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 m-0">Device Connection</h3>
+					<h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100 m-0">{$_('settings.device.title')}</h3>
 					<p class="text-sm text-neutral-500 dark:text-neutral-400 m-0 -mt-2">
-						Automatically import highlights when a Kobo device is
-						connected.
+						{$_('settings.device.syncOnConnectHint')}
 					</p>
 					<label class="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
 						<input
@@ -619,7 +623,7 @@
 							class="w-4 h-4 rounded border-neutral-300 text-blue-600 focus:ring-blue-500"
 						/>
 						<span class="text-sm text-neutral-900 dark:text-neutral-100"
-							>Auto-import on device connect</span
+							>{$_('settings.device.syncOnConnect')}</span
 						>
 					</label>
 				</section>
@@ -656,7 +660,7 @@
 			onclick={handleReset}
 			disabled={isLoading}
 		>
-			Reset Defaults
+			{$_('settings.actions.reset')}
 		</Button>
 		<div class="flex gap-3 max-sm:flex-col">
 			<Button
@@ -664,7 +668,7 @@
 				onclick={handleCancel}
 				disabled={isLoading}
 			>
-				Cancel
+				{$_('settings.actions.cancel')}
 			</Button>
 			<Button
 				variant="primary"
@@ -672,7 +676,7 @@
 				disabled={isLoading || !hasChanges}
 				loading={isLoading}
 			>
-				Save Changes
+				{$_('settings.actions.saveChanges')}
 			</Button>
 		</div>
 	</div>

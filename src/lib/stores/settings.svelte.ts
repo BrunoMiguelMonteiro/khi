@@ -11,9 +11,11 @@
  */
 
 import { commands } from "../bindings";
+import { locale } from "$lib/i18n";
 import type {
   AppSettings,
   ExportConfig,
+  Language,
   UiPreferences,
   ThemePreference,
   ViewMode,
@@ -48,6 +50,7 @@ function createInitialState(): AppSettings {
       librarySort: "title",
       syncOnConnect: true,
     },
+    language: "en",
     version: "0.1.0",
   };
 }
@@ -114,6 +117,7 @@ class SettingsStore {
   // Derived state for easier access
   exportConfig = $derived(this.state.exportConfig);
   uiPreferences = $derived(this.state.uiPreferences);
+  language = $derived(this.state.language);
 
   constructor() {
     // $effect.root() needed because this class is instantiated at module scope,
@@ -124,6 +128,11 @@ class SettingsStore {
         const theme = this.state.uiPreferences?.theme;
         if (!theme) return;
         return applyTheme(theme);
+      });
+      // The interface speaks the settings' language, however they changed
+      $effect(() => {
+        const language = this.state.language;
+        if (language) locale.set(language);
       });
     });
   }
@@ -178,6 +187,11 @@ class SettingsStore {
   // ============================================
   // Actions - UI Preferences
   // ============================================
+
+  /** Interface and exported Markdown language; saved with the settings. */
+  setLanguage(language: Language) {
+    this.state.language = language;
+  }
 
   setTheme(theme: ThemePreference) {
     this.state.uiPreferences.theme = theme;

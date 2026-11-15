@@ -50,7 +50,7 @@ export async function createApplicationMenu(t: MessageFormatter) {
 
         // Edit Menu (Essential for input fields)
         const editMenu = await Submenu.new({
-            text: 'Edit',
+            text: t('app.menuEdit'),
             items: [
                 await PredefinedMenuItem.new({ item: 'Undo' }),
                 await PredefinedMenuItem.new({ item: 'Redo' }),

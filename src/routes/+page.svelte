@@ -60,13 +60,15 @@
 		})
 	);
 
+	// The native menu speaks the interface's language: rebuilt when it changes
+	$effect(() => {
+		const format = $_;
+		const timer = setTimeout(() => createApplicationMenu(format), 500);
+		return () => clearTimeout(timer);
+	});
+
 	// Sync with store on mount
 	onMount(() => {
-		// Initialize application menu with current locale
-		setTimeout(() => {
-			createApplicationMenu($_);
-		}, 500);
-
 		// Setup event listeners for device monitoring
 		setupDeviceListeners();
 
