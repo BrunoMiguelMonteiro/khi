@@ -15,7 +15,7 @@ A **Biblioteca** de cada **Leitor** passa a viver em disco, gerida pelo Rust. O 
 Hoje os livros só existem num array em memória no frontend (`library.svelte.ts`) e desaparecem quando o Kobo é desligado ou a app fecha.
 ## Comportamento
 ### Leitores e Kobos
-1. **Kobo desconhecido.** Na primeira vez que um Kobo é ligado, o Khi pergunta de quem é: um **Leitor** existente ou um novo. O nome de um Leitor novo vem, por defeito, do nome do device. O Khi guarda a associação e nunca volta a perguntar por esse Kobo.
+1. **Kobo desconhecido.** Na primeira vez que um Kobo é ligado, o Khi pergunta de quem é: um **Leitor** existente ou um novo. O nome de um Leitor novo vem, por defeito, do nome do device. O Khi guarda a associação e nunca volta a perguntar por esse Kobo. Exceção: se ainda não existe nenhum Leitor, o Khi não pergunta. Cria um Leitor com o nome do device, associa-lhe o Kobo e segue, porque só há uma resposta possível. O nome muda-se depois nas Definições.
   
 2. **Identificador do Kobo.** O Kobo identifica-se pelo número de série, que é o primeiro campo de `.kobo/version`. Hoje o Khi guarda o conteúdo inteiro do ficheiro, e isso deve ser corrigido.
   
@@ -28,7 +28,7 @@ Hoje os livros só existem num array em memória no frontend (`library.svelte.ts
 ### Sincronização
 6. **Quando corre.** A Sincronização corre quando um Kobo associado é ligado e «Sincronizar ao ligar» está ativo (vem ativo por defeito). Também corre a pedido, num botão. A regra «só uma vez por sessão» desaparece.
   
-7. **Kobo desconhecido.** Com um Kobo desconhecido, a Sincronização só corre depois de o Leitor ser escolhido.
+7. **Kobo desconhecido.** Com um Kobo desconhecido, a Sincronização só corre depois de o Leitor ser escolhido, ou depois de criado o primeiro Leitor (R1).
   
 8. **Highlights.** Para cada **Highlight** lido do Kobo, com texto não vazio:
   

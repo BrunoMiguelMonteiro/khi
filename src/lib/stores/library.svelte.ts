@@ -170,6 +170,13 @@ class LibraryStore {
 		this.connectedReaderId = device.serialNumber
 			? await commands.readerForKobo(device.serialNumber)
 			: null;
+		if (this.connectedReaderId === null && device.serialNumber) {
+			// With no Reader yet there is only one answer, so don't ask (R1)
+			if ((await this.loadReaders()).length > 0) return 'unknown';
+			const reader = await this.createReader(device.name);
+			await this.associateKobo(device.serialNumber, reader.id);
+			this.connectedReaderId = reader.id;
+		}
 		if (this.connectedReaderId === null) return 'unknown';
 
 		if (syncOnConnect) {

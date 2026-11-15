@@ -183,8 +183,42 @@ describe('Library Store', () => {
 			expect(library.connectedDevice).toEqual(kobo);
 		});
 
+		it('first kobo with no readers creates a reader named after it and syncs', async () => {
+			const created = { id: 1, name: 'Kobo Libra', exportPath: null };
+			answer({
+				reader_for_kobo: null,
+				list_readers: [],
+				create_reader: created,
+				associate_kobo: null,
+				sync_kobo: { added: 3 },
+				get_library: mockBooks
+			});
+
+			const outcome = await library.deviceConnected(kobo, true);
+
+			expect(outcome).toBe('synced');
+			expect(invoke).toHaveBeenCalledWith('create_reader', { name: 'Kobo Libra' });
+			expect(invoke).toHaveBeenCalledWith('associate_kobo', { serial: 'N4181B5025147', readerId: 1 });
+			expect(invoke).toHaveBeenCalledWith('sync_kobo', { device: kobo });
+			expect(library.activeReaderId).toBe(1);
+		});
+
+		it('first kobo with sync on connect off still gets a reader and opens it', async () => {
+			answer({
+				reader_for_kobo: null,
+				list_readers: [],
+				create_reader: { id: 1, name: 'Kobo Libra', exportPath: null },
+				associate_kobo: null,
+				get_library: []
+			});
+
+			expect(await library.deviceConnected(kobo, false)).toBe('idle');
+			expect(library.activeReaderId).toBe(1);
+			expect(invoke).not.toHaveBeenCalledWith('sync_kobo', expect.anything());
+		});
+
 		it('an unknown kobo is reported and never synced', async () => {
-			answer({ reader_for_kobo: null });
+			answer({ reader_for_kobo: null, list_readers: [{ id: 3, name: 'Ana', exportPath: null }] });
 
 			const outcome = await library.deviceConnected(kobo, true);
 

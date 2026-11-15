@@ -56,7 +56,7 @@
 					id="new-reader-name"
 					data-testid="new-reader-name"
 					type="text"
-					class="flex-1 rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-sm"
+					class="flex-1 rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 px-3 py-2 text-sm text-neutral-900 dark:text-neutral-100"
 					bind:value={newName}
 				/>
 				<span data-testid="create-reader" class="contents">
