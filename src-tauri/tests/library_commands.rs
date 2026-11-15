@@ -42,6 +42,25 @@ fn sync_kobo_with_reads_fixture() {
 }
 
 #[test]
+fn cover_comes_from_kobo_images_without_an_epub() {
+    let (volume, data, cache, device, reader_id) = kobo_and_library();
+    // qhash("file____mnt_onboard_a_epub") = 101943762 → 210/137 (Calibre)
+    let images = volume.path().join(".kobo-images/210/137");
+    std::fs::create_dir_all(&images).unwrap();
+    std::fs::write(images.join("file____mnt_onboard_a_epub - N3_FULL.parsed"), b"jpeg").unwrap();
+
+    sync_kobo_with(data.path(), cache.path(), &device, |_, _| {}).unwrap();
+
+    let lib = Library::open(data.path()).unwrap();
+    let books = lib.books(reader_id).unwrap();
+    let a = books.iter().find(|b| b.title == "Confiança").unwrap();
+    let cover = a.cover_path.as_deref().expect("cover from .kobo-images");
+    assert_eq!(std::fs::read(cover).unwrap(), b"jpeg");
+    let b = books.iter().find(|b| b.title == "Duly Noted").unwrap();
+    assert_eq!(b.cover_path, None, "no ImageId, no EPUB, no cover");
+}
+
+#[test]
 fn reads_do_not_wait_for_sync() {
     let (_volume, data, cache, device, reader_id) = kobo_and_library();
     let inside_tx = Arc::new(Barrier::new(2));

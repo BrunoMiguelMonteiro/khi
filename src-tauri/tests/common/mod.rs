@@ -75,7 +75,11 @@ pub fn kobo_db(dir: &Path) -> PathBuf {
             '2026-10-04T10:00:00Z', 0.5, NULL);
          INSERT INTO Bookmark VALUES ('b-empty', 'file:///mnt/onboard/b.epub',
             'file:///mnt/onboard/b.epub!ch.xhtml', 'ch.xhtml', '', NULL,
-            '2026-10-05T10:00:00Z', 0.6, NULL);",
+            '2026-10-05T10:00:00Z', 0.6, NULL);
+
+         ALTER TABLE content ADD COLUMN ImageId TEXT;
+         UPDATE content SET ImageId = 'file____mnt_onboard_a_epub'
+            WHERE ContentID = 'file:///mnt/onboard/a.epub';",
     )
     .unwrap();
     path

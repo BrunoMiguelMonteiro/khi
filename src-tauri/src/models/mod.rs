@@ -130,6 +130,8 @@ pub struct KoboBook {
     pub language: Option<String>,
     pub description: Option<String>,
     pub date_last_read: Option<String>,
+    /// Name of the book's images in `.kobo-images`, for store books
+    pub image_id: Option<String>,
     pub highlights: Vec<KoboHighlight>,
 }
 

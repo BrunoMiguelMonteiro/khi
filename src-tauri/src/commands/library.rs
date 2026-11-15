@@ -5,7 +5,7 @@
 //! freeze the window. The shared `Mutex<Library>` serves the UI; a Sync opens
 //! its own `Library` (own connection, WAL) so reads never wait for it.
 
-use crate::covers::CoverExtractor;
+use crate::covers::{self, CoverExtractor};
 use crate::db::kobo::KoboDatabase;
 use crate::library::{KoboInfo, Library, LibraryBook, Reader, SyncReport};
 use crate::models::KoboDevice;
@@ -96,10 +96,14 @@ pub fn sync_kobo_with(
 
     let extractor = CoverExtractor::new(cache_dir.to_path_buf());
     let volume = PathBuf::from(&device.path);
+    // The EPUB's own cover, else the one the Kobo keeps (store books)
     let cover_source = |book: &crate::models::KoboBook| {
-        let relative = book.volume_id.strip_prefix("file:///mnt/onboard/")?;
-        let epub = volume.join(relative);
-        extractor.extract_cover(&epub).ok().flatten()
+        let from_epub = book
+            .volume_id
+            .strip_prefix("file:///mnt/onboard/")
+            .and_then(|relative| extractor.extract_cover(&volume.join(relative)).ok().flatten())
+            .filter(|path| !covers::is_placeholder(path));
+        from_epub.or_else(|| covers::kobo_image_cover(&volume, book.image_id.as_deref()?))
     };
 
     let mut library = Library::open(data_dir).map_err(err)?;

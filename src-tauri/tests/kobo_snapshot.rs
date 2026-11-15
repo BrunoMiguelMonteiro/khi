@@ -35,3 +35,13 @@ fn snapshot_reads_description_and_date_modified() {
     assert_eq!(a1.date_modified.as_deref(), Some("2026-10-02T10:00:00Z"));
     assert_eq!(a1.annotation.as_deref(), Some("Nota a1"));
 }
+
+#[test]
+fn snapshot_reads_image_id() {
+    let snap = snapshot();
+
+    let a = snap.books.iter().find(|b| b.volume_id == BOOK_A).unwrap();
+    let b = snap.books.iter().find(|b| b.volume_id == BOOK_B).unwrap();
+    assert_eq!(a.image_id.as_deref(), Some("file____mnt_onboard_a_epub"));
+    assert_eq!(b.image_id, None);
+}

@@ -6,7 +6,7 @@ use crate::models::{KoboBook, KoboHighlight, KoboSnapshot};
 use rusqlite::{params, OptionalExtension, Transaction, TransactionBehavior};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -84,7 +84,7 @@ impl Library {
             return;
         }
         let Some(source) = cover_source(book) else { return };
-        if is_placeholder(&source) {
+        if crate::covers::is_placeholder(&source) {
             return;
         }
         let stored = std::fs::copy(&source, &target)
@@ -104,11 +104,6 @@ impl Library {
 }
 
 /// `CoverExtractor` names its generated covers `{key}_placeholder.svg`.
-fn is_placeholder(path: &Path) -> bool {
-    path.file_name()
-        .and_then(|n| n.to_str())
-        .is_some_and(|n| n.ends_with("_placeholder.svg"))
-}
 
 /// Finds or creates the Library book (R10), refreshes its metadata (R11) and
 /// records the Kobo path as one of its sources. A book never seen before is

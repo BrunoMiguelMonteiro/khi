@@ -37,7 +37,8 @@ const SNAPSHOT_QUERY: &str = "SELECT
         c_book.Publisher,
         c_book.Language,
         c_book.Description,
-        c_book.DateLastRead
+        c_book.DateLastRead,
+        c_book.ImageId
      FROM Bookmark b
      LEFT JOIN content c_book ON b.VolumeID = c_book.ContentID
      LEFT JOIN content c_chapter ON b.ContentID = c_chapter.ContentID
@@ -79,6 +80,7 @@ impl KoboDatabase {
                     language: row.get("Language")?,
                     description: row.get("Description")?,
                     date_last_read: row.get("DateLastRead")?,
+                    image_id: row.get("ImageId")?,
                     highlights: Vec::new(),
                 });
             }
@@ -114,6 +116,7 @@ mod tests {
         let conn = Connection::open(path).unwrap();
         let _ = conn.execute("ALTER TABLE Bookmark ADD COLUMN DateModified TEXT", []);
         let _ = conn.execute("ALTER TABLE Content ADD COLUMN Description TEXT", []);
+        let _ = conn.execute("ALTER TABLE Content ADD COLUMN ImageId TEXT", []);
         drop(conn);
         KoboDatabase::open_read_only(path).unwrap().read_snapshot().unwrap().books
     }
