@@ -9,7 +9,7 @@ pub use sync::SyncReport;
 
 use crate::export::{ExportError, MarkdownExporter};
 use crate::models::{Book, ExportConfig, Highlight};
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
@@ -172,6 +172,8 @@ impl Library {
 
         let mut conn = Connection::open(data_dir.join("library.sqlite"))?;
         conn.pragma_update(None, "foreign_keys", true)?;
+        // WAL lets the UI read while a Sync holds its write transaction.
+        conn.pragma_update(None, "journal_mode", "WAL")?;
         migrate(&mut conn)?;
 
         Ok(Library { conn, covers_dir })
@@ -291,7 +293,7 @@ impl Library {
     /// R19: only a book whose highlights were all removed from the Kobo can
     /// be deleted. Its highlights, sources and cover go with it.
     pub fn delete_book(&mut self, reader_id: u32, book_id: u32) -> Result<()> {
-        let tx = self.conn.transaction()?;
+        let tx = self.conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let cover_file: Option<String> = tx
             .query_row(
                 "SELECT cover_file FROM books WHERE id = ?1 AND reader_id = ?2",
@@ -394,6 +396,16 @@ impl Library {
                 .collect::<rusqlite::Result<Vec<_>>>()?;
         }
         Ok(books)
+    }
+
+    /// Like `set_last_reader`, but gives up at once instead of waiting when a
+    /// Sync holds the write lock: remembering the Reader must never delay
+    /// showing the Library.
+    pub fn try_set_last_reader(&self, id: u32) -> Result<()> {
+        self.conn.busy_timeout(std::time::Duration::ZERO)?;
+        let result = self.set_last_reader(id);
+        self.conn.busy_timeout(std::time::Duration::from_secs(5))?;
+        result
     }
 
     pub fn set_reader_export_path(&self, id: u32, path: Option<&str>) -> Result<()> {

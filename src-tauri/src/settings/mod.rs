@@ -150,6 +150,17 @@ impl Default for MetadataConfig {
     }
 }
 
+/// The Khi's data folder (`settings.json`, `library.sqlite`, `covers/`),
+/// created if missing.
+pub fn data_dir() -> Result<PathBuf, SettingsError> {
+    let home = std::env::var("HOME").map_err(|_| SettingsError::HomeNotFound)?;
+    let dir = PathBuf::from(home).join("Library/Application Support/KoboHighlightsExporter");
+    if !dir.exists() {
+        fs::create_dir_all(&dir).map_err(SettingsError::IoError)?;
+    }
+    Ok(dir)
+}
+
 /// Settings manager for loading, saving, and accessing settings
 pub struct SettingsManager {
     pub settings: AppSettings,
@@ -181,16 +192,7 @@ impl SettingsManager {
 
     /// Get the configuration directory path
     fn get_config_dir() -> Result<PathBuf, SettingsError> {
-        let home = std::env::var("HOME").map_err(|_| SettingsError::HomeNotFound)?;
-        let config_dir =
-            PathBuf::from(home).join("Library/Application Support/KoboHighlightsExporter");
-
-        // Create directory if it doesn't exist
-        if !config_dir.exists() {
-            fs::create_dir_all(&config_dir).map_err(SettingsError::IoError)?;
-        }
-
-        Ok(config_dir)
+        data_dir()
     }
 
     /// Load settings from a file

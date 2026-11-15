@@ -3,7 +3,7 @@
 use super::identity::{isbn_key, resolve_book, title_key};
 use super::{Library, LibraryError, Result};
 use crate::models::{KoboBook, KoboHighlight, KoboSnapshot};
-use rusqlite::{params, OptionalExtension, Transaction};
+use rusqlite::{params, OptionalExtension, Transaction, TransactionBehavior};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -36,7 +36,10 @@ impl Library {
         let reader_id = self.kobo(serial)?.ok_or(LibraryError::NotFound)?.reader_id;
         let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
 
-        let tx = self.conn.transaction()?;
+        let merge_started = std::time::Instant::now();
+        // IMMEDIATE takes the write lock up front, so a concurrent writer can
+        // never invalidate this transaction's snapshot halfway (WAL).
+        let tx = self.conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let mut report = SyncReport::default();
         let mut seen: HashSet<&str> = HashSet::new();
         let mut synced: Vec<(u32, &KoboBook)> = Vec::new();
@@ -61,10 +64,13 @@ impl Library {
             params![now, serial],
         )?;
         tx.commit()?;
+        log::info!("Sync merge took {} ms", merge_started.elapsed().as_millis());
 
+        let covers_started = std::time::Instant::now();
         for (book_id, book) in synced {
             self.store_cover(book_id, book, cover_source);
         }
+        log::info!("Sync cover copy took {} ms", covers_started.elapsed().as_millis());
         Ok(report)
     }
 

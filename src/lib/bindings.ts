@@ -29,12 +29,30 @@ export const commands = {
 	pickExportFolder: (defaultPath: string | null) => __TAURI_INVOKE<string | null>("pick_export_folder", { defaultPath }),
 	/**  Clear the application cover cache */
 	clearCoverCache: () => __TAURI_INVOKE<null>("clear_cover_cache"),
+	listReaders: () => __TAURI_INVOKE<Reader_Serialize[]>("list_readers"),
+	createReader: (name: string) => __TAURI_INVOKE<Reader_Serialize>("create_reader", { name }),
+	renameReader: (id: number, name: string) => __TAURI_INVOKE<null>("rename_reader", { id, name }),
+	associateKobo: (serial: string, readerId: number) => __TAURI_INVOKE<null>("associate_kobo", { serial, readerId }),
+	readerForKobo: (serial: string) => __TAURI_INVOKE<number | null>("reader_for_kobo", { serial }),
+	lastReader: () => __TAURI_INVOKE<number | null>("last_reader"),
+	getLibrary: (readerId: number) => __TAURI_INVOKE<LibraryBook_Serialize[]>("get_library", { readerId }),
+	deleteBook: (readerId: number, bookId: number) => __TAURI_INVOKE<null>("delete_book", { readerId, bookId }),
+	/**  Exports with the Export settings (R22), into the Reader's folder (R21). */
+	exportLibraryBooks: (readerId: number, bookIds: number[]) => __TAURI_INVOKE<string[]>("export_library_books", { readerId, bookIds }),
+	setReaderExportPath: (readerId: number, path: string | null) => __TAURI_INVOKE<null>("set_reader_export_path", { readerId, path }),
+	/**
+	 *  Syncs the connected Kobo into its Reader's Library, emitting
+	 *  `sync-progress` per book and `sync-finished` at the end.
+	 */
+	syncKobo: (device: KoboDevice_Deserialize) => __TAURI_INVOKE<SyncReport>("sync_kobo", { device }),
 };
 
 /** Events */
 export const events = {
 	deviceDetected: makeEvent<DeviceDetectedEvent_Serialize, DeviceDetectedEvent_Deserialize>("device-detected"),
 	deviceDisconnected: makeEvent<DeviceDisconnectedEvent, DeviceDisconnectedEvent>("device-disconnected"),
+	syncFinished: makeEvent<SyncFinished, SyncFinished>("sync-finished"),
+	syncProgress: makeEvent<SyncProgress, SyncProgress>("sync-progress"),
 };
 
 /* Types */
@@ -175,6 +193,72 @@ export type KoboDevice_Serialize = {
 	serialNumber: string | null,
 };
 
+/**
+ *  A book as the Library holds it, with every highlight ever synced,
+ *  including the ones removed from the Kobo.
+ */
+export type LibraryBook = LibraryBook_Serialize | LibraryBook_Deserialize;
+
+/**
+ *  A book as the Library holds it, with every highlight ever synced,
+ *  including the ones removed from the Kobo.
+ */
+export type LibraryBook_Deserialize = {
+	id: number,
+	title: string,
+	author: string,
+	isbn?: string | null,
+	publisher?: string | null,
+	language?: string | null,
+	description?: string | null,
+	dateLastRead?: string | null,
+	/**  Absolute path inside `covers/`. */
+	coverPath?: string | null,
+	highlights: LibraryHighlight_Deserialize[],
+};
+
+/**
+ *  A book as the Library holds it, with every highlight ever synced,
+ *  including the ones removed from the Kobo.
+ */
+export type LibraryBook_Serialize = {
+	id: number,
+	title: string,
+	author: string,
+	isbn: string | null,
+	publisher: string | null,
+	language: string | null,
+	description: string | null,
+	dateLastRead: string | null,
+	/**  Absolute path inside `covers/`. */
+	coverPath: string | null,
+	highlights: LibraryHighlight_Serialize[],
+};
+
+export type LibraryHighlight = LibraryHighlight_Serialize | LibraryHighlight_Deserialize;
+
+export type LibraryHighlight_Deserialize = {
+	id: string,
+	text: string,
+	dateCreated: string,
+	annotation?: string | null,
+	chapterTitle?: string | null,
+	containerPath?: string | null,
+	removedAt?: string | null,
+	chapterProgress?: number | null,
+};
+
+export type LibraryHighlight_Serialize = {
+	id: string,
+	text: string,
+	dateCreated: string,
+	annotation: string | null,
+	chapterTitle: string | null,
+	containerPath: string | null,
+	removedAt: string | null,
+	chapterProgress: number | null,
+};
+
 export type MetadataConfig = MetadataConfig_Serialize | MetadataConfig_Deserialize;
 
 export type MetadataConfig_Deserialize = {
@@ -200,6 +284,23 @@ export type MetadataConfig_Serialize = {
 	description: boolean,
 };
 
+/**  A person whose Kobos feed the Library. Never deleted (R3). */
+export type Reader = Reader_Serialize | Reader_Deserialize;
+
+/**  A person whose Kobos feed the Library. Never deleted (R3). */
+export type Reader_Deserialize = {
+	id: number,
+	name: string,
+	exportPath?: string | null,
+};
+
+/**  A person whose Kobos feed the Library. Never deleted (R3). */
+export type Reader_Serialize = {
+	id: number,
+	name: string,
+	exportPath: string | null,
+};
+
 /**  Sort preference for library */
 export type SortPreference = SortPreference_Serialize | SortPreference_Deserialize;
 
@@ -208,6 +309,24 @@ export type SortPreference_Deserialize = "title" | "author" | "date_last_read" |
 
 /**  Sort preference for library */
 export type SortPreference_Serialize = "title" | "author" | "date_last_read" | "highlight_count";
+
+export type SyncFinished = {
+	readerId: number,
+	report: SyncReport,
+};
+
+export type SyncProgress = {
+	done: number,
+	total: number,
+};
+
+export type SyncReport = {
+	added: number,
+	updated: number,
+	removed: number,
+	restored: number,
+	books: number,
+};
 
 /**  Theme preference */
 export type ThemePreference = ThemePreference_Serialize | ThemePreference_Deserialize;

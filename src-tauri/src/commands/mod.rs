@@ -1,3 +1,5 @@
+pub mod library;
+
 use crate::db::kobo::KoboDatabase;
 use crate::device::DeviceDetector;
 use crate::export::MarkdownExporter;

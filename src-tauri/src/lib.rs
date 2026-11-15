@@ -11,6 +11,7 @@ pub mod window;
 
 use device::monitor::DeviceMonitor;
 use device::monitor::{DeviceDetectedEvent, DeviceDisconnectedEvent};
+use tauri::Manager;
 use tauri_specta::{collect_commands, collect_events, Builder};
 
 /// Where the generated TypeScript bindings live, relative to `src-tauri/`.
@@ -32,8 +33,24 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         commands::reset_settings,
         commands::pick_export_folder,
         commands::clear_cover_cache,
+        commands::library::list_readers,
+        commands::library::create_reader,
+        commands::library::rename_reader,
+        commands::library::associate_kobo,
+        commands::library::reader_for_kobo,
+        commands::library::last_reader,
+        commands::library::get_library,
+        commands::library::delete_book,
+        commands::library::export_library_books,
+        commands::library::set_reader_export_path,
+        commands::library::sync_kobo,
     ])
-    .events(collect_events![DeviceDetectedEvent, DeviceDisconnectedEvent])
+    .events(collect_events![
+        DeviceDetectedEvent,
+        DeviceDisconnectedEvent,
+        commands::library::SyncProgress,
+        commands::library::SyncFinished
+    ])
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -57,6 +74,11 @@ pub fn run() {
         .setup(move |app| {
             // Register typed events before anything emits them
             builder.mount_events(app);
+
+            // The persistent Library, shared by the UI commands
+            let data_dir = settings::data_dir()?;
+            let library = library::Library::open(&data_dir)?;
+            app.manage(commands::library::LibraryState::new(library));
 
             // Show window only after frontend signals ready (prevents white flash)
             window::setup_window_show(app);
