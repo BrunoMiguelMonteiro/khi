@@ -36,9 +36,17 @@ Kobo Libra 2, 11 livros e 115 highlights no primeiro contacto.
 ### Encontrado no teste (fora desta branch)
 
 - As notas não aparecem no Khi, nem no detalhe nem no Markdown. O exportador nunca as escreveu, já na v1.
-- Os livros comprados na loja Kobo (caminho com UUID, `.kobo/kepub`) ficam sem capa, já na v1. O Kobo guarda miniaturas em `.kobo-images/`.
+- Os livros comprados na loja Kobo (caminho com UUID, `.kobo/kepub`) ficam sem capa, já na v1. O Kobo guarda miniaturas em `.kobo-images/`. Resolvido em `379c3b9` (ver «Capas dos livros da loja»).
 - A v1 instalada (`/Applications/Khi.app`) abriu sozinha ao lado da build dev. As duas têm o identificador `com.bruno.khi` e partilham o `settings.json`.
 - As Definições mostram dois campos de pasta de export, o do Leitor e o Path global, o que confunde.
+
+## Capas dos livros da loja (15 nov 2026, `npm run dev:app`)
+
+Commits `379c3b9` (capas a partir de `.kobo-images`) e `c8cc6c1` (teste com um `ImageId` diferente do `ContentID`). Teste na Khi Dev, com uma cópia da Biblioteca real (1 Leitor, 12 livros, 116 highlights, 11 capas).
+
+- [x] **«Lean UX» com capa.** Ao ligar o Kobo, a sincronização demorou 697 ms, sem nada novo (`added: 0`, 12 livros) e sem duplicados. A capa `covers/1.jpg` é um JPEG de 1120×1680, igual byte a byte a `.kobo-images/85/194/c6c0e484-… - N3_FULL.parsed`.
+- [x] **A chave é o `ImageId`.** O `ImageId` do «Lean UX» (`c6c0e484-…`) é diferente do seu `ContentID` (`cee6647c-…`). Uma procura pelo `ContentID` daria a pasta `116/124`, que não existe. O teste `cover_comes_from_kobo_images_without_an_epub` usa este `ImageId` e falha se o código procurar pelo `volume_id`.
+- [x] **Ordem de procura.** Primeiro a capa do EPUB; depois `.kobo-images/{d1}/{d2}/` em `N3_FULL`, `N3_LIBRARY_FULL` e `N3_LIBRARY_GRID`; por fim `.kobo/images/` (firmware antigo). Testes `kobo_image_*` e `qhash_matches_calibre`.
 
 ## Nota sobre o `settings.json` real
 
