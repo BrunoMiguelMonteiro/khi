@@ -20,13 +20,25 @@ Também cobertos na revisão final:
 - Apagar um Livro e voltar a sublinhá-lo no Kobo faz o Livro reaparecer: `deleted_book_comes_back_when_highlighted_again`.
 - Arrancar com o Kobo ligado sincroniza só uma vez: «a second connect while syncing reuses the running sync», «the same kobo reported again after its sync does not sync twice».
 
-## Por fazer com o Kobo real (manual)
+## Teste com o Kobo real (15 nov 2026, `npm run tauri dev`)
 
-- [ ] `npm run tauri dev` com o Kobo ligado: o diálogo «De quem é este Kobo?» aparece e a sincronização corre uma única vez.
-- [ ] O log mostra `Read Kobo snapshot in N ms`. Meta: sincronização completa em menos de 2 s.
-- [ ] Desligar o Kobo e reabrir a app: os mesmos Livros, com capas.
-- [ ] Editar uma nota e apagar um highlight no Kobo, depois sincronizar: a nota é atualizada e o highlight fica marcado «Removido do Kobo».
-- [ ] Exportar pela barra e pelo detalhe: ficheiros idênticos na pasta do Leitor.
+Kobo Libra 2, 11 livros e 115 highlights no primeiro contacto.
+
+- [x] **Primeiro ligar.** Pedia o diálogo «De quem é este Kobo?». Depois do teste, o primeiro Kobo passou a criar o Leitor sem perguntar quando ainda não existe nenhum (spec R1/R7 atualizada, `497ebfd`).
+- [x] **Tempo.** A primeira sincronização demorou 555 ms (leitura do Kobo 546 ms, junção 3 ms). As seguintes demoraram entre 21 e 853 ms. Meta de menos de 2 s cumprida.
+- [x] **Uma sincronização por ligação.** Ligar o Kobo com a app aberta dá uma única sincronização. As duplicadas no log vieram de recargas do Vite durante o desenvolvimento.
+- [x] **Persistência.** Com o Kobo desligado e a app reaberta, os 11 livros e as capas continuam lá. O cabeçalho mostra «Kobo disconnected» e o «Sync» fica desativado.
+- [x] **Highlight novo noutro livro.** `added: 1`, e o 12.º livro entrou com capa.
+- [x] **Highlight apagado.** `removed: 1`, marcado «Removed from Kobo».
+- [x] **Nota editada.** `updated: 1`, e a nota nova está guardada na Biblioteca.
+- [x] **Export pela barra e pelo detalhe.** Os ficheiros são idênticos byte a byte (`sha256 1cd6c3cc…`), em `Kobo Highlights/KOBOeReader/`.
+
+### Encontrado no teste (fora desta branch)
+
+- As notas não aparecem no Khi, nem no detalhe nem no Markdown. O exportador nunca as escreveu, já na v1.
+- Os livros comprados na loja Kobo (caminho com UUID, `.kobo/kepub`) ficam sem capa, já na v1. O Kobo guarda miniaturas em `.kobo-images/`.
+- A v1 instalada (`/Applications/Khi.app`) abriu sozinha ao lado da build dev. As duas têm o identificador `com.bruno.khi` e partilham o `settings.json`.
+- As Definições mostram dois campos de pasta de export, o do Leitor e o Path global, o que confunde.
 
 ## Nota sobre o `settings.json` real
 
