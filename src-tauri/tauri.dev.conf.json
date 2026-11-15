@@ -1,0 +1,15 @@
+{
+  "identifier": "com.bruno.khi.dev",
+  "productName": "Khi Dev",
+  "app": {
+    "security": {
+      "assetProtocol": {
+        "scope": [
+          "$APPCACHEDIR/**",
+          "$HOME/Library/Caches/com.bruno.khi.dev/**",
+          "$HOME/Library/Application Support/KoboHighlightsExporter Dev/covers/**"
+        ]
+      }
+    }
+  }
+}

@@ -150,11 +150,23 @@ impl Default for MetadataConfig {
     }
 }
 
+/// Where `data_dir` lives under `home`. Debug builds (`tauri dev`) get
+/// their own folder, so development never touches the installed Khi's
+/// settings or Library.
+fn data_dir_in(home: &Path) -> PathBuf {
+    let folder = if cfg!(debug_assertions) {
+        "KoboHighlightsExporter Dev"
+    } else {
+        "KoboHighlightsExporter"
+    };
+    home.join("Library/Application Support").join(folder)
+}
+
 /// The Khi's data folder (`settings.json`, `library.sqlite`, `covers/`),
 /// created if missing.
 pub fn data_dir() -> Result<PathBuf, SettingsError> {
     let home = std::env::var("HOME").map_err(|_| SettingsError::HomeNotFound)?;
-    let dir = PathBuf::from(home).join("Library/Application Support/KoboHighlightsExporter");
+    let dir = data_dir_in(Path::new(&home));
     if !dir.exists() {
         fs::create_dir_all(&dir).map_err(SettingsError::IoError)?;
     }
@@ -393,6 +405,17 @@ impl std::error::Error for SettingsError {}
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn debug_builds_use_their_own_data_folder() {
+        let dir = data_dir_in(Path::new("/h"));
+        let expected = if cfg!(debug_assertions) {
+            "/h/Library/Application Support/KoboHighlightsExporter Dev"
+        } else {
+            "/h/Library/Application Support/KoboHighlightsExporter"
+        };
+        assert_eq!(dir, PathBuf::from(expected));
+    }
     use tempfile::TempDir;
 
     #[test]

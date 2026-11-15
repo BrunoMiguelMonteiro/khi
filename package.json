@@ -10,6 +10,7 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "tauri": "tauri",
+    "dev:app": "tauri dev --config src-tauri/tauri.dev.conf.json",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "version": "node scripts/sync-version.js && git add src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json",
