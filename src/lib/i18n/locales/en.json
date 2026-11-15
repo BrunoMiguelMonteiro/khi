@@ -133,7 +133,8 @@
   "notifications": {
     "exportSuccess": "Export completed successfully",
     "exportError": "Error exporting highlights",
-    "syncError": "Could not sync the Kobo"
+    "syncError": "Could not sync the Kobo",
+    "openReaderError": "Could not open this reader's Library"
   },
   "errors": {
     "noDevice": "No Kobo device found",

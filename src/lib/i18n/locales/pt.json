@@ -113,7 +113,8 @@
   "notifications": {
     "exportSuccess": "Exportação concluída com sucesso",
     "exportError": "Erro ao exportar destaques",
-    "syncError": "Erro ao sincronizar o Kobo"
+    "syncError": "Erro ao sincronizar o Kobo",
+    "openReaderError": "Erro ao abrir a Biblioteca deste leitor"
   },
   "errors": {
     "noDevice": "Nenhum dispositivo Kobo encontrado",

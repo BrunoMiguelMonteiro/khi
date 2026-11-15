@@ -191,7 +191,12 @@
 	}
 
 	async function handleSelectReader(readerId: number) {
-		await library.openReader(readerId);
+		try {
+			await library.openReader(readerId);
+		} catch (error) {
+			console.error('Failed to open the reader:', error);
+			showNotification($_('notifications.openReaderError'), 'error');
+		}
 		showLibraryOrEmpty();
 	}
 
