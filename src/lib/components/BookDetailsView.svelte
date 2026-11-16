@@ -57,8 +57,8 @@
             onNotification?.($_('notifications.exportSuccess'), 'success');
         } catch (error) {
             console.error("[BookDetailsView] Export failed:", error);
-            const errorMessage = error instanceof Error ? error.message : 'Export failed';
-            onNotification?.(`Export failed: ${errorMessage}`, 'error');
+            const detail = error instanceof Error ? error.message : String(error);
+            onNotification?.(`${$_('notifications.exportError')}: ${detail}`, 'error');
         }
     }
 </script>

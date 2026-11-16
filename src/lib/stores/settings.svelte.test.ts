@@ -255,6 +255,30 @@ describe('Settings Store - Tauri Integration', () => {
 		expect(locale.set).toHaveBeenLastCalledWith('pt');
 	});
 
+	it('closing without saving puts back the saved language', async () => {
+		mockedInvoke.mockResolvedValueOnce({ ...MOCK_DEFAULTS, language: 'en' });
+		await settings.load();
+		settings.setLanguage('pt');
+
+		settings.revertUnsavedLanguage();
+		flushSync();
+
+		expect(settings.state.language).toBe('en');
+		expect(locale.set).toHaveBeenLastCalledWith('en');
+	});
+
+	it('a saved language stays after closing', async () => {
+		mockedInvoke.mockResolvedValueOnce({ ...MOCK_DEFAULTS, language: 'en' });
+		await settings.load();
+		settings.setLanguage('pt');
+		mockedInvoke.mockResolvedValueOnce(undefined);
+		await settings.save();
+
+		settings.revertUnsavedLanguage();
+
+		expect(settings.state.language).toBe('pt');
+	});
+
 	it('should load settings from Tauri', async () => {
 		const mockSettings: AppSettings = {
 			exportConfig: {

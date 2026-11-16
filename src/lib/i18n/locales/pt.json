@@ -82,7 +82,8 @@
     "highlightsCount_other": "{count} destaques",
     "select": "Selecionar",
     "deselect": "Deselecionar",
-    "noHighlights": "Este livro não tem destaques"
+    "noHighlights": "Este livro não tem destaques",
+    "coverAlt": "Capa de {title}"
   },
   "highlight": {
     "excluded": "excluído",

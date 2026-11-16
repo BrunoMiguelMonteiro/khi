@@ -217,8 +217,8 @@
 			showNotification($_('notifications.exportSuccess'), 'success');
 		} catch (error) {
 			console.error('Export failed:', error);
-			const errorMessage = error instanceof Error ? error.message : 'Export failed';
-			showNotification(`Export failed: ${errorMessage}`, 'error');
+			const detail = error instanceof Error ? error.message : String(error);
+			showNotification(`${$_('notifications.exportError')}: ${detail}`, 'error');
 		}
 	}
 
@@ -252,6 +252,7 @@
 
 	function handleCloseSettings() {
 		showSettings = false;
+		settings.revertUnsavedLanguage();
 	}
 
 </script>

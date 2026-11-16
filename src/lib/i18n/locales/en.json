@@ -82,7 +82,8 @@
     "highlightsCount_other": "{count} highlights",
     "noHighlights": "No highlights",
     "select": "Select",
-    "deselect": "Deselect"
+    "deselect": "Deselect",
+    "coverAlt": "Cover of {title}"
   },
   "highlight": {
     "excluded": "excluded",

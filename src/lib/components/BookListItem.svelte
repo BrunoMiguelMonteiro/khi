@@ -2,6 +2,7 @@
 	import type { Book } from '$lib/types';
 	import CustomCheckbox from './CustomCheckbox.svelte';
 	import { convertFileSrc } from '@tauri-apps/api/core';
+	import { _ } from '$lib/i18n';
 
 	interface Props {
 		book: Book;
@@ -52,7 +53,7 @@
 	<!-- 2. Cover -->
 	<div class="relative w-12 h-16 rounded-sm shrink-0 overflow-hidden bg-gradient-to-br {gradient}">
 		{#if book.coverPath}
-			<img src={convertFileSrc(book.coverPath)} alt="Capa de {book.title}" class="absolute inset-0 w-full h-full object-cover" />
+			<img src={convertFileSrc(book.coverPath)} alt={$_('book.coverAlt', { title: book.title })} class="absolute inset-0 w-full h-full object-cover" />
 		{/if}
 	</div>
 

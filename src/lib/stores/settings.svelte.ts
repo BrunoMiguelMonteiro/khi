@@ -112,6 +112,8 @@ export function applyTheme(
 class SettingsStore {
   state = $state<AppSettings>(createInitialState());
   isLoading = $state(false);
+  /** The language on disk, which the export uses; see revertUnsavedLanguage. */
+  private savedLanguage: Language | null = null;
   error = $state<string | null>(null);
 
   // Derived state for easier access
@@ -193,6 +195,12 @@ class SettingsStore {
     this.state.language = language;
   }
 
+  /** Settings closed without Save: the interface goes back to the saved
+   * language, the one the exported Markdown is written in. */
+  revertUnsavedLanguage() {
+    if (this.savedLanguage) this.state.language = this.savedLanguage;
+  }
+
   setTheme(theme: ThemePreference) {
     this.state.uiPreferences.theme = theme;
   }
@@ -240,6 +248,7 @@ class SettingsStore {
     try {
       const loadedSettings = await commands.loadSettings();
       this.state = loadedSettings;
+      this.savedLanguage = loadedSettings.language;
       // $effect will apply theme automatically when state changes
     } catch (err) {
       console.error("Failed to load settings:", err);
@@ -261,6 +270,7 @@ class SettingsStore {
 
     try {
       await commands.saveSettings(this.state);
+      this.savedLanguage = this.state.language;
     } catch (err) {
       console.error("Failed to save settings:", err);
       this.error =

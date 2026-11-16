@@ -208,7 +208,7 @@ describe('BookListItem', () => {
 			}
 		});
 
-		const coverImage = screen.getByAltText(`Capa de ${bookWithCover.title}`);
+		const coverImage = screen.getByAltText(`Cover of ${bookWithCover.title}`);
 		expect(coverImage).toBeInTheDocument();
 		expect(coverImage).toHaveAttribute('src', bookWithCover.coverPath);
 	});
