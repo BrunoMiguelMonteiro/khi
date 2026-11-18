@@ -49,6 +49,7 @@ function createInitialState(): AppSettings {
       libraryViewMode: "grid",
       librarySort: "title",
       syncOnConnect: true,
+      checkForUpdates: true,
     },
     language: "en",
     version: "0.1.0",
@@ -228,6 +229,10 @@ class SettingsStore {
 
   setSyncOnConnect(enabled: boolean) {
     this.state.uiPreferences.syncOnConnect = enabled;
+  }
+
+  setCheckForUpdates(enabled: boolean) {
+    this.state.uiPreferences.checkForUpdates = enabled;
   }
 
   updateUiPreferences(prefs: Partial<UiPreferences>) {

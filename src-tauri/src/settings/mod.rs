@@ -61,6 +61,9 @@ pub struct UiPreferences {
         alias = "sync_on_connect"
     )]
     pub sync_on_connect: bool,
+    /// Whether to look for a new version once a day, when Khi opens.
+    #[serde(default = "default_true")]
+    pub check_for_updates: bool,
 }
 
 fn default_true() -> bool {
@@ -127,6 +130,7 @@ impl Default for UiPreferences {
             library_view_mode: ViewMode::Grid,
             library_sort: SortPreference::DateLastRead,
             sync_on_connect: true,
+            check_for_updates: true,
         }
     }
 }
@@ -630,6 +634,7 @@ mod tests {
             library_view_mode: ViewMode::List,
             library_sort: SortPreference::Author,
             sync_on_connect: false,
+            check_for_updates: false,
         };
 
         manager.set_ui_preferences(new_prefs).unwrap();
@@ -802,6 +807,7 @@ mod tests {
         let prefs: UiPreferences = serde_json::from_str(json).unwrap();
 
         assert!(prefs.sync_on_connect);
+        assert!(prefs.check_for_updates);
     }
 
     #[test]

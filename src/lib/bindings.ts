@@ -299,6 +299,8 @@ export type UiPreferences = UiPreferences_Serialize | UiPreferences_Deserialize;
 export type UiPreferences_Deserialize = {
 	/**  Theme preference */
 	theme: ThemePreference_Deserialize,
+	/**  Whether to look for a new version once a day, when Khi opens. */
+	checkForUpdates?: boolean,
 } & ((({
 	/**  Window width */
 	windowWidth: number,
@@ -382,6 +384,8 @@ export type UiPreferences_Serialize = {
 	 *  Old files stored it as `autoImportOnConnect`.
 	 */
 	syncOnConnect: boolean,
+	/**  Whether to look for a new version once a day, when Khi opens. */
+	checkForUpdates: boolean,
 };
 
 /**  View mode for library */
