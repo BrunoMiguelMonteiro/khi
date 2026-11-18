@@ -216,5 +216,57 @@
     "newReader": "New reader",
     "newReaderName": "Reader name",
     "create": "Create reader"
+  },
+  "updates": {
+    "menu": {
+      "checkForUpdates": "Check for Updates…"
+    },
+    "available": {
+      "title": "Khi {version} is available.",
+      "body_one": "Version {current} is installed. One version has been released since. Khi restarts after installing.",
+      "body_other": "Version {current} is installed. {count} versions have been released since. Khi restarts after installing.",
+      "whatsNew": "What’s New",
+      "bugFixes": "Bug Fixes",
+      "skip": "Skip This Version",
+      "later": "Later",
+      "install": "Install and Restart"
+    },
+    "checking": {
+      "title": "Checking for Updates…",
+      "cancel": "Cancel"
+    },
+    "upToDate": {
+      "title": "Khi is up to date.",
+      "body": "Version {version} is the latest version.",
+      "ok": "OK"
+    },
+    "downloading": {
+      "title": "Downloading Khi {version}",
+      "progress": "{done} of {total}",
+      "installing": "Installing…",
+      "cancel": "Cancel"
+    },
+    "installed": {
+      "title": "Khi {version} is installed.",
+      "body": "An export is in progress. Khi restarts on its own when it finishes.",
+      "restartNow": "Restart Now",
+      "ok": "OK"
+    },
+    "error": {
+      "title": "Couldn’t Check for Updates",
+      "body": "Check your internet connection and try again.",
+      "cancel": "Cancel",
+      "retry": "Try Again"
+    },
+    "settings": {
+      "tab": "Updates",
+      "auto": "Automatically check for updates",
+      "autoHint": "Once a day, when Khi opens.",
+      "version": "Version {version}",
+      "lastCheckedToday": "Checked today at {time}.",
+      "lastCheckedOn": "Checked on {date}.",
+      "never": "Not checked yet.",
+      "checkNow": "Check Now"
+    }
   }
 }

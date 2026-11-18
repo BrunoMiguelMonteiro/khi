@@ -216,5 +216,57 @@
     "newReader": "Novo leitor",
     "newReaderName": "Nome do leitor",
     "create": "Criar leitor"
+  },
+  "updates": {
+    "menu": {
+      "checkForUpdates": "Procurar atualizações…"
+    },
+    "available": {
+      "title": "Khi {version} está disponível.",
+      "body_one": "Está instalada a versão {current}. Desde então saiu uma versão. Khi reinicia-se depois de instalar.",
+      "body_other": "Está instalada a versão {current}. Desde então saíram {count} versões. Khi reinicia-se depois de instalar.",
+      "whatsNew": "Novidades",
+      "bugFixes": "Correções",
+      "skip": "Saltar esta versão",
+      "later": "Mais tarde",
+      "install": "Instalar e reiniciar"
+    },
+    "checking": {
+      "title": "A procurar atualizações…",
+      "cancel": "Cancelar"
+    },
+    "upToDate": {
+      "title": "Khi está atualizado.",
+      "body": "A versão {version} é a mais recente.",
+      "ok": "OK"
+    },
+    "downloading": {
+      "title": "A descarregar a versão Khi {version}",
+      "progress": "{done} de {total}",
+      "installing": "A instalar…",
+      "cancel": "Cancelar"
+    },
+    "installed": {
+      "title": "Khi {version} está instalado.",
+      "body": "Há uma exportação a decorrer. Khi reinicia-se sozinho quando ela terminar.",
+      "restartNow": "Reiniciar agora",
+      "ok": "OK"
+    },
+    "error": {
+      "title": "Não foi possível procurar atualizações",
+      "body": "Verifica a ligação à Internet e tenta outra vez.",
+      "cancel": "Cancelar",
+      "retry": "Tentar outra vez"
+    },
+    "settings": {
+      "tab": "Atualizações",
+      "auto": "Procurar atualizações automaticamente",
+      "autoHint": "Uma vez por dia, ao abrir o Khi.",
+      "version": "Versão {version}",
+      "lastCheckedToday": "Procurada hoje às {time}.",
+      "lastCheckedOn": "Procurada a {date}.",
+      "never": "Ainda não procurada.",
+      "checkNow": "Procurar agora"
+    }
   }
 }
