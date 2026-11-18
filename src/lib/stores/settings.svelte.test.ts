@@ -46,7 +46,8 @@ const MOCK_DEFAULTS: AppSettings = {
     showOnboarding: true,
     libraryViewMode: 'grid',
     librarySort: 'title',
-    syncOnConnect: true
+    syncOnConnect: true,
+    checkForUpdates: true
   },
   language: 'en',
   version: '0.1.0'
@@ -194,7 +195,8 @@ describe('Settings Store - Settings Management', () => {
 				showOnboarding: false,
 				libraryViewMode: 'list' as ViewMode,
 				librarySort: 'author' as SortPreference,
-				syncOnConnect: true
+				syncOnConnect: true,
+				checkForUpdates: true
 			},
 			language: 'en',
 			version: '0.1.0'
@@ -301,7 +303,8 @@ describe('Settings Store - Tauri Integration', () => {
 				showOnboarding: false,
 				libraryViewMode: 'list',
 				librarySort: 'author',
-				syncOnConnect: false
+				syncOnConnect: false,
+				checkForUpdates: true
 			},
 			language: 'en',
 			version: '0.1.0'

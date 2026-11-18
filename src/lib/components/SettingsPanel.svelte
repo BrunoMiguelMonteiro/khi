@@ -4,6 +4,7 @@
   Provides a settings interface for:
   - Export configuration (path, metadata options, date format)
   - UI preferences (theme, view mode, sort)
+  - Updates (automatic check, version, check now)
 
   Uses the settings store for state management.
 -->
@@ -22,6 +23,7 @@
 	import CustomCheckbox from './CustomCheckbox.svelte';
 	import CustomRadio from './CustomRadio.svelte';
 	import Button from './Button.svelte';
+	import { updater } from '../stores/updater.svelte';
 
 	// Props
 	interface Props {
@@ -34,7 +36,7 @@
 	// Local state for unsaved changes
 	let hasChanges = $state(false);
 	let saveError = $state<string | null>(null);
-	let activeTab = $state<'export' | 'appearance'>('export');
+	let activeTab = $state<'export' | 'appearance' | 'updates'>('export');
 
 	// Get current values from store
 	const exportConfig = $derived(settings.exportConfig);
@@ -160,6 +162,24 @@
 	function handleAutoImportToggle() {
 		settings.setSyncOnConnect(!uiPreferences.syncOnConnect);
 		hasChanges = true;
+	}
+
+	function handleCheckForUpdatesToggle() {
+		settings.setCheckForUpdates(!uiPreferences.checkForUpdates);
+		hasChanges = true;
+	}
+
+	/** «Procurada hoje às 17:10.», or the date when it was another day. */
+	function lastCheckedLabel(date: Date | null, lang: string): string {
+		if (!date) return $_('updates.settings.never');
+		const today = new Date().toDateString() === date.toDateString();
+		return today
+			? $_('updates.settings.lastCheckedToday', {
+					time: new Intl.DateTimeFormat(lang, { hour: '2-digit', minute: '2-digit' }).format(date)
+				})
+			: $_('updates.settings.lastCheckedOn', {
+					date: new Intl.DateTimeFormat(lang, { dateStyle: 'medium' }).format(date)
+				});
 	}
 
 	async function handleSave() {
@@ -295,6 +315,31 @@
 			</svg>
 			{$_('settings.appearance.tab')}
 		</button>
+		<button
+			class="flex items-center gap-3 px-4 py-2 border-b-2 font-medium text-sm transition-all duration-150 {activeTab === 'updates' ? 'border-neutral-900 text-neutral-900 dark:border-white dark:text-white' : 'border-transparent text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100'}"
+			onclick={() => (activeTab = 'updates')}
+			role="tab"
+			aria-selected={activeTab === 'updates'}
+			aria-controls="updates-panel"
+			id="updates-tab"
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				width="18"
+				height="18"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+			>
+				<circle cx="12" cy="12" r="10"></circle>
+				<path d="M12 8v8"></path>
+				<path d="m8 12 4 4 4-4"></path>
+			</svg>
+			{$_('updates.settings.tab')}
+		</button>
 	</div>
 
 	<!-- Tab Panels -->
@@ -414,7 +459,7 @@
 					</div>
 				</section>
 			</div>
-		{:else}
+		{:else if activeTab === 'appearance'}
 			<div
 				id="appearance-panel"
 				role="tabpanel"
@@ -626,6 +671,45 @@
 							>{$_('settings.device.syncOnConnect')}</span
 						>
 					</label>
+				</section>
+			</div>
+		{:else}
+			<div
+				id="updates-panel"
+				role="tabpanel"
+				aria-labelledby="updates-tab"
+				class="flex flex-col gap-8"
+			>
+				<section class="flex flex-col gap-1">
+					<label class="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
+						<input
+							type="checkbox"
+							role="switch"
+							data-testid="check-for-updates"
+							checked={uiPreferences.checkForUpdates}
+							onchange={handleCheckForUpdatesToggle}
+							aria-describedby="check-for-updates-hint"
+							class="w-4 h-4 rounded border-neutral-300 text-blue-600 focus:ring-blue-500"
+						/>
+						<span class="text-sm text-neutral-900 dark:text-neutral-100">{$_('updates.settings.auto')}</span>
+					</label>
+					<p id="check-for-updates-hint" class="m-0 pl-9 text-sm text-neutral-500 dark:text-neutral-400">
+						{$_('updates.settings.autoHint')}
+					</p>
+				</section>
+
+				<section class="flex items-center justify-between gap-4 p-2">
+					<div class="flex flex-col gap-1">
+						<span class="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+							{$_('updates.settings.version', { version: updater.currentVersion })}
+						</span>
+						<span class="text-sm text-neutral-500 dark:text-neutral-400" data-testid="last-checked">
+							{lastCheckedLabel(updater.lastChecked, language)}
+						</span>
+					</div>
+					<Button variant="secondary" disabled={updater.state === 'checking'} onclick={() => updater.checkNow()}>
+						{$_('updates.settings.checkNow')}
+					</Button>
 				</section>
 			</div>
 		{/if}

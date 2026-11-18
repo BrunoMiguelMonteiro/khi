@@ -17,6 +17,8 @@
 	import { settings } from '$lib/stores/settings.svelte';
 	import type { Book, KoboDevice } from '$lib/types';
 	import { createApplicationMenu } from '$lib/menu';
+	import UpdateDialog from '$lib/components/UpdateDialog.svelte';
+	import { updater } from '$lib/stores/updater.svelte';
 
 	// Sync with store
 	let viewMode = $derived(settings.uiPreferences.libraryViewMode);
@@ -39,6 +41,7 @@
 	let unlistenDeviceDetected: UnlistenFn | undefined;
 	let unlistenDeviceDisconnected: UnlistenFn | undefined;
 	let unlistenSettings: UnlistenFn | undefined;
+	let unlistenCheckForUpdates: UnlistenFn | undefined;
 	let unlistenSyncProgress: UnlistenFn | undefined;
 	let unlistenSyncFinished: UnlistenFn | undefined;
 
@@ -67,6 +70,13 @@
 		return () => clearTimeout(timer);
 	});
 
+	/** An installed update waits for exports and Syncs before restarting. */
+	const isBusy = () => library.isImporting || library.isExporting;
+
+	$effect(() => {
+		updater.restartWhenIdle(isBusy());
+	});
+
 	// Sync with store on mount
 	onMount(() => {
 		// Setup event listeners for device monitoring
@@ -80,6 +90,7 @@
 			unlistenDeviceDetected?.();
 			unlistenDeviceDisconnected?.();
 			unlistenSettings?.();
+			unlistenCheckForUpdates?.();
 			unlistenSyncProgress?.();
 			unlistenSyncFinished?.();
 		};
@@ -90,6 +101,11 @@
 			// Listen for settings event from native menu
 			unlistenSettings = await listen('open-settings', () => {
 				showSettings = true;
+			});
+
+			// «Procurar atualizações…» in the native menu
+			unlistenCheckForUpdates = await listen('check-for-updates', () => {
+				updater.checkNow();
 			});
 
 			// Listen for device detected events
@@ -326,3 +342,5 @@
 		<SettingsPanel onClose={handleCloseSettings} />
 	</Modal>
 {/if}
+
+<UpdateDialog {isBusy} />
