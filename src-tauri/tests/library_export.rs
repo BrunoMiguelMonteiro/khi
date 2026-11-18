@@ -2,7 +2,7 @@ mod common;
 
 use common::{hl, kobo_book, snapshot, BOOK_A};
 use khi_lib::library::{safe_dir_name, Library};
-use khi_lib::models::{DateFormat, ExportConfig, KoboBook, KoboSnapshot, MetadataConfig};
+use khi_lib::models::{DateFormat, ExportConfig, KoboBook, KoboSnapshot, Language, MetadataConfig};
 use std::path::PathBuf;
 use tempfile::TempDir;
 
@@ -50,7 +50,7 @@ fn export_uses_reader_folder_by_default() {
     let base = TempDir::new().unwrap();
     let (lib, reader_id, book_id) = synced(&dir, "Bruno", &["a1"]);
 
-    let files = lib.export(reader_id, &[book_id], &config(base.path())).unwrap();
+    let files = lib.export(reader_id, &[book_id], &config(base.path()), Language::Pt).unwrap();
 
     assert_eq!(files.len(), 1);
     assert_eq!(files[0].parent().unwrap(), base.path().join("Bruno"));
@@ -66,7 +66,7 @@ fn export_uses_custom_reader_folder() {
     lib.set_reader_export_path(reader_id, Some(&custom.path().to_string_lossy()))
         .unwrap();
 
-    let files = lib.export(reader_id, &[book_id], &config(base.path())).unwrap();
+    let files = lib.export(reader_id, &[book_id], &config(base.path()), Language::Pt).unwrap();
 
     assert_eq!(files[0].parent().unwrap(), custom.path());
 }
@@ -92,7 +92,7 @@ fn export_includes_removed_highlights() {
     let (mut lib, reader_id, book_id) = synced(&dir, "Bruno", &["a1", "a2"]);
     lib.sync("A", &confianca(&["a1"]), &no_cover, |_, _| {}).unwrap();
 
-    let files = lib.export(reader_id, &[book_id], &config(base.path())).unwrap();
+    let files = lib.export(reader_id, &[book_id], &config(base.path()), Language::Pt).unwrap();
 
     let markdown = std::fs::read_to_string(&files[0]).unwrap();
     assert!(markdown.contains("Texto a1"));
@@ -106,8 +106,78 @@ fn same_ids_same_config_same_bytes() {
     let (lib, reader_id, book_id) = synced(&dir, "Bruno", &["a1", "a2"]);
     let cfg = config(base.path());
 
-    let first = std::fs::read(&lib.export(reader_id, &[book_id], &cfg).unwrap()[0]).unwrap();
-    let second = std::fs::read(&lib.export(reader_id, &[book_id], &cfg).unwrap()[0]).unwrap();
+    let first = std::fs::read(&lib.export(reader_id, &[book_id], &cfg, Language::En).unwrap()[0]).unwrap();
+    let second = std::fs::read(&lib.export(reader_id, &[book_id], &cfg, Language::En).unwrap()[0]).unwrap();
 
     assert_eq!(first, second);
+}
+
+#[test]
+fn export_writes_the_chosen_language() {
+    let dir = TempDir::new().unwrap();
+    let base = TempDir::new().unwrap();
+    let (lib, reader_id, book_id) = synced(&dir, "Bruno", &["a1"]);
+    let cfg = config(base.path());
+
+    let en = std::fs::read_to_string(&lib.export(reader_id, &[book_id], &cfg, Language::En).unwrap()[0]).unwrap();
+    let pt = std::fs::read_to_string(&lib.export(reader_id, &[book_id], &cfg, Language::Pt).unwrap()[0]).unwrap();
+
+    assert!(en.contains("**Author**: "), "{en}");
+    assert!(pt.contains("**Autor**: "), "{pt}");
+}
+
+// --- Why an export failed, for the screen (errors in the user's language) ---
+
+use khi_lib::commands::library::{export_failure, export_library_books_with, ExportFailure};
+use khi_lib::library::LibraryError;
+use std::io::{Error, ErrorKind};
+
+#[test]
+fn a_folder_that_cannot_be_written_says_which_folder() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = TempDir::new().unwrap();
+    let base = TempDir::new().unwrap();
+    std::fs::set_permissions(base.path(), std::fs::Permissions::from_mode(0o555)).unwrap();
+    let (lib, reader_id, book_id) = synced(&dir, "Bruno", &["a1"]);
+
+    let result = export_library_books_with(&lib, reader_id, &[book_id], &config(base.path()), Language::Pt);
+
+    std::fs::set_permissions(base.path(), std::fs::Permissions::from_mode(0o755)).unwrap();
+    let folder = base.path().join("Bruno").to_string_lossy().into_owned();
+    assert_eq!(result, Err(ExportFailure::FolderNotWritable { folder }));
+}
+
+#[test]
+fn a_successful_export_returns_the_files() {
+    let dir = TempDir::new().unwrap();
+    let base = TempDir::new().unwrap();
+    let (lib, reader_id, book_id) = synced(&dir, "Bruno", &["a1"]);
+
+    let files = export_library_books_with(&lib, reader_id, &[book_id], &config(base.path()), Language::Pt).unwrap();
+
+    assert_eq!(files.len(), 1);
+    assert!(files[0].ends_with(".md"));
+}
+
+#[test]
+fn disk_errors_become_kinds_the_screen_can_say() {
+    let folder = || "/Volumes/Livros/Bruno".to_string();
+    let io = |kind| LibraryError::Io(Error::from(kind));
+
+    assert_eq!(export_failure(&io(ErrorKind::PermissionDenied), folder()), ExportFailure::FolderNotWritable { folder: folder() });
+    assert_eq!(export_failure(&io(ErrorKind::ReadOnlyFilesystem), folder()), ExportFailure::FolderNotWritable { folder: folder() });
+    assert_eq!(export_failure(&io(ErrorKind::StorageFull), folder()), ExportFailure::DiskFull);
+    assert_eq!(export_failure(&io(ErrorKind::Other), folder()), ExportFailure::Internal);
+    assert_eq!(export_failure(&LibraryError::NotFound, folder()), ExportFailure::Internal);
+}
+
+#[test]
+fn the_failure_reaches_the_screen_as_a_kind() {
+    let not_writable = ExportFailure::FolderNotWritable { folder: "/x".into() };
+    assert_eq!(
+        serde_json::to_value(not_writable).unwrap(),
+        serde_json::json!({ "kind": "folderNotWritable", "folder": "/x" })
+    );
+    assert_eq!(serde_json::to_value(ExportFailure::DiskFull).unwrap(), serde_json::json!({ "kind": "diskFull" }));
+    assert_eq!(serde_json::to_value(ExportFailure::Internal).unwrap(), serde_json::json!({ "kind": "internal" }));
 }

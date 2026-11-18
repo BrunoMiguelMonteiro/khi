@@ -8,7 +8,7 @@ pub mod sync;
 pub use sync::SyncReport;
 
 use crate::export::{ExportError, MarkdownExporter};
-use crate::models::{Book, ExportConfig, Highlight};
+use crate::models::{Book, ExportConfig, Highlight, Language};
 use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -338,14 +338,21 @@ impl Library {
         })
     }
 
-    /// Exports the Reader's books `ids` as Markdown into the Reader's folder.
-    /// Same ids and same config give the same bytes (R22).
-    pub fn export(&self, reader_id: u32, ids: &[u32], config: &ExportConfig) -> Result<Vec<PathBuf>> {
+    /// Exports the Reader's books `ids` as Markdown into the Reader's folder,
+    /// in `language`. Same ids, config and language give the same bytes (R22).
+    pub fn export(
+        &self,
+        reader_id: u32,
+        ids: &[u32],
+        config: &ExportConfig,
+        language: Language,
+    ) -> Result<Vec<PathBuf>> {
         let dir = self.export_dir(reader_id, &config.export_path)?;
         // Created here so a bad path is an error, not the exporter's panic.
         std::fs::create_dir_all(&dir)?;
         let books: Vec<Book> = self.books_by_ids(reader_id, ids)?.iter().map(Book::from).collect();
         MarkdownExporter::new(dir)
+            .with_language(language)
             .export_books(&books, config)
             .into_iter()
             .map(|r| r.map_err(LibraryError::from))

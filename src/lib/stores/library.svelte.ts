@@ -11,6 +11,7 @@ class LibraryStore {
 	readers = $state<Reader[]>([]);
 	/** A Sync is running. */
 	isImporting = $state(false);
+	isExporting = $state(false);
 	/** Books processed so far in the running Sync (R16). */
 	syncProgress = $state<{ done: number; total: number } | null>(null);
 	connectedDevice = $state<KoboDevice | undefined>(undefined);
@@ -230,7 +231,12 @@ class LibraryStore {
 	async exportIds(bookIds: number[]): Promise<string[]> {
 		if (bookIds.length === 0) throw new Error('No books selected for export');
 		if (this.activeReaderId === null) throw new Error('No reader open');
-		return commands.exportLibraryBooks(this.activeReaderId, bookIds);
+		this.isExporting = true;
+		try {
+			return await commands.exportLibraryBooks(this.activeReaderId, bookIds);
+		} finally {
+			this.isExporting = false;
+		}
 	}
 }
 

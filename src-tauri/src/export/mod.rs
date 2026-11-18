@@ -1,4 +1,4 @@
-use crate::models::{Book, DateFormat, ExportConfig, Highlight};
+use crate::models::{Book, DateFormat, ExportConfig, Highlight, Language};
 use chrono::Datelike;
 use serde::Serialize;
 use std::fs;
@@ -32,6 +32,48 @@ pub struct ExportBookData {
 
 pub struct MarkdownExporter {
     export_dir: PathBuf,
+    language: Language,
+}
+
+/// The words the Markdown writes around the book's own text.
+struct Labels {
+    author: &'static str,
+    publisher: &'static str,
+    last_read: &'static str,
+    language: &'static str,
+    note: &'static str,
+    months: [&'static str; 12],
+}
+
+const PT: Labels = Labels {
+    author: "Autor",
+    publisher: "Editora",
+    last_read: "Data de Leitura",
+    language: "Idioma",
+    note: "Nota",
+    months: [
+        "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro",
+        "Outubro", "Novembro", "Dezembro",
+    ],
+};
+
+const EN: Labels = Labels {
+    author: "Author",
+    publisher: "Publisher",
+    last_read: "Last read",
+    language: "Language",
+    note: "Note",
+    months: [
+        "January", "February", "March", "April", "May", "June", "July", "August", "September",
+        "October", "November", "December",
+    ],
+};
+
+fn labels(language: Language) -> &'static Labels {
+    match language {
+        Language::Pt => &PT,
+        Language::En => &EN,
+    }
 }
 
 impl MarkdownExporter {
@@ -52,7 +94,14 @@ impl MarkdownExporter {
         } else {
             log::info!("[EXPORTER] ✅ Diretório já existe");
         }
-        Self { export_dir }
+        // Portuguese is what the exporter always wrote before the setting
+        Self { export_dir, language: Language::Pt }
+    }
+
+    /// Writes the Markdown's labels and month names in `language`.
+    pub fn with_language(mut self, language: Language) -> Self {
+        self.language = language;
+        self
     }
 
     /// Export a single book to markdown
@@ -168,7 +217,7 @@ impl MarkdownExporter {
         let read_date = book
             .date_last_read
             .as_ref()
-            .map(|d| format_date(d, &config.date_format));
+            .map(|d| format_date(d, &config.date_format, self.language));
 
         ExportBookData {
             title: book.title.clone(),
@@ -184,6 +233,7 @@ impl MarkdownExporter {
 
     /// Generate markdown content for a book
     fn generate_markdown(&self, book: &Book, config: &ExportConfig) -> String {
+        let words = labels(self.language);
         let mut lines: Vec<String> = Vec::new();
 
         // Title
@@ -194,23 +244,25 @@ impl MarkdownExporter {
         let mut metadata: Vec<String> = Vec::new();
 
         if config.metadata.author && !book.author.is_empty() {
-            metadata.push(format!("**Autor**: {}", book.author));
+            metadata.push(format!("**{}**: {}", words.author, book.author));
         }
         if config.metadata.isbn && book.isbn.is_some() {
             metadata.push(format!("**ISBN**: {}", book.isbn.as_ref().unwrap()));
         }
         if config.metadata.publisher && book.publisher.is_some() {
             metadata.push(format!(
-                "**Publisher**: {}",
+                "**{}**: {}",
+                words.publisher,
                 book.publisher.as_ref().unwrap()
             ));
         }
         if config.metadata.date_last_read && book.date_last_read.is_some() {
-            let formatted = format_date(book.date_last_read.as_ref().unwrap(), &config.date_format);
-            metadata.push(format!("**Data de Leitura**: {}", formatted));
+            let formatted =
+                format_date(book.date_last_read.as_ref().unwrap(), &config.date_format, self.language);
+            metadata.push(format!("**{}**: {}", words.last_read, formatted));
         }
         if config.metadata.language && book.language.is_some() {
-            metadata.push(format!("**Idioma**: {}", book.language.as_ref().unwrap()));
+            metadata.push(format!("**{}**: {}", words.language, book.language.as_ref().unwrap()));
         }
         if config.metadata.description && book.description.is_some() {
             metadata.push(String::new());
@@ -252,7 +304,7 @@ impl MarkdownExporter {
                 .filter(|l| !l.is_empty())
                 .collect();
             lines.push(String::new());
-            lines.push(format!("**Nota:** {}", body.join("  \n")));
+            lines.push(format!("**{}:** {}", labels(self.language).note, body.join("  \n")));
         }
 
         // Location info (no label, just the value)
@@ -310,28 +362,13 @@ fn sanitize_filename(filename: &str) -> String {
 }
 
 /// Format a date according to the specified format
-fn format_date(date_str: &str, format: &DateFormat) -> String {
+fn format_date(date_str: &str, format: &DateFormat, language: Language) -> String {
     // Try to parse the date
     if let Ok(date) = chrono::NaiveDate::parse_from_str(date_str, "%Y-%m-%d") {
         match format {
             DateFormat::DdMmYyyy => date.format("%d/%m/%Y").to_string(),
             DateFormat::DdMonthYyyy => {
-                // Portuguese month names
-                let months = [
-                    "Janeiro",
-                    "Fevereiro",
-                    "Março",
-                    "Abril",
-                    "Maio",
-                    "Junho",
-                    "Julho",
-                    "Agosto",
-                    "Setembro",
-                    "Outubro",
-                    "Novembro",
-                    "Dezembro",
-                ];
-                let month_name = months[(date.month() - 1) as usize];
+                let month_name = labels(language).months[(date.month() - 1) as usize];
                 format!("{:02} {} {}", date.day(), month_name, date.year())
             }
             DateFormat::Iso8601 => date.format("%Y-%m-%d").to_string(),
@@ -596,5 +633,28 @@ mod tests {
             let md = markdown_for(&book_with_annotation(Some(empty)));
             assert!(!md.contains("Nota:"), "{empty:?} must not write a note:\n{md}");
         }
+    }
+
+    fn full_markdown(language: Language) -> String {
+        let mut book = create_test_book();
+        book.highlights[0].annotation = Some("A thought\nsecond line".to_string());
+        let temp = TempDir::new().unwrap();
+        MarkdownExporter::new(temp.path().to_path_buf())
+            .with_language(language)
+            .generate_markdown(&book, &create_test_config())
+    }
+
+    #[test]
+    fn portuguese_markdown_keeps_its_bytes_but_publisher() {
+        // What v1 and v2 wrote before the language setting, with «Publisher»
+        // now in Portuguese like the other labels
+        let expected = "# Test Book\n\n**Autor**: Test Author\n**ISBN**: 978-1234567890\n**Editora**: Test Publisher\n**Data de Leitura**: 24 Janeiro 2025\n**Idioma**: en\n\nA test book description\n\n---\n\n> First highlight\n\n**Nota:** A thought  \nsecond line\n\nChapter 1 · 25%\n\n> Second highlight\n\nChapter 1 · 50%\n";
+        assert_eq!(full_markdown(Language::Pt), expected);
+    }
+
+    #[test]
+    fn english_markdown_has_english_labels_and_months() {
+        let expected = "# Test Book\n\n**Author**: Test Author\n**ISBN**: 978-1234567890\n**Publisher**: Test Publisher\n**Last read**: 24 January 2025\n**Language**: en\n\nA test book description\n\n---\n\n> First highlight\n\n**Note:** A thought  \nsecond line\n\nChapter 1 · 25%\n\n> Second highlight\n\nChapter 1 · 50%\n";
+        assert_eq!(full_markdown(Language::En), expected);
     }
 }

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
+  import { _ } from '$lib/i18n';
   import solidIcon from '$lib/assets/kobo-icon-solid.svg?raw';
   import dashedIcon from '$lib/assets/kobo-icon-dashed.svg?raw';
   import disabledIcon from '$lib/assets/kobo-icon-disabled.svg?raw';
@@ -63,7 +64,7 @@
   class:motion-reduce:animate-none={animate}
   style="width: {size}px; height: auto;"
   role="img"
-  aria-label="Kobo e-reader device"
+  aria-label={$_('app.koboDevice')}
 >
   <div class="[&>svg]:w-full [&>svg]:h-auto [&>svg]:block">
     {@html iconSvg()}

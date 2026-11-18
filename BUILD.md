@@ -164,24 +164,26 @@ tauri = { version = "2" }
    - Junta-te ao Apple Developer Program ($99/ano)
    - Gera um certificado "Developer ID Application"
 
-2. **Configurar assinatura**
+2. **Configurar assinatura (por variável de ambiente)**
    ```bash
    # Verificar identidades disponíveis
    security find-identity -v -p codesigning
-   
-   # Configurar no Tauri (tauri.conf.json)
-   {
-     "bundle": {
-       "macOS": {
-         "signingIdentity": "Developer ID Application: Your Name (TEAM_ID)"
-       }
-     }
-   }
-   ```
 
-3. **Notarização (recomendado)**
-   - A notarização permite que a aplicação passe pelo Gatekeeper sem avisos
-   - Requer conta Apple Developer e configuração adicional
+   export APPLE_SIGNING_IDENTITY="Developer ID Application: Your Name (TEAM_ID)"
+   ```
+   Não ponhas o `signingIdentity` no `tauri.conf.json`: fica `null` para que os builds locais não sejam assinados nem enviados à Apple.
+
+3. **Notarização**
+   - Cria uma chave em App Store Connect › Users and Access › Integrations › App Store Connect API e guarda o `.p8` em `~/.appstoreconnect/private_keys/` (nunca no repositório).
+   - Com estas variáveis, o `npm run tauri build` assina, notariza e agrafa o `Khi.app`:
+     ```bash
+     export APPLE_API_KEY="<Key ID>"
+     export APPLE_API_ISSUER="<Issuer ID>"
+     export APPLE_API_KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_<Key ID>.p8"
+     ```
+   - O DMG não é notarizado pelo Tauri: assina-o, envia-o com `xcrun notarytool submit … --wait` e agrafa-o com `xcrun stapler staple`.
+   - Não voltes a assinar o `Khi.app` depois do build: o `Khi.app.tar.gz.sig` do updater cobre o arquivo tal como o Tauri o fez.
+   - Verificar: `spctl -a -t exec -vv src-tauri/target/release/bundle/macos/Khi.app` deve dizer `source=Notarized Developer ID`.
    - Documentação: https://tauri.app/distribute/sign/macos/
 
 ## Solução de Problemas

@@ -13,10 +13,13 @@
 	import UnknownKoboDialog from '$lib/components/UnknownKoboDialog.svelte';
 	import ReaderPicker from '$lib/components/ReaderPicker.svelte';
 	import { _ } from '$lib/i18n';
+	import { exportErrorMessage } from '$lib/errors';
 	import { library } from '$lib/stores/library.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
 	import type { Book, KoboDevice } from '$lib/types';
 	import { createApplicationMenu } from '$lib/menu';
+	import UpdateDialog from '$lib/components/UpdateDialog.svelte';
+	import { updater } from '$lib/stores/updater.svelte';
 
 	// Sync with store
 	let viewMode = $derived(settings.uiPreferences.libraryViewMode);
@@ -39,6 +42,7 @@
 	let unlistenDeviceDetected: UnlistenFn | undefined;
 	let unlistenDeviceDisconnected: UnlistenFn | undefined;
 	let unlistenSettings: UnlistenFn | undefined;
+	let unlistenCheckForUpdates: UnlistenFn | undefined;
 	let unlistenSyncProgress: UnlistenFn | undefined;
 	let unlistenSyncFinished: UnlistenFn | undefined;
 
@@ -60,13 +64,22 @@
 		})
 	);
 
+	// The native menu speaks the interface's language: rebuilt when it changes
+	$effect(() => {
+		const format = $_;
+		const timer = setTimeout(() => createApplicationMenu(format), 500);
+		return () => clearTimeout(timer);
+	});
+
+	/** An installed update waits for exports and Syncs before restarting. */
+	const isBusy = () => library.isImporting || library.isExporting;
+
+	$effect(() => {
+		updater.restartWhenIdle(isBusy());
+	});
+
 	// Sync with store on mount
 	onMount(() => {
-		// Initialize application menu with current locale
-		setTimeout(() => {
-			createApplicationMenu($_);
-		}, 500);
-
 		// Setup event listeners for device monitoring
 		setupDeviceListeners();
 
@@ -78,6 +91,7 @@
 			unlistenDeviceDetected?.();
 			unlistenDeviceDisconnected?.();
 			unlistenSettings?.();
+			unlistenCheckForUpdates?.();
 			unlistenSyncProgress?.();
 			unlistenSyncFinished?.();
 		};
@@ -88,6 +102,11 @@
 			// Listen for settings event from native menu
 			unlistenSettings = await listen('open-settings', () => {
 				showSettings = true;
+			});
+
+			// «Procurar atualizações…» in the native menu
+			unlistenCheckForUpdates = await listen('check-for-updates', () => {
+				updater.checkNow();
 			});
 
 			// Listen for device detected events
@@ -171,11 +190,18 @@
 		unknownDevice = null;
 		try {
 			await library.associateKobo(device.serialNumber, readerId);
+		} catch (error) {
+			console.error('Failed to associate the Kobo:', error);
+			showNotification($_('notifications.associateKoboError'), 'error');
+			showLibraryOrEmpty();
+			return;
+		}
+		try {
 			await library.openReader(readerId);
 			await handleDeviceConnected(device);
 		} catch (error) {
-			console.error('Failed to associate the Kobo:', error);
-			showNotification($_('notifications.syncError'), 'error');
+			console.error('Failed to open the reader:', error);
+			showNotification($_('notifications.openReaderError'), 'error');
 			showLibraryOrEmpty();
 		}
 	}
@@ -186,7 +212,7 @@
 			await handleChooseReader(reader.id);
 		} catch (error) {
 			console.error('Failed to create the reader:', error);
-			showNotification($_('notifications.syncError'), 'error');
+			showNotification($_('notifications.createReaderError'), 'error');
 		}
 	}
 
@@ -215,8 +241,7 @@
 			showNotification($_('notifications.exportSuccess'), 'success');
 		} catch (error) {
 			console.error('Export failed:', error);
-			const errorMessage = error instanceof Error ? error.message : 'Export failed';
-			showNotification(`Export failed: ${errorMessage}`, 'error');
+			showNotification(exportErrorMessage(error), 'error');
 		}
 	}
 
@@ -250,6 +275,7 @@
 
 	function handleCloseSettings() {
 		showSettings = false;
+		settings.revertUnsavedLanguage();
 	}
 
 </script>
@@ -323,3 +349,5 @@
 		<SettingsPanel onClose={handleCloseSettings} />
 	</Modal>
 {/if}
+
+<UpdateDialog {isBusy} />

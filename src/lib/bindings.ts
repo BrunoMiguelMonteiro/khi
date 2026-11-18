@@ -55,6 +55,11 @@ export type AppSettings = AppSettings_Serialize | AppSettings_Deserialize;
 
 /**  Application settings structure */
 export type AppSettings_Deserialize = {
+	/**
+	 *  Language of the interface and of the exported Markdown. A file
+	 *  without it, from before this setting, follows the system.
+	 */
+	language?: Language,
 	/**  Version for migration support */
 	version: string,
 } & ((({
@@ -77,6 +82,11 @@ export type AppSettings_Serialize = {
 	exportConfig: ExportConfig_Serialize,
 	/**  UI preferences */
 	uiPreferences: UiPreferences_Serialize,
+	/**
+	 *  Language of the interface and of the exported Markdown. A file
+	 *  without it, from before this setting, follows the system.
+	 */
+	language: Language,
 	/**  Version for migration support */
 	version: string,
 };
@@ -119,6 +129,14 @@ export type ExportConfig_Serialize = {
 	dateFormat: DateFormat,
 };
 
+/**
+ *  Why an export failed, as a kind the screen says in the user's language.
+ *  The error itself goes to the log, never to the screen.
+ */
+export type ExportFailure = 
+/**  No permission, a read-only disk, or a disk that is no longer connected */
+{ kind: "folderNotWritable"; folder: string } | { kind: "diskFull" } | { kind: "internal" };
+
 export type KoboDevice = KoboDevice_Serialize | KoboDevice_Deserialize;
 
 export type KoboDevice_Deserialize = {
@@ -134,6 +152,9 @@ export type KoboDevice_Serialize = {
 	isValid: boolean,
 	serialNumber: string | null,
 };
+
+/**  The language of the interface and of the exported Markdown. */
+export type Language = "en" | "pt";
 
 /**
  *  A book as the Library holds it, with every highlight ever synced,
@@ -286,6 +307,8 @@ export type UiPreferences = UiPreferences_Serialize | UiPreferences_Deserialize;
 export type UiPreferences_Deserialize = {
 	/**  Theme preference */
 	theme: ThemePreference_Deserialize,
+	/**  Whether to look for a new version once a day, when Khi opens. */
+	checkForUpdates?: boolean,
 } & ((({
 	/**  Window width */
 	windowWidth: number,
@@ -369,6 +392,8 @@ export type UiPreferences_Serialize = {
 	 *  Old files stored it as `autoImportOnConnect`.
 	 */
 	syncOnConnect: boolean,
+	/**  Whether to look for a new version once a day, when Khi opens. */
+	checkForUpdates: boolean,
 };
 
 /**  View mode for library */

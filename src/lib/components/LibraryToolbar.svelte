@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Button from './Button.svelte';
+	import { _ } from '$lib/i18n';
 
 	interface Props {
 		selectedCount: number;
@@ -31,10 +32,10 @@
 	}: Props = $props();
 
 	const sortOptions = [
-		{ value: 'title', label: 'Title (A-Z)' },
-		{ value: 'author', label: 'Author (A-Z)' },
-		{ value: 'date_last_read', label: 'Recently Read' },
-		{ value: 'highlight_count', label: 'Highlight Count' }
+		{ value: 'title', labelKey: 'screens.library.sort.title' },
+		{ value: 'author', labelKey: 'screens.library.sort.author' },
+		{ value: 'date_last_read', labelKey: 'screens.library.sort.recent' },
+		{ value: 'highlight_count', labelKey: 'screens.library.sort.count' }
 	];
 </script>
 
@@ -61,7 +62,7 @@
 						<polyline points="3 21 3 16 8 16" />
 					</svg>
 				{/snippet}
-				Sync
+				{$_('screens.library.sync')}
 			</Button>
 		{/if}
 
@@ -84,7 +85,7 @@
 					<line x1="12" y1="15" x2="12" y2="3" />
 				</svg>
 			{/snippet}
-			Export All
+			{$_('screens.library.exportAll')}
 		</Button>
 
 		<Button variant="ghost" disabled={selectedCount === 0} onclick={onExportSelected}>
@@ -106,11 +107,11 @@
 					<line x1="12" y1="15" x2="12" y2="3" />
 				</svg>
 			{/snippet}
-			Export Selected {#if selectedCount > 0}({selectedCount}){/if}
+			{$_('screens.library.exportSelected')} {#if selectedCount > 0}({selectedCount}){/if}
 		</Button>
 
 		{#if selectedCount > 0}
-			<Button variant="ghost" onclick={onClearSelection}> Clear Selection </Button>
+			<Button variant="ghost" onclick={onClearSelection}> {$_('screens.library.clearSelection')} </Button>
 		{/if}
 	</div>
 
@@ -124,17 +125,17 @@
 				style="background-image: url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E&quot;); background-repeat: no-repeat; background-position: right 8px center; background-size: 16px;"
 			>
 				{#each sortOptions as option}
-					<option value={option.value}>{option.label}</option>
+					<option value={option.value}>{$_(option.labelKey)}</option>
 				{/each}
 			</select>
 		</div>
 
 		<!-- View Mode Toggle -->
-		<div class="flex bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-md p-0.5" role="group" aria-label="View mode">
+		<div class="flex bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-md p-0.5" role="group" aria-label={$_('screens.library.viewMode')}>
 			<button
 				class="flex items-center justify-center p-1.5 transition-colors rounded-sm {viewMode === 'grid' ? 'bg-neutral-100 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'}"
 				onclick={() => onViewModeChange('grid')}
-				aria-label="Grid view"
+				aria-label={$_('screens.library.gridViewLabel')}
 			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -156,7 +157,7 @@
 			<button
 				class="flex items-center justify-center p-1.5 transition-colors rounded-sm {viewMode === 'list' ? 'bg-neutral-100 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'}"
 				onclick={() => onViewModeChange('list')}
-				aria-label="List view"
+				aria-label={$_('screens.library.listViewLabel')}
 			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -184,7 +185,7 @@
 			variant="secondary" 
 			size="sm"
 			onclick={onOpenSettings} 
-			ariaLabel="Settings"
+			ariaLabel={$_('settings.title')}
 			class="p-2"
 		>
 			{#snippet icon()}

@@ -7,8 +7,8 @@
 
 use crate::covers::{self, CoverExtractor};
 use crate::db::kobo::KoboDatabase;
-use crate::library::{KoboInfo, Library, LibraryBook, Reader, SyncReport};
-use crate::models::KoboDevice;
+use crate::library::{KoboInfo, Library, LibraryBook, LibraryError, Reader, SyncReport};
+use crate::models::{ExportConfig, KoboDevice, Language};
 use crate::settings::{data_dir, SettingsManager};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -34,6 +34,32 @@ pub struct SyncFinished {
 }
 
 pub type LibraryState = Mutex<Library>;
+
+/// Why an export failed, as a kind the screen says in the user's language.
+/// The error itself goes to the log, never to the screen.
+#[derive(Debug, Clone, PartialEq, Serialize, specta::Type)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum ExportFailure {
+    /// No permission, a read-only disk, or a disk that is no longer connected
+    FolderNotWritable { folder: String },
+    DiskFull,
+    Internal,
+}
+
+/// The kind of `error`, raised while exporting into `folder`.
+pub fn export_failure(error: &LibraryError, folder: String) -> ExportFailure {
+    use std::io::ErrorKind;
+    match error {
+        LibraryError::Io(e) => match e.kind() {
+            ErrorKind::PermissionDenied | ErrorKind::ReadOnlyFilesystem => {
+                ExportFailure::FolderNotWritable { folder }
+            }
+            ErrorKind::StorageFull | ErrorKind::QuotaExceeded => ExportFailure::DiskFull,
+            _ => ExportFailure::Internal,
+        },
+        _ => ExportFailure::Internal,
+    }
+}
 
 /// Runs `f` on the shared Library off the main thread.
 async fn with_library<T, F>(app: AppHandle, f: F) -> Result<T, String>
@@ -110,6 +136,27 @@ pub fn sync_kobo_with(
     library.sync(serial, &snapshot, &cover_source, progress).map_err(err)
 }
 
+/// Exports the Reader's books `ids`; a failure comes back as its kind.
+pub fn export_library_books_with(
+    library: &Library,
+    reader_id: u32,
+    ids: &[u32],
+    config: &ExportConfig,
+    language: Language,
+) -> Result<Vec<String>, ExportFailure> {
+    match library.export(reader_id, ids, config, language) {
+        Ok(files) => Ok(files.into_iter().map(|p| p.to_string_lossy().into_owned()).collect()),
+        Err(e) => {
+            log::error!("Export failed: {}", e);
+            let folder = library
+                .export_dir(reader_id, &config.export_path)
+                .map(|dir| dir.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            Err(export_failure(&e, folder))
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Commands
 // ---------------------------------------------------------------------------
@@ -172,13 +219,22 @@ pub async fn export_library_books(
     app: AppHandle,
     reader_id: u32,
     book_ids: Vec<u32>,
-) -> Result<Vec<String>, String> {
+) -> Result<Vec<String>, ExportFailure> {
     with_library(app, move |lib| {
-        let config = SettingsManager::new().map_err(err)?.get().export_config.clone();
-        let files = lib.export(reader_id, &book_ids, &config).map_err(err)?;
-        Ok(files.into_iter().map(|p| p.to_string_lossy().into_owned()).collect())
+        let settings = SettingsManager::new().map_err(err)?.get().clone();
+        Ok(export_library_books_with(
+            lib,
+            reader_id,
+            &book_ids,
+            &settings.export_config,
+            settings.language,
+        ))
     })
     .await
+    .unwrap_or_else(|e| {
+        log::error!("Export failed: {}", e);
+        Err(ExportFailure::Internal)
+    })
 }
 
 #[tauri::command]

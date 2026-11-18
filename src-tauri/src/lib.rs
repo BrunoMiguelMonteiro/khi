@@ -48,6 +48,9 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         commands::library::SyncProgress,
         commands::library::SyncFinished
     ])
+    // Errors are thrown, not typed in the commands: listed so the frontend
+    // knows the shape of a failed export
+    .typ::<commands::library::ExportFailure>()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -67,6 +70,8 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             // Register typed events before anything emits them

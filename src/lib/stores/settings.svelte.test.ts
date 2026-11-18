@@ -21,6 +21,8 @@ vi.mock('@tauri-apps/api/core', () => ({
 }));
 
 import { invoke } from '@tauri-apps/api/core';
+import { flushSync } from 'svelte';
+import { locale } from '$lib/i18n';
 const mockedInvoke = vi.mocked(invoke);
 
 const MOCK_DEFAULTS: AppSettings = {
@@ -44,8 +46,10 @@ const MOCK_DEFAULTS: AppSettings = {
     showOnboarding: true,
     libraryViewMode: 'grid',
     librarySort: 'title',
-    syncOnConnect: true
+    syncOnConnect: true,
+    checkForUpdates: true
   },
+  language: 'en',
   version: '0.1.0'
 };
 
@@ -191,8 +195,10 @@ describe('Settings Store - Settings Management', () => {
 				showOnboarding: false,
 				libraryViewMode: 'list' as ViewMode,
 				librarySort: 'author' as SortPreference,
-				syncOnConnect: true
+				syncOnConnect: true,
+				checkForUpdates: true
 			},
+			language: 'en',
 			version: '0.1.0'
 		};
 
@@ -234,6 +240,47 @@ describe('Settings Store - Tauri Integration', () => {
 		await settings.resetSettings();
 	});
 
+	it('loaded settings switch the interface language', async () => {
+		mockedInvoke.mockResolvedValueOnce({ ...MOCK_DEFAULTS, language: 'pt' });
+
+		await settings.load();
+		flushSync();
+
+		expect(locale.set).toHaveBeenLastCalledWith('pt');
+	});
+
+	it('choosing a language switches the interface to it', () => {
+		settings.setLanguage('pt');
+		flushSync();
+
+		expect(settings.state.language).toBe('pt');
+		expect(locale.set).toHaveBeenLastCalledWith('pt');
+	});
+
+	it('closing without saving puts back the saved language', async () => {
+		mockedInvoke.mockResolvedValueOnce({ ...MOCK_DEFAULTS, language: 'en' });
+		await settings.load();
+		settings.setLanguage('pt');
+
+		settings.revertUnsavedLanguage();
+		flushSync();
+
+		expect(settings.state.language).toBe('en');
+		expect(locale.set).toHaveBeenLastCalledWith('en');
+	});
+
+	it('a saved language stays after closing', async () => {
+		mockedInvoke.mockResolvedValueOnce({ ...MOCK_DEFAULTS, language: 'en' });
+		await settings.load();
+		settings.setLanguage('pt');
+		mockedInvoke.mockResolvedValueOnce(undefined);
+		await settings.save();
+
+		settings.revertUnsavedLanguage();
+
+		expect(settings.state.language).toBe('pt');
+	});
+
 	it('should load settings from Tauri', async () => {
 		const mockSettings: AppSettings = {
 			exportConfig: {
@@ -256,8 +303,10 @@ describe('Settings Store - Tauri Integration', () => {
 				showOnboarding: false,
 				libraryViewMode: 'list',
 				librarySort: 'author',
-				syncOnConnect: false
+				syncOnConnect: false,
+				checkForUpdates: true
 			},
+			language: 'en',
 			version: '0.1.0'
 		};
 

@@ -16,6 +16,14 @@ export async function createApplicationMenu(t: MessageFormatter) {
             }
         });
 
+        const checkForUpdatesItem = await MenuItem.new({
+            id: 'check-for-updates',
+            text: t('updates.menu.checkForUpdates'),
+            action: () => {
+                emit('check-for-updates');
+            }
+        });
+
         let icon: Image | undefined;
         try {
             const iconPath = await resolveResource('icons/icon_512x512.png');
@@ -38,6 +46,7 @@ export async function createApplicationMenu(t: MessageFormatter) {
                 }),
                 await PredefinedMenuItem.new({ item: 'Separator' }),
                 settingsItem,
+                checkForUpdatesItem,
                 await PredefinedMenuItem.new({ item: 'Separator' }),
                 await PredefinedMenuItem.new({ item: 'Services' }),
                 await PredefinedMenuItem.new({ item: 'Hide' }),
@@ -50,7 +59,7 @@ export async function createApplicationMenu(t: MessageFormatter) {
 
         // Edit Menu (Essential for input fields)
         const editMenu = await Submenu.new({
-            text: 'Edit',
+            text: t('app.menuEdit'),
             items: [
                 await PredefinedMenuItem.new({ item: 'Undo' }),
                 await PredefinedMenuItem.new({ item: 'Redo' }),

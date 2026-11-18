@@ -5,6 +5,7 @@
     import Modal from "./Modal.svelte";
     import { library } from "../stores/library.svelte";
     import { _ } from "$lib/i18n";
+    import { exportErrorMessage } from "$lib/errors";
     import { getBookGradient } from "$lib/utils/gradients";
     import { FileDown, Trash2 } from "lucide-svelte";
     import { convertFileSrc } from "@tauri-apps/api/core";
@@ -57,8 +58,7 @@
             onNotification?.($_('notifications.exportSuccess'), 'success');
         } catch (error) {
             console.error("[BookDetailsView] Export failed:", error);
-            const errorMessage = error instanceof Error ? error.message : 'Export failed';
-            onNotification?.(`Export failed: ${errorMessage}`, 'error');
+            onNotification?.(exportErrorMessage(error), 'error');
         }
     }
 </script>
@@ -161,7 +161,7 @@
                     {book.author || $_("screens.bookDetails.unknownAuthor")}
                 </p>
                 <p class="m-0 text-sm text-neutral-500 dark:text-neutral-500">
-                    {book.highlights.length} highlights
+                    {$_("book.highlightsCount", { count: book.highlights.length })}
                 </p>
             </div>
         </div>

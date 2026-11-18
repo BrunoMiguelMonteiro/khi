@@ -1,5 +1,6 @@
 <script lang="ts">
   import KoboIcon from './KoboIcon.svelte';
+  import { _ } from '$lib/i18n';
 </script>
 
 <div
@@ -11,10 +12,10 @@
 
   <div class="flex flex-col items-center gap-2 text-center">
     <h2 class="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
-      No Kobo connected
+      {$_('screens.noKobo.title')}
     </h2>
     <p class="text-base text-neutral-500 max-w-[320px]">
-      Connect your Kobo to view your highlights
+      {$_('screens.noKobo.subtitle')}
     </p>
   </div>
 </div>

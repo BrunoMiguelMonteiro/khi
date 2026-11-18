@@ -1,7 +1,7 @@
 <script lang="ts">
     import type { Highlight } from "../types";
     import { copyToClipboard } from "../utils/clipboard";
-    import { t } from "$lib/i18n";
+    import { _ } from "$lib/i18n";
     import { Copy, Check } from "lucide-svelte";
 
     interface Props {
@@ -75,10 +75,10 @@
             class="absolute top-0 right-0 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 disabled:opacity-50"
             onclick={handleCopyClick}
             aria-label={copyFeedback === "idle"
-                ? t("highlight.copy")
+                ? $_("highlight.copy")
                 : copyFeedback === "success"
-                  ? t("highlight.copied")
-                  : t("highlight.copyError")}
+                  ? $_("highlight.copied")
+                  : $_("highlight.copyError")}
             disabled={copyFeedback !== "idle"}
         >
             {#if copyFeedback === "success"}
@@ -93,7 +93,7 @@
         <p
             class="m-0 pl-4 text-sm leading-relaxed text-neutral-700 dark:text-neutral-300 whitespace-pre-line [text-wrap:pretty]"
             data-testid="highlight-note"
-        ><span class="font-medium text-neutral-500 dark:text-neutral-400">{t("highlight.note")}:</span> {note}</p>
+        ><span class="font-medium text-neutral-500 dark:text-neutral-400">{$_("highlight.note")}:</span> {note}</p>
     {/if}
 
     {#if highlight.removedAt}
@@ -101,7 +101,7 @@
             class="m-0 pl-4 text-xs font-medium text-amber-700 dark:text-amber-400"
             data-testid="removed-mark"
         >
-            {t("highlight.removedFromKobo")}
+            {$_("highlight.removedFromKobo")}
         </p>
     {/if}
 

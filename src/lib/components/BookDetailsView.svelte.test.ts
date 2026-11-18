@@ -5,6 +5,7 @@ import BookDetailsView from './BookDetailsView.svelte';
 import type { Book, Highlight } from '../types';
 import { makeBook, makeHighlight } from '../test-fixtures';
 import { library } from '../stores/library.svelte';
+import { _ } from '$lib/i18n';
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(() => Promise.resolve(null)),
@@ -97,6 +98,12 @@ describe('BookDetailsView', () => {
     expect(screen.getByText('MB')).toBeInTheDocument();
   });
 
+  it('the highlight count is translated and plural', () => {
+    render(BookDetailsView, { props: { book: mockBookMinimal } });
+    expect(screen.getByText('1 highlight')).toBeInTheDocument();
+    expect(_).toHaveBeenCalledWith('book.highlightsCount', { count: 1 });
+  });
+
   it('calls onClose when back button clicked', async () => {
     const handleClose = vi.fn();
     render(BookDetailsView, { props: { book: mockBook, onClose: handleClose } });
@@ -173,6 +180,26 @@ describe('BookDetailsView', () => {
         expect(library.books).toEqual([]);
         expect(onClose).toHaveBeenCalled();
       });
+    });
+
+    it('a failed export says why in the user’s language, not in Rust’s', async () => {
+      vi.mocked(invoke).mockRejectedValueOnce({ kind: 'diskFull' });
+      const onNotification = vi.fn();
+      render(BookDetailsView, { props: { book: mockBook, onNotification } });
+
+      await fireEvent.click(screen.getByRole('button', { name: /export to markdown/i }));
+
+      await waitFor(() => expect(onNotification).toHaveBeenCalledWith('Couldn’t export: the disk is full.', 'error'));
+    });
+
+    it('a raw error from Rust never reaches the screen', async () => {
+      vi.mocked(invoke).mockRejectedValueOnce('Library IO error: Permission denied (os error 13)');
+      const onNotification = vi.fn();
+      render(BookDetailsView, { props: { book: mockBook, onNotification } });
+
+      await fireEvent.click(screen.getByRole('button', { name: /export to markdown/i }));
+
+      await waitFor(() => expect(onNotification).toHaveBeenCalledWith('Error exporting highlights', 'error'));
     });
 
     it('toolbar and details export call the same command with the same ids', async () => {
