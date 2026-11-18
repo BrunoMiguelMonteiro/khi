@@ -1,0 +1,53 @@
+[
+  {
+    "version": "1.3.0",
+    "date": "2026-02-09",
+    "notes": {
+      "pt": {
+        "whats_new": [
+          "Capítulos mais certos: Khi usa o índice do Kobo e, quando falta, o título da página.",
+          "Exportação mais simples: os destaques seguem por ordem, com o capítulo e a percentagem ao lado."
+        ],
+        "bug_fixes": [
+          "Os avisos já não se desarrumam em janelas pequenas."
+        ]
+      },
+      "en": {
+        "whats_new": [
+          "Chapter detection uses the Kobo table of contents, falling back to page titles.",
+          "Sequential export with inline location (chapter · progress %)."
+        ],
+        "bug_fixes": [
+          "Fixed the notification layout on small windows."
+        ]
+      }
+    }
+  },
+  {
+    "version": "1.2.0",
+    "date": "2026-02-07",
+    "notes": {
+      "pt": {
+        "whats_new": [
+          "Copiar uma citação para a área de transferência.",
+          "Destaques com melhor quebra de linha e respostas mais claras ao passar o ponteiro."
+        ],
+        "bug_fixes": [
+          "O texto já não fica por cima do ícone de copiar.",
+          "Espaços e alinhamento dos destaques corrigidos."
+        ]
+      },
+      "en": {
+        "whats_new": [
+          "Copy a highlight's citation to the clipboard.",
+          "Better text wrapping in highlights.",
+          "Refined hover states."
+        ],
+        "bug_fixes": [
+          "Fixed text overlapping the copy icon.",
+          "Fixed highlight spacing and alignment."
+        ]
+      }
+    }
+  }
+]
