@@ -248,7 +248,7 @@
     },
     "installed": {
       "title": "Khi {version} está instalado.",
-      "body": "Há uma exportação a decorrer. Khi reinicia-se sozinho quando ela terminar.",
+      "body": "Khi reinicia-se sozinho quando terminar a sincronização ou a exportação em curso.",
       "restartNow": "Reiniciar agora",
       "ok": "OK"
     },
@@ -257,6 +257,10 @@
       "body": "Verifica a ligação à Internet e tenta outra vez.",
       "cancel": "Cancelar",
       "retry": "Tentar outra vez"
+    },
+    "installError": {
+      "title": "Não foi possível instalar a atualização",
+      "body": "Khi {version} não foi instalado. Verifica a ligação à Internet e tenta outra vez."
     },
     "settings": {
       "tab": "Atualizações",

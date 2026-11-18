@@ -143,6 +143,26 @@ describe('updater', () => {
 		expect(updater.state).toBe('error');
 	});
 
+	it('tells a failed download or install apart from a failed check', async () => {
+		const { updater } = await freshStore();
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		check.mockRejectedValueOnce(new Error('offline'));
+
+		await updater.checkNow();
+		expect(updater.errorKind).toBe('check');
+
+		const update = fakeUpdate();
+		update.download.mockRejectedValue(new Error('connection reset'));
+		check.mockResolvedValue(update);
+		await updater.retry();
+		await updater.install(() => false);
+
+		expect(updater.state).toBe('error');
+		expect(updater.errorKind).toBe('install');
+		expect(updater.update?.version).toBe('1.4.0');
+		expect(relaunch).not.toHaveBeenCalled();
+	});
+
 	it('downloads with progress, installs and restarts at once when nothing is running', async () => {
 		const { updater } = await freshStore();
 		const update = fakeUpdate('1.4.0', [

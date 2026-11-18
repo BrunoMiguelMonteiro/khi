@@ -202,10 +202,12 @@
 				{:else if phase === 'error'}
 					<div class="flex flex-col gap-1">
 						<h2 id="update-title" class="m-0 text-base font-semibold text-neutral-900 dark:text-neutral-100">
-							{$_('updates.error.title')}
+							{updater.errorKind === 'install' ? $_('updates.installError.title') : $_('updates.error.title')}
 						</h2>
 						<p id="update-body" class="m-0 text-sm text-neutral-700 dark:text-neutral-300">
-							{$_('updates.error.body')}
+							{updater.errorKind === 'install' && update
+								? $_('updates.installError.body', { version: update.version })
+								: $_('updates.error.body')}
 						</p>
 					</div>
 					<div class="flex justify-end gap-3">

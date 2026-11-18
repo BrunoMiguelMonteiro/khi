@@ -92,6 +92,8 @@ class UpdaterStore {
 	update = $state.raw<Update | null>(null);
 	progress = $state<{ done: number; total: number | null }>({ done: 0, total: null });
 	lastChecked = $state<Date | null>(null);
+	/** What the `error` state is about: the check, or the download and install. */
+	errorKind = $state<'check' | 'install'>('check');
 
 	/** Bumped by every new action, so a cancelled one drops its late result. */
 	private run = 0;
@@ -145,6 +147,7 @@ class UpdaterStore {
 		} catch (error) {
 			if (run !== this.run) return;
 			console.error('Failed to check for updates:', error);
+			this.errorKind = 'check';
 			this.state = manual ? 'error' : 'idle';
 		}
 	}
@@ -184,6 +187,7 @@ class UpdaterStore {
 			if (run !== this.run) return;
 			console.error('Failed to install the update:', error);
 			this.manual = true;
+			this.errorKind = 'install';
 			this.state = 'error';
 		}
 	}

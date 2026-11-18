@@ -38,6 +38,25 @@ describe('UpdateDialog', () => {
 		expect(screen.getByRole('button', { name: 'Install and Restart' })).toHaveFocus();
 	});
 
+	it('a failed install names the version instead of talking about checking', () => {
+		updater.update = update as never;
+		updater.state = 'error';
+		updater.errorKind = 'install';
+		render(UpdateDialog, { isBusy: () => false });
+
+		expect(screen.getByText('Couldn’t Install the Update')).toBeInTheDocument();
+		expect(screen.getByText('Khi 1.3.0 wasn’t installed. Check your internet connection and try again.')).toBeInTheDocument();
+		expect(screen.queryByText('Couldn’t Check for Updates')).not.toBeInTheDocument();
+	});
+
+	it('the installed message fits a sync as well as an export', () => {
+		updater.update = update as never;
+		updater.state = 'installed';
+		render(UpdateDialog, { isBusy: () => true });
+
+		expect(screen.getByText('Khi restarts on its own when the current sync or export finishes.')).toBeInTheDocument();
+	});
+
 	it('Escape closes the dialog', async () => {
 		updater.state = 'upToDate';
 		render(UpdateDialog, { isBusy: () => false });
