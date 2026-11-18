@@ -65,6 +65,6 @@
 
 	<!-- 4. Highlight Count -->
 	<span class="text-xs text-neutral-500 dark:text-neutral-500 shrink-0 whitespace-nowrap">
-		{book.highlights.length} highlights
+		{$_('book.highlightsCount', { count: book.highlights.length })}
 	</span>
 </div>

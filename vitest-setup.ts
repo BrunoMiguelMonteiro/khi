@@ -59,7 +59,12 @@ const mockT = vi.fn((key: string, params?: Record<string, string | number>) => {
   const parts = key.split('.');
   const lastPart = parts[parts.length - 1];
   let result = translations[key] || english(key) || translations[lastPart] || key;
-  
+  // Plurals as in the real t(): `_one` for 1, `_other` otherwise
+  if (params && 'count' in params) {
+    const plural = english(`${key}_${Number(params.count) === 1 ? 'one' : 'other'}`);
+    if (plural) result = plural;
+  }
+
   // Replace parameters
   if (params) {
     Object.entries(params).forEach(([k, v]) => {

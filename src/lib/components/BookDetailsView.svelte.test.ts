@@ -5,6 +5,7 @@ import BookDetailsView from './BookDetailsView.svelte';
 import type { Book, Highlight } from '../types';
 import { makeBook, makeHighlight } from '../test-fixtures';
 import { library } from '../stores/library.svelte';
+import { _ } from '$lib/i18n';
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(() => Promise.resolve(null)),
@@ -95,6 +96,12 @@ describe('BookDetailsView', () => {
   it('renders placeholder when coverPath is missing', () => {
     render(BookDetailsView, { props: { book: mockBookMinimal } });
     expect(screen.getByText('MB')).toBeInTheDocument();
+  });
+
+  it('the highlight count is translated and plural', () => {
+    render(BookDetailsView, { props: { book: mockBookMinimal } });
+    expect(screen.getByText('1 highlight')).toBeInTheDocument();
+    expect(_).toHaveBeenCalledWith('book.highlightsCount', { count: 1 });
   });
 
   it('calls onClose when back button clicked', async () => {

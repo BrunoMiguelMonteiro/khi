@@ -25,6 +25,12 @@ describe('i18n', () => {
 		expect(get(_)('notifications.syncError')).toBe('Erro ao sincronizar o Kobo');
 	});
 
+	it('the highlight count is plural in Portuguese', () => {
+		locale.set('pt');
+		expect(t('book.highlightsCount', { count: 1 })).toBe('1 destaque');
+		expect(t('book.highlightsCount', { count: 58 })).toBe('58 destaques');
+	});
+
 	it('t follows the chosen locale too', () => {
 		locale.set('pt');
 		expect(t('notifications.syncError')).toBe('Erro ao sincronizar o Kobo');

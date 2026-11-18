@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Merged by Tauri into the bundle's Info.plist. Declares the languages Khi
+     speaks, so the panels macOS draws for the app (folder picker, alerts)
+     can follow Portuguese too. Keep in sync with src/lib/i18n/config.ts. -->
+<plist version="1.0">
+<dict>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>pt</string>
+	</array>
+</dict>
+</plist>

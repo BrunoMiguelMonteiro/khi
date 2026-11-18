@@ -161,7 +161,7 @@
                     {book.author || $_("screens.bookDetails.unknownAuthor")}
                 </p>
                 <p class="m-0 text-sm text-neutral-500 dark:text-neutral-500">
-                    {book.highlights.length} highlights
+                    {$_("book.highlightsCount", { count: book.highlights.length })}
                 </p>
             </div>
         </div>

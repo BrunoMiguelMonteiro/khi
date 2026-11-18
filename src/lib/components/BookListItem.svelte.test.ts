@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/svelte';
 import BookListItem from './BookListItem.svelte';
 import type { Book } from '$lib/types';
 import { makeBook } from '$lib/test-fixtures';
+import { _ } from '$lib/i18n';
 
 describe('BookListItem', () => {
 	const mockBook: Book = makeBook({
@@ -57,7 +58,15 @@ describe('BookListItem', () => {
 			}
 		});
 
-		expect(screen.getByText('1 highlights')).toBeInTheDocument();
+		expect(screen.getByText('1 highlight')).toBeInTheDocument();
+	});
+
+	it('the count goes through the translations', () => {
+		render(BookListItem, {
+			props: { book: mockBook, gradient: mockGradient, isSelected: false, onToggleSelect: vi.fn(), onClick: vi.fn() }
+		});
+
+		expect(_).toHaveBeenCalledWith('book.highlightsCount', { count: 2 });
 	});
 
 	it('calls onToggleSelect when checkbox is clicked', async () => {
