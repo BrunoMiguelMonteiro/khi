@@ -35,7 +35,41 @@ describe('UpdateDialog', () => {
 		expect(screen.getByText('Khi 1.2.0')).toBeInTheDocument();
 		expect(screen.queryByText('Khi 1.1.0')).not.toBeInTheDocument();
 		expect(screen.getByText('Chapters from the Kobo table of contents')).toBeInTheDocument();
-		expect(screen.getByRole('button', { name: 'Install and Restart' })).toHaveFocus();
+	});
+
+	it('focuses the dialog itself, not a button (macOS: buttons only with Tab)', () => {
+		updater.update = update as never;
+		updater.state = 'available';
+		render(UpdateDialog, { isBusy: () => false });
+
+		expect(screen.getByTestId('update-dialog')).toHaveFocus();
+		expect(screen.getByRole('button', { name: 'Install and Restart' })).not.toHaveFocus();
+	});
+
+	it('Return on the dialog presses the default button', async () => {
+		const install = vi.spyOn(updater, 'install').mockResolvedValue(undefined);
+		updater.update = update as never;
+		updater.state = 'available';
+		render(UpdateDialog, { isBusy: () => false });
+
+		await fireEvent.keyDown(screen.getByTestId('update-dialog'), { key: 'Enter' });
+
+		expect(install).toHaveBeenCalledOnce();
+		install.mockRestore();
+	});
+
+	it('Return on another focused button leaves the default button alone', async () => {
+		const install = vi.spyOn(updater, 'install').mockResolvedValue(undefined);
+		updater.update = update as never;
+		updater.state = 'available';
+		render(UpdateDialog, { isBusy: () => false });
+		const later = screen.getByRole('button', { name: 'Later' });
+		later.focus();
+
+		await fireEvent.keyDown(later, { key: 'Enter' });
+
+		expect(install).not.toHaveBeenCalled();
+		install.mockRestore();
 	});
 
 	it('a failed install names the version instead of talking about checking', () => {

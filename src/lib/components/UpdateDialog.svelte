@@ -34,7 +34,33 @@
 		updater.progress.total ? Math.min(100, (updater.progress.done / updater.progress.total) * 100) : null
 	);
 
+	let dialog = $state<HTMLDivElement>();
+
+	// As in macOS, no button takes focus when the dialog opens (Q-E): the dialog
+	// itself does, so focus never stays behind it, and Return presses the default
+	// button. Runs again when a phase removes the focused button.
+	$effect(() => {
+		void phase;
+		if (dialog && !dialog.contains(document.activeElement)) dialog.focus();
+	});
+
+	/** The trailing, prominent button of each phase. */
+	function pressDefault() {
+		if (phase === 'available') updater.install(isBusy);
+		else if (phase === 'upToDate') updater.close();
+		else if (phase === 'installed') updater.dismissInstalled();
+		else if (phase === 'error') updater.retry();
+	}
+
 	function handleKeydown(event: KeyboardEvent) {
+		if (event.key === 'Enter') {
+			// A focused button answers Return itself
+			const target = event.target as Node | null;
+			if (!dialog?.contains(target) || target instanceof HTMLButtonElement) return;
+			event.preventDefault();
+			pressDefault();
+			return;
+		}
 		if (event.key !== 'Escape') return;
 		// Settings may be open underneath: Escape closes only this dialog
 		event.stopPropagation();
@@ -44,19 +70,16 @@
 			updater.dismissInstalled();
 		}
 	}
-
-	/** Moves focus to the default button inside `node`. */
-	function autofocus(node: HTMLElement) {
-		node.querySelector('button')?.focus();
-	}
 </script>
 
 <svelte:window onkeydowncapture={visible ? handleKeydown : undefined} />
 
 {#if visible}
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+		bind:this={dialog}
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 outline-none"
 		role="alertdialog"
+		tabindex="-1"
 		aria-modal="true"
 		aria-labelledby="update-title"
 		aria-describedby={phase === 'checking' ? undefined : 'update-body'}
@@ -116,9 +139,7 @@
 					<Button variant="ghost" onclick={() => updater.skip()}>{$_('updates.available.skip')}</Button>
 					<div class="flex gap-3">
 						<Button variant="secondary" onclick={() => updater.close()}>{$_('updates.available.later')}</Button>
-						<span use:autofocus class="contents">
-							<Button onclick={() => updater.install(isBusy)}>{$_('updates.available.install')}</Button>
-						</span>
+						<Button onclick={() => updater.install(isBusy)}>{$_('updates.available.install')}</Button>
 					</div>
 				</div>
 			</div>
@@ -144,9 +165,7 @@
 						</p>
 					</div>
 					<div class="flex justify-end">
-						<span use:autofocus class="contents">
-							<Button onclick={() => updater.close()}>{$_('updates.upToDate.ok')}</Button>
-						</span>
+						<Button onclick={() => updater.close()}>{$_('updates.upToDate.ok')}</Button>
 					</div>
 				{:else if (phase === 'downloading' || phase === 'installing') && update}
 					<h2 id="update-title" class="m-0 text-base font-semibold text-neutral-900 dark:text-neutral-100">
@@ -195,9 +214,7 @@
 					</div>
 					<div class="flex justify-end gap-3">
 						<Button variant="secondary" onclick={() => updater.restartNow()}>{$_('updates.installed.restartNow')}</Button>
-						<span use:autofocus class="contents">
-							<Button onclick={() => updater.dismissInstalled()}>{$_('updates.installed.ok')}</Button>
-						</span>
+						<Button onclick={() => updater.dismissInstalled()}>{$_('updates.installed.ok')}</Button>
 					</div>
 				{:else if phase === 'error'}
 					<div class="flex flex-col gap-1">
@@ -212,9 +229,7 @@
 					</div>
 					<div class="flex justify-end gap-3">
 						<Button variant="secondary" onclick={() => updater.close()}>{$_('updates.error.cancel')}</Button>
-						<span use:autofocus class="contents">
-							<Button onclick={() => updater.retry()}>{$_('updates.error.retry')}</Button>
-						</span>
+						<Button onclick={() => updater.retry()}>{$_('updates.error.retry')}</Button>
 					</div>
 				{/if}
 			</div>
