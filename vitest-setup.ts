@@ -1,5 +1,12 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
+import en from './src/lib/i18n/locales/en.json';
+
+/** The English text of a full key, e.g. 'settings.title' → 'Settings'. */
+function english(key: string): string | undefined {
+  const value = key.split('.').reduce<any>((node, part) => node?.[part], en);
+  return typeof value === 'string' ? value : undefined;
+}
 
 // Mock svelte-i18n store
 const mockT = vi.fn((key: string, params?: Record<string, string | number>) => {
@@ -41,13 +48,23 @@ const mockT = vi.fn((key: string, params?: Record<string, string | number>) => {
     'copy': 'Copy quote',
     'copied': 'Copied!',
     'copyError': 'Copy failed',
+    'exportMarkdown': 'Export to Markdown',
+    'removedFromKobo': 'Removed from Kobo',
+    'highlight.note': 'Note',
+    'showRemoved': 'Show removed',
+    'deleteBook': 'Delete book',
   };
 
-  // Try full key first, then last part of key
+  // Try full key first, then the real English text, then last part of key
   const parts = key.split('.');
   const lastPart = parts[parts.length - 1];
-  let result = translations[key] || translations[lastPart] || key;
-  
+  let result = translations[key] || english(key) || translations[lastPart] || key;
+  // Plurals as in the real t(): `_one` for 1, `_other` otherwise
+  if (params && 'count' in params) {
+    const plural = english(`${key}_${Number(params.count) === 1 ? 'one' : 'other'}`);
+    if (plural) result = plural;
+  }
+
   // Replace parameters
   if (params) {
     Object.entries(params).forEach(([k, v]) => {
@@ -63,7 +80,8 @@ const createMockStore = (value: any) => ({
   subscribe: (fn: (v: any) => void) => {
     fn(value);
     return { unsubscribe: () => {} };
-  }
+  },
+  set: vi.fn()
 });
 
 // Mock $lib/i18n module

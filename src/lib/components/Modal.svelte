@@ -3,6 +3,7 @@
   import { tick } from 'svelte';
   import { fade, scale } from 'svelte/transition';
   import Button from './Button.svelte';
+  import { _ } from '$lib/i18n';
 
   interface Props {
     isOpen: boolean;
@@ -92,7 +93,7 @@
             <Button
               variant="icon"
               onclick={onClose}
-              ariaLabel="Fechar"
+              ariaLabel={$_('app.close')}
             >
               {#snippet icon()}
                 <X size={20} />
@@ -103,7 +104,7 @@
             <Button
               variant="icon"
               onclick={onClose}
-              ariaLabel="Fechar"
+              ariaLabel={$_('app.close')}
             >
               {#snippet icon()}
                 <X size={20} />

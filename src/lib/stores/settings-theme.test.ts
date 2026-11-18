@@ -20,7 +20,7 @@ function createMockMediaQueryList(query: string): MediaQueryList {
 		addListener: vi.fn(),
 		removeListener: vi.fn(),
 		dispatchEvent: vi.fn()
-	};
+	} as unknown as MediaQueryList;
 }
 
 // Install matchMedia mock before any import

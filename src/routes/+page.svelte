@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+	import { events } from '$lib/bindings';
 	import LibraryToolbar from '$lib/components/LibraryToolbar.svelte';
 	import LibraryView from '$lib/components/LibraryView.svelte';
 	import BookDetailsView from '$lib/components/BookDetailsView.svelte';
@@ -9,11 +10,16 @@
 	import EmptyStateNoDevice from '$lib/components/EmptyStateNoDevice.svelte';
 	import ImportingState from '$lib/components/ImportingState.svelte';
 	import InlineNotification from '$lib/components/InlineNotification.svelte';
+	import UnknownKoboDialog from '$lib/components/UnknownKoboDialog.svelte';
+	import ReaderPicker from '$lib/components/ReaderPicker.svelte';
 	import { _ } from '$lib/i18n';
+	import { exportErrorMessage } from '$lib/errors';
 	import { library } from '$lib/stores/library.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
 	import type { Book, KoboDevice } from '$lib/types';
 	import { createApplicationMenu } from '$lib/menu';
+	import UpdateDialog from '$lib/components/UpdateDialog.svelte';
+	import { updater } from '$lib/stores/updater.svelte';
 
 	// Sync with store
 	let viewMode = $derived(settings.uiPreferences.libraryViewMode);
@@ -21,6 +27,8 @@
 
 	// Local state
 	let showSettings = $state(false);
+	/** A connected Kobo with no Reader yet: asked before any Sync (R7). */
+	let unknownDevice = $state<KoboDevice | null>(null);
 	let notification = $state<{ message: string; type: 'success' | 'error' } | null>(null);
 	let notificationTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -34,6 +42,9 @@
 	let unlistenDeviceDetected: UnlistenFn | undefined;
 	let unlistenDeviceDisconnected: UnlistenFn | undefined;
 	let unlistenSettings: UnlistenFn | undefined;
+	let unlistenCheckForUpdates: UnlistenFn | undefined;
+	let unlistenSyncProgress: UnlistenFn | undefined;
+	let unlistenSyncFinished: UnlistenFn | undefined;
 
 	// Sort books based on selected option
 	let sortedBooks = $derived(
@@ -53,24 +64,36 @@
 		})
 	);
 
+	// The native menu speaks the interface's language: rebuilt when it changes
+	$effect(() => {
+		const format = $_;
+		const timer = setTimeout(() => createApplicationMenu(format), 500);
+		return () => clearTimeout(timer);
+	});
+
+	/** An installed update waits for exports and Syncs before restarting. */
+	const isBusy = () => library.isImporting || library.isExporting;
+
+	$effect(() => {
+		updater.restartWhenIdle(isBusy());
+	});
+
 	// Sync with store on mount
 	onMount(() => {
-		// Initialize application menu with current locale
-		setTimeout(() => {
-			createApplicationMenu($_);
-		}, 500);
-
 		// Setup event listeners for device monitoring
 		setupDeviceListeners();
 
-		// Initial device scan
-		handleScanForDevice();
+		// Open the Library, then look for a Kobo
+		handleStartup();
 
 		// Cleanup on unmount
 		return () => {
 			unlistenDeviceDetected?.();
 			unlistenDeviceDisconnected?.();
 			unlistenSettings?.();
+			unlistenCheckForUpdates?.();
+			unlistenSyncProgress?.();
+			unlistenSyncFinished?.();
 		};
 	});
 
@@ -81,78 +104,130 @@
 				showSettings = true;
 			});
 
+			// «Procurar atualizações…» in the native menu
+			unlistenCheckForUpdates = await listen('check-for-updates', () => {
+				updater.checkNow();
+			});
+
 			// Listen for device detected events
-			unlistenDeviceDetected = await listen<{ device: KoboDevice }>(
-				'device-detected',
-				(event) => {
-					console.log('Device detected:', event.payload);
-					const device = event.payload.device;
-					library.setConnectedDevice(device);
+			unlistenDeviceDetected = await events.deviceDetected.listen((event) => {
+				console.log('Device detected:', event.payload);
+				handleDeviceConnected(event.payload.device);
+			});
 
-					// Check if auto-import should happen
-					const autoImportEnabled = settings.uiPreferences.autoImportOnConnect ?? true;
+			// «N de M livros» while a Sync runs (R16)
+			unlistenSyncProgress = await events.syncProgress.listen((event) => {
+				library.syncProgress = event.payload;
+			});
 
-					if (autoImportEnabled && library.shouldAutoImport(device)) {
-						library.setUiState('importing');
-						handleAutoImport(device);
-					} else {
-						library.setUiState('library');
-					}
+			// Reload the Library the Sync wrote to, if it is on screen
+			unlistenSyncFinished = await events.syncFinished.listen((event) => {
+				if (event.payload.readerId === library.activeReaderId) {
+					library.openReader(event.payload.readerId).catch((e) => console.error(e));
 				}
-			);
+			});
 
-			// Listen for device disconnected events
-			unlistenDeviceDisconnected = await listen<void>('device-disconnected', () => {
+			// The Library stays on screen without the Kobo (R17)
+			unlistenDeviceDisconnected = await events.deviceDisconnected.listen(() => {
 				console.log('Device disconnected');
-				library.setConnectedDevice(undefined);
-				library.setUiState('no-device');
+				library.deviceDisconnected();
 			});
 		} catch (error) {
 			console.error('Failed to setup device listeners:', error);
 		}
 	}
 
-	async function handleAutoImport(device: KoboDevice) {
-		console.log('Auto-importing from device:', device);
+	/** Shows the Library when a Reader is open, the empty state otherwise. */
+	function showLibraryOrEmpty() {
+		library.setUiState(library.activeReaderId !== null ? 'library' : 'no-device');
+	}
+
+	/** A Kobo was connected: ask whose it is if unknown (R7), else sync
+	 * when «Sincronizar ao ligar» is on (R6). */
+	async function handleDeviceConnected(device: KoboDevice) {
 		try {
-			await handleImport();
-			library.markImportComplete(device.serialNumber || 'unknown');
-			library.setUiState('library');
+			const outcome = await library.deviceConnected(device, settings.uiPreferences.syncOnConnect ?? true);
+			if (outcome === 'unknown' && device.serialNumber) unknownDevice = device;
 		} catch (error) {
-			console.error('Auto-import failed:', error);
-			library.setUiState('no-device');
+			console.error('Sync on connect failed:', error);
+			showNotification($_('notifications.syncError'), 'error');
+		}
+		showLibraryOrEmpty();
+	}
+
+	/** «Sincronizar» in the toolbar (R6). */
+	async function handleSync() {
+		try {
+			await library.sync();
+		} catch (error) {
+			console.error('Sync failed:', error);
+			showNotification($_('notifications.syncError'), 'error');
+		}
+		showLibraryOrEmpty();
+	}
+
+	/** On start: open the Library of the connected Kobo's Reader, else the
+	 * last Reader (R5), with or without a Kobo (R17). */
+	async function handleStartup() {
+		let device: KoboDevice | null = null;
+		try {
+			await library.loadReaders();
+			device = await library.scanForDevice();
+			const readerId = await library.initialReader(device?.serialNumber);
+			if (readerId !== null) await library.openReader(readerId);
+		} catch (error) {
+			console.error('Failed to open the Library:', error);
+		}
+		showLibraryOrEmpty();
+		if (device) await handleDeviceConnected(device);
+	}
+
+	/** The user said whose Kobo it is: remember it, show that Library and
+	 * only then sync (R1, R7). */
+	async function handleChooseReader(readerId: number) {
+		const device = unknownDevice;
+		if (!device?.serialNumber) return;
+		unknownDevice = null;
+		try {
+			await library.associateKobo(device.serialNumber, readerId);
+		} catch (error) {
+			console.error('Failed to associate the Kobo:', error);
+			showNotification($_('notifications.associateKoboError'), 'error');
+			showLibraryOrEmpty();
+			return;
+		}
+		try {
+			await library.openReader(readerId);
+			await handleDeviceConnected(device);
+		} catch (error) {
+			console.error('Failed to open the reader:', error);
+			showNotification($_('notifications.openReaderError'), 'error');
+			showLibraryOrEmpty();
 		}
 	}
 
-	async function handleScanForDevice() {
-		const device = await library.scanForDevice();
-		if (device) {
-			const autoImportEnabled = settings.uiPreferences.autoImportOnConnect ?? true;
-
-			if (autoImportEnabled && library.shouldAutoImport(device)) {
-				library.setUiState('importing');
-				await handleAutoImport(device);
-			} else {
-				library.setUiState('library');
-			}
+	async function handleCreateReader(name: string) {
+		try {
+			const reader = await library.createReader(name);
+			await handleChooseReader(reader.id);
+		} catch (error) {
+			console.error('Failed to create the reader:', error);
+			showNotification($_('notifications.createReaderError'), 'error');
 		}
 	}
 
-	async function handleImport() {
+	async function handleSelectReader(readerId: number) {
 		try {
-			const importedBooks = await library.importHighlights();
-			if (library.connectedDevice) {
-				library.markImportComplete(library.connectedDevice.serialNumber || 'unknown');
-			}
-			return importedBooks;
+			await library.openReader(readerId);
 		} catch (error) {
-			console.error('Import failed:', error);
-			throw error;
+			console.error('Failed to open the reader:', error);
+			showNotification($_('notifications.openReaderError'), 'error');
 		}
+		showLibraryOrEmpty();
 	}
 
 	async function handleExportAll() {
-		library.setSelectedBookIds(library.books.map((b) => b.contentId));
+		library.setSelectedBookIds(library.books.map((b) => b.id));
 		await handleExport();
 	}
 
@@ -162,17 +237,15 @@
 
 	async function handleExport() {
 		try {
-			const exportPath = settings.exportConfig.exportPath;
-			await library.exportBooks(exportPath);
+			await library.exportSelected();
 			showNotification($_('notifications.exportSuccess'), 'success');
 		} catch (error) {
 			console.error('Export failed:', error);
-			const errorMessage = error instanceof Error ? error.message : 'Export failed';
-			showNotification(`Export failed: ${errorMessage}`, 'error');
+			showNotification(exportErrorMessage(error), 'error');
 		}
 	}
 
-	function handleSelectionChange(newSelection: string[]) {
+	function handleSelectionChange(newSelection: number[]) {
 		library.setSelectedBookIds(newSelection);
 	}
 
@@ -185,7 +258,7 @@
 		const isShift = event.shiftKey;
 
 		if (!isCtrlOrCmd && !isShift) {
-			library.setViewingBookId(book.contentId);
+			library.setViewingBookId(book.id);
 			library.setUiState('book-details');
 			showSettings = false;
 		}
@@ -202,6 +275,7 @@
 
 	function handleCloseSettings() {
 		showSettings = false;
+		settings.revertUnsavedLanguage();
 	}
 
 </script>
@@ -210,15 +284,25 @@
 <div class="flex flex-col h-screen bg-white dark:bg-neutral-900 overflow-hidden">
 	<!-- Header ÚNICO e GLOBAL -->
 	<header class="flex items-center justify-between px-6 py-4 border-b border-neutral-200 dark:border-neutral-800 shrink-0 bg-white dark:bg-neutral-900 z-30">
-		<h1 class="m-0 text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100 font-['Geist']">khi</h1>
+		<div class="flex items-center gap-3">
+			<h1 class="m-0 text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100 font-['Geist']">khi</h1>
+			<span class="flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400" data-testid="kobo-indicator">
+				<span
+					class="w-2 h-2 rounded-full {library.connectedDevice ? 'bg-green-500' : 'bg-neutral-300 dark:bg-neutral-600'}"
+					aria-hidden="true"
+				></span>
+				{library.connectedDevice ? $_('screens.library.koboConnected') : $_('screens.library.koboDisconnected')}
+			</span>
+			<ReaderPicker readers={library.readers} activeReaderId={library.activeReaderId} onSelect={handleSelectReader} />
+		</div>
 		<InlineNotification message={notification?.message ?? null} type={notification?.type ?? 'success'} />
 	</header>
 
 	<main class="flex-1 relative overflow-hidden flex flex-col">
-		{#if library.uiState === 'no-device'}
+		{#if library.isImporting}
+			<ImportingState progress={library.syncProgress} />
+		{:else if library.uiState === 'no-device'}
 			<EmptyStateNoDevice />
-		{:else if library.uiState === 'importing'}
-			<ImportingState />
 		{:else if library.uiState === 'book-details' && library.viewingBook}
 			<BookDetailsView book={library.viewingBook} onClose={handleCloseBookDetails} onNotification={showNotification} />
 		{:else if library.uiState === 'library'}
@@ -227,6 +311,8 @@
 				selectedCount={library.selectedBookIds.length}
 				{viewMode}
 				{sortBy}
+				canSync={library.canSync}
+				onSync={handleSync}
 				onExportAll={handleExportAll}
 				onExportSelected={handleExportSelected}
 				onClearSelection={handleClearSelection}
@@ -242,13 +328,20 @@
 				{viewMode}
 				onSelectionChange={handleSelectionChange}
 				onBookClick={handleBookClick}
-				onBooksImport={handleImport}
-				isImporting={library.isImporting}
-				importProgress={library.importProgress}
+				onBooksImport={library.canSync ? handleSync : undefined}
 			/>
 		{/if}
 	</main>
 </div>
+
+{#if unknownDevice}
+	<UnknownKoboDialog
+		device={unknownDevice}
+		readers={library.readers}
+		onChoose={handleChooseReader}
+		onCreate={handleCreateReader}
+	/>
+{/if}
 
 <!-- Settings Modal (overlay) -->
 {#if showSettings}
@@ -256,3 +349,5 @@
 		<SettingsPanel onClose={handleCloseSettings} />
 	</Modal>
 {/if}
+
+<UpdateDialog {isBusy} />

@@ -21,6 +21,8 @@ vi.mock('@tauri-apps/api/core', () => ({
 }));
 
 import { invoke } from '@tauri-apps/api/core';
+import { flushSync } from 'svelte';
+import { locale } from '$lib/i18n';
 const mockedInvoke = vi.mocked(invoke);
 
 const MOCK_DEFAULTS: AppSettings = {
@@ -44,9 +46,10 @@ const MOCK_DEFAULTS: AppSettings = {
     showOnboarding: true,
     libraryViewMode: 'grid',
     librarySort: 'title',
-    autoImportOnConnect: true
+    syncOnConnect: true,
+    checkForUpdates: true
   },
-  lastImport: undefined,
+  language: 'en',
   version: '0.1.0'
 };
 
@@ -160,42 +163,6 @@ describe('Settings Store - UI Preferences Actions', () => {
 	});
 });
 
-describe('Settings Store - Last Import Actions', () => {
-	beforeEach(async () => {
-    mockedInvoke.mockClear();
-    mockedInvoke.mockImplementation((cmd) => {
-      if (cmd === 'get_default_settings') return Promise.resolve(MOCK_DEFAULTS);
-      return Promise.resolve({});
-    });
-		await settings.resetSettings();
-	});
-
-	it('should set last import record', () => {
-		const record = {
-			timestamp: '2025-01-29T14:00:00Z',
-			deviceId: 'Kobo123',
-			booksCount: 5,
-			highlightsCount: 42
-		};
-
-		settings.setLastImport(record);
-
-		expect(settings.state.lastImport).toEqual(record);
-	});
-
-	it('should clear last import record', () => {
-		settings.setLastImport({
-			timestamp: '2025-01-29T14:00:00Z',
-			booksCount: 1,
-			highlightsCount: 1
-		});
-
-		settings.clearLastImport();
-
-		expect(settings.state.lastImport).toBeUndefined();
-	});
-});
-
 describe('Settings Store - Settings Management', () => {
 	beforeEach(async () => {
     mockedInvoke.mockClear();
@@ -228,14 +195,10 @@ describe('Settings Store - Settings Management', () => {
 				showOnboarding: false,
 				libraryViewMode: 'list' as ViewMode,
 				librarySort: 'author' as SortPreference,
-				autoImportOnConnect: true
+				syncOnConnect: true,
+				checkForUpdates: true
 			},
-			lastImport: {
-				timestamp: '2025-01-29T14:00:00Z',
-				deviceId: 'Kobo123',
-				booksCount: 5,
-				highlightsCount: 42
-			},
+			language: 'en',
 			version: '0.1.0'
 		};
 
@@ -277,6 +240,47 @@ describe('Settings Store - Tauri Integration', () => {
 		await settings.resetSettings();
 	});
 
+	it('loaded settings switch the interface language', async () => {
+		mockedInvoke.mockResolvedValueOnce({ ...MOCK_DEFAULTS, language: 'pt' });
+
+		await settings.load();
+		flushSync();
+
+		expect(locale.set).toHaveBeenLastCalledWith('pt');
+	});
+
+	it('choosing a language switches the interface to it', () => {
+		settings.setLanguage('pt');
+		flushSync();
+
+		expect(settings.state.language).toBe('pt');
+		expect(locale.set).toHaveBeenLastCalledWith('pt');
+	});
+
+	it('closing without saving puts back the saved language', async () => {
+		mockedInvoke.mockResolvedValueOnce({ ...MOCK_DEFAULTS, language: 'en' });
+		await settings.load();
+		settings.setLanguage('pt');
+
+		settings.revertUnsavedLanguage();
+		flushSync();
+
+		expect(settings.state.language).toBe('en');
+		expect(locale.set).toHaveBeenLastCalledWith('en');
+	});
+
+	it('a saved language stays after closing', async () => {
+		mockedInvoke.mockResolvedValueOnce({ ...MOCK_DEFAULTS, language: 'en' });
+		await settings.load();
+		settings.setLanguage('pt');
+		mockedInvoke.mockResolvedValueOnce(undefined);
+		await settings.save();
+
+		settings.revertUnsavedLanguage();
+
+		expect(settings.state.language).toBe('pt');
+	});
+
 	it('should load settings from Tauri', async () => {
 		const mockSettings: AppSettings = {
 			exportConfig: {
@@ -299,9 +303,10 @@ describe('Settings Store - Tauri Integration', () => {
 				showOnboarding: false,
 				libraryViewMode: 'list',
 				librarySort: 'author',
-				autoImportOnConnect: false
+				syncOnConnect: false,
+				checkForUpdates: true
 			},
-			lastImport: undefined,
+			language: 'en',
 			version: '0.1.0'
 		};
 
@@ -336,6 +341,19 @@ describe('Settings Store - Tauri Integration', () => {
 		expect(mockedInvoke).toHaveBeenCalledWith('save_settings', {
 			settings: expect.any(Object)
 		});
+	});
+
+	it('sends syncOnConnect: false when "Sincronizar ao ligar" is off', async () => {
+		mockedInvoke.mockResolvedValueOnce(undefined);
+
+		settings.setSyncOnConnect(false);
+		await settings.save();
+
+		const payload = mockedInvoke.mock.calls.at(-1)?.[1] as { settings: AppSettings };
+		expect(mockedInvoke.mock.calls.at(-1)?.[0]).toBe('save_settings');
+		expect(payload.settings.uiPreferences.syncOnConnect).toBe(false);
+		expect(payload.settings.uiPreferences).not.toHaveProperty('autoImportOnConnect');
+		expect(payload.settings).not.toHaveProperty('lastImport');
 	});
 
 	it('should handle save settings error', async () => {

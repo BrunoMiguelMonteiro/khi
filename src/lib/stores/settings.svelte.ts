@@ -10,15 +10,16 @@
  * This store uses the Backend (Rust) as the Single Source of Truth for defaults.
  */
 
-import { invoke } from "@tauri-apps/api/core";
+import { commands } from "../bindings";
+import { locale } from "$lib/i18n";
 import type {
   AppSettings,
   ExportConfig,
+  Language,
   UiPreferences,
   ThemePreference,
   ViewMode,
   SortPreference,
-  LastImportSettingsRecord,
 } from "../types";
 
 /**
@@ -47,8 +48,10 @@ function createInitialState(): AppSettings {
       showOnboarding: true,
       libraryViewMode: "grid",
       librarySort: "title",
-      autoImportOnConnect: true,
+      syncOnConnect: true,
+      checkForUpdates: true,
     },
+    language: "en",
     version: "0.1.0",
   };
 }
@@ -110,11 +113,14 @@ export function applyTheme(
 class SettingsStore {
   state = $state<AppSettings>(createInitialState());
   isLoading = $state(false);
+  /** The language on disk, which the export uses; see revertUnsavedLanguage. */
+  private savedLanguage: Language | null = null;
   error = $state<string | null>(null);
 
   // Derived state for easier access
   exportConfig = $derived(this.state.exportConfig);
   uiPreferences = $derived(this.state.uiPreferences);
+  language = $derived(this.state.language);
 
   constructor() {
     // $effect.root() needed because this class is instantiated at module scope,
@@ -125,6 +131,11 @@ class SettingsStore {
         const theme = this.state.uiPreferences?.theme;
         if (!theme) return;
         return applyTheme(theme);
+      });
+      // The interface speaks the settings' language, however they changed
+      $effect(() => {
+        const language = this.state.language;
+        if (language) locale.set(language);
       });
     });
   }
@@ -147,7 +158,7 @@ class SettingsStore {
   async resetSettings() {
     this.isLoading = true;
     try {
-      const defaults = await invoke<AppSettings>("get_default_settings");
+      const defaults = await commands.getDefaultSettings();
       this.state = defaults;
     } catch (err) {
       console.error("Failed to fetch default settings:", err);
@@ -180,6 +191,17 @@ class SettingsStore {
   // Actions - UI Preferences
   // ============================================
 
+  /** Interface and exported Markdown language; saved with the settings. */
+  setLanguage(language: Language) {
+    this.state.language = language;
+  }
+
+  /** Settings closed without Save: the interface goes back to the saved
+   * language, the one the exported Markdown is written in. */
+  revertUnsavedLanguage() {
+    if (this.savedLanguage) this.state.language = this.savedLanguage;
+  }
+
   setTheme(theme: ThemePreference) {
     this.state.uiPreferences.theme = theme;
   }
@@ -205,24 +227,16 @@ class SettingsStore {
     this.state.uiPreferences.showOnboarding = show;
   }
 
-  setAutoImportOnConnect(enabled: boolean) {
-    this.state.uiPreferences.autoImportOnConnect = enabled;
+  setSyncOnConnect(enabled: boolean) {
+    this.state.uiPreferences.syncOnConnect = enabled;
+  }
+
+  setCheckForUpdates(enabled: boolean) {
+    this.state.uiPreferences.checkForUpdates = enabled;
   }
 
   updateUiPreferences(prefs: Partial<UiPreferences>) {
     this.state.uiPreferences = { ...this.state.uiPreferences, ...prefs };
-  }
-
-  // ============================================
-  // Actions - Last Import
-  // ============================================
-
-  setLastImport(record: LastImportSettingsRecord) {
-    this.state.lastImport = record;
-  }
-
-  clearLastImport() {
-    this.state.lastImport = undefined;
   }
 
   // ============================================
@@ -237,8 +251,9 @@ class SettingsStore {
     this.error = null;
 
     try {
-      const loadedSettings = await invoke<AppSettings>("load_settings");
+      const loadedSettings = await commands.loadSettings();
       this.state = loadedSettings;
+      this.savedLanguage = loadedSettings.language;
       // $effect will apply theme automatically when state changes
     } catch (err) {
       console.error("Failed to load settings:", err);
@@ -259,7 +274,8 @@ class SettingsStore {
     this.error = null;
 
     try {
-      await invoke("save_settings", { settings: this.state });
+      await commands.saveSettings(this.state);
+      this.savedLanguage = this.state.language;
     } catch (err) {
       console.error("Failed to save settings:", err);
       this.error =

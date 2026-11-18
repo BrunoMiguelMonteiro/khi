@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { emit } from '@tauri-apps/api/event';
   import { settings } from '$lib/stores/settings.svelte';
+  import { updater } from '$lib/stores/updater.svelte';
   import '../app.css';
 
   let { children } = $props();
@@ -21,6 +22,9 @@
     } catch (e) {
       console.error('[Layout] Failed to emit app-ready:', e);
     }
+    // Once a day, silent unless there is a new version
+    updater.loadVersion();
+    updater.checkOnLaunch(settings.uiPreferences.checkForUpdates ?? true);
   });
 </script>
 

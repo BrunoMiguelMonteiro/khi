@@ -2,19 +2,22 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
-use tauri::{AppHandle, Emitter};
+use tauri::AppHandle;
+use tauri_specta::Event;
 
 use crate::device::DeviceDetector;
 use crate::models::KoboDevice;
 
 /// Event emitted when a device is detected
-#[derive(Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, serde::Serialize, serde::Deserialize, specta::Type, Event)]
+#[tauri_specta(event_name = "device-detected")]
 pub struct DeviceDetectedEvent {
     pub device: KoboDevice,
 }
 
-/// Event emitted when a device is disconnected  
-#[derive(Clone, serde::Serialize)]
+/// Event emitted when a device is disconnected
+#[derive(Clone, serde::Serialize, serde::Deserialize, specta::Type, Event)]
+#[tauri_specta(event_name = "device-disconnected")]
 pub struct DeviceDisconnectedEvent;
 
 /// Monitors for Kobo device connections/disconnections
@@ -60,7 +63,7 @@ impl DeviceMonitor {
                                 let event = DeviceDetectedEvent {
                                     device: device.clone(),
                                 };
-                                if let Err(e) = app_handle.emit("device-detected", event) {
+                                if let Err(e) = event.emit(&app_handle) {
                                     log::error!(
                                         "[DeviceMonitor] Failed to emit device-detected event: {}",
                                         e
@@ -72,7 +75,7 @@ impl DeviceMonitor {
                             (Some(_), None) => {
                                 log::info!("[DeviceMonitor] Device disconnected");
                                 let event = DeviceDisconnectedEvent;
-                                if let Err(e) = app_handle.emit("device-disconnected", event) {
+                                if let Err(e) = event.emit(&app_handle) {
                                     log::error!("[DeviceMonitor] Failed to emit device-disconnected event: {}", e);
                                 }
                                 *last = None;
@@ -91,7 +94,7 @@ impl DeviceMonitor {
                                     let event = DeviceDetectedEvent {
                                         device: current_dev.clone(),
                                     };
-                                    if let Err(e) = app_handle.emit("device-detected", event) {
+                                    if let Err(e) = event.emit(&app_handle) {
                                         log::error!("[DeviceMonitor] Failed to emit device-detected event: {}", e);
                                     }
                                     *last = Some(current_dev.clone());
@@ -172,6 +175,12 @@ mod tests {
 
         // Should serialize to empty object or unit
         assert!(json == "{}" || json == "null" || json.is_empty());
+    }
+
+    #[test]
+    fn test_event_names_match_frontend_contract() {
+        assert_eq!(DeviceDetectedEvent::NAME, "device-detected");
+        assert_eq!(DeviceDisconnectedEvent::NAME, "device-disconnected");
     }
 
     #[test]

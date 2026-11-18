@@ -14,6 +14,7 @@ vite.config.ts.timestamp-*
 CLAUDE.md
 .claude/
 .ralphy/
+skills-lock.json
 state-machine.md
 
 # Release automation (private tooling)

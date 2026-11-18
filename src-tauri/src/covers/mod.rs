@@ -4,6 +4,45 @@ use std::io::{Read, Seek, Write};
 use std::path::{Path, PathBuf};
 use zip::ZipArchive;
 
+/// Images the Kobo keeps for a book, largest first.
+const KOBO_IMAGE_SUFFIXES: [&str; 3] = ["N3_FULL", "N3_LIBRARY_FULL", "N3_LIBRARY_GRID"];
+
+/// The hash Nickel uses to spread `.kobo-images` over subfolders
+/// (same algorithm as Calibre's Kobo driver).
+pub fn qhash(s: &str) -> u32 {
+    let mut h: u32 = 0;
+    for &x in s.as_bytes() {
+        h = (h << 4).wrapping_add(x as u32);
+        h ^= (h & 0xF000_0000) >> 23;
+        h &= 0x0FFF_FFFF;
+    }
+    h
+}
+
+/// The cover the Kobo downloaded for a book, e.g. a store book with no
+/// EPUB on the volume. `.parsed` files are JPEG.
+pub fn kobo_image_cover(mount: &Path, image_id: &str) -> Option<PathBuf> {
+    let h = qhash(image_id);
+    let tree = mount
+        .join(".kobo-images")
+        .join((h & 0xFF).to_string())
+        .join(((h & 0xFF00) >> 8).to_string());
+    let old = mount.join(".kobo/images");
+    [tree, old].iter().find_map(|dir| {
+        KOBO_IMAGE_SUFFIXES
+            .iter()
+            .map(|suffix| dir.join(format!("{image_id} - {suffix}.parsed")))
+            .find(|path| path.is_file())
+    })
+}
+
+/// The SVG `extract_cover` makes when the EPUB has no cover.
+pub fn is_placeholder(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(|n| n.ends_with("_placeholder.svg"))
+}
+
 pub struct CoverExtractor {
     cache_dir: PathBuf,
 }
@@ -464,5 +503,58 @@ mod tests {
         let _extractor = CoverExtractor::new(cache_dir.clone());
 
         assert!(cache_dir.exists());
+    }
+}
+
+#[cfg(test)]
+mod kobo_images_tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    const STORE_BOOK: &str = "cee6647c-db97-452c-9e85-3fb95bb6877d";
+
+    fn put(mount: &Path, relative: &str) -> PathBuf {
+        let path = mount.join(relative);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, b"jpeg").unwrap();
+        path
+    }
+
+    #[test]
+    fn qhash_matches_calibre() {
+        assert_eq!(qhash("abc"), 26499);
+        assert_eq!(qhash(STORE_BOOK), 168721524);
+    }
+
+    #[test]
+    fn kobo_image_found_in_images_tree() {
+        let mount = TempDir::new().unwrap();
+        let file = put(mount.path(), &format!(".kobo-images/116/124/{STORE_BOOK} - N3_FULL.parsed"));
+
+        assert_eq!(kobo_image_cover(mount.path(), STORE_BOOK), Some(file));
+    }
+
+    #[test]
+    fn kobo_image_prefers_full_size() {
+        let mount = TempDir::new().unwrap();
+        put(mount.path(), &format!(".kobo-images/116/124/{STORE_BOOK} - N3_LIBRARY_GRID.parsed"));
+        let full = put(mount.path(), &format!(".kobo-images/116/124/{STORE_BOOK} - N3_FULL.parsed"));
+
+        assert_eq!(kobo_image_cover(mount.path(), STORE_BOOK), Some(full));
+    }
+
+    #[test]
+    fn kobo_image_falls_back_to_old_images_folder() {
+        let mount = TempDir::new().unwrap();
+        let file = put(mount.path(), &format!(".kobo/images/{STORE_BOOK} - N3_LIBRARY_FULL.parsed"));
+
+        assert_eq!(kobo_image_cover(mount.path(), STORE_BOOK), Some(file));
+    }
+
+    #[test]
+    fn no_kobo_image_is_none() {
+        let mount = TempDir::new().unwrap();
+
+        assert_eq!(kobo_image_cover(mount.path(), STORE_BOOK), None);
     }
 }

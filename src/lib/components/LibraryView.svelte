@@ -8,9 +8,9 @@
 
 	interface Props {
 		books: Book[];
-		selectedBookIds: string[];
+		selectedBookIds: number[];
 		viewMode: 'grid' | 'list';
-		onSelectionChange: (selectedIds: string[]) => void;
+		onSelectionChange: (selectedIds: number[]) => void;
 		onBookClick?: (book: Book, event: MouseEvent) => void;
 		onBooksImport?: () => void;
 		isImporting?: boolean;
@@ -29,9 +29,9 @@
 	}: Props = $props();
 
 	let lastSelectedIndex = $state(-1);
-	let hoveredBookId = $state<string | null>(null);
+	let hoveredBookId = $state<number | null>(null);
 
-	function isSelected(bookId: string): boolean {
+	function isSelected(bookId: number): boolean {
 		return selectedBookIds.includes(bookId);
 	}
 
@@ -45,7 +45,7 @@
 			// Range selection
 			const start = Math.min(lastSelectedIndex, index);
 			const end = Math.max(lastSelectedIndex, index);
-			const rangeIds = books.slice(start, end + 1).map((b) => b.contentId);
+			const rangeIds = books.slice(start, end + 1).map((b) => b.id);
 
 			// Merge with existing selection if Ctrl/Cmd is held
 			if (isCtrlOrCmd) {
@@ -62,17 +62,17 @@
 			if (onBookClick) {
 				onBookClick(book, event);
 			} else {
-				onSelectionChange([book.contentId]);
+				onSelectionChange([book.id]);
 			}
 			lastSelectedIndex = index;
 		}
 	}
 
 	function toggleSelection(book: Book, index: number) {
-		if (isSelected(book.contentId)) {
-			onSelectionChange(selectedBookIds.filter((id) => id !== book.contentId));
+		if (isSelected(book.id)) {
+			onSelectionChange(selectedBookIds.filter((id) => id !== book.id));
 		} else {
-			onSelectionChange([...selectedBookIds, book.contentId]);
+			onSelectionChange([...selectedBookIds, book.id]);
 		}
 		lastSelectedIndex = index;
 	}
@@ -150,18 +150,18 @@
 			style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));"
 			data-testid="books-grid"
 			role="list"
-			aria-label="Lista de livros"
+			aria-label={$_('screens.library.booksListLabel')}
 		>
-			{#each books as book, index (book.contentId)}
+			{#each books as book, index (book.id)}
 				<div role="listitem">
 					<BookCard
 						{book}
-						gradient={getBookGradient(book.contentId)}
-						isSelected={isSelected(book.contentId)}
-						isHovered={hoveredBookId === book.contentId}
+						gradient={getBookGradient(String(book.id))}
+						isSelected={isSelected(book.id)}
+						isHovered={hoveredBookId === book.id}
 						onClick={(e) => handleBookClick(book, index, e)}
 						onToggleSelection={() => toggleSelection(book, index)}
-						onMouseEnter={() => (hoveredBookId = book.contentId)}
+						onMouseEnter={() => (hoveredBookId = book.id)}
 						onMouseLeave={() => (hoveredBookId = null)}
 					/>
 				</div>
@@ -169,13 +169,13 @@
 		</div>
 	{:else}
 		<!-- List view -->
-		<div class="flex flex-col gap-2" data-testid="books-list" role="list" aria-label="Lista de livros">
-			{#each books as book, index (book.contentId)}
+		<div class="flex flex-col gap-2" data-testid="books-list" role="list" aria-label={$_('screens.library.booksListLabel')}>
+			{#each books as book, index (book.id)}
 				<div role="listitem">
 					<BookListItem
 						{book}
-						gradient={getBookGradient(book.contentId)}
-						isSelected={isSelected(book.contentId)}
+						gradient={getBookGradient(String(book.id))}
+						isSelected={isSelected(book.id)}
 						onToggleSelect={() => toggleSelection(book, index)}
 						onClick={(e) => handleBookClick(book, index, e)}
 					/>

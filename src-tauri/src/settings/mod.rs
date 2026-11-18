@@ -5,13 +5,13 @@
 //! - UI preferences (theme, window size/position)
 //! - Last import/export records
 
-use crate::models::{DateFormat, ExportConfig, MetadataConfig};
+use crate::models::{DateFormat, ExportConfig, Language, MetadataConfig};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
 /// Application settings structure
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
     /// Export configuration
@@ -20,15 +20,16 @@ pub struct AppSettings {
     /// UI preferences
     #[serde(alias = "ui_preferences")]
     pub ui_preferences: UiPreferences,
-    /// Last import record
-    #[serde(default, alias = "last_import")]
-    pub last_import: Option<LastImportRecord>,
+    /// Language of the interface and of the exported Markdown. A file
+    /// without it, from before this setting, follows the system.
+    #[serde(default = "system_language")]
+    pub language: Language,
     /// Version for migration support
     pub version: String,
 }
 
 /// UI preferences
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct UiPreferences {
     /// Theme preference
@@ -51,10 +52,26 @@ pub struct UiPreferences {
     /// Sort preference for library
     #[serde(alias = "library_sort")]
     pub library_sort: SortPreference,
+    /// Whether to sync automatically when a known Kobo is connected (R23).
+    /// Old files stored it as `autoImportOnConnect`.
+    #[serde(
+        default = "default_true",
+        alias = "autoImportOnConnect",
+        alias = "auto_import_on_connect",
+        alias = "sync_on_connect"
+    )]
+    pub sync_on_connect: bool,
+    /// Whether to look for a new version once a day, when Khi opens.
+    #[serde(default = "default_true")]
+    pub check_for_updates: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 /// Theme preference
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default, specta::Type)]
 #[serde(rename_all = "snake_case")]
 pub enum ThemePreference {
     #[default]
@@ -66,7 +83,7 @@ pub enum ThemePreference {
 }
 
 /// View mode for library
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default, specta::Type)]
 #[serde(rename_all = "snake_case")]
 pub enum ViewMode {
     #[default]
@@ -77,7 +94,7 @@ pub enum ViewMode {
 }
 
 /// Sort preference for library
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default, specta::Type)]
 #[serde(rename_all = "snake_case")]
 pub enum SortPreference {
     #[default]
@@ -91,29 +108,12 @@ pub enum SortPreference {
     HighlightCount,
 }
 
-/// Last import record
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct LastImportRecord {
-    /// Timestamp of the import
-    pub timestamp: String,
-    /// Device ID (if available)
-    #[serde(alias = "device_id")]
-    pub device_id: Option<String>,
-    /// Number of books imported
-    #[serde(alias = "books_count")]
-    pub books_count: usize,
-    /// Number of highlights imported
-    #[serde(alias = "highlights_count")]
-    pub highlights_count: usize,
-}
-
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
             export_config: ExportConfig::default(),
             ui_preferences: UiPreferences::default(),
-            last_import: None,
+            language: system_language(),
             version: env!("CARGO_PKG_VERSION").to_string(),
         }
     }
@@ -129,6 +129,8 @@ impl Default for UiPreferences {
             show_onboarding: true,
             library_view_mode: ViewMode::Grid,
             library_sort: SortPreference::DateLastRead,
+            sync_on_connect: true,
+            check_for_updates: true,
         }
     }
 }
@@ -157,6 +159,65 @@ impl Default for MetadataConfig {
     }
 }
 
+/// The Mac's first preferred language, if it is one Khi speaks; else English.
+fn system_language() -> Language {
+    std::process::Command::new("defaults")
+        .args(["read", "-g", "AppleLanguages"])
+        .output()
+        .map(|out| language_from_apple_languages(&String::from_utf8_lossy(&out.stdout)))
+        .unwrap_or(Language::En)
+}
+
+/// Reads the first entry of `defaults read -g AppleLanguages`, e.g.
+/// `("en-US", "pt-PT")`, one entry per line.
+fn language_from_apple_languages(output: &str) -> Language {
+    let first = output
+        .lines()
+        .map(|line| line.trim().trim_matches(|c| c == '"' || c == ','))
+        .find(|entry| !entry.is_empty() && *entry != "(" && *entry != ")");
+    match first {
+        Some(tag) if tag.to_ascii_lowercase().starts_with("pt") => Language::Pt,
+        _ => Language::En,
+    }
+}
+
+/// Where `data_dir` lives under `home`. Debug builds (`tauri dev`) get
+/// their own folder, so development never touches the installed Khi's
+/// settings or Library.
+fn data_dir_in(home: &Path) -> PathBuf {
+    let folder = if cfg!(debug_assertions) {
+        "KoboHighlightsExporter Dev"
+    } else {
+        "KoboHighlightsExporter"
+    };
+    home.join("Library/Application Support").join(folder)
+}
+
+/// The Khi's data folder (`settings.json`, `library.sqlite`, `covers/`),
+/// created if missing.
+pub fn data_dir() -> Result<PathBuf, SettingsError> {
+    let home = std::env::var("HOME").map_err(|_| SettingsError::HomeNotFound)?;
+    let dir = data_dir_in(Path::new(&home));
+    if !dir.exists() {
+        fs::create_dir_all(&dir).map_err(SettingsError::IoError)?;
+    }
+    Ok(dir)
+}
+
+/// The v2 settings file in `dir`. v1 writes `settings.json` in the same
+/// folder and drops what it does not know, so v2 keeps its own file. On
+/// the first v2 run it starts from a copy of v1's; v1's is never written.
+fn settings_path_in(dir: &Path) -> PathBuf {
+    let path = dir.join("settings-v2.json");
+    let v1 = dir.join("settings.json");
+    if !path.exists() && v1.exists() {
+        if let Err(e) = fs::copy(&v1, &path) {
+            log::warn!("Could not start from the v1 settings: {}", e);
+        }
+    }
+    path
+}
+
 /// Settings manager for loading, saving, and accessing settings
 pub struct SettingsManager {
     pub settings: AppSettings,
@@ -167,8 +228,7 @@ impl SettingsManager {
     /// Create a new SettingsManager with the default config path
     pub fn new() -> Result<Self, SettingsError> {
         let config_dir = Self::get_config_dir()?;
-        let config_path = config_dir.join("settings.json");
-        Self::with_path(config_path)
+        Self::with_path(settings_path_in(&config_dir))
     }
 
     /// Create a SettingsManager with a custom config path (useful for testing)
@@ -188,16 +248,7 @@ impl SettingsManager {
 
     /// Get the configuration directory path
     fn get_config_dir() -> Result<PathBuf, SettingsError> {
-        let home = std::env::var("HOME").map_err(|_| SettingsError::HomeNotFound)?;
-        let config_dir =
-            PathBuf::from(home).join("Library/Application Support/KoboHighlightsExporter");
-
-        // Create directory if it doesn't exist
-        if !config_dir.exists() {
-            fs::create_dir_all(&config_dir).map_err(SettingsError::IoError)?;
-        }
-
-        Ok(config_dir)
+        data_dir()
     }
 
     /// Load settings from a file
@@ -357,12 +408,6 @@ impl SettingsManager {
         self.save()
     }
 
-    /// Update the last import record
-    pub fn set_last_import(&mut self, record: LastImportRecord) -> Result<(), SettingsError> {
-        self.settings.last_import = Some(record);
-        self.save()
-    }
-
     /// Reset settings to defaults
     pub fn reset_to_defaults(&mut self) -> Result<(), SettingsError> {
         self.settings = AppSettings::default();
@@ -404,6 +449,103 @@ impl std::error::Error for SettingsError {}
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn settings_with_path(path: &str) -> AppSettings {
+        let mut s = AppSettings::default();
+        s.export_config.export_path = path.to_string();
+        s
+    }
+
+    fn write(path: &Path, settings: &AppSettings) {
+        fs::write(path, serde_json::to_string_pretty(settings).unwrap()).unwrap();
+    }
+
+    #[test]
+    fn settings_without_language_keep_their_values() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("settings-v2.json");
+        let mut old = serde_json::to_value(settings_with_path("/mine")).unwrap();
+        old["uiPreferences"]["syncOnConnect"] = serde_json::json!(false);
+        old.as_object_mut().unwrap().remove("language");
+        fs::write(&path, serde_json::to_string_pretty(&old).unwrap()).unwrap();
+
+        let manager = SettingsManager::with_path(path.clone()).unwrap();
+
+        assert_eq!(manager.settings.export_config.export_path, "/mine");
+        assert!(!manager.settings.ui_preferences.sync_on_connect);
+        assert!(!path.with_extension("json.corrupted").exists());
+    }
+
+    #[test]
+    fn chosen_language_survives_save() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("settings-v2.json");
+        let mut manager = SettingsManager::with_path(path.clone()).unwrap();
+        manager.settings.language = Language::Pt;
+        manager.save().unwrap();
+
+        assert_eq!(SettingsManager::with_path(path).unwrap().settings.language, Language::Pt);
+    }
+
+    #[test]
+    fn system_language_is_the_first_preferred_language() {
+        let en_first = "(\n    \"en-US\",\n    \"pt-PT\"\n)\n";
+        let pt_first = "(\n    \"pt-PT\",\n    \"en-US\"\n)\n";
+        assert_eq!(language_from_apple_languages(en_first), Language::En);
+        assert_eq!(language_from_apple_languages(pt_first), Language::Pt);
+        assert_eq!(language_from_apple_languages("(\n    pt,\n    en\n)\n"), Language::Pt);
+        assert_eq!(language_from_apple_languages("(\n    \"pt-BR\"\n)\n"), Language::Pt);
+        assert_eq!(language_from_apple_languages("(\n    \"fr-FR\",\n    \"pt-PT\"\n)\n"), Language::En);
+        assert_eq!(language_from_apple_languages(""), Language::En);
+    }
+
+    #[test]
+    fn v2_does_not_use_v1_settings_file() {
+        let dir = TempDir::new().unwrap();
+
+        let path = settings_path_in(dir.path());
+
+        assert_eq!(path, dir.path().join("settings-v2.json"));
+        assert!(!path.exists(), "nothing to copy, nothing written");
+    }
+
+    #[test]
+    fn first_v2_run_starts_from_v1_settings() {
+        let dir = TempDir::new().unwrap();
+        let v1 = dir.path().join("settings.json");
+        write(&v1, &settings_with_path("/v1/export"));
+        let v1_before = fs::read(&v1).unwrap();
+
+        let path = settings_path_in(dir.path());
+        let mut manager = SettingsManager::with_path(path).unwrap();
+        assert_eq!(manager.settings.export_config.export_path, "/v1/export");
+        manager.settings.export_config.export_path = "/v2/export".to_string();
+        manager.save().unwrap();
+
+        assert_eq!(fs::read(&v1).unwrap(), v1_before, "v1's file is never written");
+    }
+
+    #[test]
+    fn existing_v2_settings_are_not_replaced_by_v1() {
+        let dir = TempDir::new().unwrap();
+        write(&dir.path().join("settings.json"), &settings_with_path("/v1/export"));
+        write(&dir.path().join("settings-v2.json"), &settings_with_path("/v2/export"));
+
+        let manager = SettingsManager::with_path(settings_path_in(dir.path())).unwrap();
+
+        assert_eq!(manager.settings.export_config.export_path, "/v2/export");
+    }
+
+    #[test]
+    fn debug_builds_use_their_own_data_folder() {
+        let dir = data_dir_in(Path::new("/h"));
+        let expected = if cfg!(debug_assertions) {
+            "/h/Library/Application Support/KoboHighlightsExporter Dev"
+        } else {
+            "/h/Library/Application Support/KoboHighlightsExporter"
+        };
+        assert_eq!(dir, PathBuf::from(expected));
+    }
     use tempfile::TempDir;
 
     #[test]
@@ -415,7 +557,6 @@ mod tests {
         assert!(settings.ui_preferences.show_onboarding);
         assert_eq!(settings.ui_preferences.theme, ThemePreference::System);
         assert_eq!(settings.ui_preferences.library_view_mode, ViewMode::Grid);
-        assert!(settings.last_import.is_none());
     }
 
     #[test]
@@ -492,6 +633,8 @@ mod tests {
             show_onboarding: false,
             library_view_mode: ViewMode::List,
             library_sort: SortPreference::Author,
+            sync_on_connect: false,
+            check_for_updates: false,
         };
 
         manager.set_ui_preferences(new_prefs).unwrap();
@@ -507,29 +650,6 @@ mod tests {
     }
 
     #[test]
-    fn test_set_last_import() {
-        let temp_dir = TempDir::new().unwrap();
-        let config_path = temp_dir.path().join("settings.json");
-
-        let mut manager = SettingsManager::with_path(config_path).unwrap();
-
-        let record = LastImportRecord {
-            timestamp: "2025-01-29T14:00:00Z".to_string(),
-            device_id: Some("Kobo123".to_string()),
-            books_count: 5,
-            highlights_count: 42,
-        };
-
-        manager.set_last_import(record.clone()).unwrap();
-
-        let saved_record = manager.get().last_import.as_ref().unwrap();
-        assert_eq!(saved_record.timestamp, "2025-01-29T14:00:00Z");
-        assert_eq!(saved_record.device_id, Some("Kobo123".to_string()));
-        assert_eq!(saved_record.books_count, 5);
-        assert_eq!(saved_record.highlights_count, 42);
-    }
-
-    #[test]
     fn test_reset_to_defaults() {
         let temp_dir = TempDir::new().unwrap();
         let config_path = temp_dir.path().join("settings.json");
@@ -539,12 +659,6 @@ mod tests {
         // Modify settings
         manager.settings.export_config.metadata.author = false;
         manager.settings.ui_preferences.theme = ThemePreference::Dark;
-        manager.settings.last_import = Some(LastImportRecord {
-            timestamp: "2025-01-29".to_string(),
-            device_id: None,
-            books_count: 1,
-            highlights_count: 1,
-        });
 
         // Reset
         manager.reset_to_defaults().unwrap();
@@ -552,7 +666,6 @@ mod tests {
         // Verify defaults restored
         assert!(manager.get().export_config.metadata.author);
         assert_eq!(manager.get().ui_preferences.theme, ThemePreference::System);
-        assert!(manager.get().last_import.is_none());
     }
 
     #[test]
@@ -637,6 +750,77 @@ mod tests {
         assert!(config.export_path.contains("Kobo Highlights"));
         assert!(config.metadata.author);
         assert_eq!(config.date_format, DateFormat::DdMonthYyyy);
+    }
+
+    #[test]
+    fn old_file_auto_import_false_maps_to_sync_on_connect_false() {
+        let json = r#"{
+            "theme": "system",
+            "windowWidth": 1200,
+            "windowHeight": 800,
+            "isMaximized": false,
+            "showOnboarding": true,
+            "libraryViewMode": "grid",
+            "librarySort": "date_last_read",
+            "autoImportOnConnect": false
+        }"#;
+
+        let prefs: UiPreferences = serde_json::from_str(json).unwrap();
+
+        assert!(!prefs.sync_on_connect);
+        let saved = serde_json::to_string(&prefs).unwrap();
+        assert!(saved.contains("\"syncOnConnect\":false"));
+        assert!(!saved.contains("autoImport"));
+    }
+
+    #[test]
+    fn old_file_with_last_import_still_loads() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("settings.json");
+        let mut old = serde_json::to_value(AppSettings::default()).unwrap();
+        old["lastImport"] = serde_json::json!({
+            "timestamp": "2025-01-29T14:00:00Z",
+            "deviceId": "Kobo123",
+            "booksCount": 5,
+            "highlightsCount": 42
+        });
+        old["uiPreferences"]["theme"] = serde_json::json!("dark");
+        fs::write(&config_path, serde_json::to_string(&old).unwrap()).unwrap();
+
+        let manager = SettingsManager::with_path(config_path).unwrap();
+
+        assert_eq!(manager.get().ui_preferences.theme, ThemePreference::Dark);
+    }
+
+    #[test]
+    fn test_sync_on_connect_defaults_to_true_for_old_files() {
+        let json = r#"{
+            "theme": "system",
+            "windowWidth": 1200,
+            "windowHeight": 800,
+            "isMaximized": false,
+            "showOnboarding": true,
+            "libraryViewMode": "grid",
+            "librarySort": "date_last_read"
+        }"#;
+
+        let prefs: UiPreferences = serde_json::from_str(json).unwrap();
+
+        assert!(prefs.sync_on_connect);
+        assert!(prefs.check_for_updates);
+    }
+
+    #[test]
+    fn test_sync_on_connect_disabled_survives_save() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("settings.json");
+
+        let mut manager = SettingsManager::with_path(config_path.clone()).unwrap();
+        manager.settings.ui_preferences.sync_on_connect = false;
+        manager.save().unwrap();
+
+        let reloaded = SettingsManager::with_path(config_path).unwrap();
+        assert!(!reloaded.get().ui_preferences.sync_on_connect);
     }
 
     #[test]

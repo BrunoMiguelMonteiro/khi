@@ -1,43 +1,52 @@
-import { invoke } from '@tauri-apps/api/core';
-import type { Book, KoboDevice, ImportProgress, ExportConfig, UiState } from '../types';
+import { commands } from '../bindings';
+import type { Book, KoboDevice, Reader, SyncReport, UiState } from '../types';
+
+export type ConnectOutcome = 'unknown' | 'idle' | 'synced';
 
 class LibraryStore {
 	books = $state<Book[]>([]);
-	selectedBookIds = $state<string[]>([]);
+	selectedBookIds = $state<number[]>([]);
+	/** The Reader whose Library is on screen (R5). */
+	activeReaderId = $state<number | null>(null);
+	readers = $state<Reader[]>([]);
+	/** A Sync is running. */
 	isImporting = $state(false);
-	importProgress = $state<ImportProgress | undefined>(undefined);
+	isExporting = $state(false);
+	/** Books processed so far in the running Sync (R16). */
+	syncProgress = $state<{ done: number; total: number } | null>(null);
 	connectedDevice = $state<KoboDevice | undefined>(undefined);
 	isScanning = $state(false);
 	uiState = $state<UiState>('no-device');
-	hasImportedInSession = $state(false);
-	lastDeviceSerial = $state<string | null>(null);
-	viewingBookId = $state<string | null>(null);
+	/** The Reader that owns the connected Kobo, when it is known. */
+	connectedReaderId = $state<number | null>(null);
+	viewingBookId = $state<number | null>(null);
 
 	// Derived state
-	selectedBooks = $derived(this.books.filter((book) => this.selectedBookIds.includes(book.contentId)));
-	viewingBook = $derived(this.viewingBookId ? this.books.find((b) => b.contentId === this.viewingBookId) : undefined);
+	selectedBooks = $derived(this.books.filter((book) => this.selectedBookIds.includes(book.id)));
+	/** «Sincronizar» works only with the active Reader's Kobo connected. */
+	canSync = $derived(
+		this.connectedDevice !== undefined &&
+			this.connectedReaderId !== null &&
+			this.connectedReaderId === this.activeReaderId &&
+			!this.isImporting
+	);
+	viewingBook = $derived(this.viewingBookId ? this.books.find((b) => b.id === this.viewingBookId) : undefined);
 
 	// Actions
 	setBooks(newBooks: Book[]) {
 		this.books = newBooks;
 	}
 
-	setSelectedBookIds(ids: string[]) {
+	setSelectedBookIds(ids: number[]) {
 		this.selectedBookIds = ids;
 	}
 
-	addBooks(newBooks: Book[]) {
-		const existingIds = new Set(this.books.map((b) => b.contentId));
-		const uniqueNewBooks = newBooks.filter((b) => !existingIds.has(b.contentId));
-		this.books = [...this.books, ...uniqueNewBooks];
-	}
-
 	updateBook(updatedBook: Book) {
-		this.books = this.books.map((book) => (book.contentId === updatedBook.contentId ? updatedBook : book));
+		this.books = this.books.map((book) => (book.id === updatedBook.id ? updatedBook : book));
 	}
 
-	removeBook(bookId: string) {
-		this.books = this.books.filter((book) => book.contentId !== bookId);
+	removeBook(bookId: number) {
+		this.books = this.books.filter((book) => book.id !== bookId);
 		this.selectedBookIds = this.selectedBookIds.filter((id) => id !== bookId);
 	}
 
@@ -54,27 +63,79 @@ class LibraryStore {
 		this.connectedDevice = device;
 	}
 
-	markImportComplete(deviceSerial: string) {
-		this.uiState = 'library';
-		this.hasImportedInSession = true;
-		this.lastDeviceSerial = deviceSerial;
+	/** The Library stays on screen without the Kobo (R17); only the
+	 * connection indicator changes. */
+	deviceDisconnected() {
+		this.connectedDevice = undefined;
+		this.connectedReaderId = null;
 	}
 
-	setViewingBookId(bookId: string | null) {
+	setViewingBookId(bookId: number | null) {
 		this.viewingBookId = bookId;
 	}
 
-	shouldAutoImport(device: KoboDevice): boolean {
-		if (!this.hasImportedInSession) return true;
-		if (device.serialNumber && device.serialNumber !== this.lastDeviceSerial) return true;
-		return false;
+	// Readers
+	async loadReaders(): Promise<Reader[]> {
+		this.readers = await commands.listReaders();
+		return this.readers;
+	}
+
+	/** Shows the Reader's Library, read from Rust; no Kobo needed (R17). */
+	async openReader(readerId: number): Promise<void> {
+		const books = await commands.getLibrary(readerId);
+		this.activeReaderId = readerId;
+		this.books = books;
+		this.selectedBookIds = [];
+	}
+
+	async readerForKobo(serial: string): Promise<number | null> {
+		return commands.readerForKobo(serial);
+	}
+
+	/** Remembers whose Kobo this is (R1). */
+	async associateKobo(serial: string, readerId: number): Promise<void> {
+		await commands.associateKobo(serial, readerId);
+	}
+
+	async createReader(name: string): Promise<Reader> {
+		const reader = await commands.createReader(name);
+		await this.loadReaders();
+		return reader;
+	}
+
+	/** Readers are renamed, never deleted (R3). */
+	async renameReader(readerId: number, name: string): Promise<void> {
+		await commands.renameReader(readerId, name);
+		await this.loadReaders();
+	}
+
+	/** Where this Reader's books are exported; null means the default (R21). */
+	async setReaderExportPath(readerId: number, path: string | null): Promise<void> {
+		await commands.setReaderExportPath(readerId, path);
+		await this.loadReaders();
+	}
+
+	/** Deletes a book whose highlights were all removed from the Kobo (R19). */
+	async deleteBook(bookId: number): Promise<void> {
+		if (this.activeReaderId === null) throw new Error('No reader open');
+		await commands.deleteBook(this.activeReaderId, bookId);
+		this.removeBook(bookId);
+	}
+
+	/** The connected Kobo's Reader if it is known, else the last one (R5). */
+	async initialReader(connectedSerial?: string | null): Promise<number | null> {
+		if (connectedSerial) {
+			const owner = await commands.readerForKobo(connectedSerial);
+			if (owner !== null) return owner;
+		}
+		return commands.lastReader();
 	}
 
 	// Tauri commands
 	async scanForDevice(): Promise<KoboDevice | null> {
 		this.isScanning = true;
 		try {
-			const device = await invoke<KoboDevice | null>('scan_for_device');
+			const device = await commands.scanForDevice();
 			this.setConnectedDevice(device || undefined);
 			return device;
 		} catch (error) {
@@ -86,64 +147,95 @@ class LibraryStore {
 		}
 	}
 
-	async importHighlights(): Promise<Book[]> {
-		if (!this.connectedDevice) throw new Error('No device connected');
+	/**
+	 * A Kobo was connected. A Kobo with no Reader is reported, never synced
+	 * (R7). A known one syncs when «Sincronizar ao ligar» is on (R6), every
+	 * time it is connected, not once per session.
+	 */
+	async deviceConnected(device: KoboDevice, syncOnConnect: boolean): Promise<ConnectOutcome> {
+		// Already handled since it was plugged in: at startup the scan and the
+		// monitor's first device-detected (2 s later) report the same Kobo.
+		// Keyed on connectedReaderId, which only a handled connect sets and
+		// deviceDisconnected clears; the scan sets connectedDevice alone.
+		const handled =
+			this.connectedReaderId !== null &&
+			device.serialNumber !== null &&
+			this.connectedDevice?.serialNumber === device.serialNumber;
+		if (handled) {
+			if (!this.running) return 'idle';
+			await this.running;
+			return 'synced';
+		}
 
+		this.connectedDevice = device;
+		this.connectedReaderId = device.serialNumber
+			? await commands.readerForKobo(device.serialNumber)
+			: null;
+		if (this.connectedReaderId === null && device.serialNumber) {
+			// With no Reader yet there is only one answer, so don't ask (R1)
+			if ((await this.loadReaders()).length > 0) return 'unknown';
+			const reader = await this.createReader(device.name);
+			await this.associateKobo(device.serialNumber, reader.id);
+			this.connectedReaderId = reader.id;
+		}
+		if (this.connectedReaderId === null) return 'unknown';
+
+		if (syncOnConnect) {
+			await this.sync();
+			return 'synced';
+		}
+		if (this.activeReaderId === null) await this.openReader(this.connectedReaderId);
+		return 'idle';
+	}
+
+	/** The Sync in flight, shared by every caller until it ends. */
+	private running: Promise<SyncReport> | null = null;
+
+	/** Syncs the connected Kobo into its Reader's Library and shows it (R16).
+	 * A call while a Sync runs gets that Sync: at startup the scan and the
+	 * monitor's first device-detected both arrive for the same Kobo. */
+	sync(): Promise<SyncReport> {
+		if (this.running) return this.running;
+		const device = this.connectedDevice;
+		const readerId = this.connectedReaderId;
+		if (!device || readerId === null) return Promise.reject(new Error('No known Kobo connected'));
+
+		this.running = this.runSync(device, readerId).finally(() => {
+			this.running = null;
+		});
+		return this.running;
+	}
+
+	private async runSync(device: KoboDevice, readerId: number): Promise<SyncReport> {
 		this.isImporting = true;
-		this.importProgress = {
-			currentBook: 'Starting...',
-			booksProcessed: 0,
-			totalBooks: 0,
-			highlightsFound: 0,
-			percentage: 0
-		};
-
+		this.syncProgress = { done: 0, total: 0 };
 		try {
-			const importedBooks = await invoke<Book[]>('import_highlights', {
-				device: this.connectedDevice
-			});
-			this.addBooks(importedBooks);
-			return importedBooks;
+			const report = await commands.syncKobo(device);
+			await this.openReader(readerId);
+			return report;
 		} catch (error) {
-			console.error('Failed to import highlights:', error);
+			console.error('Failed to sync the Kobo:', error);
 			throw error;
 		} finally {
 			this.isImporting = false;
-			this.importProgress = undefined;
+			this.syncProgress = null;
 		}
 	}
 
-	async exportBooks(exportPath: string): Promise<string[]> {
-		if (this.selectedBooks.length === 0) throw new Error('No books selected for export');
-
-		const config: ExportConfig = {
-			exportPath,
-			metadata: {
-				author: true,
-				isbn: true,
-				publisher: true,
-				dateLastRead: true,
-				language: true,
-				description: true
-			},
-			dateFormat: 'dd_month_yyyy'
-		};
-
-		return this.exportBooksWithConfig(config);
+	/** Exports the selected books of the active Reader with the Export
+	 * settings, which Rust reads itself (R22). */
+	async exportSelected(): Promise<string[]> {
+		return this.exportIds(this.selectedBookIds);
 	}
 
-	async exportBooksWithConfig(config: ExportConfig): Promise<string[]> {
-		if (this.selectedBooks.length === 0) throw new Error('No books selected for export');
-
+	async exportIds(bookIds: number[]): Promise<string[]> {
+		if (bookIds.length === 0) throw new Error('No books selected for export');
+		if (this.activeReaderId === null) throw new Error('No reader open');
+		this.isExporting = true;
 		try {
-			const exportedFiles = await invoke<string[]>('export_books', {
-				books: this.selectedBooks,
-				config
-			});
-			return exportedFiles;
-		} catch (error) {
-			console.error('Failed to export books:', error);
-			throw error;
+			return await commands.exportLibraryBooks(this.activeReaderId, bookIds);
+		} finally {
+			this.isExporting = false;
 		}
 	}
 }
@@ -152,7 +244,7 @@ export const library = new LibraryStore();
 
 export async function getDefaultExportPath(): Promise<string> {
 	try {
-		return await invoke<string>('get_default_export_path');
+		return await commands.getDefaultExportPath();
 	} catch (error) {
 		console.error('Failed to get default export path:', error);
 		// Fallback to Documents folder
@@ -162,7 +254,7 @@ export async function getDefaultExportPath(): Promise<string> {
 
 export async function validateExportPath(path: string): Promise<boolean> {
 	try {
-		return await invoke<boolean>('validate_export_path', { path });
+		return await commands.validateExportPath(path);
 	} catch (error) {
 		console.error('Failed to validate export path:', error);
 		return false;

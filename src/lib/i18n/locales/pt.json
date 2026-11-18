@@ -1,7 +1,11 @@
 {
   "app": {
     "name": "Khi",
-    "title": "Khi - Kobo Highlights Exporter"
+    "title": "Khi - Kobo Highlights Exporter",
+    "menuEdit": "Editar",
+    "close": "Fechar",
+    "loading": "A carregar...",
+    "koboDevice": "Leitor Kobo"
   },
   "screens": {
     "noKobo": {
@@ -9,7 +13,8 @@
       "subtitle": "Liga o teu Kobo para ver os teus destaques"
     },
     "importing": {
-      "title": "A importar destaques..."
+      "title": "A sincronizar destaques...",
+      "progress": "{done} de {total} livros"
     },
     "library": {
       "title": "Biblioteca",
@@ -25,7 +30,29 @@
       "selectedCount_other": "{count} selecionados",
       "noBooks": "Nenhum livro encontrado",
       "gridView": "Grelha",
-      "listView": "Lista"
+      "listView": "Lista",
+      "koboConnected": "Kobo ligado",
+      "koboDisconnected": "Kobo desligado",
+      "clear": "Limpar",
+      "clearTitle": "Limpar seleção",
+      "import": "Importar",
+      "importProgress": "Progresso da importação",
+      "importTitle": "Importar do Kobo",
+      "invert": "Inverter",
+      "invertTitle": "Inverter seleção",
+      "noBooksSubtitle": "Liga o teu Kobo e sincroniza os teus destaques",
+      "selectAllTitle": "Selecionar todos (Ctrl+A)",
+      "sync": "Sincronizar",
+      "viewMode": "Modo de vista",
+      "gridViewLabel": "Vista em grelha",
+      "listViewLabel": "Vista em lista",
+      "sort": {
+        "title": "Título (A-Z)",
+        "author": "Autor (A-Z)",
+        "recent": "Lidos recentemente",
+        "count": "N.º de destaques"
+      },
+      "booksListLabel": "Lista de livros"
     },
     "bookDetails": {
       "back": "Voltar",
@@ -33,7 +60,20 @@
       "highlights": "Destaques",
       "noHighlights": "Não existem destaques disponíveis para este livro",
       "page": "Página {number}",
-      "chapter": "Capítulo {number}"
+      "chapter": "Capítulo {number}",
+      "showRemoved": "Mostrar removidos",
+      "deleteBook": "Apagar livro",
+      "deleteBookTitle": "Apagar este livro?",
+      "deleteBookBody": "Todos os destaques foram removidos do Kobo. O livro e os destaques saem da Biblioteca de vez.",
+      "deleteBookConfirm": "Apagar",
+      "cancel": "Cancelar",
+      "deleteBookError": "Não foi possível apagar o livro",
+      "active": "Ativos",
+      "excluded": "Excluídos",
+      "lastRead": "Última leitura",
+      "noChapter": "Sem capítulo",
+      "unknownAuthor": "Autor desconhecido",
+      "withNotes": "Com notas"
     }
   },
   "book": {
@@ -41,13 +81,19 @@
     "highlightsCount_one": "1 destaque",
     "highlightsCount_other": "{count} destaques",
     "select": "Selecionar",
-    "deselect": "Deselecionar"
+    "deselect": "Deselecionar",
+    "noHighlights": "Este livro não tem destaques",
+    "coverAlt": "Capa de {title}"
   },
   "highlight": {
     "excluded": "excluído",
     "copy": "Copiar citação",
     "copied": "Copiado!",
-    "copyError": "Erro ao copiar"
+    "copyError": "Erro ao copiar",
+    "removedFromKobo": "Removido do Kobo",
+    "note": "Nota",
+    "excludeTitle": "Excluir da exportação",
+    "includeTitle": "Incluir na exportação"
   },
   "settings": {
     "title": "Definições",
@@ -56,7 +102,28 @@
       "defaultFormat": "Formato Padrão",
       "includeMetadata": "Incluir metadados do livro nas exportações",
       "exportPath": "Pasta de exportação",
-      "chooseFolder": "Escolher pasta"
+      "chooseFolder": "Escolher pasta",
+      "path": "Caminho",
+      "browse": "Escolher",
+      "browseLabel": "Escolher a pasta de exportação",
+      "folderHint": "Os ficheiros Markdown são guardados nesta pasta.",
+      "readerFolderHint": "Os livros de {name} são exportados para esta pasta.",
+      "metadataTitle": "Metadados a incluir",
+      "metadataHint": "Escolhe os metadados a incluir nos ficheiros exportados.",
+      "metadata": {
+        "author": "Autor",
+        "isbn": "ISBN",
+        "publisher": "Editora",
+        "dateLastRead": "Data de leitura",
+        "language": "Idioma",
+        "description": "Descrição"
+      },
+      "dateFormat": "Formato da data",
+      "dateFormats": {
+        "dd_mm_yyyy": "DD/MM/AAAA (24/01/2025)",
+        "dd_month_yyyy": "24 Janeiro 2025",
+        "iso8601": "ISO 8601 (2025-01-24)"
+      }
     },
     "appearance": {
       "tab": "Aparência",
@@ -70,12 +137,41 @@
       "sortBy": "Ordenar por",
       "sortByTitle": "Título",
       "sortByAuthor": "Autor",
-      "sortByDate": "Data"
+      "sortByDate": "Data",
+      "language": "Idioma",
+      "languageHint": "Usado também no Markdown exportado.",
+      "languages": {
+        "en": "English",
+        "pt": "Português"
+      },
+      "themeSystem": "Sistema",
+      "viewModeTitle": "Vista da Biblioteca"
     },
     "actions": {
       "save": "Guardar",
       "cancel": "Cancelar",
-      "reset": "Repor padrões"
+      "reset": "Repor padrões",
+      "saveChanges": "Guardar alterações"
+    },
+    "close": "Fechar definições",
+    "tabs": "Separadores das definições",
+    "reader": {
+      "title": "Leitor",
+      "name": "Nome"
+    },
+    "device": {
+      "title": "Ligação do Kobo",
+      "syncOnConnectHint": "Sincroniza a Biblioteca quando ligas um Kobo conhecido.",
+      "syncOnConnect": "Sincronizar ao ligar"
+    },
+    "confirm": {
+      "reset": "Repor as definições por defeito?",
+      "unsaved": "Tens alterações por guardar. Sair sem guardar?"
+    },
+    "errors": {
+      "save": "Erro ao guardar as definições",
+      "reset": "Erro ao repor as definições",
+      "renameReader": "Não foi possível mudar o nome do leitor"
     }
   },
   "export": {
@@ -90,7 +186,9 @@
       "publisher": "Editora",
       "language": "Idioma",
       "dateLastRead": "Data da última leitura",
-      "description": "Descrição"
+      "description": "Descrição",
+      "date": "Data",
+      "location": "Localização"
     },
     "dateFormat": {
       "iso": "ISO 8601 (AAAA-MM-DD)",
@@ -100,13 +198,86 @@
   },
   "notifications": {
     "exportSuccess": "Exportação concluída com sucesso",
-    "exportError": "Erro ao exportar destaques"
+    "exportError": "Erro ao exportar destaques",
+    "syncError": "Erro ao sincronizar o Kobo",
+    "openReaderError": "Erro ao abrir a Biblioteca deste leitor",
+    "createReaderError": "Não foi possível criar o leitor",
+    "associateKoboError": "Não foi possível associar este Kobo ao leitor"
   },
   "errors": {
     "noDevice": "Nenhum dispositivo Kobo encontrado",
     "deviceNotAccessible": "Não é possível aceder ao dispositivo Kobo",
     "databaseError": "Erro ao ler a base de dados do Kobo",
     "exportPathInvalid": "Caminho de exportação inválido",
-    "generic": "Ocorreu um erro"
+    "generic": "Ocorreu um erro",
+    "export": {
+      "folderNotWritable": "Não foi possível exportar para {folder}. Verifica se o disco está ligado ou escolhe outra pasta nas Definições.",
+      "diskFull": "Não foi possível exportar: o disco está cheio."
+    }
+  },
+  "readers": {
+    "label": "Leitor",
+    "unknownKoboTitle": "Kobo novo",
+    "unknownKoboSubtitle": "De quem é este Kobo? Os destaques ficam na Biblioteca desse leitor.",
+    "existing": "Leitores existentes",
+    "newReader": "Novo leitor",
+    "newReaderName": "Nome do leitor",
+    "create": "Criar leitor"
+  },
+  "updates": {
+    "menu": {
+      "checkForUpdates": "Procurar atualizações…"
+    },
+    "available": {
+      "title": "Khi {version} está disponível.",
+      "body_one": "Está instalada a versão {current}. Desde então saiu uma versão. Khi reinicia-se depois de instalar.",
+      "body_other": "Está instalada a versão {current}. Desde então saíram {count} versões. Khi reinicia-se depois de instalar.",
+      "whatsNew": "Novidades",
+      "bugFixes": "Correções",
+      "skip": "Saltar esta versão",
+      "later": "Mais tarde",
+      "install": "Instalar e reiniciar"
+    },
+    "checking": {
+      "title": "A procurar atualizações…",
+      "cancel": "Cancelar"
+    },
+    "upToDate": {
+      "title": "Khi está atualizado.",
+      "body": "A versão {version} é a mais recente.",
+      "ok": "OK"
+    },
+    "downloading": {
+      "title": "A descarregar a versão Khi {version}",
+      "progress": "{done} de {total}",
+      "installing": "A instalar…",
+      "cancel": "Cancelar"
+    },
+    "installed": {
+      "title": "Khi {version} está instalado.",
+      "body": "Khi reinicia-se sozinho quando terminar a sincronização ou a exportação em curso.",
+      "restartNow": "Reiniciar agora",
+      "ok": "OK"
+    },
+    "error": {
+      "title": "Não foi possível procurar atualizações",
+      "body": "Verifica a ligação à Internet e tenta outra vez.",
+      "cancel": "Cancelar",
+      "retry": "Tentar outra vez"
+    },
+    "installError": {
+      "title": "Não foi possível instalar a atualização",
+      "body": "Khi {version} não foi instalado. Verifica a ligação à Internet e tenta outra vez."
+    },
+    "settings": {
+      "tab": "Atualizações",
+      "auto": "Procurar atualizações automaticamente",
+      "autoHint": "Uma vez por dia, ao abrir o Khi.",
+      "version": "Versão {version}",
+      "lastCheckedToday": "Procurada hoje às {time}.",
+      "lastCheckedOn": "Procurada a {date}.",
+      "never": "Ainda não procurada.",
+      "checkNow": "Procurar agora"
+    }
   }
 }

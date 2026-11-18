@@ -2,10 +2,12 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/svelte';
 import BookListItem from './BookListItem.svelte';
 import type { Book } from '$lib/types';
+import { makeBook } from '$lib/test-fixtures';
+import { _ } from '$lib/i18n';
 
 describe('BookListItem', () => {
-	const mockBook: Book = {
-		contentId: 'test-book-1',
+	const mockBook: Book = makeBook({
+		id: 1,
 		title: 'Test Book Title',
 		author: 'Test Author',
 		highlights: [
@@ -19,9 +21,8 @@ describe('BookListItem', () => {
 				text: 'Test highlight 2',
 				dateCreated: '2024-01-02'
 			}
-		],
-		isSelected: false
-	};
+		]
+	});
 
 	const mockGradient = 'from-blue-400 to-blue-600';
 
@@ -57,7 +58,15 @@ describe('BookListItem', () => {
 			}
 		});
 
-		expect(screen.getByText('1 highlights')).toBeInTheDocument();
+		expect(screen.getByText('1 highlight')).toBeInTheDocument();
+	});
+
+	it('the count goes through the translations', () => {
+		render(BookListItem, {
+			props: { book: mockBook, gradient: mockGradient, isSelected: false, onToggleSelect: vi.fn(), onClick: vi.fn() }
+		});
+
+		expect(_).toHaveBeenCalledWith('book.highlightsCount', { count: 2 });
 	});
 
 	it('calls onToggleSelect when checkbox is clicked', async () => {
@@ -208,7 +217,7 @@ describe('BookListItem', () => {
 			}
 		});
 
-		const coverImage = screen.getByAltText(`Capa de ${bookWithCover.title}`);
+		const coverImage = screen.getByAltText(`Cover of ${bookWithCover.title}`);
 		expect(coverImage).toBeInTheDocument();
 		expect(coverImage).toHaveAttribute('src', bookWithCover.coverPath);
 	});

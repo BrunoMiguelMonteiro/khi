@@ -2,11 +2,13 @@
     import type { Book, Highlight } from "../types";
     import HighlightItem from "./HighlightItem.svelte";
     import Button from "./Button.svelte";
-    import { settings } from "../stores/settings.svelte";
+    import Modal from "./Modal.svelte";
+    import { library } from "../stores/library.svelte";
     import { _ } from "$lib/i18n";
+    import { exportErrorMessage } from "$lib/errors";
     import { getBookGradient } from "$lib/utils/gradients";
-    import { FileDown } from "lucide-svelte";
-    import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+    import { FileDown, Trash2 } from "lucide-svelte";
+    import { convertFileSrc } from "@tauri-apps/api/core";
 
     interface Props {
         book: Book;
@@ -15,6 +17,29 @@
     }
 
     let { book, onClose, onNotification }: Props = $props();
+
+    // Removed highlights stay visible unless the user hides them (R18)
+    let showRemoved = $state(true);
+    const hasRemoved = $derived(book.highlights.some((h) => h.removedAt !== null));
+    const visibleHighlights = $derived(
+        showRemoved ? book.highlights : book.highlights.filter((h) => h.removedAt === null),
+    );
+    // A book can only be deleted once nothing of it is left on the Kobo (R19)
+    const canDelete = $derived(
+        book.highlights.length > 0 && book.highlights.every((h) => h.removedAt !== null),
+    );
+    let confirmingDelete = $state(false);
+
+    async function handleDelete() {
+        confirmingDelete = false;
+        try {
+            await library.deleteBook(book.id);
+            onClose?.();
+        } catch (error) {
+            console.error("[BookDetailsView] Delete failed:", error);
+            onNotification?.($_("screens.bookDetails.deleteBookError"), "error");
+        }
+    }
 
     function getInitials(title: string): string {
         return title
@@ -25,25 +50,15 @@
     }
 
     async function handleExport() {
-        const exportConfig = settings.exportConfig;
-        const exportPath = exportConfig.exportPath;
-
         try {
-            const filePaths = await invoke<string[]>("export_books", {
-                books: [book],
-                config: {
-                    exportPath,
-                    metadata: exportConfig.metadata,
-                    dateFormat: exportConfig.dateFormat,
-                },
-            });
+            // Same command and settings as the toolbar export (R22)
+            const filePaths = await library.exportIds([book.id]);
 
             console.log("[BookDetailsView] Export successful:", filePaths);
             onNotification?.($_('notifications.exportSuccess'), 'success');
         } catch (error) {
             console.error("[BookDetailsView] Export failed:", error);
-            const errorMessage = error instanceof Error ? error.message : 'Export failed';
-            onNotification?.(`Export failed: ${errorMessage}`, 'error');
+            onNotification?.(exportErrorMessage(error), 'error');
         }
     }
 </script>
@@ -89,6 +104,14 @@
         </Button>
 
         <div class="flex items-center gap-3">
+            {#if canDelete}
+                <Button variant="ghost" onclick={() => (confirmingDelete = true)}>
+                    {#snippet icon()}
+                        <Trash2 size={16} />
+                    {/snippet}
+                    {$_("screens.bookDetails.deleteBook")}
+                </Button>
+            {/if}
             <Button variant="ghost" onclick={handleExport}>
                 {#snippet icon()}
                     <FileDown size={16} />
@@ -115,7 +138,7 @@
                 {:else}
                     <div
                         class="w-full h-full flex items-center justify-center bg-gradient-to-br {getBookGradient(
-                            book.contentId,
+                            String(book.id),
                         )}"
                     >
                         <span
@@ -138,7 +161,7 @@
                     {book.author || $_("screens.bookDetails.unknownAuthor")}
                 </p>
                 <p class="m-0 text-sm text-neutral-500 dark:text-neutral-500">
-                    {book.highlights.length} highlights
+                    {$_("book.highlightsCount", { count: book.highlights.length })}
                 </p>
             </div>
         </div>
@@ -168,11 +191,23 @@
                     </p>
                 </div>
             {:else}
+                {#if hasRemoved}
+                    <label
+                        class="flex items-center gap-2 mb-6 text-sm text-neutral-600 dark:text-neutral-400"
+                    >
+                        <input
+                            type="checkbox"
+                            data-testid="show-removed"
+                            bind:checked={showRemoved}
+                        />
+                        {$_("screens.bookDetails.showRemoved")}
+                    </label>
+                {/if}
                 <div
                     class="flex flex-col gap-8 pb-16"
                     data-testid="highlights-list"
                 >
-                    {#each book.highlights as highlight (highlight.id)}
+                    {#each visibleHighlights as highlight (highlight.id)}
                         <HighlightItem {highlight} />
                     {/each}
                 </div>
@@ -180,3 +215,23 @@
         </div>
     </div>
 </div>
+
+<Modal
+    isOpen={confirmingDelete}
+    onClose={() => (confirmingDelete = false)}
+    title={$_("screens.bookDetails.deleteBookTitle")}
+>
+    {#snippet content()}
+        <p class="m-0 text-sm text-neutral-600 dark:text-neutral-400">
+            {$_("screens.bookDetails.deleteBookBody")}
+        </p>
+    {/snippet}
+    {#snippet footer()}
+        <Button variant="secondary" onclick={() => (confirmingDelete = false)}>
+            {$_("screens.bookDetails.cancel")}
+        </Button>
+        <span data-testid="confirm-delete-book" class="contents">
+            <Button onclick={handleDelete}>{$_("screens.bookDetails.deleteBookConfirm")}</Button>
+        </span>
+    {/snippet}
+</Modal>

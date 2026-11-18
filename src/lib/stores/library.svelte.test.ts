@@ -4,7 +4,8 @@ import {
 	getDefaultExportPath,
 	validateExportPath
 } from './library.svelte';
-import type { Book, KoboDevice, ExportConfig } from '../types';
+import type { Book, KoboDevice } from '../types';
+import { makeBook, makeDevice } from '../test-fixtures';
 
 // Mock Tauri API
 vi.mock('@tauri-apps/api/core', () => ({
@@ -14,25 +15,30 @@ vi.mock('@tauri-apps/api/core', () => ({
 import { invoke } from '@tauri-apps/api/core';
 
 const mockBooks: Book[] = [
-	{
-		contentId: 'book-1',
-		title: 'Book One',
-		author: 'Author One',
-		highlights: [],
-		isSelected: false
-	},
-	{
-		contentId: 'book-2',
-		title: 'Book Two',
-		author: 'Author Two',
-		highlights: [],
-		isSelected: false
-	}
-];
+	{ id: 1, title: 'Book One', author: 'Author One' },
+	{ id: 2, title: 'Book Two', author: 'Author Two' }
+].map(makeBook);
+
+const kobo: KoboDevice = makeDevice({
+	name: 'Kobo Libra',
+	path: '/Volumes/KOBOeReader',
+	isValid: true,
+	serialNumber: 'N4181B5025147'
+});
+
+/** Routes each Tauri command to a canned answer. */
+function answer(responses: Record<string, unknown>) {
+	vi.mocked(invoke).mockImplementation((cmd: string) =>
+		cmd in responses ? Promise.resolve(responses[cmd]) : Promise.reject(new Error(`unexpected ${cmd}`))
+	);
+}
 
 describe('Library Store', () => {
 	beforeEach(() => {
 		library.clearBooks();
+		library.deviceDisconnected();
+		library.activeReaderId = null;
+		library.setUiState('library');
 		vi.clearAllMocks();
 	});
 
@@ -43,256 +49,300 @@ describe('Library Store', () => {
 		});
 
 		it('should set and get selected book IDs', () => {
-			library.setSelectedBookIds(['book-1', 'book-2']);
-			expect(library.selectedBookIds).toEqual(['book-1', 'book-2']);
+			library.setSelectedBookIds([1, 2]);
+			expect(library.selectedBookIds).toEqual([1, 2]);
 		});
 
 		it('should get selected books', () => {
 			library.setBooks(mockBooks);
-			library.setSelectedBookIds(['book-1']);
+			library.setSelectedBookIds([1]);
 			expect(library.selectedBooks).toEqual([mockBooks[0]]);
-		});
-
-		it('should add books without duplicates', () => {
-			library.setBooks([mockBooks[0]]);
-			library.addBooks([mockBooks[0], mockBooks[1]]); // book-1 is duplicate
-			expect(library.books).toEqual(mockBooks);
 		});
 
 		it('should update a book', () => {
 			library.setBooks(mockBooks);
-			const updatedBook = { ...mockBooks[0], title: 'Updated Title' };
-			library.updateBook(updatedBook);
+			library.updateBook({ ...mockBooks[0], title: 'Updated Title' });
 			expect(library.books[0].title).toBe('Updated Title');
 		});
 
 		it('should remove a book and its selection', () => {
 			library.setBooks(mockBooks);
-			library.setSelectedBookIds(['book-1', 'book-2']);
-			library.removeBook('book-1');
+			library.setSelectedBookIds([1, 2]);
+			library.removeBook(1);
 			expect(library.books).toEqual([mockBooks[1]]);
-			expect(library.selectedBookIds).toEqual(['book-2']);
+			expect(library.selectedBookIds).toEqual([2]);
 		});
 
 		it('should clear all books and selections', () => {
 			library.setBooks(mockBooks);
-			library.setSelectedBookIds(['book-1']);
+			library.setSelectedBookIds([1]);
 			library.clearBooks();
 			expect(library.books).toEqual([]);
 			expect(library.selectedBookIds).toEqual([]);
 		});
 	});
 
-	describe('Tauri command wrappers', () => {
-		describe('scanForDevice', () => {
-			it('should scan for device and update connectedDevice', async () => {
-				const mockDevice: KoboDevice = {
-					name: 'Kobo Clara',
-					path: '/Volumes/KOBOeReader',
-					isValid: true,
-					serialNumber: '12345'
-				};
-				vi.mocked(invoke).mockResolvedValueOnce(mockDevice);
+	describe('Readers', () => {
+		it('opens the reader of the connected kobo', async () => {
+			answer({ reader_for_kobo: 7, last_reader: 3 });
 
-				const result = await library.scanForDevice();
+			const readerId = await library.initialReader('N4181B5025147');
 
-				expect(invoke).toHaveBeenCalledWith('scan_for_device');
-				expect(result).toEqual(mockDevice);
-				expect(library.connectedDevice).toEqual(mockDevice);
-				expect(library.isScanning).toBe(false);
-			});
-
-			it('should handle null device response', async () => {
-				vi.mocked(invoke).mockResolvedValueOnce(null);
-
-				const result = await library.scanForDevice();
-
-				expect(result).toBeNull();
-				expect(library.connectedDevice).toBeUndefined();
-			});
-
-			it('should handle scan errors', async () => {
-				vi.mocked(invoke).mockRejectedValueOnce(new Error('Scan failed'));
-
-				const result = await library.scanForDevice();
-
-				expect(result).toBeNull();
-				expect(library.connectedDevice).toBeUndefined();
-			});
+			expect(readerId).toBe(7);
+			expect(invoke).toHaveBeenCalledWith('reader_for_kobo', { serial: 'N4181B5025147' });
+			expect(invoke).not.toHaveBeenCalledWith('last_reader');
 		});
 
-		describe('importHighlights', () => {
-			it('should throw error if no device connected', async () => {
-				await expect(library.importHighlights()).rejects.toThrow('No device connected');
-			});
+		it('falls back to last reader', async () => {
+			answer({ reader_for_kobo: null, last_reader: 3 });
 
-			it('should import highlights and add books', async () => {
-				const mockDevice: KoboDevice = {
-					name: 'Kobo Clara',
-					path: '/Volumes/KOBOeReader',
-					isValid: true
-				};
-				vi.mocked(invoke).mockResolvedValueOnce(mockDevice);
-				await library.scanForDevice();
-
-				const importedBooks: Book[] = [
-					{
-						contentId: 'new-1',
-						title: 'New Book',
-						author: 'Author',
-						highlights: [],
-						isSelected: false
-					}
-				];
-				vi.mocked(invoke).mockResolvedValueOnce(importedBooks);
-
-				const result = await library.importHighlights();
-
-				expect(invoke).toHaveBeenCalledWith('import_highlights', { device: mockDevice });
-				expect(result).toEqual(importedBooks);
-				expect(library.books).toEqual(importedBooks);
-			});
-
-			it('should set importing state during import', async () => {
-				const mockDevice: KoboDevice = {
-					name: 'Kobo Clara',
-					path: '/Volumes/KOBOeReader',
-					isValid: true
-				};
-				vi.mocked(invoke).mockResolvedValueOnce(mockDevice);
-				await library.scanForDevice();
-
-				vi.mocked(invoke).mockImplementationOnce(
-					() => new Promise((resolve) => setTimeout(() => resolve([]), 10))
-				);
-
-				const importPromise = library.importHighlights();
-				expect(library.isImporting).toBe(true);
-				expect(library.importProgress).toBeDefined();
-
-				await importPromise;
-				expect(library.isImporting).toBe(false);
-				expect(library.importProgress).toBeUndefined();
-			});
+			expect(await library.initialReader('UNKNOWN')).toBe(3);
+			expect(await library.initialReader()).toBe(3);
 		});
 
-		describe('exportBooks', () => {
-			it('should throw error if no books selected', async () => {
-				library.setBooks(mockBooks);
-				library.setSelectedBookIds([]);
+		it('openReader loads that reader\'s library from Rust', async () => {
+			answer({ get_library: mockBooks });
 
-				await expect(library.exportBooks('/path/to/export')).rejects.toThrow(
-					'No books selected for export'
-				);
-			});
+			await library.openReader(4);
 
-			it('should export selected books', async () => {
-				library.setBooks(mockBooks);
-				library.setSelectedBookIds(['book-1']);
-
-				const exportedFiles = ['/path/to/export/Book One - Author One.md'];
-				vi.mocked(invoke).mockResolvedValueOnce(exportedFiles);
-
-				const result = await library.exportBooks('/path/to/export');
-
-				expect(invoke).toHaveBeenCalledWith('export_books', {
-					books: [mockBooks[0]],
-					config: expect.objectContaining({
-						exportPath: '/path/to/export',
-						metadata: expect.any(Object)
-					})
-				});
-				expect(result).toEqual(exportedFiles);
-			});
-
-			it('should use snake_case dateFormat for Rust compatibility', async () => {
-				library.setBooks(mockBooks);
-				library.setSelectedBookIds(['book-1']);
-				vi.mocked(invoke).mockResolvedValueOnce(['/path/to/file.md']);
-
-				await library.exportBooks('/path/to/export');
-
-				const callArgs = vi.mocked(invoke).mock.calls[0];
-				const config = (callArgs[1] as { config: ExportConfig }).config;
-
-				// DateFormat must be snake_case for Rust enum compatibility
-				expect(config.dateFormat).toMatch(/^[a-z][a-z0-9]*(_[a-z0-9]+)*$/);
-				expect(['dd_mm_yyyy', 'dd_month_yyyy', 'iso8601']).toContain(config.dateFormat);
-			});
+			expect(invoke).toHaveBeenCalledWith('get_library', { readerId: 4 });
+			expect(library.activeReaderId).toBe(4);
+			expect(library.books).toEqual(mockBooks);
 		});
 
-		describe('exportBooksWithConfig', () => {
-			it('should use provided config instead of hardcoded values', async () => {
-				library.setBooks(mockBooks);
-				library.setSelectedBookIds(['book-1']);
-				vi.mocked(invoke).mockResolvedValueOnce(['/path/to/file.md']);
+		it('loadReaders fills readers', async () => {
+			const readers = [{ id: 1, name: 'Bruno', exportPath: null }];
+			answer({ list_readers: readers });
 
-				const customConfig: ExportConfig = {
-					exportPath: '/custom/path',
-					metadata: {
-						author: false,
-						isbn: true,
-						publisher: false,
-						dateLastRead: true,
-						language: false,
-						description: true
-					},
-					dateFormat: 'iso8601'
-				};
+			await library.loadReaders();
 
-				await library.exportBooksWithConfig(customConfig);
+			expect(library.readers).toEqual(readers);
+		});
+	});
 
-				expect(invoke).toHaveBeenCalledWith('export_books', {
-					books: [mockBooks[0]],
-					config: customConfig
-				});
-			});
+	describe('Device', () => {
+		it('disconnect keeps books visible', () => {
+			library.setBooks(mockBooks);
+			library.setConnectedDevice(kobo);
+			library.setUiState('library');
+
+			library.deviceDisconnected();
+
+			expect(library.connectedDevice).toBeUndefined();
+			expect(library.uiState).toBe('library');
+			expect(library.books).toEqual(mockBooks);
 		});
 
-		describe('getDefaultExportPath', () => {
-			it('should return default export path from Tauri', async () => {
-				vi.mocked(invoke).mockResolvedValueOnce('/Users/test/Documents/Kobo Highlights');
+		it('should scan for device and update connectedDevice', async () => {
+			vi.mocked(invoke).mockResolvedValueOnce(kobo);
 
-				const result = await getDefaultExportPath();
+			const result = await library.scanForDevice();
 
-				expect(invoke).toHaveBeenCalledWith('get_default_export_path');
-				expect(result).toBe('/Users/test/Documents/Kobo Highlights');
-			});
-
-			it('should return fallback on error', async () => {
-				vi.mocked(invoke).mockRejectedValueOnce(new Error('Failed'));
-
-				const result = await getDefaultExportPath();
-
-				expect(result).toBe('~/Documents/Kobo Highlights');
-			});
+			expect(invoke).toHaveBeenCalledWith('scan_for_device');
+			expect(result).toEqual(kobo);
+			expect(library.connectedDevice).toEqual(kobo);
+			expect(library.isScanning).toBe(false);
 		});
 
-		describe('validateExportPath', () => {
-			it('should return true for valid path', async () => {
-				vi.mocked(invoke).mockResolvedValueOnce(true);
+		it('should handle null device response', async () => {
+			vi.mocked(invoke).mockResolvedValueOnce(null);
 
-				const result = await validateExportPath('/valid/path');
+			expect(await library.scanForDevice()).toBeNull();
+			expect(library.connectedDevice).toBeUndefined();
+		});
 
-				expect(invoke).toHaveBeenCalledWith('validate_export_path', { path: '/valid/path' });
-				expect(result).toBe(true);
+		it('should handle scan errors', async () => {
+			vi.mocked(invoke).mockRejectedValueOnce(new Error('Scan failed'));
+
+			expect(await library.scanForDevice()).toBeNull();
+			expect(library.connectedDevice).toBeUndefined();
+		});
+	});
+
+	describe('Sync', () => {
+		it('known kobo syncs on connect when enabled', async () => {
+			answer({ reader_for_kobo: 5, sync_kobo: { added: 2 }, get_library: mockBooks });
+
+			const outcome = await library.deviceConnected(kobo, true);
+
+			expect(outcome).toBe('synced');
+			expect(invoke).toHaveBeenCalledWith('sync_kobo', { device: kobo });
+			expect(invoke).toHaveBeenCalledWith('get_library', { readerId: 5 });
+			expect(library.books).toEqual(mockBooks);
+			expect(library.isImporting).toBe(false);
+		});
+
+		it('does not sync when syncOnConnect is off', async () => {
+			library.activeReaderId = 5;
+			answer({ reader_for_kobo: 5, get_library: mockBooks });
+
+			const outcome = await library.deviceConnected(kobo, false);
+
+			expect(outcome).toBe('idle');
+			expect(invoke).not.toHaveBeenCalledWith('sync_kobo', expect.anything());
+			expect(library.connectedDevice).toEqual(kobo);
+		});
+
+		it('first kobo with no readers creates a reader named after it and syncs', async () => {
+			const created = { id: 1, name: 'Kobo Libra', exportPath: null };
+			answer({
+				reader_for_kobo: null,
+				list_readers: [],
+				create_reader: created,
+				associate_kobo: null,
+				sync_kobo: { added: 3 },
+				get_library: mockBooks
 			});
 
-			it('should return false for invalid path', async () => {
-				vi.mocked(invoke).mockResolvedValueOnce(false);
+			const outcome = await library.deviceConnected(kobo, true);
 
-				const result = await validateExportPath('/invalid/path');
+			expect(outcome).toBe('synced');
+			expect(invoke).toHaveBeenCalledWith('create_reader', { name: 'Kobo Libra' });
+			expect(invoke).toHaveBeenCalledWith('associate_kobo', { serial: 'N4181B5025147', readerId: 1 });
+			expect(invoke).toHaveBeenCalledWith('sync_kobo', { device: kobo });
+			expect(library.activeReaderId).toBe(1);
+		});
 
-				expect(result).toBe(false);
+		it('first kobo with sync on connect off still gets a reader and opens it', async () => {
+			answer({
+				reader_for_kobo: null,
+				list_readers: [],
+				create_reader: { id: 1, name: 'Kobo Libra', exportPath: null },
+				associate_kobo: null,
+				get_library: []
 			});
 
-			it('should return false on error', async () => {
-				vi.mocked(invoke).mockRejectedValueOnce(new Error('Validation failed'));
+			expect(await library.deviceConnected(kobo, false)).toBe('idle');
+			expect(library.activeReaderId).toBe(1);
+			expect(invoke).not.toHaveBeenCalledWith('sync_kobo', expect.anything());
+		});
 
-				const result = await validateExportPath('/path');
+		it('an unknown kobo is reported and never synced', async () => {
+			answer({ reader_for_kobo: null, list_readers: [{ id: 3, name: 'Ana', exportPath: null }] });
 
-				expect(result).toBe(false);
+			const outcome = await library.deviceConnected(kobo, true);
+
+			expect(outcome).toBe('unknown');
+			expect(invoke).not.toHaveBeenCalledWith('sync_kobo', expect.anything());
+		});
+
+		it('sync button disabled without the reader\'s kobo', async () => {
+			answer({ reader_for_kobo: 5, get_library: mockBooks });
+			expect(library.canSync).toBe(false);
+
+			library.activeReaderId = 7;
+			await library.deviceConnected(kobo, false);
+			expect(library.canSync).toBe(false);
+
+			library.activeReaderId = 5;
+			expect(library.canSync).toBe(true);
+
+			library.deviceDisconnected();
+			expect(library.canSync).toBe(false);
+		});
+
+		it('a second connect while syncing reuses the running sync', async () => {
+			let finish!: (r: unknown) => void;
+			vi.mocked(invoke).mockImplementation((cmd: string) => {
+				if (cmd === 'reader_for_kobo') return Promise.resolve(5);
+				if (cmd === 'get_library') return Promise.resolve(mockBooks);
+				if (cmd === 'sync_kobo') return new Promise((resolve) => (finish = resolve));
+				return Promise.reject(new Error(`unexpected ${cmd}`));
 			});
+
+			// Startup scan and the monitor's first device-detected, 2 s apart
+			const first = library.deviceConnected(kobo, true);
+			await vi.waitFor(() => expect(invoke).toHaveBeenCalledWith('sync_kobo', { device: kobo }));
+			const second = library.deviceConnected(kobo, true);
+			await new Promise((r) => setTimeout(r, 0));
+			finish({ added: 1 });
+
+			expect(await first).toBe('synced');
+			expect(await second).toBe('synced');
+			expect(vi.mocked(invoke).mock.calls.filter(([cmd]) => cmd === 'sync_kobo')).toHaveLength(1);
+		});
+
+		it('the same kobo reported again after its sync does not sync twice', async () => {
+			answer({ reader_for_kobo: 5, sync_kobo: { added: 1 }, get_library: mockBooks });
+
+			// Startup sync ends in under 2 s; then the monitor reports the same Kobo
+			expect(await library.deviceConnected(kobo, true)).toBe('synced');
+			expect(await library.deviceConnected(kobo, true)).toBe('idle');
+
+			expect(vi.mocked(invoke).mock.calls.filter(([cmd]) => cmd === 'sync_kobo')).toHaveLength(1);
+		});
+
+		it('reconnecting the kobo syncs again', async () => {
+			answer({ reader_for_kobo: 5, sync_kobo: { added: 1 }, get_library: mockBooks });
+
+			await library.deviceConnected(kobo, true);
+			library.deviceDisconnected();
+			await library.deviceConnected(kobo, true);
+
+			expect(vi.mocked(invoke).mock.calls.filter(([cmd]) => cmd === 'sync_kobo')).toHaveLength(2);
+		});
+
+		it('sync without a known connected kobo throws', async () => {
+			await expect(library.sync()).rejects.toThrow('No known Kobo connected');
+		});
+	});
+
+	describe('exportSelected', () => {
+		it('should throw error if no books selected', async () => {
+			library.activeReaderId = 1;
+			library.setBooks(mockBooks);
+
+			await expect(library.exportSelected()).rejects.toThrow('No books selected for export');
+		});
+
+		it('exports the selected ids of the active reader', async () => {
+			library.activeReaderId = 9;
+			library.setBooks(mockBooks);
+			library.setSelectedBookIds([2]);
+			answer({ export_library_books: ['/x/Book Two.md'] });
+
+			const result = await library.exportSelected();
+
+			expect(invoke).toHaveBeenCalledWith('export_library_books', { readerId: 9, bookIds: [2] });
+			expect(result).toEqual(['/x/Book Two.md']);
+		});
+	});
+
+	describe('getDefaultExportPath', () => {
+		it('should return default export path from Tauri', async () => {
+			vi.mocked(invoke).mockResolvedValueOnce('/Users/test/Documents/Kobo Highlights');
+
+			const result = await getDefaultExportPath();
+
+			expect(invoke).toHaveBeenCalledWith('get_default_export_path');
+			expect(result).toBe('/Users/test/Documents/Kobo Highlights');
+		});
+
+		it('should return fallback on error', async () => {
+			vi.mocked(invoke).mockRejectedValueOnce(new Error('Failed'));
+
+			expect(await getDefaultExportPath()).toBe('~/Documents/Kobo Highlights');
+		});
+	});
+
+	describe('validateExportPath', () => {
+		it('should return true for valid path', async () => {
+			vi.mocked(invoke).mockResolvedValueOnce(true);
+
+			const result = await validateExportPath('/valid/path');
+
+			expect(invoke).toHaveBeenCalledWith('validate_export_path', { path: '/valid/path' });
+			expect(result).toBe(true);
+		});
+
+		it('should return false for invalid path', async () => {
+			vi.mocked(invoke).mockResolvedValueOnce(false);
+			expect(await validateExportPath('/invalid/path')).toBe(false);
+		});
+
+		it('should return false on error', async () => {
+			vi.mocked(invoke).mockRejectedValueOnce(new Error('Validation failed'));
+			expect(await validateExportPath('/path')).toBe(false);
 		});
 	});
 });

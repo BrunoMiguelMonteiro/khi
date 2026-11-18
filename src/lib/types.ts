@@ -1,39 +1,38 @@
 /**
- * TypeScript type definitions for Khi
- * Mirrors the Rust models for IPC communication
+ * TypeScript type definitions for Khi.
+ *
+ * Types that cross the IPC boundary come from `./bindings`, which is generated
+ * from the Rust structs by tauri-specta (see `src-tauri/src/lib.rs`).
+ * Do not redeclare them here: change the Rust struct and regenerate instead.
+ * The `_Serialize` variants are what Rust sends to the frontend.
  */
+import type {
+  AppSettings_Serialize,
+  DateFormat,
+  ExportConfig_Serialize,
+  KoboDevice_Serialize,
+  Language,
+  LibraryBook_Serialize,
+  LibraryHighlight_Serialize,
+  Reader_Serialize,
+  SyncReport,
+  SortPreference_Serialize,
+  ThemePreference_Serialize,
+  UiPreferences_Serialize,
+  ViewMode_Serialize
+} from './bindings';
 
-export interface Book {
-  contentId: string;
-  title: string;
-  author: string;
-  isbn?: string;
-  publisher?: string;
-  language?: string;
-  dateLastRead?: string;
-  description?: string;
-  coverPath?: string;
-  highlights: Highlight[];
-  isSelected: boolean;
-}
+export type { DateFormat, Language, SyncReport };
 
-export interface Highlight {
-  id: string;
-  text: string;
-  annotation?: string;
-  chapterTitle?: string;
-  chapterProgress?: number;
-  containerPath?: string;
-  dateCreated: string;
-  color?: string;
-}
-
-export interface KoboDevice {
-  name: string;
-  path: string;
-  isValid: boolean;
-  serialNumber?: string;
-}
+/**
+ * A book of the persistent Library (`id` is the Library's, not the Kobo's).
+ * Selection state lives in `library.selectedBookIds`, not on the book.
+ */
+export type Book = LibraryBook_Serialize;
+export type Highlight = LibraryHighlight_Serialize;
+export type Reader = Reader_Serialize;
+export type KoboDevice = KoboDevice_Serialize;
+export type ExportConfig = ExportConfig_Serialize;
 
 export interface ImportProgress {
   currentBook: string;
@@ -43,19 +42,6 @@ export interface ImportProgress {
   percentage: number;
 }
 
-export interface ExportConfig {
-  exportPath: string;
-  metadata: {
-    author: boolean;
-    isbn: boolean;
-    publisher: boolean;
-    dateLastRead: boolean;
-    language: boolean;
-    description: boolean;
-  };
-  dateFormat: 'dd_mm_yyyy' | 'dd_month_yyyy' | 'iso8601';
-}
-
 export interface AppState {
   books: Book[];
   selectedBooks: string[];
@@ -63,12 +49,6 @@ export interface AppState {
   importProgress?: ImportProgress;
   connectedDevice?: KoboDevice;
   settings: ExportConfig;
-}
-
-export interface LastImportRecord {
-  lastImportDate: string;
-  deviceId: string;
-  booksImported: BookImportRecord[];
 }
 
 export interface BookImportRecord {
@@ -108,56 +88,10 @@ export interface ExportBookData {
 // Settings Types (Fase 9)
 // ============================================
 
-/** Application settings structure */
-export interface AppSettings {
-  /** Export configuration */
-  exportConfig: ExportConfig;
-  /** UI preferences */
-  uiPreferences: UiPreferences;
-  /** Last import record */
-  lastImport?: LastImportSettingsRecord;
-  /** Version for migration support */
-  version: string;
-}
+export type AppSettings = AppSettings_Serialize;
+export type UiPreferences = UiPreferences_Serialize;
+export type ThemePreference = ThemePreference_Serialize;
+export type ViewMode = ViewMode_Serialize;
+export type SortPreference = SortPreference_Serialize;
 
-/** UI preferences */
-export interface UiPreferences {
-  /** Theme preference */
-  theme: ThemePreference;
-  /** Window width */
-  windowWidth: number;
-  /** Window height */
-  windowHeight: number;
-  /** Whether window is maximized */
-  isMaximized: boolean;
-  /** Whether to show onboarding on startup */
-  showOnboarding: boolean;
-  /** Library view mode (grid or list) */
-  libraryViewMode: ViewMode;
-  /** Sort preference for library */
-  librarySort: SortPreference;
-  /** Whether to auto-import when device is detected */
-  autoImportOnConnect: boolean;
-}
-
-/** Theme preference */
-export type ThemePreference = 'system' | 'light' | 'dark';
-
-/** View mode for library */
-export type ViewMode = 'grid' | 'list';
-
-/** Sort preference for library */
-export type SortPreference = 'title' | 'author' | 'date_last_read' | 'highlight_count';
-
-/** Last import record for settings */
-export interface LastImportSettingsRecord {
-  /** Timestamp of the import */
-  timestamp: string;
-  /** Device ID (if available) */
-  deviceId?: string;
-  /** Number of books imported */
-  booksCount: number;
-  /** Number of highlights imported */
-  highlightsCount: number;
-}
 export type UiState = 'no-device' | 'scanning' | 'importing' | 'library' | 'book-details';
