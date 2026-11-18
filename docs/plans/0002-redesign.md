@@ -146,6 +146,19 @@ Casos que nenhuma task testa por si e que mais provavelmente afetam quem usa o K
 
 * * *
 ## Fase 1 · Tailwind v4, tokens e base do shadcn-svelte
+### Task 0b: harness de paridade visual (Bruno, 2026-11-18: «Sim, harness com Playwright WebKit»)
+**Ficheiros:** criar `tests/visual/` (harness, mocks do IPC, cenários, comparador, `allowlist.json` e a linha de base) e `playwright.config.ts`; juntar o `@playwright/test`, com versão fixa, e o script `test:visual`. O código da app não muda.
+
+- [x] **Passo 1:** o harness serve o build de produção e corre-o no Playwright WebKit, com o IPC do Tauri simulado antes de a app carregar. Uma chamada de IPC desconhecida faz o teste falhar, mesmo que a app a apanhe.
+- [x] **Passo 2:** os cenários são a Biblioteca sem Kobo, a grelha, a lista, o Detalhe e as Definições. Correm em Claro, Escuro escolhido com o macOS em Claro, e Sistema com o macOS em Escuro, mais o contraste aumentado e o movimento reduzido. A viewport, o DPR, o idioma, o fuso e o relógio ficam fixos, e espera-se pelas fontes.
+- [x] **Passo 3:** o harness regista os estilos calculados (com `::before`, `::after`, `::placeholder` e o foco por teclado), as caixas dos elementos e uma captura. As cores normalizam-se para RGBA.
+- [x] **Passo 4:** a linha de base é tirada na árvore intacta, e duas corridas seguidas dão zero diferenças. Um teste de controlo muda uma cor e confirma que o comparador a apanha.
+- [x] **Passo 5:** revisão independente (GPT‑6.2 Sol), os quatro comandos verdes e o commit `test(ui): visual parity harness with WebKit baseline`.
+
+A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm run test:visual` sem diferenças fora da `allowlist.json`, e cada entrada da allowlist leva a sua razão.
+
+**Resultado (2026-11-18):** 63 capturas e 10 controlos. Três revisões do GPT‑6.2 Sol: as duas primeiras encontraram falsas passagens (foco, hover, seleção, separador Atualizações, fotogramas das animações), todas corrigidas. Juntaram-se capturas no tamanho mínimo da janela e corrigiu-se uma falha intermitente de 1 px no scroll. 5 corridas limpas seguidas. A 3.ª revisão deixou uma lacuna média, que o Bruno aceitou como conhecida: uma alteração que só impeça o scroll do painel enquanto há foco não é apanhada (ver Limitations no README). O `bun.lock` já estava desatualizado e fica para um commit à parte.
+
 ### Task 1: Tailwind v4 sem mudança visual
 **Ficheiros:**
 
