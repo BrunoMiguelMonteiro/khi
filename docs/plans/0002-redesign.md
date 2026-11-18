@@ -131,17 +131,17 @@ Casos que nenhuma task testa por si e que mais provavelmente afetam quem usa o K
 * * *
 ## Fase 0 · Linha de base
 ### Task 0: worktree pronta e verde
-- [ ] 
+- [x] 
   
   **Passo 1:** commit deste plano, depois da aprovação do Bruno (`docs: redesign implementation plan`). O `@tailwindcss/upgrade` da Task 1 recusa correr com a árvore suja. Depois, `npm ci` na worktree.
   
-- [ ] 
+- [x] 
   
   **Passo 2:** correr `npx vitest run` (215 testes, todos a passar), `npm run check` (0 erros) e `npm run build`. Em background, `cargo test` em `src-tauri/`, com tudo verde.
   
-- [ ] 
+- [x] 
   
-  **Passo 3:** abrir a app com `npm run dev:app` (depois de avisar o Bruno), tirar capturas da Biblioteca, do Detalhe e das Definições em Claro e Escuro, e guardá-las no scratchpad. São a referência da Task 1. Sem commit.
+  **Passo 3 (saltado, Bruno 2026-11-18):** ~~capturas de referência com `npm run dev:app`~~. A Biblioteca Dev está vazia e a app não tem modo simulado, por isso sem Kobo só se vê «No Kobo connected». Além disso, o Computer Use não grava ficheiros. A Task 1 verifica-se com o Vitest e pela vista do Bruno.
   
 
 * * *
@@ -190,7 +190,7 @@ Casos que nenhuma task testa por si e que mais provavelmente afetam quem usa o K
   
 - [ ] 
   
-  **Passo 5:** `npm run dev:app`, com aviso ao Bruno. As capturas da Task 0 e as novas, em Claro e Escuro, têm de ser iguais à vista. Mudar o tema nas Definições com o macOS em Claro também tem de funcionar.
+  **Passo 5:** o Bruno abre a app com `npm run dev:app` e confirma à vista que a interface, em Claro e Escuro, não mudou (sem capturas de referência; ver a Task 0). Mudar o tema nas Definições com o macOS em Claro também tem de funcionar.
   
 - [ ] 
   
