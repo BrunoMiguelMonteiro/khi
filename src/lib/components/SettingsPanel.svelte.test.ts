@@ -117,6 +117,22 @@ describe('SettingsPanel', () => {
 		expect(screen.queryByText(/delete reader/i)).toBeNull();
 	});
 
+	it('a failed rename shows a translated message, not the raw error', async () => {
+		library.readers = [{ id: 3, name: 'Bruno', exportPath: null }];
+		library.activeReaderId = 3;
+		vi.mocked(invoke).mockImplementation((cmd: string) =>
+			cmd === 'rename_reader' ? Promise.reject('Library database error: disk I/O error') : Promise.resolve(null)
+		);
+		render(SettingsPanel, { onClose: mockOnClose });
+
+		const input = screen.getByTestId('reader-name') as HTMLInputElement;
+		await fireEvent.input(input, { target: { value: 'Bruno M.' } });
+		await fireEvent.change(input);
+
+		expect(await screen.findByText('Couldn’t rename the reader')).toBeInTheDocument();
+		expect(screen.queryByText(/disk I\/O error/)).toBeNull();
+	});
+
 	it('with a reader open, one folder field shows where that reader exports', () => {
 		library.readers = [{ id: 3, name: 'Bruno', exportPath: null }];
 		library.activeReaderId = 3;

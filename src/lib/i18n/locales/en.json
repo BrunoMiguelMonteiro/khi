@@ -170,7 +170,8 @@
     },
     "errors": {
       "save": "Error saving settings",
-      "reset": "Error resetting settings"
+      "reset": "Error resetting settings",
+      "renameReader": "Couldn’t rename the reader"
     }
   },
   "export": {
@@ -199,14 +200,20 @@
     "exportSuccess": "Export completed successfully",
     "exportError": "Error exporting highlights",
     "syncError": "Could not sync the Kobo",
-    "openReaderError": "Could not open this reader's Library"
+    "openReaderError": "Could not open this reader's Library",
+    "createReaderError": "Couldn’t create the reader",
+    "associateKoboError": "Couldn’t assign this Kobo to the reader"
   },
   "errors": {
     "noDevice": "No Kobo device found",
     "deviceNotAccessible": "Cannot access Kobo device",
     "databaseError": "Error reading Kobo database",
     "exportPathInvalid": "Invalid export path",
-    "generic": "An error occurred"
+    "generic": "An error occurred",
+    "export": {
+      "folderNotWritable": "Couldn’t export to {folder}. Check that the disk is connected, or choose another folder in Settings.",
+      "diskFull": "Couldn’t export: the disk is full."
+    }
   },
   "readers": {
     "label": "Reader",

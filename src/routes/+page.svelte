@@ -13,6 +13,7 @@
 	import UnknownKoboDialog from '$lib/components/UnknownKoboDialog.svelte';
 	import ReaderPicker from '$lib/components/ReaderPicker.svelte';
 	import { _ } from '$lib/i18n';
+	import { exportErrorMessage } from '$lib/errors';
 	import { library } from '$lib/stores/library.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
 	import type { Book, KoboDevice } from '$lib/types';
@@ -189,11 +190,18 @@
 		unknownDevice = null;
 		try {
 			await library.associateKobo(device.serialNumber, readerId);
+		} catch (error) {
+			console.error('Failed to associate the Kobo:', error);
+			showNotification($_('notifications.associateKoboError'), 'error');
+			showLibraryOrEmpty();
+			return;
+		}
+		try {
 			await library.openReader(readerId);
 			await handleDeviceConnected(device);
 		} catch (error) {
-			console.error('Failed to associate the Kobo:', error);
-			showNotification($_('notifications.syncError'), 'error');
+			console.error('Failed to open the reader:', error);
+			showNotification($_('notifications.openReaderError'), 'error');
 			showLibraryOrEmpty();
 		}
 	}
@@ -204,7 +212,7 @@
 			await handleChooseReader(reader.id);
 		} catch (error) {
 			console.error('Failed to create the reader:', error);
-			showNotification($_('notifications.syncError'), 'error');
+			showNotification($_('notifications.createReaderError'), 'error');
 		}
 	}
 
@@ -233,8 +241,7 @@
 			showNotification($_('notifications.exportSuccess'), 'success');
 		} catch (error) {
 			console.error('Export failed:', error);
-			const detail = error instanceof Error ? error.message : String(error);
-			showNotification(`${$_('notifications.exportError')}: ${detail}`, 'error');
+			showNotification(exportErrorMessage(error), 'error');
 		}
 	}
 

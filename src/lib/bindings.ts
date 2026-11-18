@@ -129,6 +129,14 @@ export type ExportConfig_Serialize = {
 	dateFormat: DateFormat,
 };
 
+/**
+ *  Why an export failed, as a kind the screen says in the user's language.
+ *  The error itself goes to the log, never to the screen.
+ */
+export type ExportFailure = 
+/**  No permission, a read-only disk, or a disk that is no longer connected */
+{ kind: "folderNotWritable"; folder: string } | { kind: "diskFull" } | { kind: "internal" };
+
 export type KoboDevice = KoboDevice_Serialize | KoboDevice_Deserialize;
 
 export type KoboDevice_Deserialize = {

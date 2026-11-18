@@ -182,6 +182,26 @@ describe('BookDetailsView', () => {
       });
     });
 
+    it('a failed export says why in the user’s language, not in Rust’s', async () => {
+      vi.mocked(invoke).mockRejectedValueOnce({ kind: 'diskFull' });
+      const onNotification = vi.fn();
+      render(BookDetailsView, { props: { book: mockBook, onNotification } });
+
+      await fireEvent.click(screen.getByRole('button', { name: /export to markdown/i }));
+
+      await waitFor(() => expect(onNotification).toHaveBeenCalledWith('Couldn’t export: the disk is full.', 'error'));
+    });
+
+    it('a raw error from Rust never reaches the screen', async () => {
+      vi.mocked(invoke).mockRejectedValueOnce('Library IO error: Permission denied (os error 13)');
+      const onNotification = vi.fn();
+      render(BookDetailsView, { props: { book: mockBook, onNotification } });
+
+      await fireEvent.click(screen.getByRole('button', { name: /export to markdown/i }));
+
+      await waitFor(() => expect(onNotification).toHaveBeenCalledWith('Error exporting highlights', 'error'));
+    });
+
     it('toolbar and details export call the same command with the same ids', async () => {
       render(BookDetailsView, { props: { book: mockBook } });
       await fireEvent.click(screen.getByRole('button', { name: /export to markdown/i }));

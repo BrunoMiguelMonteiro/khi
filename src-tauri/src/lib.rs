@@ -48,6 +48,9 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         commands::library::SyncProgress,
         commands::library::SyncFinished
     ])
+    // Errors are thrown, not typed in the commands: listed so the frontend
+    // knows the shape of a failed export
+    .typ::<commands::library::ExportFailure>()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

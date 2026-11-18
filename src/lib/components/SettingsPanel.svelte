@@ -53,7 +53,8 @@
 		try {
 			await library.renameReader(activeReader.id, name);
 		} catch (error) {
-			saveError = error instanceof Error ? error.message : String(error);
+			console.error('Failed to rename the reader:', error);
+			saveError = $_('settings.errors.renameReader');
 		}
 	}
 
@@ -192,13 +193,7 @@
 			onClose?.();
 		} catch (err) {
 			console.error('Save error:', err);
-			if (err instanceof Error) {
-				saveError = err.message;
-			} else if (typeof err === 'string') {
-				saveError = err;
-			} else {
-				saveError = `${$_('settings.errors.save')}: ${JSON.stringify(err)}`;
-			}
+			saveError = $_('settings.errors.save');
 		}
 	}
 
@@ -209,7 +204,8 @@
 				hasChanges = false;
 				onSave?.();
 			} catch (err) {
-				saveError = err instanceof Error ? err.message : $_('settings.errors.reset');
+				console.error('Reset error:', err);
+				saveError = $_('settings.errors.reset');
 			}
 		}
 	}

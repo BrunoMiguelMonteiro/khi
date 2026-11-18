@@ -170,7 +170,8 @@
     },
     "errors": {
       "save": "Erro ao guardar as definições",
-      "reset": "Erro ao repor as definições"
+      "reset": "Erro ao repor as definições",
+      "renameReader": "Não foi possível mudar o nome do leitor"
     }
   },
   "export": {
@@ -199,14 +200,20 @@
     "exportSuccess": "Exportação concluída com sucesso",
     "exportError": "Erro ao exportar destaques",
     "syncError": "Erro ao sincronizar o Kobo",
-    "openReaderError": "Erro ao abrir a Biblioteca deste leitor"
+    "openReaderError": "Erro ao abrir a Biblioteca deste leitor",
+    "createReaderError": "Não foi possível criar o leitor",
+    "associateKoboError": "Não foi possível associar este Kobo ao leitor"
   },
   "errors": {
     "noDevice": "Nenhum dispositivo Kobo encontrado",
     "deviceNotAccessible": "Não é possível aceder ao dispositivo Kobo",
     "databaseError": "Erro ao ler a base de dados do Kobo",
     "exportPathInvalid": "Caminho de exportação inválido",
-    "generic": "Ocorreu um erro"
+    "generic": "Ocorreu um erro",
+    "export": {
+      "folderNotWritable": "Não foi possível exportar para {folder}. Verifica se o disco está ligado ou escolhe outra pasta nas Definições.",
+      "diskFull": "Não foi possível exportar: o disco está cheio."
+    }
   },
   "readers": {
     "label": "Leitor",

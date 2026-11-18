@@ -5,6 +5,7 @@
     import Modal from "./Modal.svelte";
     import { library } from "../stores/library.svelte";
     import { _ } from "$lib/i18n";
+    import { exportErrorMessage } from "$lib/errors";
     import { getBookGradient } from "$lib/utils/gradients";
     import { FileDown, Trash2 } from "lucide-svelte";
     import { convertFileSrc } from "@tauri-apps/api/core";
@@ -57,8 +58,7 @@
             onNotification?.($_('notifications.exportSuccess'), 'success');
         } catch (error) {
             console.error("[BookDetailsView] Export failed:", error);
-            const detail = error instanceof Error ? error.message : String(error);
-            onNotification?.(`${$_('notifications.exportError')}: ${detail}`, 'error');
+            onNotification?.(exportErrorMessage(error), 'error');
         }
     }
 </script>
