@@ -949,6 +949,7 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 - `notify(text, { action?: { label, onClick } })`;
 - aspeto: `px-4 py-2 gap-2 rounded-group bg-popover border border-border shadow-sombra-aviso`, ícone `circle-check` de 16 em `text-foreground`, texto `text-body-medium text-foreground`, ação como ligação `text-link` sublinhada no hover, com o anel da Task 5;
 - movimento: entra em `duration-toast-in` 300 com fade e 8 px de baixo (`--distance-enter`, `ease-out`); sai em 200 com o inverso; com Reduzir movimento, só fade;
+- tempos em sequência (Movimento 3: «entra em 300 ms, fica 4 s e sai em 200 ms»): os 4 s contam do fim da entrada (`animationend`, ou 300 ms se não houver animação), não do `notify`; a saída começa aos 4,3 s e o aviso sai do DOM aos 4,5 s. Se o ponteiro ou o foco já estiver por cima quando a entrada acaba, os 4 s ficam inteiros em pausa. Revisão de 2026-11-19;
 - pausa com o ponteiro **ou** o foco por cima, e retoma com o tempo que faltava (WCAG 2.2.1); `aria-live="polite"`.
 
 - [x] **Passo 1: verificação do svelte-sonner, no máximo duas horas, antes de adaptar.** Num ramo de rascunho na worktree (`npm i -E svelte-sonner@1.2.3` e `npx shadcn-svelte@1.8.1 add sonner`), ver, só com a API pública e CSS sobre `[data-sonner-toast]`:

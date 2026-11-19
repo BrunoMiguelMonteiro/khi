@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/svelte";
+import { fireEvent, render, screen } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
 import { tick } from "svelte";
 import { compileAppCss, selectorFor } from "$lib/test/css";
@@ -34,9 +34,9 @@ const advance = async (ms: number) => {
 
 // Fake timers drive the hold, the exit and user-event's own pauses.
 const setup = () => {
-  render(Fixture);
+  const { unmount } = render(Fixture);
   const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-  return { user };
+  return { user, unmount };
 };
 
 const TEXT = "3 livros exportados";
@@ -162,7 +162,8 @@ describe("Toast", () => {
     notify(TEXT);
     await tick();
     expect(toast()!.dataset.state).toBe("open");
-    await advance(3999);
+    // Movimento 3: 300 ms in, then the 4 s hold, then out; the entry does not eat the hold.
+    await advance(300 + 3999);
     expect(toast()!.dataset.state).toBe("open");
     await advance(1);
     // Hold over: it starts the exit, which the exit classes select…
@@ -180,12 +181,12 @@ describe("Toast", () => {
     const { user } = setup();
     notify(TEXT);
     await tick();
-    await advance(1000);
+    await advance(300 + 1000);
     await user.hover(toast()!);
     await advance(10_000);
     expect(toast()!.dataset.state).toBe("open");
     await user.unhover(toast()!);
-    // 3 s were left when the pointer arrived.
+    // 3 s of the hold were left when the pointer arrived.
     await advance(2999);
     expect(toast()!.dataset.state).toBe("open");
     await advance(1);
@@ -196,7 +197,7 @@ describe("Toast", () => {
     const { user } = setup();
     notify(TEXT, { action: { label: ACTION, onClick: () => {} } });
     await tick();
-    await advance(1000);
+    await advance(300 + 1000);
     await user.tab();
     await user.tab();
     expect(document.activeElement).toBe(screen.getByRole("button", { name: ACTION }));
@@ -209,6 +210,88 @@ describe("Toast", () => {
     expect(toast()!.dataset.state).toBe("open");
     await advance(1);
     expect(toast()!.dataset.state).toBe("closed");
+  });
+
+  it("hold_starts_when_entry_animation_ends", async () => {
+    setup();
+    notify(TEXT);
+    await tick();
+    await advance(100);
+    // The enter animation ended before the 300 ms fallback: the hold counts from here.
+    await fireEvent.animationEnd(toast()!);
+    await advance(3999);
+    expect(toast()!.dataset.state).toBe("open");
+    await advance(1);
+    expect(toast()!.dataset.state).toBe("closed");
+  });
+
+  it("paused_during_entry_keeps_full_hold", async () => {
+    const { user } = setup();
+    notify(TEXT);
+    await tick();
+    await advance(100);
+    await user.hover(toast()!);
+    await advance(10_000);
+    expect(toast()!.dataset.state).toBe("open");
+    await user.unhover(toast()!);
+    // The hold never started, so all 4 s are left.
+    await advance(3999);
+    expect(toast()!.dataset.state).toBe("open");
+    await advance(1);
+    expect(toast()!.dataset.state).toBe("closed");
+  });
+
+  it("replaced_under_pointer_stays_paused", async () => {
+    const { user } = setup();
+    notify("Primeiro");
+    await tick();
+    await advance(300 + 1000);
+    await user.hover(toast()!);
+    // A new toast takes the place of the hovered one while the pointer stays still.
+    notify(TEXT);
+    await tick();
+    expect(toast()!.textContent).toContain(TEXT);
+    await advance(10_000);
+    expect(toast()!.dataset.state).toBe("open");
+    // user-event still places its pointer on the removed toast: move it to the new one first.
+    await user.hover(toast()!);
+    await user.unhover(toast()!);
+    await advance(3999);
+    expect(toast()!.dataset.state).toBe("open");
+    await advance(1);
+    expect(toast()!.dataset.state).toBe("closed");
+  });
+
+  it("replaced_after_focus_counts_again", async () => {
+    const { user } = setup();
+    notify("Primeiro", { action: { label: ACTION, onClick: () => {} } });
+    await tick();
+    await user.tab();
+    await user.tab();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: ACTION }));
+    // The focused action leaves with its toast, so nothing holds the new one.
+    notify(TEXT);
+    await tick();
+    expect(toast()!.contains(document.activeElement)).toBe(false);
+    await advance(300 + 3999);
+    expect(toast()!.dataset.state).toBe("open");
+    await advance(1);
+    expect(toast()!.dataset.state).toBe("closed");
+  });
+
+  it("unmount_while_paused_drops_toast", async () => {
+    const { user, unmount } = setup();
+    notify(TEXT, { action: { label: ACTION, onClick: () => {} } });
+    await tick();
+    await advance(300 + 1000);
+    await user.hover(toast()!);
+    // The Toaster goes away with the pointer still on the toast, without dismiss().
+    unmount();
+    await advance(4500);
+    setup();
+    await tick();
+    expect(toast()).toBeNull();
+    expect(region()!.textContent?.trim()).toBe("");
   });
 
   it("action_is_link_styled_button", async () => {
@@ -240,8 +323,8 @@ describe("Toast", () => {
     expect(toasts()).toHaveLength(1);
     expect(toast()!.textContent).toContain(TEXT);
     expect(region()!.textContent).not.toContain("Primeiro");
-    // The new one gets its own 4 s.
-    await advance(3999);
+    // The new one gets its own entry and 4 s.
+    await advance(300 + 3999);
     expect(toast()!.dataset.state).toBe("open");
     await advance(1);
     expect(toast()!.dataset.state).toBe("closed");

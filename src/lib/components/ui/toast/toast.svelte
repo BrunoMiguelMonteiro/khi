@@ -4,12 +4,6 @@
 	import { toastState, type ToastItem } from './toast-state.svelte';
 
 	let { item }: { item: ToastItem } = $props();
-
-	let hovered = $state(false);
-	let focused = $state(false);
-
-	// WCAG 2.2.1: the pointer or the focus on the toast holds it (Cor 6).
-	$effect(() => toastState.setPaused(hovered || focused));
 </script>
 
 <!--
@@ -17,8 +11,6 @@
 	distance/enter from below, ease/out; out over duration/in with the inverse. With Reduzir movimento
 	only the fades stay (Movimento 6).
 -->
-<!-- The pointer handlers only pause the hold; the toast itself is not interactive, so no role. -->
-<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	data-slot="toast"
 	data-state={item.closing ? 'closed' : 'open'}
@@ -28,11 +20,9 @@
 		'animate-in fade-in-0 slide-in-from-bottom-(length:--distance-enter) duration-(--duration-toast-in) ease-out motion-reduce:slide-in-from-bottom-0',
 		'data-closed:animate-out data-closed:fade-out-0 data-closed:slide-out-to-bottom-(length:--distance-enter) data-closed:duration-(--duration-in) data-closed:fill-mode-forwards motion-reduce:data-closed:slide-out-to-bottom-0'
 	]}
-	onpointerenter={() => (hovered = true)}
-	onpointerleave={() => (hovered = false)}
-	onfocusin={() => (focused = true)}
-	onfocusout={(event) => {
-		if (!event.currentTarget.contains(event.relatedTarget as Node | null)) focused = false;
+	onanimationend={(event) => {
+		// The end of the entry starts the 4 s hold (Movimento 3); the icon has no animation of its own.
+		if (event.target === event.currentTarget) toastState.entered(item.id);
 	}}
 >
 	<Icon icon={CircleCheck} class="text-foreground" /><span
