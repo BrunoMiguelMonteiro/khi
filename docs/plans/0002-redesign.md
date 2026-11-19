@@ -301,11 +301,13 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
 
 **Interfaces que produz:** as utilidades `text-title-1`, `text-title-3`, `text-body`, `text-body-medium`, `text-callout`, `text-subheadline`, `text-subheadline-semibold`, `text-reading` (Leitura/Destaque), `text-cover-title`, `text-cover-title-sm` e `text-cover-author`. A lista exata sai da exportação dos estilos de texto, que são 11.
 
-- [ ] 
+**Nota (execução):** a exportação tem 13 estilos, não 11: entram também `text-body-semibold` e `text-callout-medium` (ver `_meta.exceptions` em `design/text-styles.json`). O `@fontsource-variable/literata` 5.3.0 tem o eixo `opsz` (7–72, confirmado no `fvar` dos woff2), por isso não é preciso o `@fontsource/literata`. Só os subconjuntos latin e latin-ext (normal e itálico, ~404 kB) entram no bundle. O `--font-sans` fica com a pilha da v3 até à Fase 5: trocá-lo dá 10 625 diferenças de `font-family` calculado em 63 capturas (sem diferenças de caixa nem de píxeis). A pilha do sistema está em `--font-system`, e é essa que os estilos de interface usam. Na Fase 5, quando a interface antiga sai, o `--font-sans` passa para a pilha do sistema (aprovado pelo coordenador). A licença OFL da Literata (aviso de copyright e texto, OFL §2) vai em `static/licenses/Literata-OFL.txt`, que entra no `build/` e, por isso, nos recursos embutidos da app.
+
+- [x] 
   
   **Passo 1:** exportar os estilos de texto do Figma (tamanho, entrelinha, peso, família e estilo) para `design/text-styles.json`.
   
-- [ ] 
+- [x] 
   
   **Passo 2: testes que falham** (`typography.test.ts`):
   
@@ -316,18 +318,20 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
   - `interface_uses_system_font`: o `@theme` define `--font-sans` a começar por `-apple-system`.
     
   
-- [ ] 
+- [x] 
   
   **Passo 3:** implementar `typography.css`. Confirmar no pacote o eixo `opsz`; se faltar, registar no DECISIONS que o tamanho ótico cai e avisar o Bruno.
   
-- [ ] 
+- [x] 
   
   **Passo 4:** os testes passam e passam os quatro comandos.
   
-- [ ] 
+- [x] 
   
   **Passo 5:** commit `feat(ui): system font, embedded Literata and Figma text styles`.
   
+**Resultado (2026-11-18):** 13 estilos do Figma em `text-<nome>`; Literata 5.3.0 com eixo `opsz` (latin e latin-ext, normal e itálico, cerca de 400 KB), licença OFL em `static/licenses/`; `--font-system` para a interface e `--font-sans` só na Fase 5 (aprovado). Harness 73/73 sem diferenças. A revisão do GPT‑6.2 Sol apanhou a licença em falta e testes que passavam com a folha desligada; corrigidos e provados por mutação.
+
 ### Task 4: base do shadcn-svelte e `cn()`
 **Ficheiros:**
 

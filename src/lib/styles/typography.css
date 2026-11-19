@@ -1,0 +1,175 @@
+/*
+  Text styles from the Figma export (design/text-styles.json): one text-<name>
+  utility per style, in px like the Figma variables. Interface styles use the
+  system font (SF Pro is not embedded); highlights and generated covers use the
+  embedded Literata (OFL), with the opsz axis and font-optical-sizing: auto.
+  Not used by the old UI yet (redesign Task 3); components adopt them in Phase 5.
+*/
+
+/*
+  Literata with the opsz axis, latin and latin-ext only, bundled locally (no CDN).
+  Same faces as @fontsource-variable/literata opsz.css and opsz-italic.css.
+  OFL 1.1 licence and copyright ship in static/licenses/Literata-OFL.txt.
+*/
+@font-face {
+  font-family: 'Literata Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 900;
+  src: url('@fontsource-variable/literata/files/literata-latin-ext-opsz-normal.woff2') format('woff2-variations');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Literata Variable';
+  font-style: italic;
+  font-display: swap;
+  font-weight: 200 900;
+  src: url('@fontsource-variable/literata/files/literata-latin-ext-opsz-italic.woff2') format('woff2-variations');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Literata Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 900;
+  src: url('@fontsource-variable/literata/files/literata-latin-opsz-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+@font-face {
+  font-family: 'Literata Variable';
+  font-style: italic;
+  font-display: swap;
+  font-weight: 200 900;
+  src: url('@fontsource-variable/literata/files/literata-latin-opsz-italic.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+@theme {
+  /* --font-sans keeps the Tailwind v3 stack (app.css) until Phase 5, for visual parity of the old UI. */
+  --font-system: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-reading: 'Literata Variable', Georgia, serif;
+}
+
+/* Interface/Title 1 */
+@utility text-title-1 {
+  font-family: var(--font-system);
+  font-size: 22px;
+  line-height: 26px;
+  font-weight: 700;
+  font-style: normal;
+}
+
+/* Interface/Title 3 */
+@utility text-title-3 {
+  font-family: var(--font-system);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  font-style: normal;
+}
+
+/* Interface/Body */
+@utility text-body {
+  font-family: var(--font-system);
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 400;
+  font-style: normal;
+}
+
+/* Interface/Body Medium */
+@utility text-body-medium {
+  font-family: var(--font-system);
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 500;
+  font-style: normal;
+}
+
+/* Interface/Body Semibold */
+@utility text-body-semibold {
+  font-family: var(--font-system);
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 600;
+  font-style: normal;
+}
+
+/* Interface/Callout */
+@utility text-callout {
+  font-family: var(--font-system);
+  font-size: 12px;
+  line-height: 15px;
+  font-weight: 400;
+  font-style: normal;
+}
+
+/* Interface/Callout Medium */
+@utility text-callout-medium {
+  font-family: var(--font-system);
+  font-size: 12px;
+  line-height: 15px;
+  font-weight: 500;
+  font-style: normal;
+}
+
+/* Interface/Subheadline */
+@utility text-subheadline {
+  font-family: var(--font-system);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 400;
+  font-style: normal;
+}
+
+/* Interface/Subheadline Semibold */
+@utility text-subheadline-semibold {
+  font-family: var(--font-system);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  font-style: normal;
+}
+
+/* Leitura/Destaque */
+@utility text-reading {
+  font-family: var(--font-reading);
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 400;
+  font-style: normal;
+  font-optical-sizing: auto;
+}
+
+/* Capa/Título */
+@utility text-cover-title {
+  font-family: var(--font-reading);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+  font-style: normal;
+  font-optical-sizing: auto;
+}
+
+/* Capa/Título pequeno */
+@utility text-cover-title-sm {
+  font-family: var(--font-reading);
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 500;
+  font-style: normal;
+  font-optical-sizing: auto;
+}
+
+/* Capa/Autor */
+@utility text-cover-author {
+  font-family: var(--font-reading);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  font-style: italic;
+  font-optical-sizing: auto;
+}
