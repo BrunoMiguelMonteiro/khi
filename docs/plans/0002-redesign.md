@@ -896,6 +896,8 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 
 **Paragem:** o Bruno lê o resultado e aprova a forma de ler a cor. Bloqueia só a Task 21.
 
+**Aprovado (2026-11-19):** caminho nativo no padrão da app Cmdr (`objc2-app-kit`, `NSSystemColorsDidChangeNotification`, evento à janela), mais a leitura de `AppleAccentColor` para o Multicolor. Pesquisa e alternativas no DECISIONS, Cor 2.
+
 ### Task 21: Amostra de cor e tons de destaque
 **Pré-requisitos:** a Paragem da Task 20 e a tabela de tons aprovada pelo Bruno (Questão 1).
 
