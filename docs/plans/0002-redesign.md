@@ -543,10 +543,10 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
 **Interfaces que produz** (Componentes (D7) · 7 · Tooltip, `55:2128`; Movimento 5):
 - `<Tooltip text="Sincronizar com o Kobo" shortcut?="⌘R">{trigger}</Tooltip>` e `<TooltipProvider delayDuration={500} skipDelayDuration={300}>` (o 300 é o valor por omissão do Bits UI; o DECISIONS só diz «há pouco»). Nesta fase o provider só existe nos testes;
 - aspeto: altura 24, `px-2`, `gap-4` até ao atalho, `rounded-control`, `bg-tooltip`, `border border-tooltip-border`, `text-callout text-tooltip-foreground`, atalho em `text-tooltip-secondary-foreground`, sem sombra; por baixo do botão, com `sideOffset` 4 (fica para o código, pelo DECISIONS);
-- movimento: o primeiro entra com fade de `duration-tooltip` 125 e `ease-out`; o seguinte aparece logo, sem fade; ao sair, desaparece logo (Movimento 5; ver «Discrepâncias resolvidas»). Com Reduzir movimento, sem fade, e o atraso fica;
+- movimento: o primeiro entra com fade de `duration-tooltip` 125 e `ease-out`; o seguinte aparece logo, sem fade; ao sair, desaparece logo (Movimento 5; ver «Discrepâncias resolvidas»). Com Reduzir movimento, o fade fica (só opacidade, como diz o Figma `55:2128` e a regra Movimento 6), e o atraso também;
 - abre também com o foco do teclado; o gatilho fica descrito pelo tooltip (`aria-describedby`).
 
-- [ ] **Passo 1: testes que falham** (`tooltip.test.ts`, com `vi.useFakeTimers()`):
+- [x] **Passo 1: testes que falham** (`tooltip.test.ts`, com `vi.useFakeTimers()`):
   - `opens_after_500ms_of_hover`;
   - `does_not_open_before_500ms`;
   - `opens_on_keyboard_focus`;
@@ -554,12 +554,13 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
   - `closes_immediately_on_leave`: o conteúdo sai do DOM sem esperar por animação;
   - `shortcut_uses_secondary_foreground`;
   - `trigger_is_described_by_tooltip`.
-- [ ] **Passo 2:** `npx vitest run src/lib/components/ui/tooltip` falha.
-- [ ] **Passo 3:** adaptar o componente do vega aos tokens e às durações acima.
-- [ ] **Passo 4:** os testes passam e passam os quatro comandos.
-- [ ] **Passo 5:** commit `feat(ui): Tooltip with 500 ms delay, instant follow-up and instant exit`.
+- [x] **Passo 2:** `npx vitest run src/lib/components/ui/tooltip` falha.
+- [x] **Passo 3:** adaptar o componente do vega aos tokens e às durações acima.
+- [x] **Passo 4:** os testes passam e passam os quatro comandos.
+- [x] **Passo 5:** commit `feat(ui): Tooltip with 500 ms delay, instant follow-up and instant exit`.
 
-**Verificar no ecrã:** o fade só no primeiro; sem fade com Reduzir movimento; o VoiceOver lê o tooltip como descrição.
+**Verificar no ecrã:** o fade só no primeiro; o fade mantém-se com Reduzir movimento; o VoiceOver lê o tooltip como descrição.
+- **Resultado (2026-11-19):** 301 testes, `check` 0, build OK, harness 73/73. A mutação `bg-tooltip` → `bg-popover` foi apanhada, e o fade em todos os tooltips também. Desvios: a duração escreve-se `duration-(--duration-tooltip)`, porque o Tailwind não gera `duration-tooltip`; vale o mesmo para `duration-hover` na Task 10. Há `data-closed:hidden` para a saída ser instantânea, sem esperar pelo frame do Bits UI. O tooltip aberto pelo foco aparece logo, sem fade. O conteúdo não aceita o ponteiro. O gatilho é um snippet com `{ props }`. Correção do coordenador: com Reduzir movimento o fade **fica** (Figma `55:2128` «só opacidade», regra Movimento 6). O plano dizia o contrário e foi corrigido.
 
 ### Task 9: Etiqueta
 **Ficheiros:** `npx shadcn-svelte@1.8.1 add badge`; adaptar `src/lib/components/ui/badge/*`; criar `badge.test.ts`.
