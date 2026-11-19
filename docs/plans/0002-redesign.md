@@ -221,31 +221,31 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
 
 **Interfaces que produz** (pelos espaços de nomes do Tailwind v4):
 
-- [ ] 
+- [x] 
   
-  **cores:** as 44 variáveis da coleção Cor e as 7 amostras `swatch` ficam em `:root` e `.dark` com o nome do Figma (`--background`, `--primary`, …). O `@theme inline` liga cada uma a `--color-<nome>: var(--<nome>)`, o que dá `bg-background`, `text-foreground`, `border-border`, `bg-primary`, `text-tertiary-foreground`, `bg-cover-verde` e afins;
+  **cores:** as cores da coleção Cor ficam em `:root` e `.dark` com o nome do Figma (`--background`, `--primary`, …). O `@theme inline` liga cada uma a `--color-<nome>: var(--<nome>)`, o que dá `bg-background`, `text-foreground`, `border-border`, `bg-primary`, `text-tertiary-foreground`, `bg-cover-verde` e afins. _Nota (exportação de 2026-11-18): a coleção cresceu para 58 cores, amostras `swatch` incluídas (`tooltip*`, `destructive-text`, `disabled-mark`, `switch-thumb`, `segmented-selected-count`, …); o `design/tokens.json` é a fonte. `ring-opacity` (0,5) não é cor: fica só no `:root`, sem `--color-`;_
   
-- [ ] 
+- [x] 
   
-  **raios:** `--radius-control`, `--radius-group`, `--radius-menu`, `--radius-cover` e `--radius-badge` diretamente no `@theme`, o que dá `rounded-control` e afins. O Tailwind põe-nos no `:root`, por isso `var(--radius-control)` continua a funcionar;
+  **raios:** `--radius-control`, `--radius-group`, `--radius-menu`, `--radius-cover`, `--radius-badge`, `--radius-checkbox`, `--radius-segment` e `--radius-thumb` diretamente no `@theme static`, o que dá `rounded-control` e afins. O `static` põe-nos sempre no `:root`, por isso `var(--radius-control)` continua a funcionar;
   
-- [ ] 
+- [x] 
   
   **medidas:** `--size-control`, `--size-toolbar`, `--size-icon`, … ficam no `:root` com o nome do Figma. O v4 não tem o espaço `--size-*`, por isso as que servem de altura ou tamanho ganham um alias no `@theme inline` (`--spacing-control: var(--size-control)`, `--spacing-toolbar`, `--spacing-icon`, …), o que dá `h-control`, `size-icon` e afins;
   
-- [ ] 
+- [x] 
   
-  **movimento:** durações e distâncias no `:root`; as três curvas em `--ease-<nome>`, o que dá `ease-<nome>`;
+  **movimento:** durações e distâncias no `:root`; as três curvas em `--ease-<nome>` (no mesmo `@theme static`), o que dá `ease-<nome>`. `ease-out` e `ease-in-out` substituem as curvas do Tailwind; a interface antiga passou a `ease-[cubic-bezier(0.4,0,0.2,1)]`, a curva anterior;
   
-- [ ] 
+- [x] 
   
   **spacing:** a coleção do Figma segue a escala de 4 px, a mesma do `--spacing` do v4, por isso não se redefine.
   
-- [ ] 
+- [x] 
   
   **Passo 1:** exportar do Figma (figma-console, ficheiro KHI, cuja chave está no DECISIONS) as coleções Cor (`47:32143`, modos Claro e Escuro), Raio (`47:32188`), Medidas (`47:32194`), Movimento (`47:32205`) e Spacing (`6:1053`). Os valores vão resolvidos (sem alias) para `design/tokens.json`, com esta forma: `{ "cor": { "claro": { "background": "#FFFFFF", … }, "escuro": { … } }, "raio": { "control": 6, … }, "medidas": { … }, "movimento": { … }, "spacing": { … } }`.
   
-- [ ] 
+- [x] 
   
   **Passo 2: testes que falham** (`tokens.test.ts`, que lê `tokens.css` como texto e separa os blocos `:root`, `.dark`, `@media (prefers-contrast: more)` e `@media (prefers-reduced-motion: reduce)`):
   
@@ -264,11 +264,11 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
   - `reduced_motion_drops_distance` (Review Focus 5): no bloco de movimento reduzido, `--distance-enter: 0px`, e as durações de fade iguais às do `:root`.
     
   
-- [ ] 
+- [x] 
   
   **Passo 3:** `npx vitest run src/lib/styles/tokens.test.ts` falha porque o ficheiro não existe.
   
-- [ ] 
+- [x] 
   
   **Passo 4:** escrever `tokens.css` a partir do JSON:
   
@@ -281,14 +281,16 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
   - o `@theme inline`, com as cores e os aliases das medidas. Nenhuma variável do `@theme inline` pode apontar para si mesma. As curvas de Movimento entram como `cubic-bezier(...)`, copiadas do texto da variável.
     
   
-- [ ] 
+- [x] 
   
   **Passo 5:** os testes passam, a interface antiga não muda (os tokens ainda não são usados) e passam os quatro comandos.
   
-- [ ] 
+- [x] 
   
   **Passo 6:** commit `feat(ui): design tokens from Figma as CSS variables`.
   
+**Resultado (2026-11-18):** 58 cores (Claro/Escuro), 8 raios, medidas com alias de spacing e 3 curvas, todos do `design/tokens.json`; harness 73/73 sem diferenças (os tokens ainda não são usados); 10 testes de tokens. A revisão do GPT‑6.2 Sol encontrou dois buracos nos testes (ordem dos blocos de contraste e movimento reduzido; última declaração sem `;`), fechados e provados por mutação. CSS 7,3 → 8,3 kB gzip.
+
 ### Task 3: tipografia
 **Ficheiros:**
 

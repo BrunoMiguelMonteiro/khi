@@ -11,7 +11,7 @@
 
 <button
 	type="button"
-	class="w-5 h-5 border-2 rounded-md flex items-center justify-center cursor-pointer p-0 transition-all duration-150 ease-in-out bg-white border-neutral-300 hover:border-neutral-400 dark:bg-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-500"
+	class="w-5 h-5 border-2 rounded-md flex items-center justify-center cursor-pointer p-0 transition-all duration-150 ease-[cubic-bezier(0.4,0,0.2,1)] bg-white border-neutral-300 hover:border-neutral-400 dark:bg-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-500"
 	class:bg-black={checked}
 	class:border-black={checked}
 	class:dark:bg-white={checked}

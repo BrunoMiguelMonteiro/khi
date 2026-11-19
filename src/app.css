@@ -1,5 +1,8 @@
 @import 'tailwindcss' source(none);
+@import './lib/styles/tokens.css';
 @source './**/*.{html,js,svelte,ts}';
+/* tokens.test.ts names the `@theme static` and `@theme inline` blocks; scanning it would emit .static and .inline. */
+@source not './lib/styles/tokens.test.ts';
 
 @custom-variant dark (&:where(.dark, .dark *));
 /* v3 selector: specificity 0,3,0 so group-hover:opacity-100 beats disabled:opacity-50 */
