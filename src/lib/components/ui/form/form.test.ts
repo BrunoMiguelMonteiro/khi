@@ -74,6 +74,7 @@ describe("FormRow and FormGroup", () => {
     expect(screen.getByRole("switch", { name: "Mostrar capas" })).toBeTruthy();
     expect(screen.getByRole("textbox", { name: "Pasta dos livros" })).toBeTruthy();
     expect(screen.getByRole("checkbox", { name: "Agrupar por série" })).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "Formato" })).toBeTruthy();
     // The label is the row's own text, with its own id: one name, read once.
     const [label] = slots("form-row-label");
     expect(label.id).toBeTruthy();
@@ -86,12 +87,13 @@ describe("FormRow and FormGroup", () => {
     expect(describedBy(screen.getByRole("checkbox"))).toBe("Junta os volumes da mesma série.");
     // Without help, nothing describes the field.
     expect(screen.getByRole("textbox").hasAttribute("aria-describedby")).toBe(false);
+    expect(describedBy(screen.getByRole("combobox"))).toBe("O formato dos ficheiros exportados.");
   });
 
   it("divider_adds_top_border", async () => {
     render(Fixture);
     const rows = slots("form-row");
-    expect(rows).toHaveLength(3);
+    expect(rows).toHaveLength(4);
     await expectBindings(rows[0], ROW_BINDINGS);
     expect([...rows[0].classList].filter((c) => /^border/.test(c))).toEqual([]);
     for (const row of rows.slice(1)) {
@@ -104,7 +106,7 @@ describe("FormRow and FormGroup", () => {
     await expectBindings(slots("form-row-labels")[0], LABELS_BINDINGS);
     for (const label of slots("form-row-label")) await expectBindings(label, LABEL_BINDINGS);
     const helps = slots("form-row-help");
-    expect(helps).toHaveLength(2);
+    expect(helps).toHaveLength(3);
     for (const help of helps) await expectBindings(help, HELP_BINDINGS);
   });
 
