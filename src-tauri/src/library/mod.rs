@@ -128,9 +128,11 @@ pub fn safe_dir_name(name: &str) -> String {
 const META_LAST_READER: &str = "last_reader";
 
 /// A highlight `h` of book `b` is new if a sync after the Reader's first
-/// brought it, later than the book was last opened (D1). One rule for
+/// brought it, later than the book was last opened (D1), and it is not
+/// removed from the Kobo: a removed highlight is never new. One rule for
 /// `isNew` and for the summary's `new_since`.
-const IS_NEW: &str = "h.synced_seq IS NOT NULL AND h.synced_seq > COALESCE(b.opened_seq, 0)";
+const IS_NEW: &str =
+    "h.synced_seq IS NOT NULL AND h.synced_seq > COALESCE(b.opened_seq, 0) AND h.removed_at IS NULL";
 
 const BOOK_COLUMNS: &str = "id, title, author, isbn, publisher, language, description, date_last_read, cover_file";
 
@@ -439,12 +441,20 @@ impl Library {
     /// The Reader has seen the book up to sync `seen_seq`: the highest
     /// `synced_seq` loaded when it was opened, never the current one, so a
     /// sync that lands meanwhile stays new. Never lowers what was seen.
+    ///
+    /// Gives up at once instead of waiting when a Sync holds the write lock
+    /// (like `try_set_last_reader`): the caller holds the Library mutex, and
+    /// waiting here would block everything else, up to the 5 s timeout. The
+    /// frontend logs the failure and the book stays new until the next open.
     pub fn mark_book_opened(&self, reader_id: u32, book_id: u32, seen_seq: u32) -> Result<()> {
-        let changed = self.conn.execute(
+        self.conn.busy_timeout(std::time::Duration::ZERO)?;
+        let result = self.conn.execute(
             "UPDATE books SET opened_seq = MAX(COALESCE(opened_seq, 0), ?1)
              WHERE id = ?2 AND reader_id = ?3",
             params![seen_seq, book_id, reader_id],
-        )?;
+        );
+        self.conn.busy_timeout(std::time::Duration::from_secs(5))?;
+        let changed = result?;
         if changed == 0 {
             return Err(LibraryError::NotFound);
         }

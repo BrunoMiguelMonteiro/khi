@@ -377,7 +377,9 @@ describe('Library Store', () => {
 		});
 
 		it('uses seenSeq 0 when nothing carries a syncedSeq', async () => {
-			library.setBooks([bookWith(hl('a', true, null))]);
+			// isNew implies a syncedSeq in what the backend returns; here the
+			// book has only a non-new, first-sync highlight.
+			library.setBooks([bookWith(hl('a', false, null))]);
 			answer({ mark_book_opened: null });
 
 			await library.openBook(1);
@@ -442,15 +444,70 @@ describe('Library Store', () => {
 			expect(invoke).toHaveBeenLastCalledWith('mark_book_opened', { readerId: 9, bookId: 1, seenSeq: 5 });
 		});
 
+		it('open_without_active_reader_skips_mark', async () => {
+			library.activeReaderId = null;
+			library.setBooks([bookWith(hl('a', true, 2))]);
+
+			await library.openBook(1);
+
+			expect(library.viewingNewIds).toEqual(new Set(['a']));
+			expect(library.viewingBookId).toBe(1);
+			expect(vi.mocked(invoke).mock.calls.filter(([cmd]) => cmd === 'mark_book_opened')).toHaveLength(0);
+		});
+
+		it('open_unknown_book_marks_with_zero', async () => {
+			library.setBooks([bookWith(hl('a', true, 2))]);
+			answer({ mark_book_opened: null });
+
+			await library.openBook(99);
+
+			expect(library.viewingNewIds.size).toBe(0);
+			expect(invoke).toHaveBeenCalledWith('mark_book_opened', { readerId: 9, bookId: 99, seenSeq: 0 });
+		});
+
+		it('late_mark_response_keeps_current_snapshot', async () => {
+			const book2 = (...highlights: ReturnType<typeof hl>[]) =>
+				makeBook({ id: 2, title: 'C', author: 'A', highlights });
+			library.setBooks([bookWith(hl('a', true, 2)), book2(hl('x', true, 4))]);
+			const resolvers: Record<number, () => void> = {};
+			vi.mocked(invoke).mockImplementation((cmd: string, args?: unknown) => {
+				if (cmd !== 'mark_book_opened') return Promise.reject(new Error(`unexpected ${cmd}`));
+				const { bookId } = args as { bookId: number };
+				return new Promise((r) => (resolvers[bookId] = () => r(null)));
+			});
+
+			const openingA = library.openBook(1);
+			const openingB = library.openBook(2);
+			resolvers[1]();
+			await openingA;
+
+			expect(library.viewingBookId).toBe(2);
+			expect(library.viewingNewIds).toEqual(new Set(['x']));
+			const hlOf = (bookId: number, id: string) =>
+				library.books.find((b) => b.id === bookId)?.highlights.find((h) => h.id === id)?.isNew;
+			expect(hlOf(1, 'a')).toBe(false);
+			expect(hlOf(2, 'x')).toBe(true);
+
+			resolvers[2]();
+			await openingB;
+			expect(hlOf(2, 'x')).toBe(false);
+		});
+
 		it('open_book_is_the_only_entry', () => {
 			const dir = join(process.cwd(), 'src');
+			const store = join('lib', 'stores', 'library.svelte.ts');
 			const offenders = readdirSync(dir, { recursive: true, encoding: 'utf8' })
-				.filter((f) => /\.(svelte|ts)$/.test(f) && !/\.(test|spec)\.ts$/.test(f))
-				.filter((f) => !f.endsWith('library.svelte.ts'))
+				.filter((f) => /\.(svelte|ts|js)$/.test(f) && !/\.(test|spec)\.(ts|js)$/.test(f))
+				.filter((f) => f !== store)
 				.filter((f) => {
 					const source = readFileSync(join(dir, f), 'utf8');
 					// Neither the old setter nor a direct write may bypass openBook.
-					return source.includes('setViewingBookId') || /viewingBookId\s*=(?!=)/.test(source);
+					return (
+						source.includes('setViewingBookId') ||
+						/viewingBookId\s*=(?!=)/.test(source) ||
+						/bind:[\w:]*(=\s*\{[^}]*)?viewingBookId/.test(source) ||
+						/\[\s*['"]viewingBookId['"]\s*\]/.test(source)
+					);
 				});
 			expect(offenders).toEqual([]);
 			expect((library as unknown as Record<string, unknown>).setViewingBookId).toBeUndefined();

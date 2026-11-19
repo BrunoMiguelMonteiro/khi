@@ -19,7 +19,7 @@ class LibraryStore {
 	uiState = $state<UiState>('no-device');
 	/** The Reader that owns the connected Kobo, when it is known. */
 	connectedReaderId = $state<number | null>(null);
-	viewingBookId = $state<number | null>(null);
+	#viewingBookId = $state<number | null>(null);
 	#viewingNewIds = $state<ReadonlySet<string>>(new Set());
 
 	// Derived state
@@ -31,7 +31,7 @@ class LibraryStore {
 			this.connectedReaderId === this.activeReaderId &&
 			!this.isImporting
 	);
-	viewingBook = $derived(this.viewingBookId ? this.books.find((b) => b.id === this.viewingBookId) : undefined);
+	viewingBook = $derived(this.#viewingBookId ? this.books.find((b) => b.id === this.#viewingBookId) : undefined);
 
 	// Actions
 	setBooks(newBooks: Book[]) {
@@ -71,6 +71,11 @@ class LibraryStore {
 		this.connectedReaderId = null;
 	}
 
+	/** The open book; set only by `openBook` and `closeBook`. */
+	get viewingBookId(): number | null {
+		return this.#viewingBookId;
+	}
+
 	/** The ids of the open book's highlights that were new when it was opened.
 	 * Changes only in `openBook`, so a reload mid-reading leaves it alone (D1). */
 	get viewingNewIds(): ReadonlySet<string> {
@@ -86,7 +91,7 @@ class LibraryStore {
 		const snapshot = new Set(highlights.filter((h) => h.isNew).map((h) => h.id));
 		const seenSeq = Math.max(0, ...highlights.map((h) => h.syncedSeq ?? 0));
 		this.#viewingNewIds = snapshot;
-		this.viewingBookId = bookId;
+		this.#viewingBookId = bookId;
 		if (this.activeReaderId === null) return;
 
 		try {
@@ -109,7 +114,7 @@ class LibraryStore {
 	}
 
 	closeBook() {
-		this.viewingBookId = null;
+		this.#viewingBookId = null;
 	}
 
 	// Readers

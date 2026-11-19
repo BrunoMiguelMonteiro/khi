@@ -467,6 +467,122 @@ fn last_sync_at_none_for_other_readers_kobo() {
 }
 
 #[test]
+fn first_sync_is_per_reader() {
+    let (dir, mut lib, _reader) = setup();
+    let other = lib.create_reader("Outra").unwrap();
+    lib.associate_kobo("SERIAL-C", other.id).unwrap();
+    sync(&mut lib, KOBO_A, vec![confianca(&["a1"])]);
+    sync(&mut lib, KOBO_A, vec![confianca(&["a1", "a2"])]);
+
+    // The Library already holds highlights, but not this Reader's.
+    sync(&mut lib, "SERIAL-C", vec![confianca(&["c1", "c2"])]);
+
+    assert_eq!(synced(dir.path(), "c1").0, None);
+    assert_eq!(synced(dir.path(), "c2").0, None);
+    assert_eq!(synced(dir.path(), "a2").0, Some(2), "the first Reader's own later highlight is still new");
+}
+
+#[test]
+fn first_sync_counts_removed_highlights() {
+    let (dir, mut lib, _reader) = setup();
+    sync(&mut lib, KOBO_A, vec![confianca(&["a1"])]);
+    sync(&mut lib, KOBO_A, vec![]);
+    let removed: Option<String> = library_conn(dir.path())
+        .query_row("SELECT removed_at FROM highlights WHERE bookmark_id = 'a1'", [], |r| r.get(0))
+        .unwrap();
+    assert!(removed.is_some(), "precondition: a1 is removed");
+
+    sync(&mut lib, KOBO_A, vec![confianca(&["a2"])]);
+
+    assert_eq!(synced(dir.path(), "a2").0, Some(3), "a removed highlight still means the Reader had a first sync");
+}
+
+#[test]
+fn new_since_is_per_reader() {
+    let (_dir, mut lib, reader) = setup();
+    let other = lib.create_reader("Outra").unwrap();
+    lib.associate_kobo("SERIAL-C", other.id).unwrap();
+    sync(&mut lib, KOBO_A, vec![confianca(&["a1"])]);
+    sync(&mut lib, "SERIAL-C", vec![confianca(&["c1"])]);
+    sync(&mut lib, "SERIAL-C", vec![confianca(&["c1", "c2"])]);
+
+    assert!(lib.library_summary(other.id, None).unwrap().new_since.is_some(), "precondition: the other Reader has new");
+    assert_eq!(lib.library_summary(reader, None).unwrap().new_since, None);
+}
+
+#[test]
+fn deleting_all_books_makes_next_sync_first() {
+    // Assumed behaviour (plan 0002, Fase 3): a Reader with no highlights left
+    // is back to a first sync, so what comes next is not marked new.
+    let (dir, mut lib, reader) = setup();
+    sync(&mut lib, KOBO_A, vec![confianca(&["a1"]), duly_noted(&["b1"])]);
+    sync(&mut lib, KOBO_A, vec![]);
+    for b in lib.books(reader).unwrap() {
+        lib.delete_book(reader, b.id).unwrap();
+    }
+    assert!(lib.books(reader).unwrap().is_empty());
+
+    sync(&mut lib, KOBO_A, vec![confianca(&["a1", "a2"]), duly_noted(&["b1"])]);
+
+    for id in ["a1", "a2", "b1"] {
+        assert_eq!(synced(dir.path(), id).0, None, "{id}");
+    }
+}
+
+#[test]
+fn removed_highlight_is_not_new() {
+    let (_dir, mut lib, reader) = setup();
+    sync(&mut lib, KOBO_A, vec![confianca(&["a1"])]);
+    sync(&mut lib, KOBO_A, vec![confianca(&["a1", "h"])]);
+    assert_eq!(new_ids(&lib, reader, "Confiança"), vec!["h"], "precondition: h is new");
+
+    sync(&mut lib, KOBO_A, vec![confianca(&["a1"])]);
+
+    let books = lib.books(reader).unwrap();
+    let h = highlight(book(&books, "Confiança"), "h");
+    assert!(h.removed_at.is_some());
+    assert!(!h.is_new, "a removed highlight is never new");
+    assert_eq!(lib.library_summary(reader, None).unwrap().new_since, None);
+}
+
+#[test]
+fn restored_new_highlight_is_new_again() {
+    let (_dir, mut lib, reader) = setup();
+    sync(&mut lib, KOBO_A, vec![confianca(&["a1"])]);
+    sync(&mut lib, KOBO_A, vec![confianca(&["a1", "h"])]);
+    sync(&mut lib, KOBO_A, vec![confianca(&["a1"])]);
+    assert!(new_ids(&lib, reader, "Confiança").is_empty(), "precondition: removed, so not new");
+
+    sync(&mut lib, KOBO_A, vec![confianca(&["a1", "h"])]);
+
+    assert_eq!(new_ids(&lib, reader, "Confiança"), vec!["h"], "synced_seq 2 > opened_seq: new again");
+    assert!(lib.library_summary(reader, None).unwrap().new_since.is_some());
+}
+
+#[test]
+fn mark_book_opened_does_not_wait_for_sync() {
+    let (dir, mut lib, reader) = setup();
+    sync(&mut lib, KOBO_A, vec![confianca(&["a1"])]);
+    let book_id = book(&lib.books(reader).unwrap(), "Confiança").id;
+
+    // Another connection holds the write lock, as a running Sync would.
+    let blocker = library_conn(dir.path());
+    blocker.execute_batch("BEGIN IMMEDIATE").unwrap();
+
+    let started = std::time::Instant::now();
+    let result = lib.mark_book_opened(reader, book_id, 1);
+    let elapsed = started.elapsed();
+
+    assert!(result.is_err(), "the mark gives up while the write lock is held");
+    assert!(elapsed < std::time::Duration::from_secs(1), "waited {elapsed:?}");
+
+    // The timeout is back to normal and the mark works once the lock is free.
+    blocker.execute_batch("ROLLBACK").unwrap();
+    lib.mark_book_opened(reader, book_id, 1).unwrap();
+    assert_eq!(opened_seq(dir.path(), book_id), Some(1));
+}
+
+#[test]
 fn export_output_unchanged() {
     fn config(base: &Path) -> ExportConfig {
         ExportConfig {
