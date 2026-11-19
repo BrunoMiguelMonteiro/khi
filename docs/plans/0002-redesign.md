@@ -565,20 +565,22 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
 **Ficheiros:** `npx shadcn-svelte@1.8.1 add badge`; adaptar `src/lib/components/ui/badge/*`; criar `badge.test.ts`.
 
 **Interfaces que produz** (Componentes (D7) · 1 · Etiqueta, `55:584`; Cor 2, «Etiquetas»): `<Badge>{texto}</Badge>`, uma só variante:
-- `p-1`, `rounded-badge`, `bg-primary-tint`, `text-subheadline-semibold text-primary-tint-foreground`, altura pelo texto (14);
+- `px-1` (o Figma liga `spacing/1` só à esquerda e à direita; em cima e em baixo é 0), `rounded-badge`, `bg-primary-tint`, `text-subheadline-semibold text-primary-tint-foreground`, altura pelo texto (14);
 - algarismos tabulares;
 - com Contraste aumentado, `contrast-more:inset-ring` em `primary-tint-foreground` (Tema 3).
 
-- [ ] **Passo 1: testes que falham** (`badge.test.ts`):
+- [x] **Passo 1: testes que falham** (`badge.test.ts`):
   - `badge_uses_tint_tokens`;
   - `badge_is_tabular`;
   - `badge_has_contrast_outline`.
-- [ ] **Passo 2:** `npx vitest run src/lib/components/ui/badge` falha.
-- [ ] **Passo 3:** adaptar o componente; sai o `badgeVariants` do vega.
-- [ ] **Passo 4:** os testes passam e passam os quatro comandos.
-- [ ] **Passo 5:** commit `feat(ui): Badge in tonal accent`.
+- [x] **Passo 2:** `npx vitest run src/lib/components/ui/badge` falha.
+- [x] **Passo 3:** adaptar o componente; sai o `badgeVariants` do vega.
+- [x] **Passo 4:** os testes passam e passam os quatro comandos.
+- [x] **Passo 5:** commit `feat(ui): Badge in tonal accent`.
 
 **Verificar no ecrã:** altura de 14 com o texto.
+- **Resultado (2026-11-19):** 284 testes, `check` 0, harness 73/73. O coordenador confirmou no nó `55:584` que o `spacing/1` só está à esquerda e à direita (altura 14): `px-1` e não `p-1`, verificado por mutação. Sem `href` (uma só variante, sem estados). Revisão no lote 7 + 9 + 13.
+- **Lição:** o texto do DECISIONS não chega para os paddings; as tasks seguintes confirmam as ligações no nó do Figma (o coordenador exporta-as antes de cada task).
 
 ### Task 10: Botão
 **Ficheiros:** `npx shadcn-svelte@1.8.1 add button`; adaptar `src/lib/components/ui/button/*`; criar `button.test.ts`.
