@@ -83,6 +83,7 @@
     "newCount": "{count} novos",
     "newCount_one": "1 novo",
     "newCount_other": "{count} novos",
+    "unknownAuthor": "Autor desconhecido",
     "select": "Selecionar",
     "deselect": "Deselecionar",
     "noHighlights": "Este livro não tem destaques",

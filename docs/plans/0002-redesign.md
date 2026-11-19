@@ -1045,17 +1045,17 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 - foco (Task 5): o `gridcell` tem o foco; o anel pinta-se na Capa quando não está selecionado, e na moldura de seleção, encostado, com raio 9, quando está (Q-J, F1); nunca à volta do título;
 - VoiceOver: «Os Maias, Eça de Queirós, 58 destaques, 11 novos», e «selecionado».
 
-- [ ] **Passo 1: testes que falham** (`book-card.test.ts`):
+- [x] **Passo 1: testes que falham** (`book-card.test.ts`):
   - `name_reads_title_author_counts`;
   - `unknown_author_fallback`;
   - `selected_sets_aria_selected_and_frame`;
   - `title_uses_line_clamp_2`;
   - `count_is_tabular`;
   - `focus_ring_is_painted_on_cover_or_selection_frame`: a classe `group-focus-visible/card:focus-ring` está na Capa sem seleção e na moldura com seleção, e não no título.
-- [ ] **Passo 2:** `npx vitest run src/lib/components/ui/book-card` falha.
-- [ ] **Passo 3:** o componente e as chaves em `book.*`.
-- [ ] **Passo 4:** os testes passam e passam os quatro comandos.
-- [ ] **Passo 5:** commit `feat(ui): BookCard with selection frame and focus halo`.
+- [x] **Passo 2:** `npx vitest run src/lib/components/ui/book-card` falha.
+- [x] **Passo 3:** o componente e as chaves em `book.*`.
+- [x] **Passo 4:** os testes passam e passam os quatro comandos.
+- [x] **Passo 5:** commit `feat(ui): BookCard with selection frame and focus halo`.
 
 **Verificar no ecrã** (WebKit do macOS 13.3 como mínimo): o anel com o teclado e não com o rato; selecionado e não selecionado; o anel segue o raio e não é cortado pela grelha; o VoiceOver lê o nome e «selecionado».
 

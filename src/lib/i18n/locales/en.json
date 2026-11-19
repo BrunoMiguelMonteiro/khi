@@ -83,6 +83,7 @@
     "newCount": "{count} new",
     "newCount_one": "1 new",
     "newCount_other": "{count} new",
+    "unknownAuthor": "Unknown author",
     "noHighlights": "No highlights",
     "select": "Select",
     "deselect": "Deselect",
