@@ -444,7 +444,7 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
     - foco com `focus-visible:focus-ring` (Task 5), sem animação, nunca no clique do rato;
     - **desativado no próprio primitivo**, não só nos callbacks: o Bits UI muda o estado interno sozinho (a Caixa muda com o Espaço). Cada task diz como: `readonly` do Bits UI onde existe (Caixa, Amostras), uma ligação de função que recusa a escrita onde não existe (Switch, abertura do Pop-up), `readonly` nativo no Campo, `aria-disabled` e um clique ignorado no Botão. O controlo fica na ordem do Tab, com `aria-disabled="true"` e `data-disabled`, e mostra `disabledReason` num Tooltip ao receber o foco, ligado por `aria-describedby`. **Exceções:** os itens desativados dos menus e o segmento com contagem 0 saem da ordem do Tab e das setas, como no macOS (Tasks 16 e 17).
     - os testes do desativado usam `expectDisabledInert` (Task 5): depois do Espaço, do Return, do clique no controlo e do clique no rótulo, o valor ligado não muda, o pop-up não abre e o callback foi chamado 0 vezes; e o motivo lê-se com o foco.
-  - **Contraste aumentado:** os modos «Claro · Contraste» e «Escuro · Contraste» do Figma, pela Task 6; os contornos de 1 px por dentro só existem com `contrast-more:inset-ring`.
+  - **Contraste aumentado:** os modos «Claro · Contraste» e «Escuro · Contraste» do Figma, pela Task 6; os contornos de 1 px por dentro (Tema 3) são variáveis do Figma desde 2026-11-19 (decisão do Bruno): `contrast-outline` (botões de ícone), `contrast-outline-tint` (selecionado e etiquetas) e `contrast-outline-primary` (Principal). São transparentes nos modos normais e têm cor nos de contraste, e o componente desenha sempre `inset-ring inset-ring-<variável>`, sem `contrast-more:`. Os contornos que ainda não estão no Figma (segmento, vista, item da barra lateral e grupo) entram no Figma, como variável, na task de cada um.
   - **Movimento** (Movimento 6): com `motion-reduce:` saem o deslocamento, a escala e a rotação; ficam os fades e as mudanças de cor.
   - **Textos:** chaves novas em `ui.<componente>` (ou nas secções que já existem, como `book.*`), em `pt.json` e `en.json` no mesmo commit, com plurais `_one`/`_other`. Os testes verificam o texto aprovado, palavra a palavra.
   - **Testes** (`<nome>.test.ts`, ao lado do componente; o conteúdo dos portais do Bits UI procura-se com `screen`):
@@ -568,7 +568,7 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
 **Interfaces que produz** (Componentes (D7) · 1 · Etiqueta, `55:584`; Cor 2, «Etiquetas»): `<Badge>{texto}</Badge>`, uma só variante:
 - `px-1` (o Figma liga `spacing/1` só à esquerda e à direita; em cima e em baixo é 0), `rounded-badge`, `bg-primary-tint`, `text-subheadline-semibold text-primary-tint-foreground`, altura pelo texto (14);
 - algarismos tabulares;
-- com Contraste aumentado, `contrast-more:inset-ring` em `primary-tint-foreground` (Tema 3).
+- com Contraste aumentado, contorno `inset-ring inset-ring-contrast-outline-tint` (Tema 3, variável do Figma).
 
 - [x] **Passo 1: testes que falham** (`badge.test.ts`):
   - `badge_uses_tint_tokens`;
@@ -582,6 +582,7 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
 **Verificar no ecrã:** altura de 14 com o texto.
 - **Resultado (2026-11-19):** 284 testes, `check` 0, harness 73/73. O coordenador confirmou no nó `55:584` que o `spacing/1` só está à esquerda e à direita (altura 14): `px-1` e não `p-1`, verificado por mutação. Sem `href` (uma só variante, sem estados). Revisão no lote 7 + 9 + 13.
 - **Lição:** o texto do DECISIONS não chega para os paddings; as tasks seguintes confirmam as ligações no nó do Figma (o coordenador exporta-as antes de cada task).
+- **Atualização (2026-11-19):** o contorno de contraste passou a `inset-ring inset-ring-contrast-outline-tint`, ligado no Figma `55:584` (variável transparente fora dos modos de contraste).
 
 ### Task 10: Botão
 **Ficheiros:** `npx shadcn-svelte@1.8.1 add button`; adaptar `src/lib/components/ui/button/*`; criar `button.test.ts`.
@@ -590,9 +591,10 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
 - `<Button variant="principal" | "secundario" | "ligacao" icon? disabled? disabledReason? onclick>{texto}</Button>`. Só três variantes, no tipo: Secundário é o `outline` do shadcn e Ligação o `link`; saem `default`, `ghost`, `destructive`, `secondary` e os tamanhos (P7);
 - comum: `h-control px-4 gap-2 rounded-control text-body-medium`; ícone à esquerda de 16;
 - Principal: `bg-primary text-primary-foreground`, hover `bg-primary-hover`, premido `bg-primary-pressed`; desativado `bg-primary-disabled text-disabled-foreground`;
-- Secundário: `bg-background border border-input text-foreground`, hover `bg-accent`, premido `bg-accent-pressed`; desativado `bg-disabled border-disabled-border text-disabled-foreground`;
+- Secundário: `bg-background border border-input-strong text-foreground` (Figma `55:787`, corrigido de `input` para `input-strong` em 2026-11-19), hover `bg-accent`, premido `bg-accent-pressed`; desativado `bg-disabled border-disabled-border text-disabled-foreground`;
 - Ligação: sem fundo, `text-link`, sublinhado só no hover, premido `text-primary-pressed`; desativado `text-disabled-foreground`;
-- Contraste aumentado: Principal com `contrast-more:inset-ring` em `primary-foreground`; Secundário com `contrast-more:inset-ring` na cor da linha, `border` (Tema 3);
+- Contraste aumentado: Principal (menos o desativado) com `inset-ring inset-ring-contrast-outline-primary`; o Secundário não leva contorno extra, porque o `input-strong` já escurece nos modos de contraste (Tema 3, Figma);
+- as transições escrevem-se `duration-(--duration-hover) ease-hover` (o Tailwind não gera `duration-hover`; ver a Task 8);
 - desativado: `<button>` sem `disabled`, com `aria-disabled` e o `onclick` ignorado (não há estado interno do Bits UI);
 - as reticências ficam no texto, não numa propriedade (`buttons.md`).
 
@@ -616,9 +618,9 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
 
 **Interfaces que produz** (Componentes (D7) · 3 · Botão de toolbar, `55:1346`):
 - `<ToolbarButton icon label tooltip shortcut? pressed? disabled? disabledReason? onclick />`;
-- `size-toolbar-button rounded-control`, ícone de 16 em `text-foreground`, sem fundo nem contorno no Normal (`toolbars.md`);
+- `size-toolbar-button rounded-control`, ícone de 16 em `text-foreground`, sem fundo nem contorno visível no Normal (`toolbars.md`); com Contraste aumentado, `inset-ring inset-ring-contrast-outline` em todos os estados (Figma `55:1346`);
 - hover `bg-accent`, premido `bg-accent-pressed`;
-- selecionado (`pressed`): `aria-pressed="true"`, `bg-primary-tint text-primary-tint-foreground`, e `contrast-more:inset-ring` em `primary-tint-foreground`;
+- selecionado (`pressed`): `aria-pressed="true"`, `bg-primary-tint text-primary-tint-foreground`, e o contorno passa a `inset-ring-contrast-outline-tint`;
 - desativado: ícone `text-toolbar-icon-disabled`, com o tooltip do motivo (por exemplo «Liga o Kobo para sincronizar»);
 - `aria-label` = `label`; o Tooltip mostra `tooltip` e `shortcut`.
 

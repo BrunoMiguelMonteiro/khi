@@ -45,6 +45,13 @@ const FIGMA_BINDINGS = [
     utility: "text-subheadline-semibold",
     css: "font-size: 11px;\n    line-height: 14px;\n    font-weight: 600;",
   },
+  // Tema 3: 1 px inside stroke (stroke/border), transparent outside the contrast modes.
+  { binding: "stroke/border (inside)", utility: "inset-ring", css: "inset 0 0 0 1px" },
+  {
+    binding: "contrast-outline-tint",
+    utility: "inset-ring-contrast-outline-tint",
+    css: "--tw-inset-ring-color: var(--contrast-outline-tint);",
+  },
 ];
 
 describe("Badge", () => {
@@ -85,22 +92,9 @@ describe("Badge", () => {
     });
     const classes = [...badgeOf(container).classList];
     expect(classes).toContain("ml-2");
-    // Tema 3: 1 px inside, in primary-tint-foreground, only with increased contrast.
+    // Tema 3: the outline is always drawn; contrast-outline-tint is transparent outside the
+    // Figma contrast modes, so no contrast-more: variant is needed (tokens.css holds the modes).
     const ring = classes.filter((c) => c.includes("inset-ring"));
-    expect(ring.sort()).toEqual([
-      "contrast-more:inset-ring",
-      "contrast-more:inset-ring-primary-tint-foreground",
-    ]);
-    const { css } = await compileAppCss(ring);
-    const block =
-      css
-        .match(/@media \(prefers-contrast: more\) \{([\s\S]*?)\n {2}\}/g)
-        ?.join("\n") ?? "";
-    expect(block).toContain(
-      "--tw-inset-ring-shadow: inset 0 0 0 1px var(--tw-inset-ring-color, currentcolor);",
-    );
-    expect(block).toContain(
-      "--tw-inset-ring-color: var(--primary-tint-foreground);",
-    );
+    expect(ring.sort()).toEqual(["inset-ring", "inset-ring-contrast-outline-tint"]);
   });
 });
