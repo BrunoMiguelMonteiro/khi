@@ -1212,49 +1212,54 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 **Implementadores (proposta):** Opus nas Tasks 31 e 32 (backend, §6); Sonnet na 33, com testes que fixam a ordem.
 
 **Regras desta fase (do DECISIONS, «Âmbito da v2», «Novo»):**
-- um destaque é novo se `synced_at IS NOT NULL AND (books.opened_at IS NULL OR synced_at > opened_at)`; empate (`=`) não é novo;
-- `synced_at` só se escreve na **inserção real** (o ramo `else` de `upsert_highlight`, `src-tauri/src/library/sync.rs:167-179`); um update ou um restauro nunca lhe toca;
-- primeira sincronização do leitor = **zero linhas em `highlights` desse `reader_id`** (removidos incluídos) antes do ciclo, contadas dentro da transação. Nunca `kobos.last_sync_at IS NULL`, que é por Kobo;
+- **número de sincronização, não relógio.** Cada sincronização recebe um `sync_seq` monotónico (em `meta`, incrementado dentro da transação; se a transação falha, o número não avança). Um destaque inserido guarda o seu `synced_seq`. Um livro guarda o `opened_seq`, **até onde o Bruno viu**: o maior `synced_seq` dos dados carregados quando abriu o livro, **nunca o «agora»**. Assim, abrir um livro a meio de uma sincronização não engole os destaques que ela traz;
+- um destaque é novo se `synced_seq IS NOT NULL AND synced_seq > COALESCE(books.opened_seq, 0)`;
+- `synced_seq` e `synced_at` só se escrevem na **inserção real** (o ramo `else` de `upsert_highlight`, `src-tauri/src/library/sync.rs:167-179`); um update ou um restauro nunca lhes toca. O `synced_at` é só para mostrar (o «desde 9 nov.»), com o mesmo `now` e o mesmo formato do `last_sync_at`;
+- primeira sincronização do leitor = **zero linhas em `highlights` desse `reader_id`** (removidos incluídos) antes do ciclo, contadas dentro da transação. Nesse caso, `synced_seq` e `synced_at` ficam nulos. Nunca `kobos.last_sync_at IS NULL`, que é por Kobo;
 - **comportamento assumido:** um leitor que apaga todos os livros volta a ter a Biblioteca vazia, e a sincronização seguinte não marca nada como novo;
-- `synced_at` e `opened_at`: o mesmo formato, ISO-8601 UTC com milissegundos (`SecondsFormat::Millis`, sufixo `Z`), para que a comparação em TEXT seja certa. O `kobos.last_sync_at` fica em segundos, porque nunca se compara com os outros;
-- marca-se o livro **ao abrir**, e o Detalhe guarda um **snapshot** dos novos, tirado antes de marcar. Marcar ao sair faria os destaques chegados a meio ficarem com `synced_at < opened_at`, e perdiam-se.
+- marca-se o livro **ao abrir**, e o Detalhe guarda um **snapshot** dos novos, tirado antes de marcar. Marcar ao sair faria os destaques chegados a meio da leitura deixarem de ser novos.
 
-### Task 31: Migração v2, relógio e `synced_at`
+### Task 31: Migração v2, número de sincronização e `synced_seq`
 **Ficheiros:** `src-tauri/src/library/schema.rs`, `src-tauri/src/library/mod.rs`, `src-tauri/src/library/sync.rs`; criar `src-tauri/tests/library_new.rs` (os helpers de `library_sync.rs:25-84` que fizerem falta passam para `tests/common/mod.rs`).
 
 **Interfaces que produz:**
-- `MIGRATIONS[1]` (v2): `ALTER TABLE highlights ADD COLUMN synced_at TEXT; ALTER TABLE books ADD COLUMN opened_at TEXT;`. A v1 não se edita;
-- um relógio no `Library`: campo `clock: Box<dyn Fn() -> DateTime<Utc> + Send>`, que por omissão é `Utc::now`, e `#[doc(hidden)] pub fn with_clock(self, f) -> Self` para os testes de integração. O `sync` lê o «agora» do relógio (`sync.rs:37`);
-- `upsert_highlight` recebe o `synced_at: Option<&str>`, que é `None` na primeira sincronização do leitor.
+- `MIGRATIONS[1]` (v2): `ALTER TABLE highlights ADD COLUMN synced_seq INTEGER; ALTER TABLE highlights ADD COLUMN synced_at TEXT; ALTER TABLE books ADD COLUMN opened_seq INTEGER;`. A v1 não se edita;
+- `meta('sync_seq')`, lido e incrementado dentro da transação `IMMEDIATE` do `sync`;
+- um relógio no `Library`: o campo `clock: Box<dyn Fn() -> DateTime<Utc> + Send>`, que por omissão é `Utc::now`, e `#[doc(hidden)] pub fn with_clock(self, f) -> Self` para os testes de integração (só para as datas mostradas; a regra do «novo» não depende dele);
+- `upsert_highlight` recebe `Option<(seq, &str)>`, que é `None` na primeira sincronização do leitor.
 
 - [ ] **Passo 1: testes que falham** (`library_new.rs`):
-  - `migration_v2_keeps_v1_data`: uma base v1 com destaques migra para `user_version = 2`; as linhas antigas ficam com `synced_at` nulo;
+  - `migration_v2_keeps_v1_data`: uma base v1 com destaques migra para `user_version = 2`, e as linhas antigas ficam com `synced_seq` nulo;
   - `first_sync_of_reader_marks_nothing`;
-  - `insert_after_first_sync_gets_synced_at`: o valor é o do relógio injetado, com milissegundos;
-  - `second_kobo_unseen_bookmarks_get_synced_at` (cenário `SERIAL-A`/`SERIAL-B` de `library_sync.rs:12-23`);
-  - `same_bookmark_again_keeps_synced_at`: o update e o restauro não mudam o valor;
-  - `last_sync_at_format_unchanged`: continua em segundos.
+  - `seq_increments_per_sync`, e `failed_sync_does_not_advance_seq`;
+  - `insert_after_first_sync_gets_seq_and_at`;
+  - `second_kobo_unseen_bookmarks_get_seq` (cenário `SERIAL-A`/`SERIAL-B` de `library_sync.rs:12-23`);
+  - `same_bookmark_again_keeps_seq`: o update e o restauro não mudam o valor.
 - [ ] **Passo 2:** `(cd src-tauri && cargo test --test library_new)` falha.
-- [ ] **Passo 3:** migração, relógio e escrita na inserção.
-- [ ] **Passo 4:** `cargo test` inteiro passa (incluindo `library_sync.rs` sem alterações de comportamento), e os quatro comandos do frontend também.
-- [ ] **Passo 5:** commit `feat(library): v2 migration and synced_at on insert`.
+- [ ] **Passo 3:** migração, número de sincronização e escrita na inserção.
+- [ ] **Passo 4:** passa o `cargo test` inteiro (incluindo `library_sync.rs`, sem mudanças de comportamento), e os quatro comandos do frontend.
+- [ ] **Passo 5:** commit `feat(library): v2 migration and sync sequence`.
 
 ### Task 32: `isNew`, `markBookOpened` e resumo do leitor
 **Ficheiros:** `src-tauri/src/library/mod.rs` (`BOOK_COLUMNS` :116, `query_books` :362-406), `src-tauri/src/commands/library.rs`, `src-tauri/src/lib.rs` (`collect_commands!`), `src/lib/bindings.ts` (regenerado), `src-tauri/tests/library_new.rs`, `src/lib/contract.test.ts`.
 
 **Interfaces que produz:**
-- `LibraryHighlight.is_new: bool` (`isNew`), calculado no SELECT com a regra acima. As colunas novas entram **no fim** dos SELECT posicionais, para não deslocar índices;
-- o command `mark_book_opened(reader_id: u32, book_id: u32) -> ()`: grava `opened_at` com o relógio; um livro de outro leitor dá `NotFound`;
-- o command `library_summary(reader_id: u32) -> LibrarySummary { new_since: Option<String>, last_sync_at: Option<String> }`. O `new_since` é o `MIN(synced_at)` dos destaques novos do leitor (o «desde 9 nov.»). O `last_sync_at` é o `MAX(kobos.last_sync_at)` dos Kobos do leitor (o «sincronizado às 10:42»). **Proposta:** o máximo do leitor em vez do «Kobo ligado», porque o frontend não precisa de saber o número de série;
+- `LibraryHighlight.is_new: bool` (`isNew`) e `synced_seq: Option<u32>` (`syncedSeq`), calculados no SELECT. As colunas novas entram **no fim** dos SELECT posicionais, para não deslocar índices;
+- o command `mark_book_opened(reader_id: u32, book_id: u32, seen_seq: u32) -> ()`: faz `opened_seq = MAX(COALESCE(opened_seq, 0), seen_seq)`, sem nunca baixar. Um livro de outro leitor dá `NotFound`;
+- o command `library_summary(reader_id: u32) -> LibrarySummary { new_since: Option<String>, last_sync_at: Option<String> }`:
+  - `new_since` é o `MIN(synced_at)` dos destaques novos do leitor (o «desde 9 nov.»);
+  - `last_sync_at` é o `MAX(kobos.last_sync_at)` dos Kobos do leitor (o «sincronizado às 10:42»);
+  - **proposta:** o máximo do leitor em vez do «Kobo ligado», porque assim o frontend não precisa de saber o número de série;
 - bindings: `UPDATE_BINDINGS=1 cargo test bindings_are_up_to_date`.
 
 - [ ] **Passo 1: testes que falham:**
   - `never_opened_book_is_new`;
-  - `opening_clears_new`;
-  - `sync_while_open_is_new_next_open`, **o contrato**: abrir (t1), sincronizar com o livro aberto (t2 > t1), reabrir. Os destaques de t2 vêm `isNew`, e os anteriores não;
-  - `tie_is_not_new`: `synced_at == opened_at`;
+  - `opening_with_seen_seq_clears_new`;
+  - `sync_while_open_is_new_next_open`: carregar, marcar com o que foi carregado, sincronizar, reabrir. Os destaques dessa sincronização vêm `isNew`;
+  - `open_during_sync_is_new_next_open`, **a corrida**: carregar (seq 1), correr a sincronização 2 que traz destaques para o livro, e só depois marcar com `seen_seq = 1`. Reabrir: os da 2 vêm `isNew`;
+  - `mark_never_lowers_opened_seq`;
   - `mark_book_opened_other_reader_is_not_found`;
-  - `new_since_is_oldest_unseen`, e `new_since_none_when_nothing_new`;
+  - `new_since_is_oldest_unseen` e `new_since_none_when_nothing_new`;
   - `last_sync_at_is_latest_of_reader_kobos`;
   - `export_output_unchanged`: o Markdown exportado é igual byte a byte;
   - `contract.test.ts`: `markBookOpened` e `librarySummary` existem com os argumentos certos.
@@ -1264,26 +1269,34 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 - [ ] **Passo 5:** commit `feat(library): isNew, markBookOpened and library summary`.
 
 ### Task 33: snapshot dos novos no `LibraryStore`
-**Ficheiros:** `src/lib/stores/library.svelte.ts`, `src/lib/stores/library.svelte.test.ts`, `src/routes/+page.svelte` (`handleBookClick` :256-264, só a chamada).
+**Ficheiros:** `src/lib/stores/library.svelte.ts`, `src/lib/stores/library.svelte.test.ts`, `src/routes/+page.svelte` (`handleBookClick` :256-264 e `handleCloseBookDetails` :266-269, só as chamadas).
 
 **Interfaces que produz:**
-- `library.openBook(bookId)`, que tira o snapshot `viewingNewIds: Set<number>` com os ids `isNew` do livro, **depois** chama `commands.markBookOpened` e, se der certo, põe `isNew = false` nesse livro em `books` (a grelha deixa de o mostrar como novo ao voltar);
+- `library.openBook(bookId)` é **o único ponto de entrada** para abrir um livro. A ordem é esta:
+  1. tira o snapshot `viewingNewIds: Set<number>` com os ids `isNew` do livro;
+  2. calcula `seenSeq`, o maior `syncedSeq` dos destaques carregados desse livro (ou 0);
+  3. chama `commands.markBookOpened(readerId, bookId, seenSeq)`;
+  4. se der certo, põe `isNew = false` **só nos ids do `viewingNewIds`**. Os que tenham chegado entretanto num reload ficam novos.
+- `library.closeBook()`. O `setViewingBookId` deixa de ser público. Na Fase 5, o Enter da grelha e da lista também tem de passar pelo `openBook`;
 - `viewingNewIds` só muda ao abrir outro livro. O reload do `syncFinished` (`openReader`, `library.svelte.ts:84-90`) não lhe toca;
-- se o `markBookOpened` falhar, os novos ficam como estavam e o erro vai para o log (não se mostra ao utilizador);
-- o `handleBookClick` passa a chamar `library.openBook` em vez de `setViewingBookId`.
+- se o `markBookOpened` falhar, os novos ficam como estavam e o erro vai para o log (não se mostra ao utilizador).
 
 - [ ] **Passo 1: testes que falham:**
-  - `snapshot_taken_before_mark`: no mock do `invoke`, o `mark_book_opened` vê o snapshot já preenchido;
+  - `snapshot_taken_before_mark`: no mock do `invoke`, o `mark_book_opened` vê o snapshot já preenchido e recebe o `seenSeq` dos dados carregados;
   - `snapshot_survives_sync_reload`: um `openReader` com dados novos não muda o `viewingNewIds`;
-  - `books_lose_new_after_open`;
+  - `mark_clears_only_snapshot_ids`: um reload que chega antes da resposta do `markBookOpened` traz um destaque novo, e esse fica `isNew`;
   - `mark_failure_keeps_new`;
-  - `reopen_takes_fresh_snapshot`.
+  - `reopen_takes_fresh_snapshot`;
+  - `open_book_is_the_only_entry`: um teste de fonte confirma que nada fora do store chama o `setViewingBookId`.
 - [ ] **Passo 2:** `npx vitest run src/lib/stores` falha.
-- [ ] **Passo 3:** o store e a chamada em `+page.svelte`.
+- [ ] **Passo 3:** o store e as chamadas em `+page.svelte`.
 - [ ] **Passo 4:** passam os testes e os quatro comandos.
 - [ ] **Passo 5:** commit `feat(library): snapshot new highlights when opening a book`.
 
-**Fim da Fase 3:** review GPT‑6.2 Sol do lote 31–33; suite completa (`cargo test` e Vitest) uma vez; 2–3 mutações por task (ex.: `>=` no lugar de `>`, `synced_at` escrito no UPDATE, snapshot tirado depois de marcar).
+**Fim da Fase 3:**
+- review GPT‑6.2 Sol do lote 31–33;
+- suite completa (`cargo test` e Vitest) uma vez;
+- 2–3 mutações por task. Exemplos: `>=` no lugar de `>`, `synced_seq` escrito no UPDATE, `opened_seq` com o seq atual em vez do `seen_seq`, snapshot tirado depois de marcar.
 
 **Paragem:** o Bruno aprova a Fase 3.
 
@@ -1329,17 +1342,23 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 **Ficheiros:** `src-tauri/src/window.rs` (o command `open_settings`), `src-tauri/src/lib.rs` (`collect_commands!`), `src-tauri/src/commands/mod.rs` (`save_settings` emite), criar `src-tauri/capabilities/settings.json`, criar `src/routes/definicoes/+page.svelte`, `src/routes/+layout.svelte`, `src/lib/menu.ts`, `src/lib/stores/settings.svelte.ts`, `src/routes/+page.svelte` (o `Modal` e o `listen('open-settings')` saem), `tests/visual/scenarios.ts`, e os bindings.
 
 **Interfaces que produz:**
-- o command `open_settings()`: se a janela `settings` existe, faz `unminimize`, `show` e `set_focus`. Se não existe, cria-a com `WebviewUrl::App("definicoes")`, o título traduzido «Definições», `resizable(false)` e a **barra normal** do macOS (sem Overlay). **Proposta:** é a convenção das janelas de definições do macOS; o Figma Q-M não mostra a moldura da janela;
-- o item ⌘, do menu (`menu.ts:10-16`) chama `commands.openSettings()` em vez de `emit('open-settings')`;
-- a capability `settings` (só a janela `settings`): `core:default`, `core:event:default`, `core:window:allow-set-theme`, `core:window:allow-destroy` e `dialog:default` (para escolher a pasta). Nada de `updater`, `process` nem `opener`;
-- `save_settings` faz `app.emit("settings-changed", &settings)` quando guarda; se falhar, não emite. Nas duas janelas, o store ouve o evento e aplica-o;
+- o command `open_settings(title: String)`: se a janela `settings` existe, faz `unminimize`, `show` e `set_focus`. Se não existe, cria-a com `WebviewUrl::App("definicoes")`, o `title`, `resizable(false)` e a **barra normal** do macOS (sem Overlay). **Proposta:** a barra normal é a convenção das janelas de definições do macOS, e o Figma Q-M não mostra a moldura da janela;
+- **o título** vem traduzido do JS (o Rust não tem i18n). Quando o idioma muda e é guardado, a própria janela faz `setTitle`;
+- o item ⌘, do menu (`menu.ts:10-16`) chama `commands.openSettings(t('settings.windowTitle'))` em vez de `emit('open-settings')`;
+- **⌘W:** hoje o menu não tem «Fechar janela». Entra o `PredefinedMenuItem` `CloseWindow` (com o `Minimize`) num submenu «Janela». O resto da barra de menus continua fora deste plano;
+- a capability `settings` (só a janela `settings`): `core:default`, `core:event:default`, `core:window:allow-set-theme`, `core:window:allow-set-title`, `core:window:allow-close` (o Esc fecha com o `close()`), `core:window:allow-destroy` (o `onCloseRequested` do JS acaba num `destroy()`) e `dialog:default` (para escolher a pasta). Nada de `updater`, `process` nem `opener`;
+- **escritas das duas janelas** (verificado: a principal muda `libraryViewMode` e `librarySort` no store, `+page.svelte:319-320`, e hoje só o `save()` das Definições os grava):
+  - as Definições têm uma lista fechada de campos, a constante `SETTINGS_WINDOW_FIELDS` (os que o `SettingsPanel` edita);
+  - o `save()` da janela `settings` relê o ficheiro, põe por cima só esses campos do rascunho e grava. Assim, uma mudança que a principal tenha gravado entretanto não se perde;
+  - `save_settings` faz `app.emit("settings-changed", &settings)` quando guarda; se falhar, não emite;
+  - na principal, o evento atualiza só os `SETTINGS_WINDOW_FIELDS`. Na das Definições, atualiza a base guardada e os campos que não foram mexidos, nunca o rascunho;
 - **o idioma pré-visto** muda só a janela das Definições; a principal muda quando se guarda. Fechar sem guardar (botão vermelho, ⌘W, Esc) chama o `revertUnsavedLanguage` no `onCloseRequested` e não emite nada;
 - o `+layout.svelte` só emite o `app-ready` e só corre o `updater.checkOnLaunch` na janela `main`. Na das Definições correm só o i18n, o tema e o `settings.init()`;
-- os cenários `settings*` do harness passam a abrir a rota `/definicoes` diretamente. As baselines `settings--*` são regeneradas, e o coordenador revê o diff de cada uma. O total de cenários continua 73.
+- os cenários `settings*` do harness passam a abrir a rota `/definicoes` diretamente, e o mock do `getCurrentWindow()` devolve o label `settings` (senão o layout corre o `app-ready` e o updater, e as baselines mudam por outra razão). As baselines `settings--*` são regeneradas, e o coordenador revê o diff de cada uma. O total de cenários continua 73.
 
 - [ ] **Passo 1: testes que falham:**
   - Rust: `settings_window_spec` (uma função pura devolve o label, o URL, o título, `resizable` e o estilo da barra, e o teste fixa-os); `save_emits_only_on_success`;
-  - Vitest: `menu_settings_invokes_open_settings`; `layout_skips_app_ready_and_updater_outside_main`; `settings_changed_updates_store`; `close_without_save_reverts_language`; `page_has_no_settings_modal`; `settings_capability_is_minimal` (lê o JSON).
+  - Vitest: `menu_settings_invokes_open_settings` (com o título traduzido); `menu_has_close_window`; `layout_skips_app_ready_and_updater_outside_main`; `settings_changed_updates_only_settings_fields_in_main`; `event_keeps_unsaved_draft`; `settings_save_keeps_main_changes`; `close_without_save_reverts_language`; `saved_language_updates_window_title`; `page_has_no_settings_modal`; `settings_capability_is_minimal` (lê o JSON, e inclui `allow-close` e `allow-set-title`).
 - [ ] **Passo 2:** os testes falham.
 - [ ] **Passo 3:** a implementação; os bindings regenerados.
 - [ ] **Passo 4:** passam os quatro comandos, o `cargo test` e o `npm run test:visual`, com as baselines novas revistas. O `npm run build` também tem de passar, porque a rota tem de existir no build de produção.
