@@ -681,6 +681,7 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
 
 **Verificar no ecrã:** reticências no texto longo.
 - **Resultado (2026-11-19):** 290 testes, `check` 0, build OK, harness 73/73; mutação `border-input-strong` → `border-input` apanhada. Antes da task, o coordenador exportou as ligações do nó `55:1908`: o contorno estava ligado a `input` e foi corrigido no Figma para `input-strong` (Normal e Foco), com a descrição atualizada (decisão A, aprovada pelo Bruno). Desvios: a espessura usa `border-(length:--stroke-border)` (token `stroke/border`); `disabled_is_inert` testa diretamente, porque o campo não tem motivo nem Tooltip; o anel aparece também ao clicar, como nos campos de texto do macOS (`:focus-visible` dos browsers), o que corresponde ao estado Foco do Figma.
+- **Revisão (lote 7 + 9 + 13, GPT‑6.2 Sol):** Icon e Badge sem problemas. Input: dois médios corrigidos. Os props reencaminhados (`readOnly`, `aria-disabled`, `data-disabled`) já não anulam o desativado: o spread vem primeiro e esses nomes são filtrados. O `type` passa a ser uma lista fechada de tipos de texto, e qualquer outro vale `text`. 292 testes.
 
 ### Task 14: Pop-up
 **Ficheiros:** `npx shadcn-svelte@1.8.1 add select`; adaptar `src/lib/components/ui/select/*`; criar `select.test.ts`. As classes da superfície e do item de menu ficam em `src/lib/components/ui/menu/menu-classes.ts`, para a Task 17 as reusar.
