@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
 import { compileAppCss, selectorFor } from "$lib/test/css";
@@ -153,9 +153,11 @@ const CONTENT_BINDINGS: Binding[] = [
 ];
 
 const MOTION_BINDINGS: Binding[] = [
+  { binding: "opens with an animation", utility: "data-open:animate-in", css: "animation: enter" },
   { binding: "opens with a fade", utility: "data-open:fade-in-0", css: "--tw-enter-opacity: 0;" },
   { binding: "opens in duration/in", utility: "data-open:duration-(--duration-in)", css: "--tw-duration: var(--duration-in);" },
   { binding: "opens with ease/out", utility: "data-open:ease-out", css: "--tw-ease: var(--ease-out);" },
+  { binding: "closes with an animation", utility: "data-closed:animate-out", css: "animation: exit" },
   { binding: "closes with a fade", utility: "data-closed:fade-out-0", css: "--tw-exit-opacity: 0;" },
   {
     binding: "closes in duration/out",
@@ -376,5 +378,108 @@ describe("Select", () => {
     render(Select, { props: { label: "Formato", items: ITEMS, value: "md", disabled: true } });
     expect(screen.getByRole("combobox", { name: "Formato" }).getAttribute("aria-disabled")).toBe("true");
     cleanup();
+  });
+});
+
+describe("Select options", () => {
+  it("hovering_disabled_option_does_not_choose_it", async () => {
+    const user = userEvent.setup();
+    const onValueChange = vi.fn();
+    const items = [...ITEMS.slice(0, 2), { value: "html", label: "HTML", disabled: true }];
+    const { trigger, bound } = renderBound("md", { items, onValueChange });
+    await open(user, trigger);
+    await waitFor(() => expect(highlighted()?.textContent?.trim()).toBe("Markdown"));
+    const disabledOption = options()[2];
+    expect(disabledOption.getAttribute("aria-disabled")).toBe("true");
+    await user.hover(disabledOption);
+    expect(trigger.getAttribute("aria-activedescendant")).toBe(options()[0].id);
+    await user.keyboard("{Enter}");
+    expect(bound.value).toBe("md");
+    expect(onValueChange).not.toHaveBeenCalled();
+  });
+
+  it("item_disabled_while_highlighted_is_not_chosen", async () => {
+    const user = userEvent.setup();
+    const onValueChange = vi.fn();
+    const { trigger, bound, rerender } = renderBound("md", { onValueChange });
+    await open(user, trigger);
+    await user.keyboard("{ArrowDown}{ArrowDown}");
+    expect(highlighted()?.textContent?.trim()).toBe("HTML");
+    await rerender({ items: [...ITEMS.slice(0, 2), { value: "html", label: "HTML", disabled: true }] });
+    await user.keyboard("{Enter}");
+    expect(bound.value).toBe("md");
+    expect(onValueChange).not.toHaveBeenCalled();
+  });
+
+  it("disabled_refuses_parent_open", async () => {
+    let boundOpen: boolean | undefined;
+    const { trigger, rerender } = renderBound("md", {
+      disabled: true,
+      onboundopen: (v: boolean) => (boundOpen = v),
+    });
+    await rerender({ open: true });
+    await waitFor(() => expect(boundOpen).toBe(false));
+    expect(listbox()).toBeNull();
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+  });
+});
+
+/** A form in the document; the fixture renders inside unless `outside`. */
+function renderInForm(props: Record<string, unknown>, { outside = false } = {}) {
+  const form = document.createElement("form");
+  form.id = "settings";
+  const host = document.createElement("div");
+  document.body.append(form, host);
+  render(Fixture, { target: outside ? host : form, props: { label: "Formato", items: ITEMS, ...props } });
+  const backing = document.querySelector<HTMLSelectElement>('[data-slot="select-input"]');
+  return { form, host, backing };
+}
+
+describe("Select in a form", () => {
+  afterEach(() => {
+    cleanup();
+    document.body.replaceChildren();
+  });
+
+  it("submits_its_value", () => {
+    const { form, backing } = renderInForm({ name: "format", value: "txt" });
+    expect(new FormData(form).getAll("format")).toEqual(["txt"]);
+    // One field: Bits UI's own hidden input is not rendered.
+    expect(form.querySelectorAll('[name="format"]')).toHaveLength(1);
+    // Hidden from the tab order and assistive technology, but not barred from validation.
+    expect(backing!.tabIndex).toBe(-1);
+    expect(backing!.getAttribute("aria-hidden")).toBe("true");
+    expect(backing!.willValidate).toBe(true);
+  });
+
+  it("external_form_gets_the_value", () => {
+    const enclosing = document.createElement("form");
+    document.body.append(enclosing);
+    const { form, host } = renderInForm({ form: "settings", name: "format", value: "html" }, { outside: true });
+    enclosing.append(host);
+    expect(new FormData(form).getAll("format")).toEqual(["html"]);
+    expect(new FormData(enclosing).getAll("format")).toEqual([]);
+  });
+
+  it("required_reaches_the_backing_field", () => {
+    const { backing, form } = renderInForm({ name: "format", required: true });
+    expect(backing!.required).toBe(true);
+    expect(form.checkValidity()).toBe(true);
+    const trigger = document.querySelector('[data-slot="select-trigger"]')!;
+    expect(trigger.getAttribute("aria-required")).toBe("true");
+    expect(trigger.hasAttribute("required")).toBe(false);
+  });
+
+  it("required_without_items_fails_validation", () => {
+    const { form } = renderInForm({ name: "format", required: true, items: [] });
+    expect(form.checkValidity()).toBe(false);
+  });
+
+  it("disabled_still_submits_but_is_not_required", () => {
+    // As the Switch and the Caixa: a disabled control submits its value, like a readonly field.
+    const { form, backing } = renderInForm({ name: "format", value: "txt", required: true, disabled: true });
+    expect(new FormData(form).getAll("format")).toEqual(["txt"]);
+    expect(backing!.required).toBe(false);
+    expect(form.checkValidity()).toBe(true);
   });
 });

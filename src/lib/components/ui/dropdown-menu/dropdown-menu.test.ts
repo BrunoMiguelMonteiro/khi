@@ -155,10 +155,13 @@ const SEPARATOR_BINDINGS: Binding[] = [
   { binding: "spacing/2 (sides)", utility: "mx-2", css: "margin-inline: calc(var(--spacing) * 2);" },
 ];
 
+// By class name: the fades are verified on screen (jsdom runs no animations).
 const MOTION_BINDINGS: Binding[] = [
+  { binding: "opens with an animation", utility: "data-open:animate-in", css: "animation: enter" },
   { binding: "opens with a fade", utility: "data-open:fade-in-0", css: "--tw-enter-opacity: 0;" },
   { binding: "opens in duration/in (200)", utility: "data-open:duration-(--duration-in)", css: "--tw-duration: var(--duration-in);" },
   { binding: "opens with ease/out", utility: "data-open:ease-out", css: "--tw-ease: var(--ease-out);" },
+  { binding: "closes with an animation", utility: "data-closed:animate-out", css: "animation: exit" },
   { binding: "closes with a fade", utility: "data-closed:fade-out-0", css: "--tw-exit-opacity: 0;" },
   {
     binding: "closes in duration/out (150)",

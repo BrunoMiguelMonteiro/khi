@@ -18,8 +18,10 @@
 		disabled?: boolean;
 		/** Why it is disabled, shown in a Tooltip on focus and hover (needs a TooltipProvider). */
 		disabledReason?: string;
-		/** The form field name of the hidden input that carries the value. */
+		/** The form field name of the backing field that carries the value. */
 		name?: string;
+		/** On the backing field, while enabled; the trigger has aria-required. */
+		required?: boolean;
 		open?: boolean;
 		onValueChange?: (value: string) => void;
 		onOpenChange?: (open: boolean) => void;
@@ -51,6 +53,7 @@
 		disabled = false,
 		disabledReason,
 		name,
+		required = false,
 		onValueChange,
 		onOpenChange,
 		id = `select-${uid}`,
@@ -63,6 +66,9 @@
 	);
 
 	const current = $derived(items.find((item) => item.value === value) ?? items[0]);
+
+	// Bits UI's Enter chooses the highlighted value without checking the item is enabled.
+	const choosable = (v: string) => !disabled && items.some((item) => item.value === v && !item.disabled);
 
 	// pop-up-buttons.md: a pop-up always has a choice.
 	$effect.pre(() => {
@@ -77,8 +83,9 @@
 		else if (disabledReason && ref && ref === document.activeElement) reasonOpen = true;
 	});
 
+	// A parent's bind:open can set it while disabled: put it back.
 	$effect(() => {
-		if (disabled) open = false;
+		if (disabled && open) open = false;
 	});
 </script>
 
@@ -93,6 +100,8 @@
 	<Primitive.Trigger>
 		{#snippet child({ props })}
 			{@const merged = withTrigger(withTrigger(forwarded, props), tooltip)}
+			<!-- Spread, as the linter takes the button for role=button; Bits UI makes it a combobox. -->
+			{@const combobox = { 'aria-required': required && !disabled ? ('true' as const) : undefined }}
 			<!-- The select's data-state (open, closed) wins over the tooltip trigger's. -->
 			<button
 				bind:this={ref}
@@ -113,6 +122,7 @@
 				aria-label={label ?? (merged['aria-label'] as string | undefined)}
 				data-state={props['data-state']}
 				aria-disabled={disabled ? 'true' : undefined}
+				{...combobox}
 				data-disabled={disabled ? '' : undefined}
 				onclickcapture={guardClick(() => disabled, merged.onclickcapture as never)}
 				onclick={guardClick(() => disabled, merged.onclick as never)}
@@ -140,10 +150,9 @@
 <Primitive.Root
 	type="single"
 	{items}
-	{name}
 	disabled={false}
 	bind:open={
-		() => open,
+		() => !disabled && open,
 		(v) => {
 			if (!disabled || !v) open = v;
 		}
@@ -151,11 +160,11 @@
 	bind:value={
 		() => current?.value ?? '',
 		(v) => {
-			if (!disabled) value = v;
+			if (choosable(v)) value = v;
 		}
 	}
 	onValueChange={(v) => {
-		if (!disabled) onValueChange?.(v);
+		if (choosable(v)) onValueChange?.(v);
 	}}
 	onOpenChange={(v) => {
 		if (!disabled) onOpenChange?.(v);
@@ -177,3 +186,24 @@
 		{/each}
 	</SelectContent>
 </Primitive.Root>
+<!--
+	The backing field is the wrapper's, not Bits UI's (which gets no name, so renders none): Bits
+	doesn't give its hidden input the form attribute, and a hidden input takes no part in
+	validation. As the Switch and the Caixa, a disabled Select still submits its value, like a
+	readonly field; it is just not required. Its one option is the value in force, so a form reset
+	keeps it.
+-->
+{#if name !== undefined}
+	<select
+		data-slot="select-input"
+		aria-hidden="true"
+		tabindex={-1}
+		class="sr-only top-0 left-0"
+		{name}
+		form={forwarded.form as string | undefined}
+		required={required && !disabled}
+		onfocus={() => ref?.focus()}
+	>
+		<option value={current?.value ?? ''} selected>{current?.label ?? ''}</option>
+	</select>
+{/if}

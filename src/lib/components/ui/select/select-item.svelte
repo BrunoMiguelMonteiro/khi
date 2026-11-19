@@ -9,18 +9,30 @@
 		class: className,
 		value,
 		label,
+		disabled = false,
+		onpointermove,
 		...restProps
 	}: WithoutChildrenOrChild<SelectPrimitive.ItemProps> = $props();
 </script>
 
-<!-- Item de menu (55:3156), Tipo=Com marca: the check marks the value in force. -->
+<!--
+	Item de menu (55:3156), Tipo=Com marca: the check marks the value in force. Bits UI highlights a
+	disabled item under the pointer, and Enter then chooses it, so the move is cancelled before Bits
+	sees it; Bits doesn't set aria-disabled either.
+-->
 <SelectPrimitive.Item
 	bind:ref
 	{value}
 	{label}
+	{disabled}
 	data-slot="select-item"
 	class={cn(menuItem, className)}
 	{...restProps}
+	aria-disabled={disabled ? 'true' : undefined}
+	onpointermove={(e) => {
+		onpointermove?.(e);
+		if (disabled) e.preventDefault();
+	}}
 >
 	{#snippet children({ selected })}
 		<span data-slot="menu-mark" class={menuMark}>
