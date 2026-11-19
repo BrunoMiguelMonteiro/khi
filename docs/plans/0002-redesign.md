@@ -1075,7 +1075,7 @@ Depende da Task 6 (`switch-on`, `input-strong`).
   - à direita, a seta vem antes do rótulo;
   - `aria-sort` no `th`: `asc` → `ascending`, `desc` → `descending`, `none` → `none`; o clique chama `onclick` e quem usa decide a ordem.
 
-- [ ] **Passo 1: testes que falham** (`table.test.ts`):
+- [x] **Passo 1: testes que falham** (`table.test.ts`):
   - `row_columns_have_figma_widths`;
   - `selected_row_is_primary_with_badge_kept`;
   - `separator_hidden_on_hover_and_selected`;
@@ -1083,10 +1083,10 @@ Depende da Task 6 (`switch-on`, `input-strong`).
   - `header_maps_sort_to_aria_sort`: `ascending`, `descending` e `none`;
   - `header_click_calls_onclick`;
   - `right_aligned_header_puts_arrow_first`.
-- [ ] **Passo 2:** `npx vitest run src/lib/components/ui/table` falha.
-- [ ] **Passo 3:** adaptar e criar os dois componentes.
-- [ ] **Passo 4:** os testes passam e passam os quatro comandos.
-- [ ] **Passo 5:** commit `feat(ui): BookRow and sortable ColumnHeader`.
+- [x] **Passo 2:** `npx vitest run src/lib/components/ui/table` falha.
+- [x] **Passo 3:** adaptar e criar os dois componentes.
+- [x] **Passo 4:** os testes passam e passam os quatro comandos.
+- [x] **Passo 5:** commit `feat(ui): BookRow and sortable ColumnHeader`.
 
 **Verificar no ecrã:** reticências no título; o VoiceOver lê a ordem da coluna.
 
