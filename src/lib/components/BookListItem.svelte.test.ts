@@ -234,7 +234,7 @@ describe('BookListItem', () => {
 		});
 
 		// O container da capa é o div a seguir à checkbox
-		const cover = container.querySelector('.bg-gradient-to-br');
+		const cover = container.querySelector('.bg-linear-to-br');
 		expect(cover).toBeInTheDocument();
 		expect(cover).toHaveClass('from-blue-400');
 		expect(cover).toHaveClass('to-blue-600');

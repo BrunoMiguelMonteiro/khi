@@ -171,7 +171,7 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
 
 **Interfaces que produz:** classes `neutral-50` a `neutral-950` com os valores antigos; `dark:` por classe.
 
-- [ ] 
+- [x] 
   
   **Passo 1: testes que falham** (`app-css.test.ts`, que lê os ficheiros com `fs`):
   
@@ -182,11 +182,11 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
   - `macos_minimum_is_13_3`: `tauri.conf.json` › `bundle.macOS.minimumSystemVersion === "13.3"`.
     
   
-- [ ] 
+- [x] 
   
   **Passo 2:** `npx vitest run src/lib/styles/app-css.test.ts` falha nos três.
   
-- [ ] 
+- [x] 
   
   **Passo 3:** com a árvore limpa, correr `npx @tailwindcss/upgrade@4.3.5`. Rever o diff linha a linha, com atenção a três pontos:
   
@@ -197,18 +197,20 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
   - o `ring` passou de 3 px para 1 px. Depois, `@tailwindcss/vite` no `vite.config.ts` e `minimumSystemVersion` em `"13.3"`. Retirar `postcss` e `autoprefixer` das dependências, se nada mais as usar.
     
   
-- [ ] 
+- [x] 
   
   **Passo 4:** os testes do Passo 1 passam, e passam também os quatro comandos das restrições globais.
   
-- [ ] 
+- [x] 
   
   **Passo 5:** o Bruno abre a app com `npm run dev:app` e confirma à vista que a interface, em Claro e Escuro, não mudou (sem capturas de referência; ver a Task 0). Mudar o tema nas Definições com o macOS em Claro também tem de funcionar.
   
-- [ ] 
+- [x] 
   
   **Passo 6:** commit `build(ui): migrate to Tailwind v4 and require macOS 13.3`.
-  
+
+**Resultado (2026-11-18):** harness 73/73 sem diferenças nem entradas na allowlist; a ferramenta de migração deixou cerca de 15 diferenças, corrigidas à mão em `app.css` (paleta usada fixada nos hex do v3, fonte, transições, outline, degradê, bordas e placeholder por omissão, `dark:focus` em dois campos). A revisão do GPT‑6.2 Sol apanhou o «copiado» a meia opacidade com o rato na linha (`group-hover` do v4 com menos especificidade), corrigido com `@custom-variant group-hover`. O CSS cresceu de 5,7 para 7,3 kB gzip, sobretudo pela paleta fixada, que a Task 2 substitui. Bruno confirmou à vista com o Kobo ligado.
+
 ### Task 2: tokens do Figma
 **Ficheiros:**
 

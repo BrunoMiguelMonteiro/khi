@@ -1,4 +1,138 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss' source(none);
+@source './**/*.{html,js,svelte,ts}';
 
+@custom-variant dark (&:where(.dark, .dark *));
+/* v3 selector: specificity 0,3,0 so group-hover:opacity-100 beats disabled:opacity-50 */
+@custom-variant group-hover (.group:hover &);
+
+@theme {
+  --color-neutral-50: #F9FAFB;
+  --color-neutral-100: #F3F4F6;
+  --color-neutral-200: #E5E7EB;
+  --color-neutral-300: #D1D5DB;
+  --color-neutral-400: #9CA3AF;
+  --color-neutral-500: #6B7280;
+  --color-neutral-600: #525252;
+  --color-neutral-700: #404040;
+  --color-neutral-800: #262626;
+  --color-neutral-900: #171717;
+  --color-neutral-950: #0A0A0A;
+
+  /* Tailwind v3 values of the default-palette shades the old UI uses; v4's oklch palette differs slightly. */
+  --color-red-50: #fef2f2;
+  --color-red-200: #fecaca;
+  --color-red-400: #f87171;
+  --color-red-600: #dc2626;
+  --color-red-700: #b91c1c;
+  --color-red-800: #991b1b;
+  --color-red-900: #7f1d1d;
+  --color-orange-400: #fb923c;
+  --color-orange-600: #ea580c;
+  --color-amber-400: #fbbf24;
+  --color-amber-700: #b45309;
+  --color-green-400: #4ade80;
+  --color-green-500: #22c55e;
+  --color-green-600: #16a34a;
+  --color-teal-400: #2dd4bf;
+  --color-teal-600: #0d9488;
+  --color-blue-400: #60a5fa;
+  --color-blue-500: #3b82f6;
+  --color-blue-600: #2563eb;
+  --color-indigo-400: #818cf8;
+  --color-indigo-600: #4f46e5;
+  --color-purple-400: #c084fc;
+  --color-purple-600: #9333ea;
+  --color-pink-400: #f472b6;
+  --color-pink-600: #db2777;
+}
+
+/*
+  Tailwind v3 parity for the old UI (redesign Task 1). Each rule below restores
+  a v3 default that v4 changed, so the computed styles stay identical. They go
+  away as the old components are replaced (redesign Phase 5).
+*/
+@theme {
+  --font-sans:
+    ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    'Segoe UI Symbol', 'Noto Color Emoji';
+  --radius-full: 9999px;
+}
+
+@theme inline {
+  --drop-shadow-md: 0 4px 3px rgb(0 0 0 / 0.07), 0 2px 2px rgb(0 0 0 / 0.06);
+}
+
+@layer base {
+  /* v3 default border colour (gray-200) instead of v4's currentcolor. */
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-neutral-200, currentcolor);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    opacity: 1;
+    color: var(--color-neutral-400);
+  }
+
+  button,
+  [role='button'] {
+    cursor: pointer;
+  }
+
+  :disabled {
+    cursor: default;
+  }
+}
+
+/* v3 transition property lists (v4 adds outline-color, gradient stops and translate/scale/rotate). */
+@utility transition-colors {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+}
+
+@utility transition-transform {
+  transition-property: transform;
+}
+
+/* v3 outline-none: a transparent 2px outline, not outline-style: none. */
+@utility outline-hidden {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+
+/* v3 gradients: sRGB interpolation and no explicit stop positions. */
+@utility bg-linear-to-br {
+  background-image: linear-gradient(to bottom right, var(--tw-gradient-from), var(--tw-gradient-to));
+}
+
+/* v3 translate and scale went through transform; v4 uses the translate and scale properties. */
+@utility translate-y-0 {
+  transform: translateY(0);
+  translate: initial;
+}
+
+@utility -translate-y-0.5 {
+  transform: translateY(-0.125rem);
+  translate: initial;
+}
+
+@utility scale-105 {
+  transform: scale(1.05);
+  scale: initial;
+}
+
+/*
+  v3 opacity modifiers were plain rgb() with alpha; v4 mixes in oklab, which
+  WebKit composites 1 unit differently on this light hover background.
+  :not(:where(.dark, .dark *)) keeps dark:hover:bg-neutral-800/40 winning.
+*/
+@layer utilities {
+  @media (hover: hover) {
+    .hover\:bg-neutral-100\/70:hover:not(:where(.dark, .dark *)) {
+      background-color: rgb(243 244 246 / 0.7);
+    }
+  }
+}

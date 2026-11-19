@@ -137,7 +137,7 @@
                     />
                 {:else}
                     <div
-                        class="w-full h-full flex items-center justify-center bg-gradient-to-br {getBookGradient(
+                        class="w-full h-full flex items-center justify-center bg-linear-to-br {getBookGradient(
                             String(book.id),
                         )}"
                     >

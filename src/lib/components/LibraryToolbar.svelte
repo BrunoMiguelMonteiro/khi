@@ -119,7 +119,7 @@
 		<!-- Sort Dropdown -->
 		<div class="relative">
 			<select 
-				class="appearance-none pl-3 pr-8 py-2 text-sm font-medium bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 border border-neutral-200 dark:border-neutral-700 rounded-md cursor-pointer transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" 
+				class="appearance-none pl-3 pr-8 py-2 text-sm font-medium bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 border border-neutral-200 dark:border-neutral-700 rounded-md cursor-pointer transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:focus:border-neutral-700" 
 				value={sortBy} 
 				onchange={(e) => onSortChange(e.currentTarget.value)}
 				style="background-image: url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E&quot;); background-repeat: no-repeat; background-position: right 8px center; background-size: 16px;"
@@ -133,7 +133,7 @@
 		<!-- View Mode Toggle -->
 		<div class="flex bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-md p-0.5" role="group" aria-label={$_('screens.library.viewMode')}>
 			<button
-				class="flex items-center justify-center p-1.5 transition-colors rounded-sm {viewMode === 'grid' ? 'bg-neutral-100 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'}"
+				class="flex items-center justify-center p-1.5 transition-colors rounded-xs {viewMode === 'grid' ? 'bg-neutral-100 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'}"
 				onclick={() => onViewModeChange('grid')}
 				aria-label={$_('screens.library.gridViewLabel')}
 			>
@@ -155,7 +155,7 @@
 				</svg>
 			</button>
 			<button
-				class="flex items-center justify-center p-1.5 transition-colors rounded-sm {viewMode === 'list' ? 'bg-neutral-100 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'}"
+				class="flex items-center justify-center p-1.5 transition-colors rounded-xs {viewMode === 'list' ? 'bg-neutral-100 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100'}"
 				onclick={() => onViewModeChange('list')}
 				aria-label={$_('screens.library.listViewLabel')}
 			>

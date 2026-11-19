@@ -58,7 +58,7 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
-    class="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-50 p-4"
+    class="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-xs z-50 p-4"
     onclick={handleBackdropClick}
     transition:fade={{ duration: 200 }}
   >
@@ -69,7 +69,7 @@
         tabindex="-1"
         role="dialog"
         aria-modal="true"
-        class="focus:outline-none"
+        class="focus:outline-hidden"
         transition:scale={{ duration: 200, start: 0.95 }}
       >
         {@render children()}
@@ -77,7 +77,7 @@
     {:else}
       <!-- Use default Modal structure with header/content/footer -->
       <div
-        class="w-full max-w-lg bg-white dark:bg-neutral-900 rounded-xl shadow-2xl flex flex-col max-h-[calc(100vh-2rem)] focus:outline-none"
+        class="w-full max-w-lg bg-white dark:bg-neutral-900 rounded-xl shadow-2xl flex flex-col max-h-[calc(100vh-2rem)] focus:outline-hidden"
         bind:this={modalRef}
         tabindex="-1"
         role="dialog"

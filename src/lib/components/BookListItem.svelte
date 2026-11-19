@@ -51,7 +51,7 @@
 	</div>
 
 	<!-- 2. Cover -->
-	<div class="relative w-12 h-16 rounded-sm shrink-0 overflow-hidden bg-gradient-to-br {gradient}">
+	<div class="relative w-12 h-16 rounded-xs shrink-0 overflow-hidden bg-linear-to-br {gradient}">
 		{#if book.coverPath}
 			<img src={convertFileSrc(book.coverPath)} alt={$_('book.coverAlt', { title: book.title })} class="absolute inset-0 w-full h-full object-cover" />
 		{/if}

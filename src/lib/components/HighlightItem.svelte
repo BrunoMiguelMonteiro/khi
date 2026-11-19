@@ -65,14 +65,14 @@
     data-highlight-id={highlight.id}
 >
     <blockquote
-        class="relative m-0 py-1 pl-4 pr-4 border-l-4 border-neutral-300 dark:border-neutral-600 text-base leading-relaxed text-neutral-900 dark:text-neutral-100 [text-wrap:pretty]"
+        class="relative m-0 py-1 pl-4 pr-4 border-l-4 border-neutral-300 dark:border-neutral-600 text-base leading-relaxed text-neutral-900 dark:text-neutral-100 text-pretty"
     >
         {highlight.text}
 
         <!-- Copy button - appears on hover -->
         <button
             type="button"
-            class="absolute top-0 right-0 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 disabled:opacity-50"
+            class="absolute top-0 right-0 p-1 rounded-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 focus-visible:opacity-100 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 disabled:opacity-50"
             onclick={handleCopyClick}
             aria-label={copyFeedback === "idle"
                 ? $_("highlight.copy")
@@ -91,7 +91,7 @@
 
     {#if note}
         <p
-            class="m-0 pl-4 text-sm leading-relaxed text-neutral-700 dark:text-neutral-300 whitespace-pre-line [text-wrap:pretty]"
+            class="m-0 pl-4 text-sm leading-relaxed text-neutral-700 dark:text-neutral-300 whitespace-pre-line text-pretty"
             data-testid="highlight-note"
         ><span class="font-medium text-neutral-500 dark:text-neutral-400">{$_("highlight.note")}:</span> {note}</p>
     {/if}

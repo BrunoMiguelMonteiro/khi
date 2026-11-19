@@ -374,7 +374,7 @@
 							<input
 								id="export-path"
 								type="text"
-								class="flex-1 px-4 py-2 border border-neutral-200 dark:border-neutral-700 rounded-md bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+								class="flex-1 px-4 py-2 border border-neutral-200 dark:border-neutral-700 rounded-md bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:focus:border-neutral-700 transition-all"
 								value={activeReader ? readerFolder : exportConfig.exportPath}
 								oninput={handleExportPathChange}
 								placeholder="~/Documents/Kobo Highlights"
@@ -661,7 +661,7 @@
 							type="checkbox"
 							checked={uiPreferences.syncOnConnect}
 							onchange={handleAutoImportToggle}
-							class="w-4 h-4 rounded border-neutral-300 text-blue-600 focus:ring-blue-500"
+							class="w-4 h-4 rounded-sm border-neutral-300 text-blue-600 focus:ring-blue-500"
 						/>
 						<span class="text-sm text-neutral-900 dark:text-neutral-100"
 							>{$_('settings.device.syncOnConnect')}</span
@@ -685,7 +685,7 @@
 							checked={uiPreferences.checkForUpdates}
 							onchange={handleCheckForUpdatesToggle}
 							aria-describedby="check-for-updates-hint"
-							class="w-4 h-4 rounded border-neutral-300 text-blue-600 focus:ring-blue-500"
+							class="w-4 h-4 rounded-sm border-neutral-300 text-blue-600 focus:ring-blue-500"
 						/>
 						<span class="text-sm text-neutral-900 dark:text-neutral-100">{$_('updates.settings.auto')}</span>
 					</label>
