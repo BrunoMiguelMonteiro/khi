@@ -226,6 +226,104 @@ describe("WindowBar", () => {
   });
 });
 
+/**
+ * What Tauri's drag.js (2.12.5) treats as clickable: inside a `deep` drag region these do not
+ * start a drag. Mirrored here so a control that is not one of them fails the test.
+ */
+const CLICKABLE_TAGS = [
+  "A",
+  "BUTTON",
+  "INPUT",
+  "SELECT",
+  "TEXTAREA",
+  "LABEL",
+  "SUMMARY",
+];
+const INTERACTIVE_ROLES = [
+  "button",
+  "link",
+  "menuitem",
+  "tab",
+  "checkbox",
+  "radio",
+  "switch",
+  "option",
+];
+const blocksDrag = (el: Element) =>
+  CLICKABLE_TAGS.includes(el.tagName) ||
+  (el.hasAttribute("contenteditable") &&
+    el.getAttribute("contenteditable") !== "false") ||
+  (el.hasAttribute("tabindex") && el.getAttribute("tabindex") !== "-1") ||
+  INTERACTIVE_ROLES.includes(el.getAttribute("role") ?? "");
+
+/** Svelte 5 delegates click and pointer events: the handler sits on the node as `__click` and so on. */
+const hasHandler = (el: Element) =>
+  el.hasAttribute("onclick") ||
+  Object.keys(el).some((k) =>
+    /^__(?:click|dblclick|mousedown|mouseup|pointerdown|pointerup|keydown|keyup|touchstart)$/.test(
+      k,
+    ),
+  );
+
+/** Whatever the user can click or focus: handlers, tab stops, and interactive tags or roles. */
+function userControls(bar: HTMLElement) {
+  return [...bar.querySelectorAll<HTMLElement>("*")].filter(
+    (el) =>
+      blocksDrag(el) || hasHandler(el) || el.hasAttribute("tabindex"),
+  );
+}
+
+const SCREENS = [
+  { ...LIBRARY, screen: "library" as const, canDelete: true },
+  { ...LIBRARY, screen: "detail" as const, canDelete: true },
+];
+
+describe("WindowBar window chrome", () => {
+  it("bar_is_deep_drag_region", () => {
+    for (const props of SCREENS) {
+      const { bar, unmount } = renderBar(props);
+      expect(bar.getAttribute("data-tauri-drag-region"), props.screen).toBe(
+        "deep",
+      );
+      unmount();
+    }
+  });
+
+  it("every_control_is_semantic", () => {
+    for (const props of SCREENS) {
+      const { bar, unmount } = renderBar(props);
+      const found = userControls(bar);
+      expect(found.length, props.screen).toBeGreaterThan(0);
+      // Each one is a kind drag.js treats as clickable, so it will not start a drag.
+      for (const el of found)
+        expect(blocksDrag(el), `${props.screen}: ${el.outerHTML}`).toBe(true);
+      unmount();
+    }
+  });
+
+  it("reserves_traffic_light_space", async () => {
+    for (const props of SCREENS) {
+      const { bar, unmount } = renderBar(props);
+      const block = bar.firstElementChild as HTMLElement;
+      expect(block.hasAttribute("data-traffic-lights"), props.screen).toBe(
+        true,
+      );
+      expect(block.getAttribute("aria-hidden")).toBe("true");
+      expect(block.hasAttribute("tabindex")).toBe(false);
+      expect(block.hasAttribute("role")).toBe(false);
+      expect(blocksDrag(block)).toBe(false);
+      expect(block.textContent).toBe("");
+      expect(bar.querySelectorAll("[data-traffic-lights]")).toHaveLength(1);
+      // 52 x 12, kept in the layout even when the row is tight.
+      for (const c of ["w-13", "h-3", "shrink-0"])
+        expect(block.classList.contains(c), c).toBe(true);
+      unmount();
+    }
+    expect(await ruleOf("w-13")).toContain("* 13");
+    expect(await ruleOf("h-3")).toContain("* 3)");
+  });
+});
+
 describe("WindowBar sync", () => {
   const spinner = () =>
     screen

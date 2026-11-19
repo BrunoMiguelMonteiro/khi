@@ -1336,13 +1336,13 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 - `core:window:allow-start-dragging` na capability `default` (sem ela, o arrasto falha em silêncio);
 - `WindowBar` com `data-tauri-drag-region="deep"` no contentor, e o espaço dos semáforos reservado à esquerda.
 
-- [ ] **Passo 1: testes que falham:**
+- [x] **Passo 1: testes que falham:**
   - `window-config.test.ts`: `default_capability_allows_start_dragging`, que lê o JSON do disco (o `main_window_is_overlay` entra no ecrã 1);
   - `window-bar.test.ts`: `bar_is_deep_drag_region`, `every_control_is_semantic` (todo o interativo é `button` ou tem um role interativo, para não arrastar) e `reserves_traffic_light_space`.
-- [ ] **Passo 2:** os testes falham.
-- [ ] **Passo 3:** a config, a capability e a marcação.
-- [ ] **Passo 4:** passam os quatro comandos e `(cd src-tauri && cargo check)`.
-- [ ] **Passo 5:** commit `feat(window): drag region and traffic-light space in WindowBar`.
+- [x] **Passo 2:** os testes falham.
+- [x] **Passo 3:** a config, a capability e a marcação.
+- [x] **Passo 4:** passam os quatro comandos e `(cd src-tauri && cargo check)`.
+- [x] **Passo 5:** commit `feat(window): drag region and traffic-light space in WindowBar`.
 
 **Verificar no ecrã (Bruno, com `npm run dev:app`), no ecrã 1 da Fase 5:**
 - os semáforos ficam no sítio depois de redimensionar, de entrar e sair do ecrã inteiro (⌃⌘F), de fazer zoom com duplo clique, de mudar entre Claro e Escuro e de perder o foco;

@@ -92,18 +92,22 @@
 {/snippet}
 
 <!--
-	Componentes (D7) · Barra de janela. The drag zone, the traffic lights and the shortcuts are
-	Phase 4; this is the content between the traffic lights and the edge.
+	Componentes (D7) · Barra de janela. The shortcuts are Phase 4; this is the content between the
+	traffic lights and the edge. `deep` drags from anywhere in the bar except the buttons and other
+	interactive elements (Tauri's drag.js), so every control here must stay semantic.
 -->
 <header
 	data-slot="window-bar"
+	data-tauri-drag-region="deep"
 	class={cn(
 		'flex h-toolbar items-center justify-between gap-4 border-b border-border bg-background px-4',
 		className
 	)}
 >
+	<!-- The macOS traffic lights sit here under the Overlay title bar (enabled with screen 1): 52 x 12, so the first control starts at x = 84. The left group takes `mr-auto` because the block is now a third flex item. -->
+	<div data-traffic-lights aria-hidden="true" class="h-3 w-13 shrink-0"></div>
 	{#if screen === 'library'}
-		<div class="flex items-center gap-1">
+		<div class="flex items-center gap-1 mr-auto">
 			<TitleMenu {readers} {activeReaderId} onselect={onselectReader} />
 		</div>
 		<div class="flex items-center gap-4">
@@ -148,7 +152,7 @@
 			</div>
 		</div>
 	{:else}
-		<div class="flex items-center gap-1">
+		<div class="flex items-center gap-1 mr-auto">
 			<ToolbarButton
 				icon={ChevronLeft}
 				label={$_('ui.windowBar.back')}
