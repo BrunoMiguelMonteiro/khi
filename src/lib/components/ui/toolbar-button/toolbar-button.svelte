@@ -9,7 +9,7 @@
 		No fill at rest; the selected (pressed) tint holds on hover and press. Tema 3: the contrast
 		outline is always drawn (transparent outside the Figma contrast modes), tinted when selected.
 	*/
-	const toolbarButtonVariants = tv(
+	export const toolbarButtonVariants = tv(
 		{
 			base: 'inset-ring data-disabled:text-toolbar-icon-disabled',
 			variants: {

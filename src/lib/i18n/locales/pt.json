@@ -279,5 +279,14 @@
       "never": "Ainda não procurada.",
       "checkNow": "Procurar agora"
     }
+  },
+  "ui": {
+    "viewGroup": {
+      "label": "Vista",
+      "grid": "Ver em grelha",
+      "list": "Ver em lista",
+      "gridTooltip": "Grelha",
+      "listTooltip": "Lista"
+    }
   }
 }

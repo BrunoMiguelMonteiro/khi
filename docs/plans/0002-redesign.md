@@ -726,19 +726,20 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
 - uma só paragem do Tab; as setas escolhem;
 - os dois botões são instâncias do Botão de toolbar (Task 11) no Figma: o escolhido no estado Selecionado (`primary-tint`, `inset-ring-contrast-outline-tint`) e o outro no Normal (`inset-ring-contrast-outline`), com os mesmos hover, premido e foco; não há contorno próprio do grupo (corrigido 2026-11-19 a partir das ligações de `55:2440`).
 
-- [ ] **Passo 1: testes que falham** (`view-group.test.ts`):
+- [x] **Passo 1: testes que falham** (`view-group.test.ts`):
   - `is_radiogroup_with_two_named_radios`;
   - `arrows_select`;
   - `clicking_selected_keeps_value`;
   - `single_tab_stop`;
   - `selected_uses_tint_and_contrast_outline`;
   - `tooltips_show_shortcuts`.
-- [ ] **Passo 2:** `npx vitest run src/lib/components/ui/view-group` falha.
-- [ ] **Passo 3:** o componente e as chaves `ui.viewGroup.*`.
-- [ ] **Passo 4:** os testes passam e passam os quatro comandos.
-- [ ] **Passo 5:** commit `feat(ui): grid/list ViewGroup on a radio group`.
+- [x] **Passo 2:** `npx vitest run src/lib/components/ui/view-group` falha.
+- [x] **Passo 3:** o componente e as chaves `ui.viewGroup.*`.
+- [x] **Passo 4:** os testes passam e passam os quatro comandos.
+- [x] **Passo 5:** commit `feat(ui): grid/list ViewGroup on a radio group`.
 
 **Verificar no ecrã:** o VoiceOver lê «Ver em grelha, botão de opção, 1 de 2».
+- **Resultado (2026-11-19):** `src/lib/components/ui/view-group/`, 6 testes, com FIGMA_BINDINGS de `55:2440`. Sobre o `RadioGroup` do Bits UI, com `loop` e as setas nos dois eixos. Cada botão usa as classes do Botão de toolbar (`buttonVariants({ shape: 'toolbar' })` e `toolbarButtonVariants`, agora exportado de `toolbar-button/`, o único ficheiro da Task 11 que muda). O teste compara as classes com as do Botão de toolbar, por isso não há cópia. O `data-state` do rádio é reposto depois do tooltip. Chaves `ui.viewGroup.*`: `label` «Vista», o nome do grupo (não estava aprovado; pode passar-se `aria-label`), e os tooltips «Grelha» e «Lista». Os atalhos ⌘1 e ⌘2 são literais. «Sem animação» lê-se como «sem indicador que deslize»: fica o fade do hover do Botão de toolbar. Mutações apanhadas: o escolhido no Normal, o contorno `-tint` tirado do `toolbarButtonVariants`, o `data-state` perdido, `gap-2`, duas paragens do Tab e o tooltip sem atalho. 413 testes (todo o lote), `check` 0, build OK, harness 73/73.
 
 ### Task 16: Segmentado
 **Ficheiros:** criar `src/lib/components/ui/segmented/segmented.svelte`, `index.ts` e `segmented.test.ts`, sobre o `RadioGroup` do Bits UI (o `tabs` do shadcn não serve: é um filtro, não separadores). Depende da Task 6 (`input-strong`).

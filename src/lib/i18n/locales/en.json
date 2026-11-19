@@ -279,5 +279,14 @@
       "never": "Not checked yet.",
       "checkNow": "Check Now"
     }
+  },
+  "ui": {
+    "viewGroup": {
+      "label": "View",
+      "grid": "View as grid",
+      "list": "View as list",
+      "gridTooltip": "Grid",
+      "listTooltip": "List"
+    }
   }
 }

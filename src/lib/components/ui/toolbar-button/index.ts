@@ -1,3 +1,9 @@
-import Root, { type ToolbarButtonProps } from './toolbar-button.svelte';
+import Root, { type ToolbarButtonProps, toolbarButtonVariants } from './toolbar-button.svelte';
 
-export { Root, type ToolbarButtonProps as Props, Root as ToolbarButton, type ToolbarButtonProps };
+export {
+	Root,
+	type ToolbarButtonProps as Props,
+	Root as ToolbarButton,
+	toolbarButtonVariants,
+	type ToolbarButtonProps
+};
