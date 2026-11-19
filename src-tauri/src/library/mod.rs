@@ -9,6 +9,7 @@ pub use sync::SyncReport;
 
 use crate::export::{ExportError, MarkdownExporter};
 use crate::models::{Book, ExportConfig, Highlight, Language};
+use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension, TransactionBehavior};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -118,6 +119,9 @@ const BOOK_COLUMNS: &str = "id, title, author, isbn, publisher, language, descri
 pub struct Library {
     conn: Connection,
     covers_dir: PathBuf,
+    /// Where a Sync takes its «now». Only for the dates shown; the «novo»
+    /// rule follows the sync sequence, never the clock.
+    clock: Box<dyn Fn() -> DateTime<Utc> + Send>,
 }
 
 #[derive(Debug)]
@@ -176,7 +180,13 @@ impl Library {
         conn.pragma_update(None, "journal_mode", "WAL")?;
         migrate(&mut conn)?;
 
-        Ok(Library { conn, covers_dir })
+        Ok(Library { conn, covers_dir, clock: Box::new(Utc::now) })
+    }
+
+    /// Replaces the clock, so integration tests can fix the dates a Sync writes.
+    #[doc(hidden)]
+    pub fn with_clock(self, f: impl Fn() -> DateTime<Utc> + Send + 'static) -> Self {
+        Library { clock: Box::new(f), ..self }
     }
 
     pub fn create_reader(&self, name: &str) -> Result<Reader> {

@@ -2,9 +2,30 @@
 //! caller's temp dir; the personal KoboReader.sqlite never enters the repo.
 #![allow(dead_code)]
 
+use khi_lib::library::Library;
 use khi_lib::models::{KoboBook, KoboHighlight, KoboSnapshot};
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
+use tempfile::TempDir;
+
+pub const KOBO_A: &str = "SERIAL-A";
+pub const KOBO_B: &str = "SERIAL-B";
+
+/// A Library with one Reader that owns both Kobos.
+pub fn setup() -> (TempDir, Library, u32) {
+    let dir = TempDir::new().unwrap();
+    let lib = Library::open(dir.path()).unwrap();
+    let reader = lib.create_reader("Bruno").unwrap();
+    lib.associate_kobo(KOBO_A, reader.id).unwrap();
+    lib.associate_kobo(KOBO_B, reader.id).unwrap();
+    (dir, lib, reader.id)
+}
+
+pub fn no_progress(_: u32, _: u32) {}
+
+pub fn no_cover(_: &KoboBook) -> Option<PathBuf> {
+    None
+}
 
 pub fn hl(bookmark_id: &str, text: &str) -> KoboHighlight {
     KoboHighlight {

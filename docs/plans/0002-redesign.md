@@ -1230,17 +1230,17 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 - um relógio no `Library`: o campo `clock: Box<dyn Fn() -> DateTime<Utc> + Send>`, que por omissão é `Utc::now`, e `#[doc(hidden)] pub fn with_clock(self, f) -> Self` para os testes de integração (só para as datas mostradas; a regra do «novo» não depende dele);
 - `upsert_highlight` recebe `Option<(seq, &str)>`, que é `None` na primeira sincronização do leitor.
 
-- [ ] **Passo 1: testes que falham** (`library_new.rs`):
+- [x] **Passo 1: testes que falham** (`library_new.rs`):
   - `migration_v2_keeps_v1_data`: uma base v1 com destaques migra para `user_version = 2`, e as linhas antigas ficam com `synced_seq` nulo;
   - `first_sync_of_reader_marks_nothing`;
   - `seq_increments_per_sync`, e `failed_sync_does_not_advance_seq`;
   - `insert_after_first_sync_gets_seq_and_at`;
   - `second_kobo_unseen_bookmarks_get_seq` (cenário `SERIAL-A`/`SERIAL-B` de `library_sync.rs:12-23`);
   - `same_bookmark_again_keeps_seq`: o update e o restauro não mudam o valor.
-- [ ] **Passo 2:** `(cd src-tauri && cargo test --test library_new)` falha.
-- [ ] **Passo 3:** migração, número de sincronização e escrita na inserção.
-- [ ] **Passo 4:** passa o `cargo test` inteiro (incluindo `library_sync.rs`, sem mudanças de comportamento), e os quatro comandos do frontend.
-- [ ] **Passo 5:** commit `feat(library): v2 migration and sync sequence`.
+- [x] **Passo 2:** `(cd src-tauri && cargo test --test library_new)` falha.
+- [x] **Passo 3:** migração, número de sincronização e escrita na inserção.
+- [x] **Passo 4:** passa o `cargo test` inteiro (incluindo `library_sync.rs`, sem mudanças de comportamento), e os quatro comandos do frontend.
+- [x] **Passo 5:** commit `feat(library): v2 migration and sync sequence`.
 
 ### Task 32: `isNew`, `markBookOpened` e resumo do leitor
 **Ficheiros:** `src-tauri/src/library/mod.rs` (`BOOK_COLUMNS` :116, `query_books` :362-406), `src-tauri/src/commands/library.rs`, `src-tauri/src/lib.rs` (`collect_commands!`), `src/lib/bindings.ts` (regenerado), `src-tauri/tests/library_new.rs`, `src/lib/contract.test.ts`.

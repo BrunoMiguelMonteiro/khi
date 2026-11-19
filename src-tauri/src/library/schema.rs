@@ -54,4 +54,8 @@ pub const MIGRATIONS: &[&str] = &[
         key TEXT PRIMARY KEY,
         value TEXT
     );",
+    // v2: the sync sequence behind «novo»
+    "ALTER TABLE highlights ADD COLUMN synced_seq INTEGER;
+    ALTER TABLE highlights ADD COLUMN synced_at TEXT;
+    ALTER TABLE books ADD COLUMN opened_seq INTEGER;",
 ];
