@@ -2,10 +2,11 @@
 """Khi v2 — accent tone table generator (proposal for Task 21).
 
 Run:  python3 design/accent-tones/generate.py   -> writes design/accent-tones.json + report.md, then self-checks
-      python3 design/accent-tones/generate.py --check   -> regenerates in memory and diffs against the files on disk
+      python3 design/accent-tones/generate.py --check   -> regenerates in memory, compares the bytes of both files on
+                                                           disk and validates the table on disk; exits 1 on any failure
 Inputs are inlined below (with their sources) so the result is reproducible without the repo.
 """
-import json, math, sys, os
+import json, math, re, sys, os
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from oklch import hex2oklch, oklch2hex, cr, deltaE
@@ -263,6 +264,60 @@ def build():
     return json.dumps(data, ensure_ascii=False, indent=2) + '\n'
 
 
+# ---------------------------------------------------------------- schema (independent of the inputs above)
+# Task 21: 8 system colours and 7 swatches, Claro and Escuro, every tone with a value and its origin.
+EXPECTED = {
+    'sistema': ['grafite', 'vermelho', 'laranja', 'amarelo', 'verde', 'azul', 'roxo', 'rosa'],
+    'amostras': ['azul-tinta', 'verde-folha', 'turquesa', 'laranja', 'amarelo', 'rosa', 'violeta'],
+}
+EXPECTED_TONES = ['primary', 'primary-foreground', 'primary-hover', 'primary-pressed',
+                  'link', 'primary-tint', 'primary-tint-foreground', 'ring']
+EXPECTED_MODES = ['claro', 'escuro']
+EXPECTED_META = ['task', 'generator', 'modes', 'multicolor', 'rule']
+MULTICOLOR = 'azul-tinta'
+# Origins (Task 21): figma:<node>, sistema:<Task 20>, derivado:<rule>; the blue is tokens:cor/<mode>/<tone>.
+SOURCE_RE = re.compile(r'^(figma:\d+:\d+(?: \(.+\))?|sistema:\S.*|derivado:\S.*|tokens:cor/(claro|escuro)/[a-z-]+)$')
+HEX_RE = re.compile(r'^#[0-9A-F]{6}$')
+
+
+def validate_schema(data):
+    errs = []
+    if not isinstance(data, dict) or list(data) != ['_meta', 'sistema', 'amostras']:
+        return ['top-level keys %r != [_meta, sistema, amostras]' % (list(data) if isinstance(data, dict) else data,)]
+    if list(data['_meta']) != EXPECTED_META:
+        errs.append('_meta keys %r != %r' % (list(data['_meta']), EXPECTED_META))
+    if not str(data['_meta'].get('multicolor', '')).startswith(MULTICOLOR + ' '):
+        errs.append('_meta.multicolor does not map Multicolor to %s' % MULTICOLOR)
+    for group, names in EXPECTED.items():
+        if list(data[group]) != names:
+            errs.append('%s rows %r != %r' % (group, list(data[group]), names))
+        for name in names:
+            modes = data[group].get(name)
+            if not isinstance(modes, dict) or list(modes) != EXPECTED_MODES:
+                errs.append('%s/%s modes %r != %r' % (group, name, modes and list(modes), EXPECTED_MODES))
+                continue
+            for mode in EXPECTED_MODES:
+                tones = modes[mode]
+                if list(tones) != EXPECTED_TONES:
+                    errs.append('%s/%s/%s tones %r != %r' % (group, name, mode, list(tones), EXPECTED_TONES))
+                    continue
+                for tone, entry in tones.items():
+                    where = '%s/%s/%s/%s' % (group, name, mode, tone)
+                    if not isinstance(entry, dict) or list(entry) != ['value', 'source']:
+                        errs.append('%s entry %r is not {value, source}' % (where, entry))
+                        continue
+                    if not isinstance(entry['value'], str) or not HEX_RE.match(entry['value']):
+                        errs.append('%s value %r is not #RRGGBB' % (where, entry['value']))
+                    src = entry['source']
+                    if not isinstance(src, str) or not SOURCE_RE.match(src):
+                        errs.append('%s source %r has no valid origin' % (where, src))
+                    elif src.startswith('tokens:') != ((group, name) == ('sistema', 'azul')):
+                        errs.append('%s source %r: tokens: is for the system blue only, and all of it' % (where, src))
+                    elif src.startswith('tokens:') and src != 'tokens:cor/%s/%s' % (mode, tone):
+                        errs.append('%s source %r != tokens:cor/%s/%s' % (where, src, mode, tone))
+    return errs
+
+
 # ---------------------------------------------------------------- self-check
 def self_check(data):
     errs = []
@@ -368,21 +423,36 @@ def report(data):
 def main():
     js = build()
     data = json.loads(js)
-    errs = self_check(data)
     rep = report(data)
     paths = {os.path.join(HERE, '..', 'accent-tones.json'): js, os.path.join(HERE, 'report.md'): rep}
+    errs = validate_schema(data) or self_check(data)
     if '--check' in sys.argv:
-        same = all(open(p, encoding='utf-8').read() == c for p, c in paths.items())
-        print('byte-for-byte:', 'OK' if same else 'DIFFERS')
+        for p, c in paths.items():
+            try:
+                with open(p, 'rb') as f:
+                    same = f.read() == c.encode('utf-8')
+            except OSError as e:
+                same = False
+                print('  ', e)
+            print('byte-for-byte %s: %s' % (os.path.relpath(p, os.path.join(HERE, '..', '..')), 'OK' if same else 'DIFFERS'))
+            if not same:
+                errs.append('%s differs from the generator output' % os.path.basename(p))
+        try:
+            with open(os.path.join(HERE, '..', 'accent-tones.json'), 'rb') as f:
+                disk = json.loads(f.read().decode('utf-8'))
+        except (OSError, ValueError) as e:
+            errs.append('accent-tones.json unreadable: %s' % e)
+        else:
+            disk_errs = validate_schema(disk)
+            errs += ['on disk: ' + e for e in disk_errs or self_check(disk)]
     else:
         for p, c in paths.items():
-            with open(p, 'w', encoding='utf-8') as f:
+            with open(p, 'w', encoding='utf-8', newline='\n') as f:
                 f.write(c)
     print('self-check:', 'OK' if not errs else 'FAIL')
     for e in errs:
         print('  ', e)
     sys.exit(1 if errs else 0)
-
 
 if __name__ == '__main__':
     main()

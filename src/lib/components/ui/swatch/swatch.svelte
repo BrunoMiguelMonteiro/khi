@@ -48,14 +48,44 @@
 	const forwarded = $derived(
 		Object.fromEntries(Object.entries(restProps).filter(([key]) => !OWNED_ALIASES.has(key)))
 	);
+
+	/**
+	 * Bits UI's roving focus skips every [data-disabled] item, so in a disabled group the arrows
+	 * would go nowhere. Here they move focus as when enabled (and wrap), so each swatch's name and
+	 * the reason can be read; the group is readonly, so nothing is chosen.
+	 */
+	function roveWhileDisabled(event: KeyboardEvent): boolean {
+		const here = event.currentTarget;
+		if (!disabled || !(here instanceof HTMLElement)) return false;
+		const group = here.closest('[data-slot="swatch-group"]');
+		if (!group) return false;
+		const swatches = [...group.querySelectorAll<HTMLElement>('[data-slot="swatch"]')];
+		const rtl = getComputedStyle(group).direction === 'rtl';
+		const step: Record<string, number> = {
+			ArrowRight: rtl ? -1 : 1,
+			ArrowDown: 1,
+			ArrowLeft: rtl ? 1 : -1,
+			ArrowUp: -1
+		};
+		const at = swatches.indexOf(here);
+		let next: number;
+		if (event.key === 'Home') next = 0;
+		else if (event.key === 'End') next = swatches.length - 1;
+		else if (event.key in step) next = (at + step[event.key] + swatches.length) % swatches.length;
+		else return false;
+		event.preventDefault();
+		swatches[next]?.focus();
+		return true;
+	}
 </script>
 
 <!--
-	Componentes (D7) · 13 · Amostra de cor (56:5146): 18 × 18 and round. Sistema is background with a
-	primary stroke/swatch inside and a 6 px primary dot; a colour is its swatch fill. Selecionada is
-	the after: ring, foreground at stroke/swatch, 2 px out (Seleção, 22 × 22, outside stroke, inner
-	radius 11). Foco is the Task 5 ring, flush. The before: inset of 1 px is the 20 × 20 click area,
-	so the row keeps gap-2. No hover, no motion: the colour applies at once.
+	Componentes (D7) · 13 · Amostra de cor (56:5146). The radio is the 20 × 20 click area (−1 px
+	margin, so it lays out as 18 × 18 and the row keeps gap-2); inside it, the 18 × 18 round visual
+	takes no clicks and paints the swatch: Sistema is background with a primary stroke/swatch inside
+	and a 6 px primary dot, a colour is its swatch fill. Foco is the Task 5 ring on the visual, flush.
+	Selecionada is the radio's after: ring, foreground at stroke/swatch, 3 px out of the radio (Seleção,
+	22 × 22, outside stroke, inner radius 11), not hit-testable. No hover, no motion.
 -->
 <Tooltip text={disabled && disabledReason ? disabledReason : label} {id}>
 	{#snippet children({ props: trigger })}
@@ -67,14 +97,9 @@
 					{...merged}
 					data-slot="swatch"
 					class={cn(
-						'relative inline-flex size-4.5 shrink-0 items-center justify-center rounded-full outline-none',
-						'before:absolute before:-inset-px before:rounded-full',
-						'focus-visible:focus-ring',
-						'data-checked:after:absolute data-checked:after:-inset-1 data-checked:after:rounded-full',
+						'group/swatch relative -m-px inline-flex size-5 shrink-0 items-center justify-center rounded-full outline-none',
+						'data-checked:after:pointer-events-none data-checked:after:absolute data-checked:after:-inset-0.75 data-checked:after:rounded-full',
 						'data-checked:after:border-(length:--stroke-swatch) data-checked:after:border-foreground',
-						value === 'system'
-							? 'border-(length:--stroke-swatch) border-primary bg-background'
-							: SWATCH_BG[value],
 						className
 					)}
 					type="button"
@@ -85,11 +110,26 @@
 					aria-disabled={disabled ? 'true' : undefined}
 					data-disabled={disabled ? '' : undefined}
 					onclick={guardClick(() => disabled, merged.onclick)}
+					onkeydown={(event) => {
+						if (!roveWhileDisabled(event)) (merged.onkeydown as ((e: KeyboardEvent) => void) | undefined)?.(event);
+					}}
 				>
-					{#if value === 'system'}
-						<span data-slot="swatch-dot" aria-hidden="true" class="size-1.5 rounded-full bg-primary"
-						></span>
-					{/if}
+					<span
+						data-slot="swatch-visual"
+						aria-hidden="true"
+						class={cn(
+							'pointer-events-none inline-flex size-4.5 items-center justify-center rounded-full',
+							'group-focus-visible/swatch:focus-ring',
+							value === 'system'
+								? 'border-(length:--stroke-swatch) border-primary bg-background'
+								: SWATCH_BG[value]
+						)}
+					>
+						{#if value === 'system'}
+							<span data-slot="swatch-dot" aria-hidden="true" class="size-1.5 rounded-full bg-primary"
+							></span>
+						{/if}
+					</span>
 				</button>
 			{/snippet}
 		</Primitive.Item>

@@ -1,11 +1,12 @@
 //! The macOS accent colour, for the «Sistema» accent (redesign Task 21; DECISIONS, Cor 2).
 //!
 //! Modelled on Cmdr's `system_look/platform/macos/accent_color.rs`: `NSColor.controlAccentColor`
-//! in sRGB, plus the `AppleAccentColor` user default, which tells Multicolor (absent) from Blue
-//! (4); both give `#007AFF`. The colour is resolved under Aqua and Dark Aqua, because graphite,
-//! red, yellow and purple differ between them (Task 20). `NSSystemColorsDidChangeNotification`
-//! re-reads and emits `system-accent-changed`; it also fires on light/dark switches, so a value
-//! equal to the previous one is not emitted again.
+//! in sRGB, plus the `AppleAccentColor` default from the global domain, which tells Multicolor
+//! (absent) from Blue (4); both give `#007AFF`. The colour is resolved under Aqua and Dark Aqua,
+//! because graphite, red, yellow and purple differ between them (Task 20).
+//! `NSSystemColorsDidChangeNotification`, delivered on the main queue, re-reads and emits
+//! `system-accent-changed`; it also fires on light/dark switches, so a value equal to the
+//! previous one is not emitted again.
 
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
@@ -142,8 +143,9 @@ pub fn observe(_app_handle: AppHandle) {}
 
 #[cfg(target_os = "macos")]
 mod macos {
-    use std::cell::{Cell, RefCell};
+    use std::cell::RefCell;
     use std::ptr::NonNull;
+    use std::sync::{Arc, Mutex};
 
     use block2::{RcBlock, StackBlock};
     use objc2::MainThreadMarker;
@@ -151,7 +153,10 @@ mod macos {
         NSAppearance, NSAppearanceName, NSAppearanceNameAqua, NSAppearanceNameDarkAqua, NSColor,
         NSColorSpace, NSSystemColorsDidChangeNotification,
     };
-    use objc2_foundation::{ns_string, NSNotification, NSNotificationCenter, NSUserDefaults};
+    use objc2_foundation::{
+        ns_string, NSGlobalDomain, NSNotification, NSNotificationCenter, NSNumber,
+        NSOperationQueue, NSString, NSUserDefaults,
+    };
     use tauri::AppHandle;
     use tauri_specta::Event;
 
@@ -173,11 +178,20 @@ mod macos {
         out.into_inner().unwrap_or_else(|| SYSTEM_BLUE.to_owned())
     }
 
-    fn apple_accent_color() -> Option<i64> {
-        let defaults = NSUserDefaults::standardUserDefaults();
-        let key = ns_string!("AppleAccentColor");
-        defaults.objectForKey(key)?;
-        Some(defaults.integerForKey(key) as i64)
+    /// `AppleAccentColor` from the global domain only, as `defaults read -g` gives it. The
+    /// standard search list would let the argument domain (`-AppleAccentColor 4`) or an
+    /// app-local default shadow the System Settings value. The domain is read through cfprefsd,
+    /// so a running app sees changes without a restart.
+    pub(super) fn apple_accent_color() -> Option<i64> {
+        // SAFETY: a Foundation constant, valid for the life of the app.
+        let global = unsafe { NSGlobalDomain };
+        let value = NSUserDefaults::standardUserDefaults()
+            .persistentDomainForName(global)?
+            .objectForKey(ns_string!("AppleAccentColor"))?;
+        if let Some(number) = value.downcast_ref::<NSNumber>() {
+            return Some(number.integerValue() as i64);
+        }
+        value.downcast_ref::<NSString>()?.to_string().trim().parse().ok()
     }
 
     pub(super) fn read(mtm: MainThreadMarker) -> SystemAccent {
@@ -190,38 +204,81 @@ mod macos {
         }
     }
 
+    /// Re-reads the accent and emits it if it differs from the last one sent.
+    fn reread(mtm: MainThreadMarker, last: &Mutex<LastAccent>, app_handle: &AppHandle) {
+        let next = read(mtm);
+        let mut last = last.lock().unwrap_or_else(|e| e.into_inner());
+        if !last.changed(&next) {
+            return;
+        }
+        log::info!("[SystemAccent] Changed: {next:?}");
+        if let Err(e) = next.emit(app_handle) {
+            log::error!("[SystemAccent] Failed to emit system-accent-changed: {e}");
+        }
+    }
+
     pub(super) fn observe(mtm: MainThreadMarker, app_handle: AppHandle) {
-        let last = RefCell::new(LastAccent::new(read(mtm)));
-        let warned = Cell::new(false);
-        let block = RcBlock::new(move |_: NonNull<NSNotification>| {
-            // System colour changes are posted on the main thread.
-            let Some(mtm) = MainThreadMarker::new() else {
-                if !warned.replace(true) {
-                    log::warn!("[SystemAccent] Change notified off the main thread; ignored");
+        let last = Arc::new(Mutex::new(LastAccent::new(read(mtm))));
+        let handler = move |_: NonNull<NSNotification>| {
+            // Delivered on the main queue; should that ever not hold, hop there rather than drop it.
+            if let Some(mtm) = MainThreadMarker::new() {
+                reread(mtm, &last, &app_handle);
+                return;
+            }
+            let (last, app) = (Arc::clone(&last), app_handle.clone());
+            let hop = app_handle.run_on_main_thread(move || {
+                if let Some(mtm) = MainThreadMarker::new() {
+                    reread(mtm, &last, &app);
                 }
-                return;
-            };
-            let next = read(mtm);
-            if !last.borrow_mut().changed(&next) {
-                return;
+            });
+            if let Err(e) = hop {
+                log::warn!("[SystemAccent] Couldn't reach the main thread ({e}); change ignored");
             }
-            log::info!("[SystemAccent] Changed: {next:?}");
-            if let Err(e) = next.emit(&app_handle) {
-                log::error!("[SystemAccent] Failed to emit system-accent-changed: {e}");
-            }
-        });
-        // SAFETY: a valid AppKit notification name, no object, delivered on the posting (main)
-        // thread; the block only touches main-thread state after checking for the main thread.
+        };
+        fn sendable<F: Send + Sync>(_: &F) {}
+        sendable(&handler);
+        let block = RcBlock::new(handler);
+        let main_queue = NSOperationQueue::mainQueue();
+        // SAFETY: a valid AppKit notification name and no object; the block is `Send + Sync`
+        // (checked above), as the binding requires.
         let token = unsafe {
             NSNotificationCenter::defaultCenter().addObserverForName_object_queue_usingBlock(
                 Some(NSSystemColorsDidChangeNotification),
                 None,
-                None,
+                Some(&main_queue),
                 &block,
             )
         };
         // Observed for the whole session: the registration is never removed.
         std::mem::forget(token);
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use objc2::runtime::AnyObject;
+        use objc2_foundation::{
+            ns_string, NSArgumentDomain, NSDictionary, NSNumber, NSUserDefaults,
+        };
+
+        use super::apple_accent_color;
+
+        #[test]
+        fn argument_domain_does_not_shadow_the_global_accent() {
+            let defaults = NSUserDefaults::standardUserDefaults();
+            // SAFETY: an AppKit constant, valid for the life of the process.
+            let args_name = unsafe { NSArgumentDomain };
+            let saved = defaults.volatileDomainForName(args_name);
+            let sentinel = NSNumber::numberWithInteger(99);
+            let args = NSDictionary::<_, AnyObject>::from_slices(
+                &[ns_string!("AppleAccentColor")],
+                &[&**sentinel],
+            );
+            // SAFETY: string keys, a number value, as `-AppleAccentColor 99` would give.
+            unsafe { defaults.setVolatileDomain_forName(&args, args_name) };
+            let read = apple_accent_color();
+            unsafe { defaults.setVolatileDomain_forName(&saved, args_name) };
+            assert_ne!(read, Some(99), "the argument domain shadowed the global domain");
+        }
     }
 }
 

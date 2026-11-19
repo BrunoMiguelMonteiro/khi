@@ -54,24 +54,58 @@ const describedBy = (el: HTMLElement) =>
 const GROUP_BINDINGS: Binding[] = [
   { binding: "spacing/2 (gap)", utility: "gap-2", css: "gap: calc(var(--spacing) * 2);" },
 ];
-const SWATCH_BINDINGS: Binding[] = [
-  { binding: "18 × 18", utility: "size-4.5", css: "width: calc(var(--spacing) * 4.5);" },
-  { binding: "radius 9 (round)", utility: "rounded-full", css: "border-radius: var(--radius-full);" },
+// The swatch is the 20 × 20 radio, the click area; its 18 × 18 visual paints the fill and the rings.
+const TARGET_BINDINGS: Binding[] = [
   {
-    binding: "Foco: stroke/ring outside, ring at ring-opacity, flush",
-    utility: "focus-visible:focus-ring",
-    css: ":focus-visible {\n    outline: var(--stroke-ring) solid",
+    binding: "click area 20 × 20",
+    utility: "size-5",
+    css: "width: calc(var(--spacing) * 5);\n    height: calc(var(--spacing) * 5);",
   },
-  // Selecionada (Seleção, 22 × 22 at −2): a foreground ring of stroke/swatch, 2 px out, inner radius 11.
-  { binding: "Seleção: 2 px out, outside stroke", utility: "data-checked:after:-inset-1", css: "inset: calc(var(--spacing) * -1);" },
+  { binding: "laid out as 18 × 18, so the row keeps gap-2", utility: "-m-px", css: "margin: -1px;" },
+  // Selecionada (Seleção, 22 × 22 at −2, outside stroke): from the 20 × 20 target, 3 px out.
+  {
+    binding: "Seleção: 22 × 22 + 2 px out",
+    utility: "data-checked:after:-inset-0.75",
+    css: "inset: calc(var(--spacing) * -0.75);",
+  },
   { binding: "Seleção: round", utility: "data-checked:after:rounded-full", css: "border-radius: var(--radius-full);" },
   {
     binding: "Seleção: stroke/swatch",
     utility: "data-checked:after:border-(length:--stroke-swatch)",
     css: "border-width: var(--stroke-swatch);",
   },
-  { binding: "Seleção: foreground", utility: "data-checked:after:border-foreground", css: "border-color: var(--foreground);" },
+  {
+    binding: "Seleção: foreground",
+    utility: "data-checked:after:border-foreground",
+    css: "border-color: var(--foreground);",
+  },
+  {
+    binding: "Seleção: not hit-testable",
+    utility: "data-checked:after:pointer-events-none",
+    css: "pointer-events: none;",
+  },
 ];
+const SWATCH_BINDINGS: Binding[] = [
+  { binding: "18 × 18", utility: "size-4.5", css: "width: calc(var(--spacing) * 4.5);" },
+  { binding: "radius 9 (round)", utility: "rounded-full", css: "border-radius: var(--radius-full);" },
+  {
+    binding: "not hit-testable: the target is the radio",
+    utility: "pointer-events-none",
+    css: "pointer-events: none;",
+  },
+  {
+    binding: "Foco: stroke/ring outside, ring at ring-opacity, flush on the 18 × 18",
+    utility: "group-focus-visible/swatch:focus-ring",
+    css: "outline: var(--stroke-ring) solid",
+  },
+];
+const visual = (swatch: HTMLElement) => {
+  const el = [...swatch.children].find(
+    (child): child is HTMLElement => child instanceof HTMLElement && child.dataset.slot === "swatch-visual",
+  );
+  if (!el) throw new Error("no swatch visual");
+  return el;
+};
 const SISTEMA_BINDINGS: Binding[] = [
   { binding: "Sistema: background (fill)", utility: "bg-background", css: "background-color: var(--background);" },
   {
@@ -164,8 +198,9 @@ describe("SwatchGroup", () => {
     const { swatches } = renderBound();
     for (const [i, name] of SWATCH_NAMES.entries()) {
       const swatch = swatches[i + 1];
-      expect(swatch.classList.contains(SWATCH_BG[name]), name).toBe(true);
-      await expectBindings(swatch, SWATCH_BINDINGS);
+      expect(visual(swatch).classList.contains(SWATCH_BG[name]), name).toBe(true);
+      await expectBindings(swatch, TARGET_BINDINGS);
+      await expectBindings(visual(swatch), SWATCH_BINDINGS);
       expect(swatch.querySelector('[data-slot="swatch-dot"]')).toBeNull();
     }
   });
@@ -173,13 +208,16 @@ describe("SwatchGroup", () => {
   it("system_swatch_has_ring_and_dot", async () => {
     const { swatches } = renderBound("verde-folha");
     const system = swatches[0];
-    await expectBindings(system, [...SWATCH_BINDINGS, ...SISTEMA_BINDINGS]);
-    const dot = system.querySelector<HTMLElement>('[data-slot="swatch-dot"]');
+    await expectBindings(system, TARGET_BINDINGS);
+    await expectBindings(visual(system), [...SWATCH_BINDINGS, ...SISTEMA_BINDINGS]);
+    // The stroke is on the visual, so the 20 × 20 target and the ring do not move with it.
+    expect(system.className).not.toMatch(/(^|\s)border/);
+    const dot = visual(system).querySelector<HTMLElement>('[data-slot="swatch-dot"]');
     if (!dot) throw new Error("no dot");
     await expectBindings(dot, DOT_BINDINGS);
     expect(dot.getAttribute("aria-hidden")).toBe("true");
     // No motion: the colour applies at once.
-    for (const s of swatches)
+    for (const s of [...swatches, ...swatches.map(visual)])
       expect([...s.classList].filter((c) => /(^|:)(transition|duration|animate)/.test(c))).toEqual([]);
     // The selection ring follows the radio's own state, not the tooltip trigger's.
     expect(system.getAttribute("data-state")).toBe("unchecked");
@@ -204,12 +242,25 @@ describe("SwatchGroup", () => {
       expect(s.getAttribute("aria-disabled")).toBe("true");
       expect(s.hasAttribute("disabled")).toBe(false);
     }
-    // The arrows move focus to read the other names, but choose nothing.
+    // The arrows move focus to read the other names and the reason, but choose nothing.
     const user = userEvent.setup();
     selected.focus();
     await user.keyboard("{ArrowRight}");
+    expect(document.activeElement).toBe(swatches[4]);
+    expect(swatches[4].getAttribute("aria-label")).toBe(NAMES_EN[4]);
+    await waitFor(() => expect(describedBy(swatches[4])).toContain("Not available"));
+    await user.keyboard("{ArrowLeft}{ArrowLeft}");
+    expect(document.activeElement).toBe(swatches[2]);
+    // It wraps, as when enabled.
+    await user.keyboard("{Home}{ArrowLeft}");
+    expect(document.activeElement).toBe(swatches[7]);
+    await user.keyboard("{ArrowRight}");
+    expect(document.activeElement).toBe(swatches[0]);
+    await user.keyboard("{End}");
+    expect(document.activeElement).toBe(swatches[7]);
     expect(bound.value).toBe("turquesa");
     expect(changed).not.toHaveBeenCalled();
+    for (const [i, s] of swatches.entries()) expect(s.getAttribute("aria-checked")).toBe(String(i === 3));
     await user.click(swatches[1]);
     expect(bound.value).toBe("turquesa");
   });

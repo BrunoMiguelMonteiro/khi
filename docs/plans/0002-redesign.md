@@ -902,7 +902,7 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 **Pré-requisitos:** a Paragem da Task 20 e a tabela de tons aprovada pelo Bruno (Questão 1).
 
 **Ficheiros:**
-- criar `design/accent-tones.json`, a tabela aprovada: para cada uma das 8 cores do sistema e das 7 amostras, em Claro e Escuro, `primary`, `primary-foreground`, `primary-hover`, `primary-pressed`, `link`, `primary-tint`, `primary-tint-foreground` e `ring`, cada um com o valor e a origem (`figma:<nó>`, `sistema:<Task 20>` ou `derivado:<regra>`);
+- criar `design/accent-tones.json`, a tabela aprovada: para cada uma das 8 cores do sistema e das 7 amostras, em Claro e Escuro, `primary`, `primary-foreground`, `primary-hover`, `primary-pressed`, `link`, `primary-tint`, `primary-tint-foreground` e `ring`, cada um com o valor e a origem (`figma:<nó>`, `sistema:<Task 20>` ou `derivado:<regra>`; o azul do sistema, igual a `tokens.json`, tem `tokens:cor/<modo>/<tom>`);
 - criar `src/lib/accent/accent.ts` e `accent.test.ts`;
 - criar `src/lib/components/ui/swatch/swatch-group.svelte`, `swatch.svelte`, `swatch-classes.ts`, `index.ts` e `swatch.test.ts` (base: `npx shadcn-svelte@1.8.1 add radio-group`, só o Bits UI por baixo);
 - se a Task 20 pedir o Rust: o comando e o evento em `src-tauri/src/`, com teste em Rust.
