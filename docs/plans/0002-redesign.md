@@ -700,7 +700,7 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
 - lista com a superfície do Menu (Task 17): `bg-popover border border-border rounded-menu shadow-sombra-menu p-1`; item realçado (`data-highlighted:`) em `bg-primary text-primary-foreground`, sem transição; marca no valor em vigor;
 - abre em `duration-in` 200 com `ease-out` e fecha em `duration-out` 150; com Reduzir movimento, só fade.
 
-- [ ] **Passo 1: testes que falham** (`select.test.ts`):
+- [x] **Passo 1: testes que falham** (`select.test.ts`):
   - `trigger_shows_value_and_chevrons`;
   - `opens_with_space_and_arrows_move_highlight`;
   - `highlighted_item_uses_primary`: com `selectorFor`, sobre o `data-highlighted` do Bits UI;
@@ -708,12 +708,13 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
   - `current_value_has_check`;
   - `disabled_is_inert_and_explains_itself`: `expectDisabledInert` com o pop-up fechado e o valor igual;
   - `content_uses_menu_surface`.
-- [ ] **Passo 2:** `npx vitest run src/lib/components/ui/select` falha.
-- [ ] **Passo 3:** adaptar; `menu-classes.ts` com `menuContent` e `menuItem`.
-- [ ] **Passo 4:** os testes passam e passam os quatro comandos.
-- [ ] **Passo 5:** commit `feat(ui): Select pop-up with shared menu surface`.
+- [x] **Passo 2:** `npx vitest run src/lib/components/ui/select` falha.
+- [x] **Passo 3:** adaptar; `menu-classes.ts` com `menuContent` e `menuItem`.
+- [x] **Passo 4:** os testes passam e passam os quatro comandos.
+- [x] **Passo 5:** commit `feat(ui): Select pop-up with shared menu surface`.
 
 **Verificar no ecrã:** a lista abre sobre o valor em vigor; fade sem deslocamento com Reduzir movimento.
+- **Resultado (2026-11-19):** 9 testes em `select.test.ts` (mais `always_has_a_choice` e `without_reason_needs_no_tooltip_provider`) e o caso do Pop-up em `form.test.ts`; 381 testes, `check` 0, build OK, harness 73/73. Mutações apanhadas: `border-input-strong` → `border-input`, `data-highlighted:bg-primary` → `bg-accent`, as guardas de `bind:value` e `bind:open`, o `motion-reduce:zoom-in-100` e a escolha por omissão. Desvios: o `Select` é um componente composto (gatilho, lista e itens a partir de `items`); saem as peças do shadcn sem uso (grupo, rótulo, botões de deslocamento, separador, `select-value`) e o `separator/` que o shadcn trouxe. O desativado recusa também `bind:value`, porque o typeahead do Bits UI escolhe com o gatilho fechado. A lista abre por baixo do gatilho, não sobre o valor em vigor: o Bits UI 2.21 não tem posição alinhada ao item (fica para o ecrã). O movimento é fade com escala 95 → 100; com Reduzir movimento a escala volta a 100 e fica só o fade (o DECISIONS só fixa durações). `menu-classes.ts` exporta também `menuMark`, `menuShortcut` e `menuSeparator` para a Task 17. O jsdom não tem `hasPointerCapture`, que o gatilho do Bits UI chama: o teste define-o.
 
 ### Task 15: Grupo de vista
 **Ficheiros:** criar `src/lib/components/ui/view-group/view-group.svelte`, `index.ts` e `view-group.test.ts`, sobre o `RadioGroup` do Bits UI com o aspeto do Botão de toolbar (Task 11). O `toggle-group` do shadcn não serve: em escolha única deixa limpar o valor, e as setas movem o foco sem escolher. Depende da Task 6 (`input-strong`).
@@ -781,7 +782,7 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
 - abre em 200 com `ease-out`, fecha em 150; com Reduzir movimento, só fade;
 - os itens que pedem mais informação levam reticências no texto (`menus.md`).
 
-- [ ] **Passo 1: testes que falham** (`dropdown-menu.test.ts`):
+- [x] **Passo 1: testes que falham** (`dropdown-menu.test.ts`):
   - `content_is_200_wide_with_menu_surface`;
   - `highlighted_item_uses_primary_without_transition`: com `selectorFor('data-highlighted:bg-primary')` sobre o item que o Bits UI realça;
   - `matches_figma_sample`: o item realçado liga a `primary` e `primary-foreground` em `design/components-sample.json`;
@@ -790,12 +791,13 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
   - `disabled_item_is_skipped_and_does_not_fire`;
   - `separator_uses_border_and_spacing`;
   - `open_and_close_durations`.
-- [ ] **Passo 2:** `npx vitest run src/lib/components/ui/dropdown-menu` falha.
-- [ ] **Passo 3:** adaptar; saem as variantes `destructive` e `inset` do vega.
-- [ ] **Passo 4:** os testes passam e passam os quatro comandos.
-- [ ] **Passo 5:** commit `feat(ui): DropdownMenu with macOS highlight`.
+- [x] **Passo 2:** `npx vitest run src/lib/components/ui/dropdown-menu` falha.
+- [x] **Passo 3:** adaptar; saem as variantes `destructive` e `inset` do vega.
+- [x] **Passo 4:** os testes passam e passam os quatro comandos.
+- [x] **Passo 5:** commit `feat(ui): DropdownMenu with macOS highlight`.
 
 **Verificar no ecrã:** o realce segue o ponteiro sem atraso; fade sem deslocamento com Reduzir movimento.
+- **Resultado (2026-11-19):** 9 testes em `dropdown-menu.test.ts` (mais `content_width_can_be_overridden`); 381 testes, `check` 0, build OK, harness 73/73. Mutações apanhadas: `data-highlighted:bg-primary` → `bg-accent`, o atalho sem `primary-foreground` no realce, o separador do shadcn (`-mx-1 h-px`), a largura `w-56`, o fecho em `duration-in`, o desativado em `opacity-50` e a marca sempre visível. Desvios: um `Item` com `checked` (mesmo `false`) é um `CheckboxItem` do Bits UI (`menuitemcheckbox` com `aria-checked`) e ganha a coluna da Marca; sem `checked` não tem coluna. O atalho é a propriedade `shortcut` do item, por isso sai o `DropdownMenuShortcut`; saem também as peças sem desenho no Figma (checkbox e radio items, submenus, rótulo e cabeçalho de grupo). O separador tem a altura de `stroke/border` (`h-(--stroke-border)`), não `h-px`. O atalho segue o item pelas variantes de grupo (`group/menu-item`), que o jsdom avalia mal: o teste divide o seletor por ramos, como em `checkbox.test.ts`.
 
 ### Task 18: Switch, Linha e Grupo de formulário
 **Ficheiros:**
