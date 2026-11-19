@@ -1004,7 +1004,7 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 - [x] **Passo 2:** `npx vitest run src/lib/components/ui/dialog` falha.
 - [x] **Passo 3:** adaptar; ⌘. num `keydown` da janela.
 - [x] **Passo 4:** os testes passam e passam os quatro comandos.
-- [ ] **Passo 5:** commit `feat(ui): Dialog and AlertDialog with macOS focus and keys`.
+- [x] **Passo 5:** commit `feat(ui): Dialog and AlertDialog with macOS focus and keys`.
 
 **Verificar no ecrã:** a escala a partir do centro, e só fade com Reduzir movimento; o VoiceOver lê o título e o texto ao abrir.
 
