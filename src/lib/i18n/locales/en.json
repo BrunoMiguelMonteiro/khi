@@ -329,6 +329,14 @@
     }
   },
   "ui": {
+    "windowBar": {
+      "sync": "Sync with the Kobo",
+      "export_one": "Export 1 book",
+      "export_other": "Export {count} books",
+      "back": "Back",
+      "delete": "Delete book…",
+      "sort": "Sort by"
+    },
     "viewGroup": {
       "label": "View",
       "grid": "View as grid",

@@ -1177,16 +1177,16 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 - Sincronizar a rodar: `animate-spin` de 1 s linear, que no fim espera pelo `animationiteration` para parar direito; com Reduzir movimento, não roda;
 - a zona de arrastar e os semáforos (janela `Overlay`) ficam para a Fase 4; os atalhos e o menu da app também.
 
-- [ ] **Passo 1: testes que falham** (`window-bar.test.ts`):
+- [x] **Passo 1: testes que falham** (`window-bar.test.ts`):
   - `library_has_title_view_sort_sync_export_in_order`;
   - `detail_has_back_and_export_and_optional_delete`;
   - `tooltips_are_the_approved_strings`: os textos acima, palavra a palavra, em `pt.json`, e os de `en.json`;
   - `sync_stop_waits_for_animationiteration`: só prova o handler (despachar o evento no jsdom não prova a animação);
   - `disabled_sync_is_inert_and_explains_itself`.
-- [ ] **Passo 2:** `npx vitest run src/lib/components/ui/window-bar` falha.
-- [ ] **Passo 3:** o componente e as chaves `ui.windowBar.*`.
-- [ ] **Passo 4:** os testes passam e passam os quatro comandos.
-- [ ] **Passo 5:** commit `feat(ui): WindowBar for library and detail`.
+- [x] **Passo 2:** `npx vitest run src/lib/components/ui/window-bar` falha.
+- [x] **Passo 3:** o componente e as chaves `ui.windowBar.*`.
+- [x] **Passo 4:** os testes passam e passam os quatro comandos.
+- [x] **Passo 5:** commit `feat(ui): WindowBar for library and detail`.
 
 **Verificar no ecrã:** o ícone pára direito no fim da volta; não roda com Reduzir movimento.
 
