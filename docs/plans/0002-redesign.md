@@ -991,7 +991,7 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 - movimento: abre em 200 com opacidade de 0 a 1 e escala de 0,97 a 1, a partir do centro, `ease-out`; fecha em 150 com o inverso; o escurecer em fade no mesmo tempo; com Reduzir movimento, só fade;
 - as janelas concretas (Apagar livro e Kobo novo, K1) montam-se na Fase 5, com os textos do `pt.json`.
 
-- [ ] **Passo 1: testes que falham** (`dialog.test.ts`):
+- [x] **Passo 1: testes que falham** (`dialog.test.ts`):
   - `alert_dialog_role_name_and_description`;
   - `focus_goes_to_window_without_text_field`;
   - `focus_goes_to_text_field_when_present`;
@@ -1001,9 +1001,9 @@ Depende da Task 6 (`switch-on`, `input-strong`).
   - `return_confirms_default_button`;
   - `destructive_action_is_secondary_with_destructive_text`;
   - `overlay_uses_scrim`.
-- [ ] **Passo 2:** `npx vitest run src/lib/components/ui/dialog` falha.
-- [ ] **Passo 3:** adaptar; ⌘. num `keydown` da janela.
-- [ ] **Passo 4:** os testes passam e passam os quatro comandos.
+- [x] **Passo 2:** `npx vitest run src/lib/components/ui/dialog` falha.
+- [x] **Passo 3:** adaptar; ⌘. num `keydown` da janela.
+- [x] **Passo 4:** os testes passam e passam os quatro comandos.
 - [ ] **Passo 5:** commit `feat(ui): Dialog and AlertDialog with macOS focus and keys`.
 
 **Verificar no ecrã:** a escala a partir do centro, e só fade com Reduzir movimento; o VoiceOver lê o título e o texto ao abrir.
