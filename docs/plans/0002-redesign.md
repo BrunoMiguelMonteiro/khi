@@ -973,7 +973,7 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 - [x] **Passo 3:** `npx vitest run src/lib/components/ui/toast` falha.
 - [x] **Passo 4:** o componente pelo caminho do Passo 1.
 - [x] **Passo 5:** os testes passam e passam os quatro comandos.
-- [ ] **Passo 6:** commit `feat(ui): export toast with 4 s hold and pause on hover or focus`.
+- [x] **Passo 6:** commit `feat(ui): export toast with 4 s hold and pause on hover or focus`.
 
 **Verificar no ecrã:** entra de baixo, e só com fade com Reduzir movimento; o VoiceOver lê o texto uma vez.
 
