@@ -694,7 +694,8 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
 
 **Interfaces que produz** (Componentes (D7) · 6 · Pop-up, `55:2116`; 10 · Menu):
 - `<Select bind:value items={{ value, label }[]} label disabled? disabledReason? />`, sempre com uma escolha (sem estado vazio, `pop-up-buttons.md`);
-- gatilho com o aspeto do Secundário: `h-control pl-4 pr-2 gap-2 rounded-control bg-background border border-input`, valor `text-body text-foreground`, `chevrons-up-down` de 12 em `text-muted-foreground`; hover `bg-accent`, premido `bg-accent-pressed`; desativado com valor e seta em `text-disabled-foreground`;
+- gatilho com o aspeto do Secundário: `h-control pl-4 pr-2 gap-2 rounded-control bg-background border border-input-strong` (Figma `55:2116`, corrigido de `input` para `input-strong` em 2026-11-19, Decisão A; sem contorno extra no contraste), valor `text-body text-foreground`, `chevrons-up-down` de 12 em `text-muted-foreground`; hover `bg-accent`, premido `bg-accent-pressed` (instantâneo, como o Botão); desativado `bg-disabled border-disabled-border`, valor e seta em `text-disabled-foreground`;
+- o caso do Pop-up entra no `control_is_named_by_row_label` de `form.test.ts` (Task 18);
 - desativado: o Bits UI não tem `readonly` no Select, por isso `bind:open` é uma ligação de função que recusa abrir; o gatilho fica focável;
 - lista com a superfície do Menu (Task 17): `bg-popover border border-border rounded-menu shadow-sombra-menu p-1`; item realçado (`data-highlighted:`) em `bg-primary text-primary-foreground`, sem transição; marca no valor em vigor;
 - abre em `duration-in` 200 com `ease-out` e fecha em `duration-out` 150; com Reduzir movimento, só fade.
