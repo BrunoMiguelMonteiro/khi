@@ -40,6 +40,7 @@
         "retry": "Tentar de novo"
       },
       "title": "Biblioteca",
+      "titleOf": "Biblioteca de {reader}",
       "exportAll": "Exportar Todos",
       "exportSelected": "Exportar Selecionados",
       "clearSelection": "Limpar Seleção",

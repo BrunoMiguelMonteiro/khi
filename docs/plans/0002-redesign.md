@@ -1153,16 +1153,16 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 - com vários: «Biblioteca de <leitor>», botão `h-toolbar-button px-2 gap-1 rounded-control`, `text-title-3 text-foreground`, `chevron-down` em `text-muted-foreground`; aberto `bg-accent-pressed`; `aria-haspopup="menu"` e `aria-expanded`;
 - menu de 200 a 4 px por baixo, só com os leitores, marca no ativo.
 
-- [ ] **Passo 1: testes que falham** (`title-menu.test.ts`):
+- [x] **Passo 1: testes que falham** (`title-menu.test.ts`):
   - `single_reader_is_plain_text`;
   - `several_readers_open_menu_with_check_on_active`;
   - `has_menu_popup_and_expanded_state`;
   - `open_uses_accent_pressed`;
   - `selecting_reader_calls_onselect`.
-- [ ] **Passo 2:** `npx vitest run src/lib/components/ui/title-menu` falha.
-- [ ] **Passo 3:** o componente e as chaves em `screens.library.*`.
-- [ ] **Passo 4:** os testes passam e passam os quatro comandos.
-- [ ] **Passo 5:** commit `feat(ui): TitleMenu for reader switching`.
+- [x] **Passo 2:** `npx vitest run src/lib/components/ui/title-menu` falha.
+- [x] **Passo 3:** o componente e as chaves em `screens.library.*`.
+- [x] **Passo 4:** os testes passam e passam os quatro comandos.
+- [x] **Passo 5:** commit `feat(ui): TitleMenu for reader switching`.
 
 **Verificar no ecrã:** o menu a 4 px por baixo do título.
 
