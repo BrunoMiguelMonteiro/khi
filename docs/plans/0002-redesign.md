@@ -951,21 +951,28 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 - movimento: entra em `duration-toast-in` 300 com fade e 8 px de baixo (`--distance-enter`, `ease-out`); sai em 200 com o inverso; com Reduzir movimento, só fade;
 - pausa com o ponteiro **ou** o foco por cima, e retoma com o tempo que faltava (WCAG 2.2.1); `aria-live="polite"`.
 
-- [ ] **Passo 1: verificação do svelte-sonner, no máximo duas horas, antes de adaptar.** Num ramo de rascunho na worktree (`npm i -E svelte-sonner@1.2.3` e `npx shadcn-svelte@1.8.1 add sonner`), ver, só com a API pública e CSS sobre `[data-sonner-toast]`:
+- [x] **Passo 1: verificação do svelte-sonner, no máximo duas horas, antes de adaptar.** Num ramo de rascunho na worktree (`npm i -E svelte-sonner@1.2.3` e `npx shadcn-svelte@1.8.1 add sonner`), ver, só com a API pública e CSS sobre `[data-sonner-toast]`:
   - a entrada e a saída acima;
   - só fade com Reduzir movimento;
   - a pausa e a retoma do tempo com o ponteiro e com o foco.
   Se as três passam, fica o svelte-sonner. Se uma falha, sai tudo (`git checkout -- .` só nos ficheiros desta task) e o Aviso faz-se à mão: uma região `aria-live`, um temporizador com pausa e retoma, e as classes acima. A decisão e o porquê ficam escritos nesta task.
-- [ ] **Passo 2: testes que falham** (`toast.test.ts`, com `vi.useFakeTimers()`):
+  - **Decisão (2026-11-19): à mão.** O svelte-sonner 1.2.3 falha a pausa com o foco; sai tudo (`package.json` e `package-lock.json` voltam ao HEAD, a pasta `sonner/` apaga-se).
+    - **Pausa com o ponteiro: passa.** O `mouseenter` do `<ol>` põe `expanded`, e o `Toast.svelte` guarda o tempo que falta (`pauseTimer`). No jsdom, com `vi.useFakeTimers()`: 1 s, 10 s com o ponteiro por cima, e o aviso sai 3 s depois de o ponteiro sair.
+    - **Pausa com o foco: falha.** O temporizador só para com `expanded || interacting || página escondida`. O `onfocus` do `<ol>` só guarda o elemento anterior (`isFocusWithin`) e não põe `expanded`; só o atalho (⌥T) o põe. No jsdom: com o foco no botão da ação desde 1 s, o aviso sai aos 4 s. O `Toaster` não expõe `expanded`, e trocar a `duration` com `toast(…, { id })` recomeça o tempo do início (`toast.updated`), por isso não há retoma do tempo que faltava só com a API pública.
+    - **Entrada e saída: só com CSS por cima da biblioteca.** Por omissão entra com `translateY(100%)` em 400 ms e a da frente sai a deslizar 100 %; dá para trocar o `--y` e as transições sobre `[data-sonner-toast]`, mas contra as regras dela.
+    - **Só fade com Reduzir movimento: só com `!important`.** A biblioteca tira todas as transições (`transition: none !important`), também o fade; teríamos de a contrariar com outro `!important`.
+    - **Antes do Passo 1 (Passo 0, pesquisa):** o Bits UI 2.21 não tem Toast; o Melt `Toaster` (0.44, antes da 1.0) pausa só com o ponteiro e traz `focus-trap` e `jest-axe` como dependências; o Ark UI e o Skeleton (Zag) trazem dezenas de pacotes `@zag-js/*`; o `@zerodevx/svelte-toast` (2024) e o `svelte-french-toast` (Svelte 3/4) estão parados. Nenhum era claramente melhor que o svelte-sonner ou que fazer à mão.
+    - **Porquê à mão:** a pausa com o foco é uma das quatro condições da Cor 6 (WCAG 2.2.1); à mão são um ficheiro de estado e um componente, sem dependências, com as classes dos tokens e o `tw-animate-css` que já temos, e sem `mode-watcher`.
+- [x] **Passo 2: testes que falham** (`toast.test.ts`, com `vi.useFakeTimers()`):
   - `announces_politely`;
   - `stays_4s_then_leaves`;
   - `pauses_on_hover_and_resumes_remaining_time`;
   - `pauses_on_focus_and_resumes_remaining_time`;
   - `action_is_link_styled_button`;
   - `only_one_visible`.
-- [ ] **Passo 3:** `npx vitest run src/lib/components/ui/toast` falha.
-- [ ] **Passo 4:** o componente pelo caminho do Passo 1.
-- [ ] **Passo 5:** os testes passam e passam os quatro comandos.
+- [x] **Passo 3:** `npx vitest run src/lib/components/ui/toast` falha.
+- [x] **Passo 4:** o componente pelo caminho do Passo 1.
+- [x] **Passo 5:** os testes passam e passam os quatro comandos.
 - [ ] **Passo 6:** commit `feat(ui): export toast with 4 s hold and pause on hover or focus`.
 
 **Verificar no ecrã:** entra de baixo, e só com fade com Reduzir movimento; o VoiceOver lê o texto uma vez.
