@@ -195,6 +195,52 @@ describe('updater', () => {
 		expect(relaunch).toHaveBeenCalledTimes(1);
 	});
 
+	it('check_does_not_abort_download', async () => {
+		const { updater } = await freshStore();
+		let finish!: () => void;
+		const update = fakeUpdate();
+		update.download.mockImplementation(async (onEvent: (e: unknown) => void) => {
+			onEvent({ event: 'Started', data: { contentLength: 100 } });
+			await new Promise<void>((resolve) => (finish = resolve));
+			onEvent({ event: 'Progress', data: { chunkLength: 100 } });
+		});
+		check.mockResolvedValue(update);
+		await updater.checkNow();
+		const installing = updater.install(() => false);
+		expect(updater.state).toBe('downloading');
+		check.mockClear();
+
+		// «Check for Updates…» in the menu, or «Check Now» in Settings, mid-download
+		await updater.checkNow();
+		expect(check).not.toHaveBeenCalled();
+		expect(updater.state).toBe('downloading');
+
+		finish();
+		await installing;
+		expect(updater.progress).toEqual({ done: 100, total: 100 });
+		expect(update.install).toHaveBeenCalled();
+		expect(relaunch).toHaveBeenCalledTimes(1);
+	});
+
+	it('check_keeps_an_installed_update', async () => {
+		const { updater } = await freshStore();
+		check.mockResolvedValue(fakeUpdate());
+		await updater.checkNow();
+		await updater.install(() => true);
+		check.mockClear();
+
+		await updater.checkNow();
+		expect(updater.state).toBe('installed');
+		updater.dismissInstalled();
+		await updater.checkNow();
+		expect(updater.state).toBe('restartPending');
+		expect(check).not.toHaveBeenCalled();
+
+		// The restart it waits for still happens
+		await updater.restartWhenIdle(false);
+		expect(relaunch).toHaveBeenCalledTimes(1);
+	});
+
 	it('never restarts when no update was installed', async () => {
 		const { updater } = await freshStore();
 		await updater.restartWhenIdle(false);

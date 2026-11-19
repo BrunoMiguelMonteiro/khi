@@ -412,9 +412,9 @@ export const SCENARIOS: Record<string, Scenario> = {
 			await expect(page.locator(`${SETTINGS} [role="radio"][data-value="${value}"]`)).toHaveAttribute('aria-checked', 'true');
 			const save = page.getByRole('button', { name: text.saveChanges, exact: true });
 			await expect(save).toBeEnabled();
-			await page.evaluate(() => window.__KHI_MOCK__.hold('save_settings'));
+			await page.evaluate(() => window.__KHI_MOCK__.hold('update_settings'));
 			await save.dispatchEvent('click');
-			await page.waitForFunction(() => window.__KHI_MOCK__.held.includes('save_settings'));
+			await page.waitForFunction(() => window.__KHI_MOCK__.held.includes('update_settings'));
 			await expect(page.locator(`${SETTINGS} svg.animate-spin`)).toBeVisible();
 			await expectAnimation(page, `${SETTINGS} svg.animate-spin`, true);
 		}

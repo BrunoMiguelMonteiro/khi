@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+	import { getCurrentWindow } from '@tauri-apps/api/window';
 	import { commands, events } from '$lib/bindings';
 	import LibraryToolbar from '$lib/components/LibraryToolbar.svelte';
 	import LibraryView from '$lib/components/LibraryView.svelte';
@@ -14,7 +15,7 @@
 	import { exportErrorMessage } from '$lib/errors';
 	import { library } from '$lib/stores/library.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
-	import type { Book, KoboDevice } from '$lib/types';
+	import type { Book, KoboDevice, SortPreference, ViewMode } from '$lib/types';
 	import { createApplicationMenu } from '$lib/menu';
 	import UpdateDialog from '$lib/components/UpdateDialog.svelte';
 	import { updater } from '$lib/stores/updater.svelte';
@@ -41,6 +42,7 @@
 	let unlistenCheckForUpdates: UnlistenFn | undefined;
 	let unlistenSyncProgress: UnlistenFn | undefined;
 	let unlistenSyncFinished: UnlistenFn | undefined;
+	let unlistenReadersChanged: UnlistenFn | undefined;
 
 	// Sort books based on selected option
 	let sortedBooks = $derived(
@@ -63,7 +65,7 @@
 	// The native menu speaks the interface's language: rebuilt when it changes
 	$effect(() => {
 		const format = $_;
-		const timer = setTimeout(() => createApplicationMenu(format), 500);
+		const timer = setTimeout(() => createApplicationMenu(format, () => library.activeReaderId), 500);
 		return () => clearTimeout(timer);
 	});
 
@@ -89,14 +91,24 @@
 			unlistenCheckForUpdates?.();
 			unlistenSyncProgress?.();
 			unlistenSyncFinished?.();
+			unlistenReadersChanged?.();
 		};
 	});
 
 	async function setupDeviceListeners() {
 		try {
-			// «Procurar atualizações…» in the native menu
+			// «Procurar atualizações…» in the native menu, or Settings' «Check Now»:
+			// the dialog is in this window, so it comes in front of Settings
 			unlistenCheckForUpdates = await listen('check-for-updates', () => {
+				getCurrentWindow()
+					.setFocus()
+					.catch((error) => console.error('Failed to focus the main window:', error));
 				updater.checkNow();
+			});
+
+			// A Reader renamed, or given another folder, in Settings
+			unlistenReadersChanged = await listen('readers-changed', () => {
+				library.loadReaders().catch((error) => console.error('Failed to reload the readers:', error));
 			});
 
 			// Listen for device detected events
@@ -258,9 +270,22 @@
 		library.setUiState('library');
 	}
 
+	/** The main window's own choices, saved straight from the click so they
+	 * come back next launch. Never from an $effect: applying settings-changed
+	 * changes the state, and the effect would save again. */
+	function handleSortChange(sort: SortPreference) {
+		settings.setSortPreference(sort);
+		settings.persist({ librarySort: sort }).catch((error) => console.error('Failed to save the sort:', error));
+	}
+
+	function handleViewModeChange(mode: ViewMode) {
+		settings.setViewMode(mode);
+		settings.persist({ libraryViewMode: mode }).catch((error) => console.error('Failed to save the view:', error));
+	}
+
 	/** The gear opens the Settings window, like ⌘, in the menu. */
 	function handleOpenSettings() {
-		commands.openSettings($_('settings.windowTitle')).catch((error) =>
+		commands.openSettings($_('settings.windowTitle'), library.activeReaderId).catch((error) =>
 			console.error('Failed to open settings:', error)
 		);
 	}
@@ -303,8 +328,8 @@
 				onExportAll={handleExportAll}
 				onExportSelected={handleExportSelected}
 				onClearSelection={handleClearSelection}
-				onSortChange={(sort) => settings.setSortPreference(sort as any)}
-				onViewModeChange={(mode) => settings.setViewMode(mode)}
+				onSortChange={(sort) => handleSortChange(sort as SortPreference)}
+				onViewModeChange={handleViewModeChange}
 				onOpenSettings={handleOpenSettings}
 			/>
 

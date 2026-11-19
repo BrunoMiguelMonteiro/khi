@@ -37,13 +37,16 @@ describe('application menu', () => {
 	});
 
 	it('menu_settings_invokes_open_settings', async () => {
-		await createApplicationMenu(t);
+		let activeReaderId: number | null = 1;
+		await createApplicationMenu(t, () => activeReaderId);
 		const item = made.items.find((o) => o.id === 'settings');
 		expect(item?.accelerator).toBe('CmdOrCtrl+,');
 
+		// The Reader on screen when ⌘, is pressed, not when the menu was built
+		activeReaderId = 2;
 		item!.action();
 
-		expect(commands.openSettings).toHaveBeenCalledWith('Definições');
+		expect(commands.openSettings).toHaveBeenCalledWith('Definições', 2);
 		expect(emit).not.toHaveBeenCalledWith('open-settings');
 	});
 

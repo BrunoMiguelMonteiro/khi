@@ -3,9 +3,10 @@ import { render, waitFor } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
 
 const label = vi.hoisted(() => ({ current: 'main' }));
+const show = vi.hoisted(() => vi.fn(() => Promise.resolve()));
 
 vi.mock('@tauri-apps/api/window', () => ({
-	getCurrentWindow: () => ({ label: label.current })
+	getCurrentWindow: () => ({ label: label.current, show })
 }));
 vi.mock('@tauri-apps/api/event', () => ({ emit: vi.fn(() => Promise.resolve()) }));
 vi.mock('$lib/stores/settings.svelte', () => ({
@@ -40,6 +41,27 @@ describe('+layout', () => {
 
 		await waitFor(() => expect(updater.checkOnLaunch).toHaveBeenCalledWith(true));
 		expect(emit).toHaveBeenCalledWith('app-ready');
+		// Rust shows the main window on app-ready
+		expect(show).not.toHaveBeenCalled();
+	});
+
+	it('settings_window_shows_itself_once_initialized', async () => {
+		label.current = 'settings';
+		let initialized = false;
+		vi.mocked(settings.initialize).mockImplementationOnce(async () => {
+			await Promise.resolve();
+			initialized = true;
+		});
+		let initializedWhenShown: boolean | null = null;
+		show.mockImplementationOnce(() => {
+			initializedWhenShown = initialized;
+			return Promise.resolve();
+		});
+		render(Layout, { children });
+
+		await waitFor(() => expect(show).toHaveBeenCalledTimes(1));
+		// Built hidden: shown only with its theme and language applied
+		expect(initializedWhenShown).toBe(true);
 	});
 
 	it('layout_skips_app_ready_and_updater_outside_main', async () => {

@@ -15,8 +15,11 @@ export const commands = {
 	validateExportPath: (path: string) => __TAURI_INVOKE<boolean>("validate_export_path", { path }),
 	/**  Load application settings from disk */
 	loadSettings: () => __TAURI_INVOKE<AppSettings_Serialize>("load_settings"),
-	/**  Save application settings to disk */
-	saveSettings: (settings: AppSettings_Deserialize) => __TAURI_INVOKE<null>("save_settings", { settings }),
+	/**
+	 *  Writes `patch` over the settings file as it is now and returns the result.
+	 *  Every window follows it through `settings-changed` (the main one and Settings).
+	 */
+	updateSettings: (patch: SettingsPatch_Deserialize) => __TAURI_INVOKE<AppSettings_Serialize>("update_settings", { patch }),
 	/**  Reset settings to defaults */
 	resetSettings: () => __TAURI_INVOKE<AppSettings_Serialize>("reset_settings"),
 	/**  Open a folder picker dialog to select export directory */
@@ -47,9 +50,13 @@ export const commands = {
 	getSystemAccent: () => __TAURI_INVOKE<SystemAccent>("get_system_accent"),
 	/**
 	 *  Brings the Settings window forward, or opens it: there is only ever one.
+	 *  `reader_id` is the Reader the main window has open; an open Settings
+	 *  window gets it as `settings-reader`.
 	 *  Async, because a sync command that builds a window can deadlock.
 	 */
-	openSettings: (title: string) => __TAURI_INVOKE<null>("open_settings", { title }),
+	openSettings: (title: string, readerId: number | null) => __TAURI_INVOKE<null>("open_settings", { title, readerId }),
+	/**  The Reader to show in Settings; `None` means the last one opened (R5). */
+	settingsReader: () => __TAURI_INVOKE<number | null>("settings_reader"),
 };
 
 /** Events */
@@ -309,6 +316,72 @@ export type Reader_Serialize = {
 	id: number,
 	name: string,
 	exportPath: string | null,
+};
+
+/**
+ *  What one window changes in the settings file: a field per leaf it edits,
+ *  left out when it is not changed. The rest of the file stays as it is, so
+ *  the main window (sort, view) and Settings never undo each other's saves.
+ * 
+ *  Flat, named after the leaf (`theme` for `uiPreferences.theme`): every
+ *  leaf name is unique in `AppSettings`, and the bindings stay one level deep.
+ */
+export type SettingsPatch = SettingsPatch_Serialize | SettingsPatch_Deserialize;
+
+/**
+ *  What one window changes in the settings file: a field per leaf it edits,
+ *  left out when it is not changed. The rest of the file stays as it is, so
+ *  the main window (sort, view) and Settings never undo each other's saves.
+ * 
+ *  Flat, named after the leaf (`theme` for `uiPreferences.theme`): every
+ *  leaf name is unique in `AppSettings`, and the bindings stay one level deep.
+ */
+export type SettingsPatch_Deserialize = {
+	/**  `exportConfig.exportPath` */
+	exportPath?: string | null,
+	/**  `exportConfig.metadata`, the whole object */
+	metadata?: MetadataConfig_Deserialize | null,
+	/**  `exportConfig.dateFormat` */
+	dateFormat?: DateFormat | null,
+	language?: Language | null,
+	/**  `uiPreferences.theme` */
+	theme?: ThemePreference_Deserialize | null,
+	/**  `uiPreferences.libraryViewMode` */
+	libraryViewMode?: ViewMode_Deserialize | null,
+	/**  `uiPreferences.librarySort` */
+	librarySort?: SortPreference_Deserialize | null,
+	/**  `uiPreferences.syncOnConnect` */
+	syncOnConnect?: boolean | null,
+	/**  `uiPreferences.checkForUpdates` */
+	checkForUpdates?: boolean | null,
+};
+
+/**
+ *  What one window changes in the settings file: a field per leaf it edits,
+ *  left out when it is not changed. The rest of the file stays as it is, so
+ *  the main window (sort, view) and Settings never undo each other's saves.
+ * 
+ *  Flat, named after the leaf (`theme` for `uiPreferences.theme`): every
+ *  leaf name is unique in `AppSettings`, and the bindings stay one level deep.
+ */
+export type SettingsPatch_Serialize = {
+	/**  `exportConfig.exportPath` */
+	exportPath?: string | null,
+	/**  `exportConfig.metadata`, the whole object */
+	metadata?: MetadataConfig_Serialize | null,
+	/**  `exportConfig.dateFormat` */
+	dateFormat?: DateFormat | null,
+	language?: Language | null,
+	/**  `uiPreferences.theme` */
+	theme?: ThemePreference_Serialize | null,
+	/**  `uiPreferences.libraryViewMode` */
+	libraryViewMode?: ViewMode_Serialize | null,
+	/**  `uiPreferences.librarySort` */
+	librarySort?: SortPreference_Serialize | null,
+	/**  `uiPreferences.syncOnConnect` */
+	syncOnConnect?: boolean | null,
+	/**  `uiPreferences.checkForUpdates` */
+	checkForUpdates?: boolean | null,
 };
 
 /**  Sort preference for library */

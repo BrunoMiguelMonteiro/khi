@@ -108,6 +108,78 @@ pub enum SortPreference {
     HighlightCount,
 }
 
+/// What one window changes in the settings file: a field per leaf it edits,
+/// left out when it is not changed. The rest of the file stays as it is, so
+/// the main window (sort, view) and Settings never undo each other's saves.
+///
+/// Flat, named after the leaf (`theme` for `uiPreferences.theme`): every
+/// leaf name is unique in `AppSettings`, and the bindings stay one level deep.
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, specta::Type)]
+#[serde(rename_all = "camelCase", default)]
+pub struct SettingsPatch {
+    /// `exportConfig.exportPath`
+    #[specta(optional)]
+    pub export_path: Option<String>,
+    /// `exportConfig.metadata`, the whole object
+    #[specta(optional)]
+    pub metadata: Option<MetadataConfig>,
+    /// `exportConfig.dateFormat`
+    #[specta(optional)]
+    pub date_format: Option<DateFormat>,
+    #[specta(optional)]
+    pub language: Option<Language>,
+    /// `uiPreferences.theme`
+    #[specta(optional)]
+    pub theme: Option<ThemePreference>,
+    /// `uiPreferences.libraryViewMode`
+    #[specta(optional)]
+    pub library_view_mode: Option<ViewMode>,
+    /// `uiPreferences.librarySort`
+    #[specta(optional)]
+    pub library_sort: Option<SortPreference>,
+    /// `uiPreferences.syncOnConnect`
+    #[specta(optional)]
+    pub sync_on_connect: Option<bool>,
+    /// `uiPreferences.checkForUpdates`
+    #[specta(optional)]
+    pub check_for_updates: Option<bool>,
+}
+
+impl SettingsPatch {
+    /// Writes the fields that are set over `settings`; the others are kept.
+    pub fn apply_to(self, settings: &mut AppSettings) {
+        let export = &mut settings.export_config;
+        if let Some(path) = self.export_path {
+            export.export_path = path;
+        }
+        if let Some(metadata) = self.metadata {
+            export.metadata = metadata;
+        }
+        if let Some(format) = self.date_format {
+            export.date_format = format;
+        }
+        if let Some(language) = self.language {
+            settings.language = language;
+        }
+        let ui = &mut settings.ui_preferences;
+        if let Some(theme) = self.theme {
+            ui.theme = theme;
+        }
+        if let Some(mode) = self.library_view_mode {
+            ui.library_view_mode = mode;
+        }
+        if let Some(sort) = self.library_sort {
+            ui.library_sort = sort;
+        }
+        if let Some(enabled) = self.sync_on_connect {
+            ui.sync_on_connect = enabled;
+        }
+        if let Some(enabled) = self.check_for_updates {
+            ui.check_for_updates = enabled;
+        }
+    }
+}
+
 impl Default for AppSettings {
     fn default() -> Self {
         Self {

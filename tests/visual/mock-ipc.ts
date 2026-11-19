@@ -136,6 +136,8 @@ export function installTauriMock(config: MockConfig): void {
 			case 'plugin:window|set_title':
 			case 'plugin:window|close':
 			case 'plugin:window|destroy':
+			case 'plugin:window|show':
+			case 'plugin:window|set_focus':
 				return null;
 			case 'plugin:menu|new':
 				return [nextRid++, args.options?.id ?? `mock-menu-${nextRid}`];
@@ -166,7 +168,17 @@ export function installTauriMock(config: MockConfig): void {
 				return true;
 			case 'load_settings':
 				return config.settings;
-			case 'save_settings':
+			case 'update_settings': {
+				// As Rust: each leaf of the patch over the file, which it answers
+				const file = config.settings as Record<string, any>;
+				for (const [leaf, value] of Object.entries(args.patch ?? {})) {
+					const parent = leaf in file.exportConfig ? file.exportConfig : leaf in file.uiPreferences ? file.uiPreferences : file;
+					parent[leaf] = clone(value);
+				}
+				return config.settings;
+			}
+			case 'settings_reader':
+				// Opened by the harness, not by the main window: Settings fall back to `last_reader`
 				return null;
 			case 'pick_export_folder':
 				return null;

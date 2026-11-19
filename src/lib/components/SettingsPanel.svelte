@@ -10,6 +10,7 @@
 -->
 
 <script lang="ts">
+	import { confirm } from '@tauri-apps/plugin-dialog';
 	import { commands } from '$lib/bindings';
 	import { _ } from '$lib/i18n';
 	import {
@@ -47,9 +48,13 @@
 	const isLoading = $derived(settings.isLoading);
 	const activeReader = $derived(library.readers.find((r) => r.id === library.activeReaderId));
 
+	/** The name being typed, until the field commits it (change). */
+	let readerNameDraft = $state<string | null>(null);
+
 	/** Renames the active Reader straight away: the name lives in the
 	 * Library, not in settings.json, so it does not wait for Save (R3). */
 	async function handleRenameReader(event: Event) {
+		readerNameDraft = null;
 		const name = (event.currentTarget as HTMLInputElement).value.trim();
 		if (!activeReader || name === '' || name === activeReader.name) return;
 		try {
@@ -86,6 +91,12 @@
 			path === '' || path === defaultReaderFolder ? null : path
 		);
 		readerFolderDraft = null;
+	}
+
+	/** A name or folder typed for the active Reader and not saved yet: the
+	 * window then keeps that Reader when the main window sends another. */
+	export function hasReaderDraft(): boolean {
+		return readerNameDraft !== null || readerFolderDraft !== null;
 	}
 
 	// Metadata options configuration
@@ -199,8 +210,10 @@
 		}
 	}
 
+	// The dialog plugin's confirm, a native sheet: it answers a Promise, so
+	// both questions wait for it (an unawaited Promise is always true)
 	async function handleReset() {
-		if (confirm($_('settings.confirm.reset'))) {
+		if (await confirm($_('settings.confirm.reset'))) {
 			try {
 				await settings.resetAndSave();
 				hasChanges = false;
@@ -212,9 +225,9 @@
 		}
 	}
 
-	function handleCancel() {
+	async function handleCancel() {
 		if (hasChanges) {
-			if (confirm($_('settings.confirm.unsaved'))) {
+			if (await confirm($_('settings.confirm.unsaved'))) {
 				onClose?.();
 			}
 		} else {
@@ -359,6 +372,7 @@
 								data-testid="reader-name"
 								type="text"
 								value={activeReader.name}
+								oninput={(event) => (readerNameDraft = event.currentTarget.value)}
 								onchange={handleRenameReader}
 								class="px-3 py-2 text-sm rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
 							/>

@@ -27,7 +27,7 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         commands::get_default_settings,
         commands::validate_export_path,
         commands::load_settings,
-        commands::save_settings,
+        commands::update_settings,
         commands::reset_settings,
         commands::pick_export_folder,
         commands::clear_cover_cache,
@@ -46,6 +46,7 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         commands::library::sync_kobo,
         system_accent::get_system_accent,
         window::open_settings,
+        window::settings_reader,
     ])
     .events(collect_events![
         DeviceDetectedEvent,
@@ -79,6 +80,14 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(builder.invoke_handler())
+        .manage(window::SettingsWindowLock::default())
+        .manage(window::SettingsReader::default())
+        // ⌘W or the red button on the main window quits, Settings included
+        .on_window_event(|window, event| {
+            if window::exits_app(window.label(), event) {
+                window.app_handle().exit(0);
+            }
+        })
         .setup(move |app| {
             // Register typed events before anything emits them
             builder.mount_events(app);

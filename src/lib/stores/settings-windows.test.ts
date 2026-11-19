@@ -19,6 +19,7 @@ vi.mock('@tauri-apps/api/event', () => ({
 }));
 
 import { invoke } from '@tauri-apps/api/core';
+import { commands } from '../bindings';
 import { settings, SETTINGS_WINDOW_FIELDS } from './settings.svelte';
 
 const mockedInvoke = vi.mocked(invoke);
@@ -46,13 +47,29 @@ function onDisk(): AppSettings {
 	};
 }
 
+/** settings.json as Rust keeps it: `update_settings` writes each patch over
+ * it, leaf by leaf (`theme` is `uiPreferences.theme`), and answers the file. */
+function rustKeeps(file: AppSettings) {
+	mockedInvoke.mockImplementation((cmd: string, args?: unknown) => {
+		if (cmd === 'load_settings') return Promise.resolve(structuredClone(file));
+		if (cmd === 'get_default_settings') return Promise.resolve(onDisk());
+		if (cmd === 'update_settings') {
+			const { patch } = args as { patch: Record<string, unknown> };
+			for (const [leaf, value] of Object.entries(patch)) {
+				const parent: Record<string, unknown> =
+					leaf in file.exportConfig ? file.exportConfig : leaf in file.uiPreferences ? file.uiPreferences : (file as never);
+				parent[leaf] = structuredClone(value);
+			}
+			return Promise.resolve(structuredClone(file));
+		}
+		return Promise.resolve(null);
+	});
+}
+
 /** Starts the store in `label`'s window, with `file` as settings.json. */
 async function openIn(label: 'main' | 'settings', file: AppSettings = onDisk()) {
 	win.label = label;
-	mockedInvoke.mockImplementation((cmd: string) => {
-		if (cmd === 'load_settings') return Promise.resolve(structuredClone(file));
-		return Promise.resolve(null);
-	});
+	rustKeeps(file);
 	await settings.initialize();
 }
 
@@ -143,27 +160,70 @@ describe('settings in two windows', () => {
 	});
 
 	it('settings_save_keeps_main_changes', async () => {
-		await openIn('settings');
+		const file = onDisk();
+		await openIn('settings', file);
 		settings.setTheme('dark');
 		settings.setLanguage('pt');
 
-		// Meanwhile the main window wrote its own fields
-		const now = onDisk();
-		now.uiPreferences.librarySort = 'author';
-		now.uiPreferences.windowWidth = 1440;
+		// Meanwhile the main window saved its sort: its own patch, through Rust
+		await commands.updateSettings({ librarySort: 'author' });
 		mockedInvoke.mockClear();
-		mockedInvoke.mockImplementation((cmd: string) =>
-			Promise.resolve(cmd === 'load_settings' ? structuredClone(now) : null)
-		);
 
 		await settings.save();
 
-		const commandsCalled = mockedInvoke.mock.calls.map(([cmd]) => cmd);
-		expect(commandsCalled).toEqual(['load_settings', 'save_settings']);
-		const written = (mockedInvoke.mock.calls[1][1] as { settings: AppSettings }).settings;
-		expect(written.uiPreferences.librarySort).toBe('author');
-		expect(written.uiPreferences.windowWidth).toBe(1440);
-		expect(written.uiPreferences.theme).toBe('dark');
-		expect(written.language).toBe('pt');
+		// One call, no load before: two would race the main window
+		expect(mockedInvoke.mock.calls.map(([cmd]) => cmd)).toEqual(['update_settings']);
+		const { patch } = mockedInvoke.mock.calls[0][1] as { patch: Record<string, unknown> };
+		expect(Object.keys(patch).sort()).toEqual(SETTINGS_WINDOW_FIELDS.map((path) => path.split('.').pop()).sort());
+		expect(patch).not.toHaveProperty('librarySort');
+		expect(patch).toMatchObject({ theme: 'dark', language: 'pt' });
+		// Both survive, in the file and in this window
+		expect(file.uiPreferences.librarySort).toBe('author');
+		expect(file.uiPreferences.theme).toBe('dark');
+		expect(file.language).toBe('pt');
+		expect(settings.uiPreferences.librarySort).toBe('author');
+		expect(settings.uiPreferences.theme).toBe('dark');
+	});
+
+	it('reset_keeps_main_fields', async () => {
+		const file = onDisk();
+		file.uiPreferences.theme = 'dark';
+		file.uiPreferences.librarySort = 'author';
+		file.uiPreferences.windowWidth = 1440;
+		await openIn('settings', file);
+		mockedInvoke.mockClear();
+
+		await settings.resetAndSave();
+
+		const update = mockedInvoke.mock.calls.find(([cmd]) => cmd === 'update_settings');
+		const { patch } = update![1] as { patch: Record<string, unknown> };
+		expect(patch).toMatchObject({ theme: 'system' });
+		expect(patch).not.toHaveProperty('librarySort');
+		expect(patch).not.toHaveProperty('windowWidth');
+		// Settings' fields are the defaults again; the main window's stay
+		expect(file.uiPreferences.theme).toBe('system');
+		expect(file.uiPreferences.librarySort).toBe('author');
+		expect(file.uiPreferences.windowWidth).toBe(1440);
+		expect(settings.uiPreferences.theme).toBe('system');
+		expect(settings.uiPreferences.librarySort).toBe('author');
+		expect(settings.uiPreferences.windowWidth).toBe(1440);
+	});
+
+	it('main_persist_applies_settings_saved_meanwhile', async () => {
+		const file = onDisk();
+		await openIn('main', file);
+		const before = structuredClone(file);
+
+		// Settings saved the theme; its settings-changed has not reached the
+		// main window when the main window's own patch answers with the file
+		file.uiPreferences.theme = 'dark';
+		await settings.persist({ librarySort: 'author' });
+		expect(settings.uiPreferences.theme).toBe('dark');
+
+		// The late event changes nothing more, and the main window's sort stays
+		const late = structuredClone(before);
+		late.uiPreferences.theme = 'dark';
+		settingsChanged(late);
+		expect(settings.uiPreferences.theme).toBe('dark');
 	});
 });

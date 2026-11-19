@@ -18,10 +18,16 @@ describe("window config", () => {
     expect(main.windows).toContain("main");
   });
 
+  it("default_capability_allows_set_focus", () => {
+    // Settings' «Check Now» brings the main window, with the dialog, forward
+    expect(capability("default").permissions).toContain("core:window:allow-set-focus");
+  });
+
   it("settings_capability_is_minimal", () => {
     const settings = capability("settings");
     expect(settings.windows).toEqual(["settings"]);
-    // Esc ends in close(), onCloseRequested in destroy(), a saved language in setTitle()
+    // Esc ends in close(), onCloseRequested in destroy(), a saved language in
+    // setTitle(); built hidden, the page show()s it once its theme is applied
     expect([...settings.permissions].sort()).toEqual(
       [
         "core:default",
@@ -30,6 +36,7 @@ describe("window config", () => {
         "core:window:allow-set-title",
         "core:window:allow-close",
         "core:window:allow-destroy",
+        "core:window:allow-show",
         "dialog:default",
       ].sort(),
     );

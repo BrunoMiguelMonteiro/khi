@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Instant;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_specta::Event;
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type, Event)]
@@ -80,6 +80,13 @@ where
 
 fn err(e: impl std::fmt::Display) -> String {
     e.to_string()
+}
+
+/// A Reader's name or folder changed (in Settings): the main window reloads them.
+fn readers_changed(app: &AppHandle) {
+    if let Err(e) = app.emit("readers-changed", ()) {
+        log::warn!("Could not emit readers-changed: {}", e);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -176,7 +183,9 @@ pub async fn create_reader(app: AppHandle, name: String) -> Result<Reader, Strin
 #[tauri::command]
 #[specta::specta]
 pub async fn rename_reader(app: AppHandle, id: u32, name: String) -> Result<(), String> {
-    with_library(app, move |lib| lib.rename_reader(id, name.trim()).map_err(err)).await
+    with_library(app.clone(), move |lib| lib.rename_reader(id, name.trim()).map_err(err)).await?;
+    readers_changed(&app);
+    Ok(())
 }
 
 #[tauri::command]
@@ -267,10 +276,12 @@ pub async fn set_reader_export_path(
     reader_id: u32,
     path: Option<String>,
 ) -> Result<(), String> {
-    with_library(app, move |lib| {
+    with_library(app.clone(), move |lib| {
         lib.set_reader_export_path(reader_id, path.as_deref()).map_err(err)
     })
-    .await
+    .await?;
+    readers_changed(&app);
+    Ok(())
 }
 
 /// Syncs the connected Kobo into its Reader's Library, emitting

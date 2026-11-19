@@ -29,6 +29,9 @@ export interface ReleaseNotes {
 	bugFixes: string[];
 }
 
+/** While an update downloads, installs or waits to restart, a check does nothing. */
+const BUSY_STATES: UpdaterState[] = ['downloading', 'installing', 'installed', 'restartPending'];
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 const LAST_CHECKED_KEY = 'khi.updates.lastChecked';
 const SKIPPED_VERSION_KEY = 'khi.updates.skippedVersion';
@@ -127,6 +130,9 @@ class UpdaterStore {
 	}
 
 	private async check(manual: boolean): Promise<void> {
+		// An update on its way in (menu, Settings or launch): a new check would
+		// drop it, as `run` cancels the download
+		if (BUSY_STATES.includes(this.state)) return;
 		const run = ++this.run;
 		this.manual = manual;
 		if (manual) this.state = 'checking';

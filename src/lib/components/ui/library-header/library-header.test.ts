@@ -209,6 +209,9 @@ describe("LibraryHeader actions", () => {
   });
 
   it("export_button_shows_exported_for_2s", async () => {
+    // Only the fake clock: with shouldAdvanceTime a busy machine adds real
+    // time, and the 2 s are over before they are checked
+    vi.useFakeTimers();
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     renderHeader(NOVOS, { onExport: vi.fn() });
     await user.click(screen.getByRole("button", { name: "Export 3 books" }));

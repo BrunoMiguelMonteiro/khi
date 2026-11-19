@@ -5,7 +5,12 @@ import { Image } from '@tauri-apps/api/image';
 import { resolveResource } from '@tauri-apps/api/path';
 import type { MessageFormatter } from '$lib/i18n';
 
-export async function createApplicationMenu(t: MessageFormatter) {
+/** `activeReaderId` is read when the item is chosen: the menu is rebuilt
+ * only when the language changes. */
+export async function createApplicationMenu(
+    t: MessageFormatter,
+    activeReaderId: () => number | null = () => null
+) {
     try {
         // App Menu (macOS: Khi)
         const settingsItem = await MenuItem.new({
@@ -14,7 +19,7 @@ export async function createApplicationMenu(t: MessageFormatter) {
             accelerator: 'CmdOrCtrl+,',
             action: () => {
                 // Settings live in their own window (one only), opened by Rust
-                commands.openSettings(t('settings.windowTitle')).catch((error) =>
+                commands.openSettings(t('settings.windowTitle'), activeReaderId()).catch((error) =>
                     console.error('[MENU] Failed to open settings:', error)
                 );
             }

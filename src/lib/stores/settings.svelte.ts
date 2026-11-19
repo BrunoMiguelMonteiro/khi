@@ -11,7 +11,7 @@
  */
 
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { commands } from "../bindings";
+import { commands, type SettingsPatch_Deserialize as SettingsPatch } from "../bindings";
 import { locale } from "$lib/i18n";
 import { currentWindowLabel } from "$lib/window";
 import type {
@@ -71,6 +71,20 @@ function withFields(
   const out = copy(target);
   for (const path of fields) write(out, path, read(source, path));
   return out;
+}
+
+/**
+ * The patch that writes `fields` as they are in `source`. Each leaf goes by
+ * its own name (`uiPreferences.theme` → `theme`), as `SettingsPatch` in Rust.
+ */
+export function patchOf(source: AppSettings, fields: readonly string[]): SettingsPatch {
+  const patch: Record<string, unknown> = {};
+  for (const path of fields) {
+    const value = read(source, path);
+    // A leaf the settings do not have is left out, as Rust's `None`
+    if (value !== undefined) patch[path.split(".").pop()!] = copy(value);
+  }
+  return patch as SettingsPatch;
 }
 
 /**
@@ -324,23 +338,27 @@ class SettingsStore {
   }
 
   /**
-   * Save settings to disk via Tauri
+   * Writes only `patch` over the file, in Rust and under its lock; every
+   * window then gets the file as `settings-changed`. Returns the file.
+   */
+  async persist(patch: SettingsPatch): Promise<AppSettings> {
+    const saved = await commands.updateSettings(patch);
+    // The answer is the file, perhaps with another window's save whose
+    // settings-changed has not arrived yet: it is taken as that event would be
+    this.applySaved(saved);
+    return saved;
+  }
+
+  /**
+   * Save settings to disk via Tauri: only the fields Settings edits, so what
+   * the main window saved since they opened (its sort) is kept
    */
   async save() {
     this.isLoading = true;
     this.error = null;
 
     try {
-      // Settings write their fields over the file as it is now, so what the
-      // main window saved since they opened is kept
-      const toSave =
-        this.windowLabel === "settings"
-          ? withFields(await commands.loadSettings(), this.state, SETTINGS_WINDOW_FIELDS)
-          : this.state;
-      await commands.saveSettings(toSave);
-      this.savedLanguage = toSave.language;
-      this.saved = copy(toSave);
-      if (toSave !== this.state) this.state = toSave;
+      this.state = await this.persist(patchOf(this.state, SETTINGS_WINDOW_FIELDS));
     } catch (err) {
       console.error("Failed to save settings:", err);
       this.error =
@@ -352,11 +370,24 @@ class SettingsStore {
   }
 
   /**
-   * Reset settings to defaults and save
+   * «Repor padrões»: the fields Settings edits go back to Rust's defaults and
+   * are saved; the sort and the window size stay
    */
   async resetAndSave() {
-    await this.resetSettings();
-    await this.save();
+    this.isLoading = true;
+    this.error = null;
+
+    try {
+      const defaults = await commands.getDefaultSettings();
+      this.state = await this.persist(patchOf(defaults, SETTINGS_WINDOW_FIELDS));
+    } catch (err) {
+      console.error("Failed to reset settings:", err);
+      this.error =
+        err instanceof Error ? err.message : "Failed to reset settings";
+      throw err;
+    } finally {
+      this.isLoading = false;
+    }
   }
 
   /**

@@ -85,6 +85,10 @@ vi.mock('@tauri-apps/api/core', () => ({
 	convertFileSrc: vi.fn((src: string) => src)
 }));
 
+// The dialog plugin's confirm, a native sheet: it answers a Promise
+vi.mock('@tauri-apps/plugin-dialog', () => ({ confirm: vi.fn(() => Promise.resolve(true)) }));
+
+import { confirm } from '@tauri-apps/plugin-dialog';
 import { settings } from '../stores/settings.svelte';
 import { library } from '../stores/library.svelte';
 import { invoke } from '@tauri-apps/api/core';
@@ -331,6 +335,44 @@ describe('SettingsPanel', () => {
 		await fireEvent.click(cancelButton);
 
 		expect(mockOnClose).toHaveBeenCalled();
+	});
+
+	it('reset_waits_for_confirm', async () => {
+		vi.mocked(settings.resetAndSave).mockResolvedValue(undefined);
+		render(SettingsPanel, { props: { onClose: mockOnClose, onSave: mockOnSave } });
+		const reset = screen.getByRole('button', { name: /reset/i });
+
+		// «Cancel» in the sheet: nothing is saved
+		vi.mocked(confirm).mockReturnValueOnce(Promise.resolve(false));
+		await fireEvent.click(reset);
+		await waitFor(() => expect(confirm).toHaveBeenCalledTimes(1));
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(settings.resetAndSave).not.toHaveBeenCalled();
+		expect(mockOnSave).not.toHaveBeenCalled();
+
+		// «OK»: the defaults are saved
+		vi.mocked(confirm).mockReturnValueOnce(Promise.resolve(true));
+		await fireEvent.click(reset);
+		await waitFor(() => expect(settings.resetAndSave).toHaveBeenCalledTimes(1));
+		expect(mockOnSave).toHaveBeenCalled();
+	});
+
+	it('cancel_with_changes_waits_for_confirm', async () => {
+		render(SettingsPanel, { props: { onClose: mockOnClose, onSave: mockOnSave } });
+		await fireEvent.input(screen.getByLabelText(/path/i), { target: { value: '/new/path' } });
+		const cancel = screen.getByRole('button', { name: /cancel/i });
+
+		// «Cancel» in the sheet: the window stays, with the changes
+		vi.mocked(confirm).mockReturnValueOnce(Promise.resolve(false));
+		await fireEvent.click(cancel);
+		await waitFor(() => expect(confirm).toHaveBeenCalledTimes(1));
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(mockOnClose).not.toHaveBeenCalled();
+
+		// «OK»: the changes go, the window closes
+		vi.mocked(confirm).mockReturnValueOnce(Promise.resolve(true));
+		await fireEvent.click(cancel);
+		await waitFor(() => expect(mockOnClose).toHaveBeenCalledTimes(1));
 	});
 
 	it('should enable save button after making changes', async () => {

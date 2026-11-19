@@ -38,7 +38,7 @@ Scenarios (`scenarios.ts`):
 - `update`: the update dialog.
 - `importing`: a sync in progress. `sync_kobo` is held pending (`__KHI_MOCK__.hold`), so the importing state with the pulsing Kobo icon stays on screen. Asserts `animation-name` is not `none`, or is `none` under reduced motion.
 - `update-checking`: an update check in progress (held `plugin:updater|check`), with the pulsing progress bar.
-- `settings-saving`: settings changed and Save pressed, with `save_settings` held, so the spinner shows.
+- `settings-saving`: settings changed and Save pressed, with `update_settings` held, so the spinner shows.
 
 Themes:
 

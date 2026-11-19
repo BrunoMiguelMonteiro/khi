@@ -273,7 +273,7 @@ describe('Settings Store - Tauri Integration', () => {
 		mockedInvoke.mockResolvedValueOnce({ ...MOCK_DEFAULTS, language: 'en' });
 		await settings.load();
 		settings.setLanguage('pt');
-		mockedInvoke.mockResolvedValueOnce(undefined);
+		mockedInvoke.mockResolvedValueOnce({ ...MOCK_DEFAULTS, language: 'pt' });
 		await settings.save();
 
 		settings.revertUnsavedLanguage();
@@ -334,26 +334,30 @@ describe('Settings Store - Tauri Integration', () => {
 	});
 
 	it('should save settings to Tauri', async () => {
-		mockedInvoke.mockResolvedValueOnce(undefined);
+		mockedInvoke.mockResolvedValueOnce(structuredClone(MOCK_DEFAULTS));
 
 		await settings.save();
 
-		expect(mockedInvoke).toHaveBeenCalledWith('save_settings', {
-			settings: expect.any(Object)
+		expect(mockedInvoke).toHaveBeenCalledWith('update_settings', {
+			patch: expect.objectContaining({ theme: expect.any(String), exportPath: expect.any(String) })
 		});
+		// The sort belongs to the main window, never to Settings' save
+		const { patch } = mockedInvoke.mock.calls.at(-1)?.[1] as { patch: Record<string, unknown> };
+		expect(patch).not.toHaveProperty('librarySort');
 	});
 
 	it('sends syncOnConnect: false when "Sincronizar ao ligar" is off', async () => {
-		mockedInvoke.mockResolvedValueOnce(undefined);
+		mockedInvoke.mockResolvedValueOnce({ ...structuredClone(MOCK_DEFAULTS), uiPreferences: { ...MOCK_DEFAULTS.uiPreferences, syncOnConnect: false } });
 
 		settings.setSyncOnConnect(false);
 		await settings.save();
 
-		const payload = mockedInvoke.mock.calls.at(-1)?.[1] as { settings: AppSettings };
-		expect(mockedInvoke.mock.calls.at(-1)?.[0]).toBe('save_settings');
-		expect(payload.settings.uiPreferences.syncOnConnect).toBe(false);
-		expect(payload.settings.uiPreferences).not.toHaveProperty('autoImportOnConnect');
-		expect(payload.settings).not.toHaveProperty('lastImport');
+		const payload = mockedInvoke.mock.calls.at(-1)?.[1] as { patch: Record<string, unknown> };
+		expect(mockedInvoke.mock.calls.at(-1)?.[0]).toBe('update_settings');
+		expect(payload.patch.syncOnConnect).toBe(false);
+		expect(payload.patch).not.toHaveProperty('autoImportOnConnect');
+		expect(payload.patch).not.toHaveProperty('lastImport');
+		expect(settings.uiPreferences.syncOnConnect).toBe(false);
 	});
 
 	it('should handle save settings error', async () => {
@@ -367,7 +371,8 @@ describe('Settings Store - Tauri Integration', () => {
 		mockedInvoke.mockClear();
     mockedInvoke.mockImplementation((cmd) => {
       if (cmd === 'get_default_settings') return Promise.resolve(MOCK_DEFAULTS);
-      if (cmd === 'save_settings') return Promise.resolve(undefined);
+      // Rust answers the file with the patch written over it
+      if (cmd === 'update_settings') return Promise.resolve(structuredClone(MOCK_DEFAULTS));
       return Promise.resolve({});
     });
 
@@ -378,8 +383,8 @@ describe('Settings Store - Tauri Integration', () => {
 
 		// Should be reset to defaults
 		expect(settings.uiPreferences.theme).toBe('system');
-		expect(mockedInvoke).toHaveBeenCalledWith('save_settings', {
-			settings: expect.any(Object)
+		expect(mockedInvoke).toHaveBeenCalledWith('update_settings', {
+			patch: expect.objectContaining({ theme: 'system' })
 		});
 	});
 });
@@ -422,7 +427,7 @@ describe('Settings Store - Loading State', () => {
           if (cmd === 'get_default_settings') resolve(MOCK_DEFAULTS);
 					// Check loading is true during the call
 					expect(settings.isLoading).toBe(true);
-					setTimeout(() => resolve({}), 10);
+					setTimeout(() => resolve(structuredClone(MOCK_DEFAULTS)), 10);
 				})
 		);
 
@@ -433,7 +438,7 @@ describe('Settings Store - Loading State', () => {
 	});
 
 	it('should set loading state during save', async () => {
-		mockedInvoke.mockResolvedValueOnce(undefined);
+		mockedInvoke.mockResolvedValueOnce(structuredClone(MOCK_DEFAULTS));
 
 		const promise = settings.save();
 
