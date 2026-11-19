@@ -67,6 +67,7 @@
       "koboConnected": "Kobo connected",
       "koboDisconnected": "Kobo disconnected",
       "sync": "Sync",
+      "syncDisabledReason": "Connect your Kobo to sync",
       "viewMode": "View mode",
       "gridViewLabel": "Grid view",
       "listViewLabel": "List view",
@@ -249,6 +250,9 @@
   "notifications": {
     "exportSuccess": "Export completed successfully",
     "exportError": "Error exporting highlights",
+    "booksExported": "{count} books exported",
+    "booksExported_one": "1 book exported",
+    "booksExported_other": "{count} books exported",
     "syncError": "Could not sync the Kobo",
     "openReaderError": "Could not open this reader's Library",
     "createReaderError": "Couldn’t create the reader",
@@ -333,6 +337,7 @@
   "ui": {
     "windowBar": {
       "sync": "Sync with the Kobo",
+      "export": "Export {count} books",
       "export_one": "Export 1 book",
       "export_other": "Export {count} books",
       "back": "Back",

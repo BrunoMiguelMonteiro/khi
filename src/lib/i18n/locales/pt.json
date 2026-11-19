@@ -67,6 +67,7 @@
       "noBooksSubtitle": "Liga o teu Kobo e sincroniza os teus destaques",
       "selectAllTitle": "Selecionar todos (Ctrl+A)",
       "sync": "Sincronizar",
+      "syncDisabledReason": "Liga o Kobo para sincronizar",
       "viewMode": "Modo de vista",
       "gridViewLabel": "Vista em grelha",
       "listViewLabel": "Vista em lista",
@@ -249,6 +250,9 @@
   "notifications": {
     "exportSuccess": "Exportação concluída com sucesso",
     "exportError": "Erro ao exportar destaques",
+    "booksExported": "{count} livros exportados",
+    "booksExported_one": "1 livro exportado",
+    "booksExported_other": "{count} livros exportados",
     "syncError": "Erro ao sincronizar o Kobo",
     "openReaderError": "Erro ao abrir a Biblioteca deste leitor",
     "createReaderError": "Não foi possível criar o leitor",
@@ -333,6 +337,7 @@
   "ui": {
     "windowBar": {
       "sync": "Sincronizar com o Kobo",
+      "export": "Exportar {count} livros",
       "export_one": "Exportar 1 livro",
       "export_other": "Exportar {count} livros",
       "back": "Voltar",

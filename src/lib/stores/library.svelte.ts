@@ -1,7 +1,12 @@
-import { commands } from '../bindings';
+import { commands, type LibrarySummary_Serialize } from '../bindings';
 import type { Book, KoboDevice, Reader, SyncReport, UiState } from '../types';
 
 export type ConnectOutcome = 'unknown' | 'idle' | 'synced';
+
+/** The book's new highlights that are still on the Kobo (D1). */
+export function newHighlightCount(book: Book): number {
+	return book.highlights.filter((h) => h.isNew && !h.removedAt).length;
+}
 
 class LibraryStore {
 	books = $state<Book[]>([]);
@@ -19,6 +24,10 @@ class LibraryStore {
 	uiState = $state<UiState>('no-device');
 	/** The Reader that owns the connected Kobo, when it is known. */
 	connectedReaderId = $state<number | null>(null);
+	/** New highlights since when, and the connected Kobo's last sync: what the
+	 * Library header says. Null until read, and when it cannot be. */
+	summary = $state<LibrarySummary_Serialize | null>(null);
+	#summaryRequest = 0;
 	#viewingBookId = $state<number | null>(null);
 	#viewingNewIds = $state<ReadonlySet<string>>(new Set());
 
@@ -69,6 +78,28 @@ class LibraryStore {
 	deviceDisconnected() {
 		this.connectedDevice = undefined;
 		this.connectedReaderId = null;
+		// The sync time is only shown with the Kobo connected: drop it before the reload answers
+		if (this.summary) this.summary = { ...this.summary, lastSyncAt: null };
+		void this.loadSummary();
+	}
+
+	/** Reads the header's summary for the active Reader and the connected Kobo.
+	 * It never throws: without a summary the header just has no dates. */
+	async loadSummary(): Promise<void> {
+		const readerId = this.activeReaderId;
+		const request = ++this.#summaryRequest;
+		if (readerId === null) {
+			this.summary = null;
+			return;
+		}
+		try {
+			const summary = await commands.librarySummary(readerId, this.connectedDevice?.serialNumber ?? null);
+			// A later call (another Reader, or the Kobo coming or going) wins
+			if (request === this.#summaryRequest) this.summary = summary ?? null;
+		} catch (error) {
+			console.error('Failed to read the library summary:', error);
+			if (request === this.#summaryRequest) this.summary = null;
+		}
 	}
 
 	/** The open book; set only by `openBook` and `closeBook`. */
@@ -87,30 +118,46 @@ class LibraryStore {
 	 * afterwards: a reload while the mark is in flight may bring others, which
 	 * stay new. A failed mark is logged and leaves everything as it was. */
 	async openBook(bookId: number): Promise<void> {
-		const highlights = this.books.find((b) => b.id === bookId)?.highlights ?? [];
-		const snapshot = new Set(highlights.filter((h) => h.isNew).map((h) => h.id));
-		const seenSeq = Math.max(0, ...highlights.map((h) => h.syncedSeq ?? 0));
+		const { snapshot, seenSeq } = this.#newSnapshot(bookId);
 		this.#viewingNewIds = snapshot;
 		this.#viewingBookId = bookId;
 		if (this.activeReaderId === null) return;
 
+		if (await this.#markSeen(this.activeReaderId, bookId, snapshot, seenSeq)) await this.loadSummary();
+	}
+
+	/** The ids of the book's new highlights now, and the highest `syncedSeq` loaded. */
+	#newSnapshot(bookId: number): { snapshot: Set<string>; seenSeq: number } {
+		const highlights = this.books.find((b) => b.id === bookId)?.highlights ?? [];
+		return {
+			snapshot: new Set(highlights.filter((h) => h.isNew).map((h) => h.id)),
+			seenSeq: Math.max(0, ...highlights.map((h) => h.syncedSeq ?? 0))
+		};
+	}
+
+	/** Marks the book seen up to `seenSeq` and clears `isNew` only on the
+	 * snapshot's highlights. A failed mark is logged and leaves them new.
+	 * Whether the mark worked. */
+	async #markSeen(readerId: number, bookId: number, snapshot: ReadonlySet<string>, seenSeq: number): Promise<boolean> {
 		try {
-			await commands.markBookOpened(this.activeReaderId, bookId, seenSeq);
+			await commands.markBookOpened(readerId, bookId, seenSeq);
 		} catch (error) {
 			console.error('Failed to mark the book as opened:', error);
-			return;
+			return false;
 		}
-		// Read this.books now: openReader may have replaced it while waiting.
-		this.books = this.books.map((book) =>
-			book.id === bookId
-				? {
-						...book,
-						highlights: book.highlights.map((h) =>
-							snapshot.has(h.id) ? { ...h, isNew: false } : h
-						)
-					}
-				: book
-		);
+		this.#clearNew(new Map([[bookId, snapshot]]));
+		return true;
+	}
+
+	/** Clears `isNew` on the given highlights of the given books, in one assignment.
+	 * Reads this.books now: openReader may have replaced it while waiting. */
+	#clearNew(cleared: ReadonlyMap<number, ReadonlySet<string>>) {
+		this.books = this.books.map((book) => {
+			const ids = cleared.get(book.id);
+			return ids
+				? { ...book, highlights: book.highlights.map((h) => (ids.has(h.id) ? { ...h, isNew: false } : h)) }
+				: book;
+		});
 	}
 
 	closeBook() {
@@ -126,9 +173,12 @@ class LibraryStore {
 	/** Shows the Reader's Library, read from Rust; no Kobo needed (R17). */
 	async openReader(readerId: number): Promise<void> {
 		const books = await commands.getLibrary(readerId);
+		// Another Reader's dates are not this one's: nothing until its summary arrives
+		if (readerId !== this.activeReaderId) this.summary = null;
 		this.activeReaderId = readerId;
 		this.books = books;
 		this.selectedBookIds = [];
+		await this.loadSummary();
 	}
 
 	async readerForKobo(serial: string): Promise<number | null> {
@@ -223,11 +273,13 @@ class LibraryStore {
 		}
 		if (this.connectedReaderId === null) return 'unknown';
 
+		// Show the Reader's Library first, so a Sync that fails lands on it (as in handleChooseReader)
+		if (this.activeReaderId === null) await this.openReader(this.connectedReaderId);
+		else if (!syncOnConnect) await this.loadSummary();
 		if (syncOnConnect) {
 			await this.sync();
 			return 'synced';
 		}
-		if (this.activeReaderId === null) await this.openReader(this.connectedReaderId);
 		return 'idle';
 	}
 
@@ -271,12 +323,38 @@ class LibraryStore {
 		return this.exportIds(this.selectedBookIds);
 	}
 
+	/** Exports the books, and a book that is exported stops being new, as when
+	 * it is opened (D1): the snapshot is taken before the export, so a
+	 * highlight that arrives meanwhile stays new. A failed export touches
+	 * nothing; a failed mark is logged and leaves that book new. */
 	async exportIds(bookIds: number[]): Promise<string[]> {
 		if (bookIds.length === 0) throw new Error('No books selected for export');
 		if (this.activeReaderId === null) throw new Error('No reader open');
+		const readerId = this.activeReaderId;
+		// Only books with news have anything to mark
+		const seen = bookIds
+			.map((bookId) => ({ bookId, ...this.#newSnapshot(bookId) }))
+			.filter(({ snapshot }) => snapshot.size > 0);
 		this.isExporting = true;
 		try {
-			return await commands.exportLibraryBooks(this.activeReaderId, bookIds);
+			const exported = await commands.exportLibraryBooks(readerId, bookIds);
+			const marked = await Promise.all(
+				seen.map(async ({ bookId, snapshot, seenSeq }) => {
+					try {
+						await commands.markBookOpened(readerId, bookId, seenSeq);
+						return [bookId, snapshot] as const;
+					} catch (error) {
+						console.error('Failed to mark the book as opened:', error);
+						return null;
+					}
+				})
+			);
+			const cleared = new Map(marked.filter((m) => m !== null));
+			if (cleared.size > 0) {
+				this.#clearNew(cleared);
+				await this.loadSummary();
+			}
+			return exported;
 		} finally {
 			this.isExporting = false;
 		}

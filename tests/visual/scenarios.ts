@@ -8,7 +8,7 @@ import type { Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import type { Language, ThemePreference, ViewMode } from '../../src/lib/bindings';
 import type { MockConfig } from './mock-ipc';
-import { APP_VERSION, HOME, availableUpdate, books, defaultSettings, device, makeSettings, reader } from './fixtures';
+import { APP_VERSION, HOME, availableUpdate, books, booksWithoutNews, defaultSettings, device, makeSettings, reader, summary } from './fixtures';
 
 export type ThemeName = 'light' | 'dark-app' | 'system-dark';
 
@@ -33,6 +33,8 @@ export interface StateProbe {
 	kind: 'hover' | 'focus';
 	/** The element brought into the state (the first match). */
 	target(page: Page, text: Strings): Locator;
+	/** Waits for what the state brings with it (a tooltip opens 500 ms after a hover), so the screenshot never catches it half-way. */
+	ready?(page: Page): Promise<void>;
 	/** CSS selector of the target's closest ancestor (or itself) that is recorded with its descendants and screenshotted. Defaults to the target. */
 	root?: string;
 }
@@ -41,6 +43,8 @@ export interface Scenario {
 	name: string;
 	description: string;
 	viewMode?: ViewMode;
+	/** Every book has been opened or exported: no highlight is new, so the header reads «Sem destaques novos». */
+	withoutNews?: boolean;
 	/** The Kobo's Reader and its Library exist (all but `empty`). */
 	withLibrary: boolean;
 	/** `settings`: the Settings window, its own route (`/definicoes`) and size. Default: the main window. */
@@ -55,44 +59,54 @@ export interface Scenario {
 }
 
 export interface Strings {
-	koboConnected: string;
 	noKoboTitle: string;
+	/** The bar's Sync button, which is disabled until the Reader's Kobo is connected. */
 	sync: string;
-	listView: string;
+	viewList: string;
+	/** The checked radio of the view group: the only one the keyboard stops on. */
+	viewGrid: string;
+	sortBy: string;
+	/** The bar's Export with two books selected. */
+	export2: string;
+	/** The header's button with news in two books. */
+	exportNews: string;
 	closeSettings: string;
 	browseFolder: string;
 	install: string;
 	later: string;
 	saveChanges: string;
-	clearSelection: string;
 	checkNow: string;
 }
 
 const STRINGS: Record<Language, Strings> = {
 	pt: {
-		koboConnected: 'Kobo ligado',
 		noKoboTitle: 'Nenhum Kobo ligado',
-		sync: 'Sincronizar',
-		listView: 'Vista em lista',
+		sync: 'Sincronizar com o Kobo',
+		viewList: 'Ver em lista',
+		viewGrid: 'Ver em grelha',
+		sortBy: 'Ordenar por',
+		export2: 'Exportar 2 livros',
+		exportNews: 'Exportar 2 livros',
 		closeSettings: 'Fechar definições',
 		browseFolder: 'Escolher a pasta de exportação',
 		install: 'Instalar e reiniciar',
 		later: 'Mais tarde',
 		saveChanges: 'Guardar alterações',
-		clearSelection: 'Limpar Seleção',
 		checkNow: 'Procurar agora'
 	},
 	en: {
-		koboConnected: 'Kobo connected',
 		noKoboTitle: 'No Kobo connected',
-		sync: 'Sync',
-		listView: 'List view',
+		sync: 'Sync with the Kobo',
+		viewList: 'View as list',
+		viewGrid: 'View as grid',
+		sortBy: 'Sort by',
+		export2: 'Export 2 books',
+		exportNews: 'Export 2 books',
 		closeSettings: 'Close settings',
 		browseFolder: 'Browse for export folder',
 		install: 'Install and Restart',
 		later: 'Later',
 		saveChanges: 'Save Changes',
-		clearSelection: 'Clear Selection',
 		checkNow: 'Check Now'
 	}
 };
@@ -118,14 +132,15 @@ async function connectKobo(page: Page, text: Strings) {
 	// The last listener the page registers: all the others exist by now
 	await page.waitForFunction(() => (window.__KHI_MOCK__.listeners['device-disconnected'] ?? []).length > 0);
 	await emitWhenListening(page, 'device-detected', { device });
-	await expect(page.getByTestId('kobo-indicator')).toHaveText(text.koboConnected);
+	// The bar's Sync is disabled until the Reader's Kobo is known
+	await expect(page.getByRole('button', { name: text.sync, exact: true })).not.toHaveAttribute('aria-disabled', 'true');
 }
 
 async function library(page: Page, text: Strings) {
 	await connectKobo(page, text);
 	await expect(page.getByTestId('books-grid')).toBeVisible();
 	await expect(page.getByTestId('book-card')).toHaveCount(books.length);
-	await expect(page.getByRole('group', { name: books[0].title })).toBeVisible();
+	await expect(page.getByRole('option', { name: books[0].title })).toBeVisible();
 }
 
 /** The Settings window, as Rust opens it: its route, with the Reader the main window has open. */
@@ -150,21 +165,27 @@ const SETTINGS = '[aria-labelledby="settings-title"]';
 /** The books selected in the `*-selected` scenarios: not adjacent, so a selected card sits next to an unselected one. */
 const SELECTED = [0, 2];
 
-/** Selects `SELECTED` with their checkboxes and waits for the selection toolbar. */
+/** The toolbar buttons and the view group show a tooltip: wait for it, or the screenshot races its 500 ms delay. */
+const tooltipOpen = async (page: Page) => {
+	await expect(page.locator('[data-slot="tooltip-content"]:not([data-state="closed"])')).toBeVisible();
+};
+
+const bar = (page: Page) => page.locator('[data-slot="window-bar"]');
+
+/** Selects `SELECTED`: ⌘-click on a grid card (events, not mouse moves), the checkbox of a list row. The bar's Export then counts them. */
 async function selectBooks(page: Page, text: Strings, view: 'grid' | 'list') {
 	for (const index of SELECTED) {
 		if (view === 'grid') {
-			const select = page.getByRole('group', { name: books[index].title }).locator('button').nth(0);
-			await select.dispatchEvent('click');
-			await expect(select).toHaveAttribute('aria-label', 'Deselect');
+			const card = page.getByTestId('book-card').nth(index);
+			await card.dispatchEvent('click', { metaKey: true });
+			await expect(card).toHaveAttribute('aria-selected', 'true');
 		} else {
 			const box = page.getByTestId('books-list').locator('[role="button"]').nth(index).locator('[role="checkbox"]');
 			await box.dispatchEvent('click');
 			await expect(box).toHaveAttribute('aria-checked', 'true');
 		}
 	}
-	await expect(page.getByRole('button', { name: text.clearSelection, exact: true })).toBeVisible();
-	await expect(page.locator('main').getByRole('button', { name: new RegExp(`\\(${SELECTED.length}\\)`) })).toBeVisible();
+	await expect(bar(page).getByRole('button', { name: text.export2, exact: true })).toBeVisible();
 }
 
 async function listView(page: Page, text: Strings) {
@@ -185,28 +206,36 @@ export const SCENARIOS: Record<string, Scenario> = {
 	},
 	grid: {
 		name: 'grid',
-		description: 'Kobo connected, the Library as a grid',
+		description: 'Kobo connected, the Library as a grid: the bar, the header with news and the grid',
 		withLibrary: true,
-		focusStops: 3,
+		// The view group, sort, sync, export, the header's export, and the grid's one tab stop
+		focusStops: 6,
 		states: [
 			{ name: 'hover-book-card', kind: 'hover', target: (p) => p.getByTestId('book-card') },
-			{ name: 'hover-ghost-button', kind: 'hover', target: (p, t) => p.getByRole('button', { name: t.sync, exact: true }) },
-			{ name: 'hover-select', kind: 'hover', target: (p) => p.locator('main select') },
-			{ name: 'hover-view-toggle', kind: 'hover', target: (p, t) => p.getByRole('button', { name: t.listView, exact: true }) },
-			{ name: 'focus-view-toggle', kind: 'focus', target: (p, t) => p.getByRole('button', { name: t.listView, exact: true }) },
+			{ name: 'focus-book-card', kind: 'focus', target: (p) => p.getByTestId('book-card'), root: '[data-testid="book-card"]' },
+			{ name: 'hover-sync-button', kind: 'hover', target: (p, t) => p.getByRole('button', { name: t.sync, exact: true }), ready: tooltipOpen },
+			{ name: 'focus-sync-button', kind: 'focus', target: (p, t) => p.getByRole('button', { name: t.sync, exact: true }), ready: tooltipOpen },
+			{ name: 'hover-sort-button', kind: 'hover', target: (p, t) => p.getByRole('button', { name: t.sortBy, exact: true }), ready: tooltipOpen },
+			{ name: 'hover-view-toggle', kind: 'hover', target: (p, t) => p.getByRole('radio', { name: t.viewList, exact: true }), ready: tooltipOpen },
+			{ name: 'focus-view-toggle', kind: 'focus', target: (p, t) => p.getByRole('radio', { name: t.viewGrid, exact: true }), ready: tooltipOpen },
 			{
-				name: 'focus-book-card-select',
-				kind: 'focus',
-				target: (p) => p.getByTestId('book-card').locator('button').nth(0),
-				root: '[data-testid="book-card"]'
+				name: 'hover-header-export',
+				kind: 'hover',
+				target: (p, t) => p.locator('[data-slot="library-header"]').getByRole('button', { name: t.exportNews, exact: true })
 			},
 			{
-				name: 'focus-book-card-open',
+				name: 'focus-header-export',
 				kind: 'focus',
-				target: (p) => p.getByTestId('book-card').locator('button').nth(1),
-				root: '[data-testid="book-card"]'
+				target: (p, t) => p.locator('[data-slot="library-header"]').getByRole('button', { name: t.exportNews, exact: true })
 			}
 		],
+		reach: library
+	},
+	'grid-no-news': {
+		name: 'grid-no-news',
+		description: 'Kobo connected, nothing new: the header reads «Sem destaques novos» with the last sync time',
+		withLibrary: true,
+		withoutNews: true,
 		reach: library
 	},
 	list: {
@@ -234,14 +263,14 @@ export const SCENARIOS: Record<string, Scenario> = {
 	},
 	'grid-selected': {
 		name: 'grid-selected',
-		description: 'The grid with two books selected: selected indicators and the selection toolbar',
+		description: 'The grid with two books selected: the selection frames and the bar counting them',
 		withLibrary: true,
 		states: [
-			{ name: 'hover-clear-selection', kind: 'hover', target: (p, t) => p.getByRole('button', { name: t.clearSelection, exact: true }) },
+			{ name: 'hover-bar-export', kind: 'hover', target: (p, t) => bar(p).getByRole('button', { name: t.export2, exact: true }), ready: tooltipOpen },
 			{
 				name: 'hover-selected-card',
 				kind: 'hover',
-				target: (p) => p.getByRole('group', { name: books[SELECTED[0]].title })
+				target: (p) => p.getByRole('option', { name: books[SELECTED[0]].title })
 			}
 		],
 		async reach(page, text) {
@@ -251,7 +280,7 @@ export const SCENARIOS: Record<string, Scenario> = {
 	},
 	'list-selected': {
 		name: 'list-selected',
-		description: 'The list with two books selected',
+		description: 'The list with two books selected: the bar counts them',
 		withLibrary: true,
 		viewMode: 'list',
 		states: [
@@ -289,7 +318,7 @@ export const SCENARIOS: Record<string, Scenario> = {
 		async reach(page, text) {
 			await library(page, text);
 			// Events, not mouse moves: hover states are recorded separately (`states`)
-			await page.getByRole('group', { name: books[0].title }).locator('button').nth(1).dispatchEvent('click');
+			await page.getByRole('option', { name: books[0].title }).dispatchEvent('click');
 			const view = page.getByTestId('book-details-view');
 			await expect(view).toBeVisible();
 			await expect(view.getByText(books[0].title).first()).toBeVisible();
@@ -461,6 +490,7 @@ export function captures(): Capture[] {
 }
 
 export function mockConfigFor(scenario: Scenario, variant: Variant): MockConfig {
+	const library = scenario.withoutNews ? booksWithoutNews : books;
 	return {
 		settings: makeSettings({ theme: THEMES[variant.theme].app, language: variant.language, viewMode: scenario.viewMode }),
 		defaultSettings: defaultSettings(variant.language),
@@ -470,7 +500,8 @@ export function mockConfigFor(scenario: Scenario, variant: Variant): MockConfig 
 		lastReader: scenario.withLibrary ? reader.id : null,
 		deviceAtStartup: null,
 		koboOwners: scenario.withLibrary ? { [device.serialNumber!]: reader.id } : {},
-		library: scenario.withLibrary ? { [reader.id]: books } : {},
+		library: scenario.withLibrary ? { [reader.id]: library } : {},
+		summary,
 		update: scenario.update ? availableUpdate : null,
 		windowLabel: scenario.window ?? 'main'
 	};

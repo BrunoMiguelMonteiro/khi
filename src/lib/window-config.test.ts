@@ -11,6 +11,17 @@ const capability = (name: string) =>
   );
 
 describe("window config", () => {
+  it("main_window_is_overlay", () => {
+    const conf = JSON.parse(
+      readFileSync(resolve(process.cwd(), "src-tauri/tauri.conf.json"), "utf8"),
+    );
+    const main = conf.app.windows[0];
+    // The title bar is the WindowBar's; the Settings window is built in Rust and does not inherit this
+    expect(main.titleBarStyle).toBe("Overlay");
+    expect(main.hiddenTitle).toBe(true);
+    expect(main.trafficLightPosition).toEqual({ x: 16, y: 20 });
+  });
+
   it("default_capability_allows_start_dragging", () => {
     const main = capability("default");
     // Without it, data-tauri-drag-region fails silently.

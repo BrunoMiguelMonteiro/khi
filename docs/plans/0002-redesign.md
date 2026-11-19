@@ -1499,7 +1499,7 @@ Fontes: [W3C APG, Listbox Pattern](https://w3.org/WAI/ARIA/apg/patterns/listbox)
      - sem livros, não há cabeçalho (o estado vazio é do ecrã 6);
      - erro de sincronização → `erro`, até à próxima sincronização ou ao «Tentar de novo». Vale para o `catch` do `handleSync` e para o do `handleDeviceConnected`;
      - `aSincronizar` → fica para o ecrã 2 (o `ImportingState` mantém-se até lá);
-   - «Exportar M livros» no cabeçalho exporta os M livros com novos: põe a seleção nesses livros e chama `handleExport`. Substitui a seleção que houver; aceite;
+   - «Exportar M livros» no cabeçalho exporta os M livros com novos: exporta esses ids sem mexer na seleção do utilizador (correção I6 da review; antes substituía a seleção);
    - `exporting` = `library.isExporting`; `exported` liga-se no fim de uma exportação com sucesso;
    - **exportar limpa os «novos»** (Bruno, 2026-11-19: um livro deixa de ser novo quando se abre ou quando entra numa exportação). Cumpre a Cor 6: depois de exportar, o cabeçalho passa a «Sem destaques novos» e as etiquetas saem. No `library.exportIds(bookIds)`:
      - antes de exportar, guarda por livro o snapshot dos ids com `isNew` e o `seenSeq` (o máximo do `syncedSeq`), como o `openBook`;
@@ -1527,7 +1527,7 @@ Fontes: [W3C APG, Listbox Pattern](https://w3.org/WAI/ARIA/apg/patterns/listbox)
    - ⌘1 e ⌘2 mudam a vista e gravam-na, como o clique;
    - os atalhos não disparam com o foco num campo de texto, com uma janela modal aberta (Kobo novo, atualização) nem fora da Biblioteca. O ⌘E dispara também no Detalhe, onde exporta esse livro.
 
-- [ ] **Passo 1: testes que falham:**
+- [x] **Passo 1: testes que falham:**
   - `window-config.test.ts`: `main_window_is_overlay` (lê o JSON: `titleBarStyle`, `hiddenTitle` e `trafficLightPosition` `{16, 20}`);
   - `library-grid.test.ts`:
     - `grid_is_multiselect_listbox_with_one_tab_stop`;
@@ -1550,9 +1550,9 @@ Fontes: [W3C APG, Listbox Pattern](https://w3.org/WAI/ARIA/apg/patterns/listbox)
     - `failed_export_keeps_new`;
     - `open_book_behaviour_unchanged`: os testes do `openBook` que já existem continuam verdes;
   - `library-header.test.ts`: `novos_without_since_omits_date`, `no_news_without_sync_time_omits_time` e `show_only_hidden_without_handler`.
-- [ ] **Passo 2:** os testes falham pela razão certa.
-- [ ] **Passo 3:** a config, o store, a grelha, a página e as chaves em `pt` e `en`.
-- [ ] **Passo 4:** o gate completo:
+- [x] **Passo 2:** os testes falham pela razão certa.
+- [x] **Passo 3:** a config, o store, a grelha, a página e as chaves em `pt` e `en`.
+- [x] **Passo 4:** o gate completo:
   - `cargo test`, e o `cargo clippy` com os mesmos 7 avisos;
   - `cargo check`;
   - Vitest duas vezes;
@@ -1560,7 +1560,7 @@ Fontes: [W3C APG, Listbox Pattern](https://w3.org/WAI/ARIA/apg/patterns/listbox)
   - `npm run test:visual`, com um mock de `library_summary` no `mock-ipc.ts`. **Primeiro**, muda-se a espera de `scenarios.ts:128` (`getByRole('group', { name: books[0].title })`), senão todos os cenários da principal partem nesse ponto;
   - os cenários antigos que dependem do `<header>`, da `LibraryToolbar` ou da caixa de seleção do cartão antigo são substituídos por cenários da Barra, do Cabeçalho e da grelha nova, em Claro e Escuro;
   - **as baselines novas são revistas uma a uma** pelo coordenador, contra o `71:8040` e o `71:8273`.
-- [ ] **Passo 5:** commit `feat(library): screen 1, library grid with window bar and overlay`.
+- [x] **Passo 5:** commit `feat(library): screen 1, library grid with window bar and overlay`.
 
 **Mutações do coordenador:**
 - tirar o `titleBarStyle` do conf (o `main_window_is_overlay` falha);

@@ -34,7 +34,9 @@ export const books: Book[] = [
 				text: 'Aqui o mar acaba e a terra principia.',
 				dateCreated: '2026-09-20T20:01:00Z',
 				chapterTitle: 'Capítulo 1',
-				chapterProgress: 0.02
+				chapterProgress: 0.02,
+				isNew: true,
+				syncedSeq: 2
 			},
 			{
 				id: 'h1-2',
@@ -42,7 +44,9 @@ export const books: Book[] = [
 				dateCreated: '2026-09-22T22:10:00Z',
 				annotation: 'Lembra o Ricardo Reis dos heterónimos.\nRever com as Odes.',
 				chapterTitle: 'Capítulo 3',
-				chapterProgress: 0.4
+				chapterProgress: 0.4,
+				isNew: true,
+				syncedSeq: 3
 			},
 			{
 				id: 'h1-3',
@@ -60,7 +64,7 @@ export const books: Book[] = [
 		author: 'Autora Com Um Nome Igualmente Comprido de Várias Palavras',
 		dateLastRead: '2026-11-10T08:00:00Z',
 		highlights: [
-			{ id: 'h2-1', text: 'Ler devagar é ler duas vezes.', dateCreated: '2026-11-09T08:00:00Z' }
+			{ id: 'h2-1', text: 'Ler devagar é ler duas vezes.', dateCreated: '2026-11-09T08:00:00Z', isNew: true, syncedSeq: 3 }
 		]
 	}),
 	makeBook({
@@ -101,6 +105,15 @@ export const books: Book[] = [
 		]
 	})
 ];
+
+/** The same Library after its books were opened or exported: nothing is new. */
+export const booksWithoutNews: Book[] = books.map((book) => ({
+	...book,
+	highlights: book.highlights.map((highlight) => ({ ...highlight, isNew: false }))
+}));
+
+/** What `library_summary` answers: new highlights since 9 Nov, the connected Kobo's last sync at 09:42 (Lisbon, UTC+0). */
+export const summary = { newSince: '2026-11-09T10:00:00Z', lastSyncAt: '2026-11-15T09:42:00Z' };
 
 export interface SettingsInput {
 	theme: ThemePreference;

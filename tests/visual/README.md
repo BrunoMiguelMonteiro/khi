@@ -21,19 +21,20 @@ The report is written to `output/report.md`, grouped by capture, then element, t
 
 Only update the baseline on a tree whose visuals you have verified. Run `test:visual` twice afterwards to check that the baseline is stable. Commit `baseline/` together with the change that justifies it.
 
-## Matrix (63 captures + 10 controls)
+## Matrix (66 captures + 10 controls)
 
 Scenarios (`scenarios.ts`):
 
 - `empty`: no Kobo connected.
-- `grid`: Kobo connected, library grid.
+- `grid`: Kobo connected, library grid: the window bar, the header with news («N destaques novos em M livros») and the grid (a listbox of cards, one tab stop).
+- `grid-no-news`: the same Library with nothing new: the header reads «Sem destaques novos · sincronizado às 09:42».
 - `list`: library list view.
 - `detail`: book detail.
 - `settings`: settings panel open.
 
   The `settings*` scenarios run in the Settings window: they open `/definicoes` directly, the mock reports window label `settings` (so no `app-ready`, no updater check, no menu), and the viewport is that window's fixed size, 700×540 (`settings_window_spec` in `src-tauri/src/window.rs`). The window is not resizable, so `settings--*--min` equals `settings--*`.
 - `settings-appearance`: the appearance section of settings.
-- `grid-selected` / `list-selected`: two books selected (indicators, checkboxes, the selection toolbar with «Clear selection» and the count).
+- `grid-selected` / `list-selected`: two books selected (⌘-click on the cards, the checkboxes in the list); the bar's Export counts them.
 - `settings-updates`: the Updates tab, with the automatic-check switch (hover, keyboard focus) and «Check now».
 - `update`: the update dialog.
 - `importing`: a sync in progress. `sync_kobo` is held pending (`__KHI_MOCK__.hold`), so the importing state with the pulsing Kobo icon stays on screen. Asserts `animation-name` is not `none`, or is `none` under reduced motion.
@@ -55,7 +56,7 @@ All scenarios × all themes, plus:
 
 Fixed for every capture:
 
-- viewport 1000×669 at deviceScaleFactor 2 (the 1000×700 window less a 31px title bar); `--min` captures use tauri.conf.json's `minWidth` × `minHeight` less the same 31px (800×569); `settings*` captures use the Settings window's 700×540;
+- viewport 1000×700 at deviceScaleFactor 2 (the main window with `titleBarStyle: Overlay`: the webview fills it, the window bar draws under the traffic lights; it was 1000×669 while the native title bar took 31px); `--min` captures use tauri.conf.json's `minWidth` × `minHeight` (800×600); `settings*` captures use the Settings window's 700×540;
 - locale pt-PT and app language pt;
 - timezone Europe/Lisbon;
 - clock frozen at 2026-11-15T10:00:00Z.
@@ -88,14 +89,14 @@ Requests to any origin other than the local server are aborted.
   - Rounds boxes to 0.5 px.
 - **`baseline-store.ts`**: `baseline/<capture>.json` holds the records and maps each screenshot name to the `pixelHash` of its pixels. That hash is a sha256 of the decoded RGBA and the size. Each distinct image is stored once, as `baseline/png/<pixelHash>.png`; `test:visual:update` deletes PNGs that no capture refers to.
 - **`control.spec.ts`**: the judge of the judge. Every control goes through `capture` and `compareWithBaseline`, as the real captures do, and asserts that the comparator reports:
-  - a 1-unit colour change and a 1px padding on `grid--light`: the colour, the padding, the box shift and the pixels;
+  - a 1-unit colour change (a card title, rgb(29, 29, 31) → rgb(30, 29, 31)) and a 1px padding on the grid on `grid--light`: the colour, the padding, the box shift and the pixels;
   - `#export-path:focus { box-shadow: none }` on `settings--light`: the box-shadow in state `focus-text-input`, and its pixels;
   - the hovered highlight's copy button forced to `opacity: 0` on `detail--light`: the opacity in state `hover-highlight`, and its pixels;
   - `.kobo-icon { animation: none }` on `importing--light`: `animation-name`;
   - a deleted baseline PNG, a deleted baseline JSON and a state missing from the capture: `structure` failures that a permissive allowlist cannot approve;
   - a reviewed change approved by exact entries passes alone. A style entry with another `after` approves nothing. With an unrelated change on top, the screenshot entry no longer matches and the pixels are reported.
 
-  - two selected books with the selected indicator forced to `opacity: 0` on `grid-selected--light`: opacity and pixels;
+  - two selected books with the selection frame and check forced to `opacity: 0` on `grid-selected--light`: opacity and pixels;
   - the automatic-update switch hidden on `settings-updates--light`: visibility, the hover state, the focus state reported missing, and pixels;
   - `@keyframes pulse` with its midpoint at 0.05 instead of 0.5 on `importing--light`: opacity at 25/50/75% only (the first frame is unchanged);
   - a `max-width: 899px` gap change: reported on `grid--light--min`, while `grid--light` shows no difference.

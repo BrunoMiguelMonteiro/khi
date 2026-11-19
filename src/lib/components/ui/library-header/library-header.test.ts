@@ -30,7 +30,9 @@ function renderHeader(
 
 describe("LibraryHeader text", () => {
   it("novos_text_with_plurals", () => {
-    const { container, unmount } = renderHeader(NOVOS);
+    const { container, unmount } = renderHeader(NOVOS, {
+      onShowOnly: vi.fn(),
+    });
     const root = must(
       container.querySelector<HTMLElement>('[data-slot="library-header"]'),
       "header",
@@ -60,6 +62,35 @@ describe("LibraryHeader text", () => {
         ?.textContent?.trim(),
     ).toBe("1 new highlight in 1 book");
     expect(screen.getByRole("button", { name: "Export 1 book" })).toBeTruthy();
+  });
+
+  it("novos_without_since_omits_date", () => {
+    const { since: _since, ...withoutSince } = NOVOS as Extract<
+      LibraryHeaderState,
+      { kind: "novos" }
+    >;
+    const { container } = renderHeader(withoutSince);
+    expect(
+      container
+        .querySelector('[data-slot="library-header-message"]')
+        ?.textContent?.trim(),
+    ).toBe("12 new highlights in 3 books");
+    expect(
+      container.querySelector('[data-slot="library-header-detail"]'),
+    ).toBeNull();
+    expect(screen.getByRole("button", { name: "Export 3 books" })).toBeTruthy();
+  });
+
+  it("show_only_hidden_without_handler", () => {
+    const { unmount } = renderHeader(NOVOS);
+    expect(screen.queryByRole("button", { name: "Show only these" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Export 3 books" })).toBeTruthy();
+    unmount();
+
+    renderHeader(NOVOS, { onShowOnly: vi.fn() });
+    expect(
+      screen.getByRole("button", { name: "Show only these" }),
+    ).toBeTruthy();
   });
 
   it("syncing_text_counts_books", () => {
@@ -96,6 +127,18 @@ describe("LibraryHeader text", () => {
         .querySelector('[data-slot="library-header-detail"]')
         ?.textContent?.trim(),
     ).toMatch(/^synced at 10:42/);
+  });
+
+  it("no_news_without_sync_time_omits_time", () => {
+    const { container } = renderHeader({ kind: "semNovidades" });
+    expect(
+      container
+        .querySelector('[data-slot="library-header-message"]')
+        ?.textContent?.trim(),
+    ).toBe("No new highlights");
+    expect(
+      container.querySelector('[data-slot="library-header-detail"]'),
+    ).toBeNull();
   });
 });
 
@@ -164,6 +207,16 @@ describe("LibraryHeader error", () => {
     expect(onRetry).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "Try again" }));
     expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it("retry_hidden_without_handler", () => {
+    const { unmount } = renderHeader({ kind: "erro", message: "x" });
+    expect(screen.getByRole("alert").textContent).toContain("Could not sync");
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+    unmount();
+
+    renderHeader({ kind: "erro", message: "x" }, { onRetry: vi.fn() });
+    expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
   });
 
   it("alert_region_persists_and_fills_on_the_transition_to_error", async () => {

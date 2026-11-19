@@ -205,14 +205,17 @@ describe('BookDetailsView', () => {
     it('toolbar and details export call the same command with the same ids', async () => {
       render(BookDetailsView, { props: { book: mockBook } });
       await fireEvent.click(screen.getByRole('button', { name: /export to markdown/i }));
-      await waitFor(() => expect(invoke).toHaveBeenCalledTimes(1));
-      const fromDetails = vi.mocked(invoke).mock.calls[0];
+      // An export also marks its books as seen (Task 36): look at the export itself
+      const exportCall = () => vi.mocked(invoke).mock.calls.find(([cmd]) => cmd === 'export_library_books');
+      await waitFor(() => expect(exportCall()).toBeDefined());
+      expect(vi.mocked(invoke).mock.calls.filter(([cmd]) => cmd === 'export_library_books')).toHaveLength(1);
+      const fromDetails = exportCall();
 
       vi.clearAllMocks();
       library.setBooks([mockBook]);
       library.setSelectedBookIds([mockBook.id]);
       await library.exportSelected();
-      const fromToolbar = vi.mocked(invoke).mock.calls[0];
+      const fromToolbar = exportCall();
 
       expect(fromDetails).toEqual(['export_library_books', { readerId: 9, bookIds: [1] }]);
       expect(fromToolbar).toEqual(fromDetails);

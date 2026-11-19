@@ -16,10 +16,11 @@ import type { Capture, StateProbe, Strings } from './scenarios';
 /** Where `serve.ts` serves the production build. */
 export const PORT = 4791;
 export const BASE_URL = `http://127.0.0.1:${PORT}`;
-export const VIEWPORT = { width: 1000, height: 669 };
+/** The main window: tauri.conf.json's 1000 × 700. With `titleBarStyle: Overlay` the webview has no title bar above it. */
+export const VIEWPORT = { width: 1000, height: 700 };
 /**
- * The window at tauri.conf.json's `minWidth` × `minHeight`, less the same
- * 31px of title bar as `VIEWPORT` (700 → 669).
+ * The window at tauri.conf.json's `minWidth` × `minHeight`: the webview fills
+ * it (Overlay), so there is no title bar to take off.
  */
 export const MIN_VIEWPORT = minViewport();
 
@@ -215,6 +216,7 @@ async function recordState(page: Page, probe: StateProbe, text: Strings, common:
 		await focusWithKeyboard(page, target, probe.name);
 		await revealDeterministically(page, target);
 	}
+	await probe.ready?.(page);
 	await settle(page);
 
 	const root = await target.evaluateHandle((el, selector) => (selector ? el.closest(selector) : el) ?? el, probe.root ?? null);

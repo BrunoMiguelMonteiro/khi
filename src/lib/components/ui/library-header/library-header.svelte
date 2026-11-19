@@ -4,13 +4,14 @@
 	type When = Date | string | number;
 
 	export type LibraryHeaderState =
-		| { kind: 'novos'; highlights: number; books: number; since: When }
+		| { kind: 'novos'; highlights: number; books: number; since?: When | null }
 		| { kind: 'aSincronizar'; done: number; total: number }
-		| { kind: 'semNovidades'; syncedAt: When }
+		| { kind: 'semNovidades'; syncedAt?: When | null }
 		| { kind: 'erro'; message: string };
 
 	export type LibraryHeaderProps = Omit<HTMLAttributes<HTMLDivElement>, 'children'> & {
 		state: LibraryHeaderState;
+		/** «Mostrar só estes» shows only when this is passed: the filtered state is not designed yet. */
 		onShowOnly?: () => void;
 		onExport?: () => void;
 		onRetry?: () => void;
@@ -74,11 +75,15 @@
 	);
 	const detail = $derived(
 		current.kind === 'novos'
-			? $_('screens.library.header.since', { date: shortDate(current.since) })
+			? current.since
+				? $_('screens.library.header.since', { date: shortDate(current.since) })
+				: ''
 			: current.kind === 'aSincronizar'
 				? `· ${$_('screens.library.header.syncProgress', { done: current.done, count: current.total })}`
 				: current.kind === 'semNovidades'
-					? $_('screens.library.header.syncedAt', { time: time(current.syncedAt) })
+					? current.syncedAt
+						? $_('screens.library.header.syncedAt', { time: time(current.syncedAt) })
+						: ''
 					: current.message
 	);
 	// The alert region always exists, so the change to an error is announced; the Retry button stays outside it.
@@ -104,7 +109,7 @@
 <div
 	data-slot="library-header"
 	data-state={current.kind}
-	out:fade|global={{ duration: 150 }}
+	out:fade={{ duration: 150 }}
 	class={cn(
 		'flex min-h-control flex-wrap items-center justify-between gap-x-4 gap-y-2',
 		'animate-in fade-in-0 slide-in-from-top-(length:--distance-enter) duration-(--duration-reveal) ease-out motion-reduce:slide-in-from-top-0',
@@ -134,15 +139,17 @@
 	</div>
 	{#if current.kind === 'novos'}
 		<div class="flex items-center gap-2">
-			<Button variant="secundario" onclick={() => onShowOnly?.()}>
-				{$_('screens.library.header.showOnly')}
-			</Button>
+			{#if onShowOnly}
+				<Button variant="secundario" onclick={() => onShowOnly()}>
+					{$_('screens.library.header.showOnly')}
+				</Button>
+			{/if}
 			<Button variant="principal" disabled={exporting} onclick={() => onExport?.()}>
 				{exportLabel}
 			</Button>
 		</div>
-	{:else if current.kind === 'erro'}
-		<Button variant="secundario" onclick={() => onRetry?.()}>
+	{:else if current.kind === 'erro' && onRetry}
+		<Button variant="secundario" onclick={() => onRetry()}>
 			{$_('screens.library.header.retry')}
 		</Button>
 	{/if}

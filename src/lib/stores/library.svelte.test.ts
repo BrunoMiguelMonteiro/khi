@@ -219,6 +219,28 @@ describe('Library Store', () => {
 			expect(invoke).not.toHaveBeenCalledWith('sync_kobo', expect.anything());
 		});
 
+		it('first_kobo_opens_its_reader_before_syncing', async () => {
+			const order: string[] = [];
+			vi.mocked(invoke).mockImplementation((cmd: string) => {
+				order.push(cmd);
+				if (cmd === 'reader_for_kobo') return Promise.resolve(null);
+				if (cmd === 'list_readers') return Promise.resolve([]);
+				if (cmd === 'create_reader') return Promise.resolve({ id: 1, name: 'Kobo Libra', exportPath: null });
+				if (cmd === 'sync_kobo') return Promise.reject('disk is full');
+				if (cmd === 'get_library') return Promise.resolve(mockBooks);
+				return Promise.resolve(null);
+			});
+
+			await expect(library.deviceConnected(kobo, true)).rejects.toBe('disk is full');
+
+			// The Library is on screen when the Sync fails, and Sync works again
+			expect(order.indexOf('get_library')).toBeGreaterThan(-1);
+			expect(order.indexOf('get_library')).toBeLessThan(order.indexOf('sync_kobo'));
+			expect(library.activeReaderId).toBe(1);
+			expect(library.books).toEqual(mockBooks);
+			expect(library.canSync).toBe(true);
+		});
+
 		it('an unknown kobo is reported and never synced', async () => {
 			answer({ reader_for_kobo: null, list_readers: [{ id: 3, name: 'Ana', exportPath: null }] });
 
@@ -348,6 +370,217 @@ describe('Library Store', () => {
 		});
 	});
 
+	describe('Exporting clears the news (Task 36)', () => {
+		const hl = (id: string, isNew: boolean, syncedSeq: number | null) =>
+			makeHighlight({ id, text: id, dateCreated: '2026-01-01', isNew, syncedSeq });
+		const bookOf = (id: number, ...highlights: ReturnType<typeof hl>[]) =>
+			makeBook({ id, title: `B${id}`, author: 'A', highlights });
+		const isNewOf = (bookId: number, id: string) =>
+			library.books.find((b) => b.id === bookId)?.highlights.find((h) => h.id === id)?.isNew;
+
+		beforeEach(() => {
+			library.closeBook();
+			library.activeReaderId = 9;
+		});
+
+		it('export_clears_new_of_exported_books', async () => {
+			library.setBooks([
+				bookOf(1, hl('a', true, 2), hl('b', false, 1), hl('c', true, 3)),
+				bookOf(2, hl('x', true, 4))
+			]);
+			answer({ export_library_books: ['/x/B1.md'], mark_book_opened: null });
+
+			const result = await library.exportIds([1]);
+
+			expect(result).toEqual(['/x/B1.md']);
+			expect(invoke).toHaveBeenCalledWith('mark_book_opened', { readerId: 9, bookId: 1, seenSeq: 3 });
+			expect(isNewOf(1, 'a')).toBe(false);
+			expect(isNewOf(1, 'c')).toBe(false);
+			// A book that was not exported stays new
+			expect(isNewOf(2, 'x')).toBe(true);
+			expect(vi.mocked(invoke).mock.calls.filter(([cmd]) => cmd === 'mark_book_opened')).toHaveLength(1);
+			// The open book's snapshot belongs to openBook alone
+			expect(library.viewingNewIds.size).toBe(0);
+		});
+
+		it('export_keeps_new_that_arrived_during_export', async () => {
+			library.setBooks([bookOf(1, hl('a', true, 2))]);
+			let finishExport!: () => void;
+			vi.mocked(invoke).mockImplementation((cmd: string) => {
+				if (cmd === 'export_library_books') return new Promise((r) => (finishExport = () => r(['/x/B1.md'])));
+				if (cmd === 'get_library') return Promise.resolve([bookOf(1, hl('a', true, 2), hl('z', true, 5))]);
+				if (cmd === 'mark_book_opened') return Promise.resolve(null);
+				return Promise.reject(new Error(`unexpected ${cmd}`));
+			});
+
+			const exporting = library.exportIds([1]);
+			// A Sync reloads the Library mid-export and brings a new highlight
+			await library.openReader(9);
+			finishExport();
+			await exporting;
+
+			expect(invoke).toHaveBeenCalledWith('mark_book_opened', { readerId: 9, bookId: 1, seenSeq: 2 });
+			expect(isNewOf(1, 'a')).toBe(false);
+			expect(isNewOf(1, 'z')).toBe(true);
+		});
+
+		it('failed_export_keeps_new', async () => {
+			library.setBooks([bookOf(1, hl('a', true, 2))]);
+			vi.mocked(invoke).mockImplementation((cmd: string) =>
+				cmd === 'export_library_books' ? Promise.reject('boom') : Promise.reject(new Error(`unexpected ${cmd}`))
+			);
+
+			await expect(library.exportIds([1])).rejects.toBe('boom');
+
+			expect(isNewOf(1, 'a')).toBe(true);
+			expect(vi.mocked(invoke).mock.calls.filter(([cmd]) => cmd === 'mark_book_opened')).toHaveLength(0);
+			expect(library.isExporting).toBe(false);
+		});
+
+		it('mark_failure_does_not_undo_the_export', async () => {
+			library.setBooks([bookOf(1, hl('a', true, 2)), bookOf(2, hl('x', true, 4))]);
+			const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+			vi.mocked(invoke).mockImplementation((cmd: string, args?: unknown) => {
+				if (cmd === 'export_library_books') return Promise.resolve(['/x/B1.md', '/x/B2.md']);
+				if (cmd === 'mark_book_opened')
+					return (args as { bookId: number }).bookId === 1 ? Promise.reject('boom') : Promise.resolve(null);
+				return Promise.reject(new Error(`unexpected ${cmd}`));
+			});
+
+			await expect(library.exportIds([1, 2])).resolves.toEqual(['/x/B1.md', '/x/B2.md']);
+
+			// The book whose mark failed stays new; the other one is cleared
+			expect(isNewOf(1, 'a')).toBe(true);
+			expect(isNewOf(2, 'x')).toBe(false);
+			expect(log).toHaveBeenCalled();
+			log.mockRestore();
+		});
+	});
+
+	describe('Library summary (Task 36)', () => {
+		it('open_reader_loads_the_summary_of_the_connected_kobo', async () => {
+			library.setConnectedDevice(kobo);
+			answer({
+				get_library: mockBooks,
+				library_summary: { newSince: '2026-11-09T10:00:00Z', lastSyncAt: '2026-11-19T10:42:00Z' }
+			});
+
+			await library.openReader(4);
+
+			expect(invoke).toHaveBeenCalledWith('library_summary', { readerId: 4, koboSerial: 'N4181B5025147' });
+			expect(library.summary).toEqual({ newSince: '2026-11-09T10:00:00Z', lastSyncAt: '2026-11-19T10:42:00Z' });
+		});
+
+		it('summary_failure_does_not_break_open_reader', async () => {
+			const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+			answer({ get_library: mockBooks });
+
+			await expect(library.openReader(4)).resolves.toBeUndefined();
+
+			expect(library.books).toEqual(mockBooks);
+			expect(library.summary).toBeNull();
+			log.mockRestore();
+		});
+
+		it('disconnecting_the_kobo_reloads_the_summary_without_it', async () => {
+			library.activeReaderId = 4;
+			library.setConnectedDevice(kobo);
+			answer({ library_summary: { newSince: null, lastSyncAt: null } });
+
+			library.deviceDisconnected();
+			await vi.waitFor(() =>
+				expect(invoke).toHaveBeenCalledWith('library_summary', { readerId: 4, koboSerial: null })
+			);
+		});
+	});
+
+	describe('Review fixes (Task 36)', () => {
+		const hl = (id: string, isNew: boolean, syncedSeq: number | null) =>
+			makeHighlight({ id, text: id, dateCreated: '2026-01-01', isNew, syncedSeq });
+		const bookOf = (id: number, ...highlights: ReturnType<typeof hl>[]) =>
+			makeBook({ id, title: `B${id}`, author: 'A', highlights });
+
+		beforeEach(() => {
+			library.closeBook();
+			library.activeReaderId = 9;
+			library.summary = null;
+		});
+
+		it('is_exporting_stays_true_until_marks_finish', async () => {
+			library.setBooks([bookOf(1, hl('a', true, 2))]);
+			let finishMark!: () => void;
+			vi.mocked(invoke).mockImplementation((cmd: string) => {
+				if (cmd === 'export_library_books') return Promise.resolve(['/x/B1.md']);
+				if (cmd === 'mark_book_opened') return new Promise((r) => (finishMark = () => r(null)));
+				return Promise.resolve(null);
+			});
+
+			const exporting = library.exportIds([1]);
+			await vi.waitFor(() => expect(invoke).toHaveBeenCalledWith('mark_book_opened', expect.anything()));
+			expect(library.isExporting).toBe(true);
+			finishMark();
+			await exporting;
+			expect(library.isExporting).toBe(false);
+		});
+
+		it('export_skips_mark_for_books_without_news', async () => {
+			library.setBooks([bookOf(1, hl('a', false, 2)), bookOf(2, hl('b', true, 3))]);
+			answer({ export_library_books: ['x'], mark_book_opened: null, library_summary: null });
+
+			await library.exportIds([1, 2]);
+
+			const marks = vi.mocked(invoke).mock.calls.filter(([cmd]) => cmd === 'mark_book_opened');
+			expect(marks).toEqual([['mark_book_opened', { readerId: 9, bookId: 2, seenSeq: 3 }]]);
+		});
+
+		it('summary_is_cleared_at_once_on_reader_switch_and_disconnect', async () => {
+			library.setConnectedDevice(kobo);
+			library.summary = { newSince: '2026-11-09T10:00:00Z', lastSyncAt: '2026-11-19T10:42:00Z' };
+			// A disconnect drops the sync time right away, before the reload answers
+			vi.mocked(invoke).mockImplementation(() => new Promise(() => {}));
+			library.deviceDisconnected();
+			expect(library.summary?.lastSyncAt).toBeNull();
+
+			library.summary = { newSince: '2026-11-09T10:00:00Z', lastSyncAt: '2026-11-19T10:42:00Z' };
+			vi.mocked(invoke).mockImplementation((cmd: string) =>
+				cmd === 'get_library' ? Promise.resolve([]) : new Promise(() => {})
+			);
+			void library.openReader(4);
+			await vi.waitFor(() => expect(library.activeReaderId).toBe(4));
+			expect(library.summary).toBeNull();
+		});
+
+		it('summary_is_reloaded_after_the_marks_of_open_and_export', async () => {
+			library.setBooks([bookOf(1, hl('a', true, 2))]);
+			answer({ mark_book_opened: null, export_library_books: ['x'], library_summary: { newSince: null, lastSyncAt: null } });
+
+			await library.openBook(1);
+			expect(invoke).toHaveBeenCalledWith('library_summary', { readerId: 9, koboSerial: null });
+
+			library.setBooks([bookOf(1, hl('b', true, 3))]);
+			vi.mocked(invoke).mockClear();
+			await library.exportIds([1]);
+			const cmds = vi.mocked(invoke).mock.calls.map(([cmd]) => cmd);
+			expect(cmds.indexOf('library_summary')).toBeGreaterThan(cmds.indexOf('mark_book_opened'));
+		});
+
+		it('stale_summary_response_does_not_win', async () => {
+			const resolvers: Array<(v: unknown) => void> = [];
+			vi.mocked(invoke).mockImplementation((cmd: string) =>
+				cmd === 'library_summary' ? new Promise((r) => resolvers.push(r)) : Promise.resolve(null)
+			);
+
+			const older = library.loadSummary();
+			const newer = library.loadSummary();
+			resolvers[1]({ newSince: 'new', lastSyncAt: null });
+			await newer;
+			resolvers[0]({ newSince: 'old', lastSyncAt: null });
+			await older;
+
+			expect(library.summary?.newSince).toBe('new');
+		});
+	});
+
 	describe('Opening a book (D1)', () => {
 		const hl = (id: string, isNew: boolean, syncedSeq: number | null) =>
 			makeHighlight({ id, text: id, dateCreated: '2026-01-01', isNew, syncedSeq });
@@ -441,7 +674,11 @@ describe('Library Store', () => {
 			await library.openBook(1);
 
 			expect(library.viewingNewIds).toEqual(new Set(['z']));
-			expect(invoke).toHaveBeenLastCalledWith('mark_book_opened', { readerId: 9, bookId: 1, seenSeq: 5 });
+			// (the summary is read again after the mark, so the mark is the last mark call, not the last call)
+			expect(vi.mocked(invoke).mock.calls.filter(([cmd]) => cmd === 'mark_book_opened').at(-1)).toEqual([
+				'mark_book_opened',
+				{ readerId: 9, bookId: 1, seenSeq: 5 }
+			]);
 		});
 
 		it('open_without_active_reader_skips_mark', async () => {

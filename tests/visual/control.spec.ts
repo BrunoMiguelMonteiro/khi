@@ -30,16 +30,16 @@ const has = (diffs: Diff[], element: RegExp, property: string | RegExp) =>
 test('control: a 1px padding and a near-identical colour are detected', async ({ browser }) => {
 	const result = await captureOf(browser, 'grid--light', {
 		injectCss: [
-			// One step off the real colour: invisible to the eye, not to the judge
-			'[data-testid="kobo-indicator"] { color: rgb(107, 114, 129) !important; }',
+			// One step off the card title's real colour, rgb(29, 29, 31): invisible to the eye, not to the judge
+			'[data-slot="book-card-title"] { color: rgb(30, 29, 31) !important; }',
 			'[data-testid="books-grid"] { padding-top: 1px !important; }'
 		].join('\n')
 	});
 	const { blocked } = compareWithBaseline(result, { outputName: 'control--grid--light' });
-	expect(has(blocked, /\[data-testid="kobo-indicator"\]/, 'color'), 'colour change reported').toBe(true);
+	expect(has(blocked, /\[data-testid="book-card"\].* > div:2 > p\{"Ensaio sobre a Cegueira"\}$/, 'color'), 'colour change reported').toBe(true);
 	expect(has(blocked, /\[data-testid="books-grid"\]/, 'padding-top'), 'padding change reported').toBe(true);
 	// The padding moves every card down by 1px
-	expect(has(blocked, /\[role="group"\]/, 'box'), 'moved boxes reported').toBe(true);
+	expect(has(blocked, /\[data-testid="book-card"\]/, 'box'), 'moved boxes reported').toBe(true);
 	expect(has(blocked, /^screenshot grid--light\.png$/, 'pixels'), 'pixel difference reported').toBe(true);
 });
 
@@ -117,13 +117,13 @@ test('control: missing baseline files and missing captures always fail', async (
 });
 
 test('control: an approved change approves nothing else', async ({ browser }) => {
-	const approved = '[data-testid="kobo-indicator"] { color: rgb(220, 38, 38) !important; }';
+	const approved = '[data-slot="book-card-title"] { color: rgb(220, 38, 38) !important; }';
 	const a = await captureOf(browser, 'grid--light', { injectCss: approved });
 	const first = compareWithBaseline(a, { outputName: 'control--approved', allowlist: [] });
 	expect(first.blocked.some((d) => d.kind === 'pixels')).toBe(true);
 	// Exactly what a reviewer would copy from the report
 	const allowlist: AllowEntry[] = first.diffs.map((d): AllowEntry => {
-		const reason = 'control: reviewed red indicator';
+		const reason = 'control: reviewed red card titles';
 		if (d.kind === 'pixels') return { type: 'screenshot', capture: d.scenario, file: d.element.replace('screenshot ', ''), sha256: d.sha256!, reason };
 		if (d.kind === 'box') return { type: 'box', capture: d.scenario, element: d.element, before: d.before, after: d.after, reason };
 		if (d.kind === 'style') return { type: 'style', capture: d.scenario, element: d.element, property: d.property, before: d.before, after: d.after, reason };
@@ -150,10 +150,10 @@ test('control: an approved change approves nothing else', async ({ browser }) =>
 
 test('control: a hidden selected-book indicator is detected', async ({ browser }) => {
 	const result = await captureOf(browser, 'grid-selected--light', {
-		injectCss: '[data-testid="book-card"] button[aria-label="Deselect"] > div { opacity: 0 !important; }'
+		injectCss: '[data-testid="book-card"] [data-slot="selection-frame"], [data-testid="book-card"] [data-slot="selection-check"] { opacity: 0 !important; }'
 	});
 	const { blocked } = compareWithBaseline(result, { outputName: 'control--selected-hidden' });
-	expect(has(blocked, /button\[aria-label="Deselect"\]/, 'opacity'), 'indicator opacity reported').toBe(true);
+	expect(has(blocked, /\[data-testid="book-card"\].*\bspan\b/, 'opacity'), 'indicator opacity reported').toBe(true);
 	expect(has(blocked, /^screenshot grid-selected--light\.png$/, 'pixels'), 'pixels reported').toBe(true);
 });
 
@@ -185,7 +185,7 @@ test('control: a layout change that only shows at the minimum window size is det
 	const min = await captureOf(browser, 'grid--light--min', { injectCss: narrowOnly });
 	const atMin = compareWithBaseline(min, { outputName: 'control--min-size' }).blocked;
 	expect(has(atMin, /\[data-testid="books-grid"\]/, 'column-gap'), 'gap reported at the minimum size').toBe(true);
-	expect(has(atMin, /\[role="group"\]/, 'box'), 'moved cards reported').toBe(true);
+	expect(has(atMin, /\[data-testid="book-card"\]/, 'box'), 'moved cards reported').toBe(true);
 	// The default window never sees it: without the minimum-size captures it would pass
 	const wide = await captureOf(browser, 'grid--light', { injectCss: narrowOnly });
 	expect(compareWithBaseline(wide, { outputName: 'control--min-size-at-default' }).diffs).toEqual([]);
