@@ -342,19 +342,19 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
 
 **Interfaces que produz:**
 
-- [ ] 
+- [x] 
   
   `cn(...inputs: ClassValue[]): string`, em `$lib/utils`;
   
-- [ ] 
+- [x] 
   
   aliases do shadcn-svelte: `components` → `$lib/components`, `ui` → `$lib/components/ui`, `utils` → `$lib/utils`;
   
-- [ ] 
+- [x] 
   
   o `@import "tw-animate-css"` em `app.css`.
   
-- [ ] 
+- [x] 
   
   **Passo 1: testes que falham** (`utils.test.ts`):
   
@@ -365,22 +365,35 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
   - `later_text_style_wins`: `cn('text-body', 'text-callout') === 'text-callout'`.
     
   
-- [ ] 
+- [x] 
   
   **Passo 2:** `npx shadcn-svelte@1.8.1 init`. O `init` escreve no `app.css` variáveis próprias em `oklch`. Apagam-se todas, porque as do Khi vêm de `tokens.css`, e o diff do `app.css` não pode deixar nenhuma.
   
-- [ ] 
+- [x] 
   
   **Passo 3:** `cn()` com `extendTailwindMerge`: os estilos de texto da Task 3 entram no grupo `font-size`.
   
-- [ ] 
+- [x] 
   
   **Passo 4:** os testes passam e passam os quatro comandos.
   
-- [ ] 
+- [x] 
   
   **Passo 5:** commit `build(ui): shadcn-svelte base and cn() aware of Khi text styles`.
   
+- **Resultado (2026-11-19):**
+  
+  - O `init` 1.8.1 pede um preset; correu com `--preset vega --base-color neutral --no-deps-install` e os aliases por flag. Além das variáveis `oklch`, do `@layer base` e das cores `sidebar`/`chart`, pôs no `app.css` `@import "shadcn-svelte/tailwind.css"` e a Inter, e no `package.json` `cn`, `shadcn-svelte`, `@lucide/svelte` e `@fontsource-variable/inter`. Tudo revertido: o `cn()` usa clsx e tailwind-merge, como neste plano. O `components.json` fica como o `init` o escreveu (estilo `vega`, `iconLibrary: lucide`).
+    
+  - **Para a Fase 2:** os componentes do estilo `vega` usam as variantes `data-open:`, `data-closed:`, `data-checked:`, etc., que vêm de `shadcn-svelte/tailwind.css`. Quando o primeiro componente as pedir, ou se declaram em `app.css` ou se importa esse ficheiro (com o `shadcn-svelte` como dependência).
+    
+  - O `cn()` também conhece os raios, as medidas (`h-control`, `size-icon`) e o `ease-hover` do Figma; um teste compara as chaves com `design/text-styles.json` e `design/tokens.json`.
+    
+  - O `tw-animate-css` acrescenta 1,7 kB ao CSS (0,2 kB em gzip), só `@property` e variáveis `--tw-enter-*`/`--tw-exit-*`; o harness visual fica igual.
+    
+
+**Resultado (2026-11-18):** `cn()` conhece os 13 estilos de texto, os raios, as medidas e as curvas do Figma, com um teste que falha se divergir dos JSON; o `init` (preset vega) teve os efeitos laterais revertidos e o `app.css` só ganhou o `tw-animate-css`. Harness 73/73 sem diferenças; CSS +219 B gzip. Revisão do GPT‑6.2 Sol sem problemas.
+
 **Paragem:** o Bruno aprova a Fase 1, e as tasks da Fase 2 são escritas aqui.
 
 * * *

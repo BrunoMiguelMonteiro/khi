@@ -1,11 +1,14 @@
 @import 'tailwindcss' source(none);
 @import './lib/styles/tokens.css';
 @import './lib/styles/typography.css';
+@import 'tw-animate-css';
 @source './**/*.{html,js,svelte,ts}';
 /* tokens.test.ts names the `@theme static` and `@theme inline` blocks; scanning it would emit .static and .inline. */
 @source not './lib/styles/tokens.test.ts';
 /* typography.test.ts names the text-<style> utilities; scanning it would emit them unused. */
 @source not './lib/styles/typography.test.ts';
+/* utils.test.ts names Khi and Tailwind classes to test cn(); scanning it would emit them unused. */
+@source not './lib/utils.test.ts';
 
 @custom-variant dark (&:where(.dark, .dark *));
 /* v3 selector: specificity 0,3,0 so group-hover:opacity-100 beats disabled:opacity-50 */

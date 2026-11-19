@@ -106,10 +106,11 @@ function packageFaces(): Map<string, Decls> {
 
 async function compileAppCss(candidates: string[]) {
 	const load = async (id: string, base: string) => {
-		const path =
-			id === 'tailwindcss'
-				? resolve(root, 'node_modules/tailwindcss/index.css')
-				: resolve(base, id);
+		const packages: Record<string, string> = {
+			tailwindcss: 'node_modules/tailwindcss/index.css',
+			'tw-animate-css': 'node_modules/tw-animate-css/dist/tw-animate.css'
+		};
+		const path = id in packages ? resolve(root, packages[id]) : resolve(base, id);
 		return { path, base: dirname(path), content: readFileSync(path, 'utf8') };
 	};
 	const appPath = resolve(root, 'src/app.css');
@@ -242,6 +243,7 @@ describe('typography.css (Figma text styles)', () => {
 
 		const excluded = sources.filter((s) => s.negated).map((s) => s.pattern);
 		expect(excluded).toContain('./lib/styles/typography.test.ts');
+		expect(excluded).toContain('./lib/utils.test.ts');
 	});
 
 	it('literata_licence_ships_with_the_app', () => {
