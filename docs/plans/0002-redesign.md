@@ -669,17 +669,18 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
 - foco: anel, e o contorno não muda;
 - desativado: `readonly` nativo e `aria-disabled` (continua a receber o foco), com `bg-disabled border-disabled-border text-disabled-foreground`.
 
-- [ ] **Passo 1: testes que falham** (`input.test.ts`):
+- [x] **Passo 1: testes que falham** (`input.test.ts`):
   - `default_width_is_220`;
   - `placeholder_uses_tertiary_foreground`;
   - `focus_keeps_border_and_shows_ring`;
   - `disabled_is_inert`: escrever não muda `bind:value`; o campo recebe o foco.
-- [ ] **Passo 2:** `npx vitest run src/lib/components/ui/input` falha.
-- [ ] **Passo 3:** adaptar; saem as classes de `file:` e `aria-invalid:`.
-- [ ] **Passo 4:** os testes passam e passam os quatro comandos.
-- [ ] **Passo 5:** commit `feat(ui): Input with Khi tokens`.
+- [x] **Passo 2:** `npx vitest run src/lib/components/ui/input` falha.
+- [x] **Passo 3:** adaptar; saem as classes de `file:` e `aria-invalid:`.
+- [x] **Passo 4:** os testes passam e passam os quatro comandos.
+- [x] **Passo 5:** commit `feat(ui): Input with Khi tokens`.
 
 **Verificar no ecrã:** reticências no texto longo.
+- **Resultado (2026-11-19):** 290 testes, `check` 0, build OK, harness 73/73; mutação `border-input-strong` → `border-input` apanhada. Antes da task, o coordenador exportou as ligações do nó `55:1908`: o contorno estava ligado a `input` e foi corrigido no Figma para `input-strong` (Normal e Foco), com a descrição atualizada (decisão A, aprovada pelo Bruno). Desvios: a espessura usa `border-(length:--stroke-border)` (token `stroke/border`); `disabled_is_inert` testa diretamente, porque o campo não tem motivo nem Tooltip; o anel aparece também ao clicar, como nos campos de texto do macOS (`:focus-visible` dos browsers), o que corresponde ao estado Foco do Figma.
 
 ### Task 14: Pop-up
 **Ficheiros:** `npx shadcn-svelte@1.8.1 add select`; adaptar `src/lib/components/ui/select/*`; criar `select.test.ts`. As classes da superfície e do item de menu ficam em `src/lib/components/ui/menu/menu-classes.ts`, para a Task 17 as reusar.
