@@ -39,6 +39,8 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         commands::library::last_reader,
         commands::library::get_library,
         commands::library::delete_book,
+        commands::library::mark_book_opened,
+        commands::library::library_summary,
         commands::library::export_library_books,
         commands::library::set_reader_export_path,
         commands::library::sync_kobo,

@@ -28,6 +28,8 @@ const DATA: HighlightData = {
   containerPath: null,
   removedAt: null,
   chapterProgress: null,
+  isNew: false,
+  syncedSeq: null,
 };
 
 function renderHighlight(

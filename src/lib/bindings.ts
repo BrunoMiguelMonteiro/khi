@@ -31,6 +31,10 @@ export const commands = {
 	lastReader: () => __TAURI_INVOKE<number | null>("last_reader"),
 	getLibrary: (readerId: number) => __TAURI_INVOKE<LibraryBook_Serialize[]>("get_library", { readerId }),
 	deleteBook: (readerId: number, bookId: number) => __TAURI_INVOKE<null>("delete_book", { readerId, bookId }),
+	/**  Marks the book seen up to `seen_seq`, the highest `syncedSeq` loaded (D1). */
+	markBookOpened: (readerId: number, bookId: number, seenSeq: number) => __TAURI_INVOKE<null>("mark_book_opened", { readerId, bookId, seenSeq }),
+	/**  New highlights since when, and the connected Kobo's last sync. */
+	librarySummary: (readerId: number, koboSerial: string | null) => __TAURI_INVOKE<LibrarySummary_Serialize>("library_summary", { readerId, koboSerial }),
 	/**  Exports with the Export settings (R22), into the Reader's folder (R21). */
 	exportLibraryBooks: (readerId: number, bookIds: number[]) => __TAURI_INVOKE<string[]>("export_library_books", { readerId, bookIds }),
 	setReaderExportPath: (readerId: number, path: string | null) => __TAURI_INVOKE<null>("set_reader_export_path", { readerId, path }),
@@ -215,6 +219,10 @@ export type LibraryHighlight_Deserialize = {
 	containerPath?: string | null,
 	removedAt?: string | null,
 	chapterProgress?: number | null,
+	/**  Arrived in a sync after the book was last opened (D1). */
+	isNew: boolean,
+	/**  The sync that brought it; `None` for the Reader's first sync. */
+	syncedSeq?: number | null,
 };
 
 export type LibraryHighlight_Serialize = {
@@ -226,6 +234,34 @@ export type LibraryHighlight_Serialize = {
 	containerPath: string | null,
 	removedAt: string | null,
 	chapterProgress: number | null,
+	/**  Arrived in a sync after the book was last opened (D1). */
+	isNew: boolean,
+	/**  The sync that brought it; `None` for the Reader's first sync. */
+	syncedSeq: number | null,
+};
+
+/**
+ *  What the Library header says about the Reader: new highlights since when,
+ *  and when the connected Kobo last synced.
+ */
+export type LibrarySummary = LibrarySummary_Serialize | LibrarySummary_Deserialize;
+
+/**
+ *  What the Library header says about the Reader: new highlights since when,
+ *  and when the connected Kobo last synced.
+ */
+export type LibrarySummary_Deserialize = {
+	newSince?: string | null,
+	lastSyncAt?: string | null,
+};
+
+/**
+ *  What the Library header says about the Reader: new highlights since when,
+ *  and when the connected Kobo last synced.
+ */
+export type LibrarySummary_Serialize = {
+	newSince: string | null,
+	lastSyncAt: string | null,
 };
 
 export type MetadataConfig = MetadataConfig_Serialize | MetadataConfig_Deserialize;

@@ -1253,7 +1253,7 @@ Depende da Task 6 (`switch-on`, `input-strong`).
   - `last_sync_at` é o `kobos.last_sync_at` **do Kobo ligado** (o «sincronizado às 10:42»; Bruno, 2026-11-19). O frontend passa o `connectedDevice.serialNumber` (`library.svelte.ts:162-163`). Sem Kobo ligado, ou com um Kobo de outro leitor, vem `None` e o texto não se mostra;
 - bindings: `UPDATE_BINDINGS=1 cargo test bindings_are_up_to_date`.
 
-- [ ] **Passo 1: testes que falham:**
+- [x] **Passo 1: testes que falham:**
   - `never_opened_book_is_new`;
   - `opening_with_seen_seq_clears_new`;
   - `sync_while_open_is_new_next_open`: carregar, marcar com o que foi carregado, sincronizar, reabrir. Os destaques dessa sincronização vêm `isNew`;
@@ -1264,10 +1264,10 @@ Depende da Task 6 (`switch-on`, `input-strong`).
   - `last_sync_at_is_the_connected_kobos`, `last_sync_at_none_without_kobo` e `last_sync_at_none_for_other_readers_kobo`;
   - `export_output_unchanged`: o Markdown exportado é igual byte a byte;
   - `contract.test.ts`: `markBookOpened` e `librarySummary` existem com os argumentos certos.
-- [ ] **Passo 2:** os testes falham.
-- [ ] **Passo 3:** os SELECT, os dois commands e os bindings.
-- [ ] **Passo 4:** passa o `cargo test` inteiro, e os quatro comandos do frontend.
-- [ ] **Passo 5:** commit `feat(library): isNew, markBookOpened and library summary`.
+- [x] **Passo 2:** os testes falham.
+- [x] **Passo 3:** os SELECT, os dois commands e os bindings.
+- [x] **Passo 4:** passa o `cargo test` inteiro, e os quatro comandos do frontend.
+- [x] **Passo 5:** commit `feat(library): isNew, markBookOpened and library summary`.
 
 ### Task 33: snapshot dos novos no `LibraryStore`
 **Ficheiros:** `src/lib/stores/library.svelte.ts`, `src/lib/stores/library.svelte.test.ts`, `src/routes/+page.svelte` (`handleBookClick` :256-264 e `handleCloseBookDetails` :266-269, só as chamadas).

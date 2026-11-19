@@ -62,6 +62,19 @@ pub struct LibraryHighlight {
     pub container_path: Option<String>,
     pub removed_at: Option<String>,
     pub chapter_progress: Option<f64>,
+    /// Arrived in a sync after the book was last opened (D1).
+    pub is_new: bool,
+    /// The sync that brought it; `None` for the Reader's first sync.
+    pub synced_seq: Option<u32>,
+}
+
+/// What the Library header says about the Reader: new highlights since when,
+/// and when the connected Kobo last synced.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LibrarySummary {
+    pub new_since: Option<String>,
+    pub last_sync_at: Option<String>,
 }
 
 /// Lets the `MarkdownExporter` export Library books unchanged. Removed
@@ -113,6 +126,11 @@ pub fn safe_dir_name(name: &str) -> String {
 }
 
 const META_LAST_READER: &str = "last_reader";
+
+/// A highlight `h` of book `b` is new if a sync after the Reader's first
+/// brought it, later than the book was last opened (D1). One rule for
+/// `isNew` and for the summary's `new_since`.
+const IS_NEW: &str = "h.synced_seq IS NOT NULL AND h.synced_seq > COALESCE(b.opened_seq, 0)";
 
 const BOOK_COLUMNS: &str = "id, title, author, isbn, publisher, language, description, date_last_read, cover_file";
 
@@ -390,12 +408,13 @@ impl Library {
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
 
-        let mut stmt = self.conn.prepare(
-            "SELECT bookmark_id, text, date_created, annotation, chapter_title, container_path,
-                    removed_at, chapter_progress
-             FROM highlights WHERE book_id = ?1
-             ORDER BY chapter_progress, date_created",
-        )?;
+        let mut stmt = self.conn.prepare(&format!(
+            "SELECT h.bookmark_id, h.text, h.date_created, h.annotation, h.chapter_title,
+                    h.container_path, h.removed_at, h.chapter_progress, {}, h.synced_seq
+             FROM highlights h JOIN books b ON b.id = h.book_id WHERE h.book_id = ?1
+             ORDER BY h.chapter_progress, h.date_created",
+            IS_NEW
+        ))?;
         for book in &mut books {
             book.highlights = stmt
                 .query_map([book.id], |r| {
@@ -408,11 +427,50 @@ impl Library {
                         container_path: r.get(5)?,
                         removed_at: r.get(6)?,
                         chapter_progress: r.get(7)?,
+                        is_new: r.get(8)?,
+                        synced_seq: r.get(9)?,
                     })
                 })?
                 .collect::<rusqlite::Result<Vec<_>>>()?;
         }
         Ok(books)
+    }
+
+    /// The Reader has seen the book up to sync `seen_seq`: the highest
+    /// `synced_seq` loaded when it was opened, never the current one, so a
+    /// sync that lands meanwhile stays new. Never lowers what was seen.
+    pub fn mark_book_opened(&self, reader_id: u32, book_id: u32, seen_seq: u32) -> Result<()> {
+        let changed = self.conn.execute(
+            "UPDATE books SET opened_seq = MAX(COALESCE(opened_seq, 0), ?1)
+             WHERE id = ?2 AND reader_id = ?3",
+            params![seen_seq, book_id, reader_id],
+        )?;
+        if changed == 0 {
+            return Err(LibraryError::NotFound);
+        }
+        Ok(())
+    }
+
+    /// Since when the Reader has new highlights, and when `kobo_serial` (the
+    /// connected Kobo) last synced, if it is the Reader's.
+    pub fn library_summary(&self, reader_id: u32, kobo_serial: Option<&str>) -> Result<LibrarySummary> {
+        let new_since: Option<String> = self.conn.query_row(
+            &format!(
+                "SELECT MIN(h.synced_at) FROM highlights h JOIN books b ON b.id = h.book_id
+                 WHERE b.reader_id = ?1 AND {}",
+                IS_NEW
+            ),
+            [reader_id],
+            |r| r.get(0),
+        )?;
+        let last_sync_at = match kobo_serial {
+            Some(serial) => self
+                .kobo(serial)?
+                .filter(|k| k.reader_id == reader_id)
+                .and_then(|k| k.last_sync_at),
+            None => None,
+        };
+        Ok(LibrarySummary { new_since, last_sync_at })
     }
 
     /// Like `set_last_reader`, but gives up at once instead of waiting when a

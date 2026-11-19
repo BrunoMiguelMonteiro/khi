@@ -7,7 +7,7 @@
 
 use crate::covers::{self, CoverExtractor};
 use crate::db::kobo::KoboDatabase;
-use crate::library::{KoboInfo, Library, LibraryBook, LibraryError, Reader, SyncReport};
+use crate::library::{KoboInfo, Library, LibraryBook, LibraryError, LibrarySummary, Reader, SyncReport};
 use crate::models::{ExportConfig, KoboDevice, Language};
 use crate::settings::{data_dir, SettingsManager};
 use serde::{Deserialize, Serialize};
@@ -210,6 +210,29 @@ pub async fn get_library(app: AppHandle, reader_id: u32) -> Result<Vec<LibraryBo
 #[specta::specta]
 pub async fn delete_book(app: AppHandle, reader_id: u32, book_id: u32) -> Result<(), String> {
     with_library(app, move |lib| lib.delete_book(reader_id, book_id).map_err(err)).await
+}
+
+/// Marks the book seen up to `seen_seq`, the highest `syncedSeq` loaded (D1).
+#[tauri::command]
+#[specta::specta]
+pub async fn mark_book_opened(
+    app: AppHandle,
+    reader_id: u32,
+    book_id: u32,
+    seen_seq: u32,
+) -> Result<(), String> {
+    with_library(app, move |lib| lib.mark_book_opened(reader_id, book_id, seen_seq).map_err(err)).await
+}
+
+/// New highlights since when, and the connected Kobo's last sync.
+#[tauri::command]
+#[specta::specta]
+pub async fn library_summary(
+    app: AppHandle,
+    reader_id: u32,
+    kobo_serial: Option<String>,
+) -> Result<LibrarySummary, String> {
+    with_library(app, move |lib| lib.library_summary(reader_id, kobo_serial.as_deref()).map_err(err)).await
 }
 
 /// Exports with the Export settings (R22), into the Reader's folder (R21).
