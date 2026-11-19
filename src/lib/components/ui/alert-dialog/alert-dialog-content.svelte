@@ -13,6 +13,7 @@
 		portalProps,
 		initialFocus,
 		onOpenAutoFocus,
+		onCloseAutoFocus,
 		onEscapeKeydown,
 		onkeydown,
 		onkeydowncapture,
@@ -38,6 +39,10 @@
 		onOpenAutoFocus={(e) => {
 			onOpenAutoFocus?.(e);
 			if (!e.defaultPrevented) behaviour.openAutoFocus(e);
+		}}
+		onCloseAutoFocus={(e) => {
+			onCloseAutoFocus?.(e);
+			if (!e.defaultPrevented) behaviour.closeAutoFocus(e);
 		}}
 		onEscapeKeydown={(e) => {
 			behaviour.escapeKeydown(e);

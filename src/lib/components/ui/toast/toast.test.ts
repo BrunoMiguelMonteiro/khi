@@ -18,13 +18,18 @@ async function ruleOf(candidate: string) {
 
 async function expectBindings(el: Element, bindings: Binding[]) {
   for (const { binding, utility, css } of bindings) {
-    expect(el.classList.contains(utility), `${binding} → ${utility}`).toBe(true);
+    expect(el.classList.contains(utility), `${binding} → ${utility}`).toBe(
+      true,
+    );
     expect(await ruleOf(utility), utility).toContain(css);
   }
 }
 
-const region = () => document.querySelector<HTMLElement>('[data-slot="toaster"]');
-const toasts = () => [...document.querySelectorAll<HTMLElement>('[data-slot="toast"]')];
+const region = () =>
+  document.querySelector<HTMLElement>('[data-slot="toaster"]');
+const toasts = () => [
+  ...document.querySelectorAll<HTMLElement>('[data-slot="toast"]'),
+];
 const toast = () => toasts()[0] ?? null;
 
 const advance = async (ms: number) => {
@@ -54,21 +59,49 @@ const TOAST_BINDINGS: Binding[] = [
     utility: "py-2",
     css: "padding-block: calc(var(--spacing) * 2);",
   },
-  { binding: "spacing/2 (item spacing)", utility: "gap-2", css: "gap: calc(var(--spacing) * 2);" },
-  { binding: "radius/group", utility: "rounded-group", css: "border-radius: var(--radius-group);" },
-  { binding: "popover (fill)", utility: "bg-popover", css: "background-color: var(--popover);" },
+  {
+    binding: "spacing/2 (item spacing)",
+    utility: "gap-2",
+    css: "gap: calc(var(--spacing) * 2);",
+  },
+  {
+    binding: "radius/group",
+    utility: "rounded-group",
+    css: "border-radius: var(--radius-group);",
+  },
+  {
+    binding: "popover (fill)",
+    utility: "bg-popover",
+    css: "background-color: var(--popover);",
+  },
   {
     binding: "stroke/border (inside)",
     utility: "border-(length:--stroke-border)",
     css: "border-width: var(--stroke-border);",
   },
-  { binding: "border (stroke)", utility: "border-border", css: "border-color: var(--border);" },
-  { binding: "Sombra/Aviso", utility: "shadow-sombra-aviso", css: "--tw-shadow: 0 4px 16px var(--tw-shadow-color, rgb(0 0 0 / 0.14));" },
+  {
+    binding: "border (stroke)",
+    utility: "border-border",
+    css: "border-color: var(--border);",
+  },
+  {
+    binding: "Sombra/Aviso",
+    utility: "shadow-sombra-aviso",
+    css: "--tw-shadow: 0 4px 16px var(--tw-shadow-color, rgb(0 0 0 / 0.14));",
+  },
 ];
 
 const ICON_BINDINGS: Binding[] = [
-  { binding: "size/icon 16", utility: "size-icon", css: "width: var(--size-icon);" },
-  { binding: "foreground (icon)", utility: "text-foreground", css: "color: var(--foreground);" },
+  {
+    binding: "size/icon 16",
+    utility: "size-icon",
+    css: "width: var(--size-icon);",
+  },
+  {
+    binding: "foreground (icon)",
+    utility: "text-foreground",
+    css: "color: var(--foreground);",
+  },
 ];
 
 const TEXT_BINDINGS: Binding[] = [
@@ -77,14 +110,22 @@ const TEXT_BINDINGS: Binding[] = [
     utility: "text-body-medium",
     css: "font-size: 13px;\n    line-height: 16px;\n    font-weight: 500;",
   },
-  { binding: "foreground (text)", utility: "text-foreground", css: "color: var(--foreground);" },
+  {
+    binding: "foreground (text)",
+    utility: "text-foreground",
+    css: "color: var(--foreground);",
+  },
 ];
 
 // Movimento 3: in over duration/toast-in with a fade and distance/enter from below, ease/out; out
 // over duration/in with the inverse; Movimento 6: with Reduzir movimento only the fades stay.
 const MOTION_BINDINGS: Binding[] = [
   { binding: "enter", utility: "animate-in", css: "animation: enter" },
-  { binding: "fade in from 0", utility: "fade-in-0", css: "--tw-enter-opacity: 0;" },
+  {
+    binding: "fade in from 0",
+    utility: "fade-in-0",
+    css: "--tw-enter-opacity: 0;",
+  },
   {
     binding: "distance/enter from below",
     utility: "slide-in-from-bottom-(length:--distance-enter)",
@@ -95,9 +136,21 @@ const MOTION_BINDINGS: Binding[] = [
     utility: "duration-(--duration-toast-in)",
     css: "--tw-duration: var(--duration-toast-in);",
   },
-  { binding: "ease/out", utility: "ease-out", css: "--tw-ease: var(--ease-out);" },
-  { binding: "exit", utility: "data-closed:animate-out", css: "animation: exit" },
-  { binding: "fade out to 0", utility: "data-closed:fade-out-0", css: "--tw-exit-opacity: 0;" },
+  {
+    binding: "ease/out",
+    utility: "ease-out",
+    css: "--tw-ease: var(--ease-out);",
+  },
+  {
+    binding: "exit",
+    utility: "data-closed:animate-out",
+    css: "animation: exit",
+  },
+  {
+    binding: "fade out to 0",
+    utility: "data-closed:fade-out-0",
+    css: "--tw-exit-opacity: 0;",
+  },
   {
     binding: "distance/enter, inverse",
     utility: "data-closed:slide-out-to-bottom-(length:--distance-enter)",
@@ -152,9 +205,13 @@ describe("Toast", () => {
     expect(live!.contains(toast())).toBe(true);
     expect(live!.textContent?.trim()).toBe(TEXT);
     // Polite, not an alert: no assertive region and no alert role anywhere.
-    expect(document.querySelector('[aria-live="assertive"], [role="alert"]')).toBeNull();
+    expect(
+      document.querySelector('[aria-live="assertive"], [role="alert"]'),
+    ).toBeNull();
     // The icon is decorative, so the region reads the text alone.
-    expect(toast()!.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
+    expect(toast()!.querySelector("svg")?.getAttribute("aria-hidden")).toBe(
+      "true",
+    );
   });
 
   it("stays_4s_then_leaves", async () => {
@@ -169,7 +226,9 @@ describe("Toast", () => {
     // Hold over: it starts the exit, which the exit classes select…
     const leaving = toast()!;
     expect(leaving.dataset.state).toBe("closed");
-    expect(leaving.matches(await selectorFor("data-closed:animate-out"))).toBe(true);
+    expect(leaving.matches(await selectorFor("data-closed:animate-out"))).toBe(
+      true,
+    );
     // …and leaves the DOM when the 200 ms exit ends.
     await advance(199);
     expect(toast()).toBe(leaving);
@@ -200,11 +259,15 @@ describe("Toast", () => {
     await advance(300 + 1000);
     await user.tab();
     await user.tab();
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: ACTION }));
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: ACTION }),
+    );
     await advance(10_000);
     expect(toast()!.dataset.state).toBe("open");
     await user.tab({ shift: true });
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Antes" }));
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Antes" }),
+    );
     // 3 s were left when the focus arrived.
     await advance(2999);
     expect(toast()!.dataset.state).toBe("open");
@@ -268,7 +331,9 @@ describe("Toast", () => {
     await tick();
     await user.tab();
     await user.tab();
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: ACTION }));
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: ACTION }),
+    );
     // The focused action leaves with its toast, so nothing holds the new one.
     notify(TEXT);
     await tick();
@@ -304,11 +369,25 @@ describe("Toast", () => {
     // Text in the link tone, not a Botão instance (no fill, no height, no side padding).
     await expectBindings(action, [
       ...TEXT_BINDINGS.filter((b) => b.utility !== "text-foreground"),
-      { binding: "link (text)", utility: "text-link", css: "color: var(--link);" },
-      { binding: "underline on hover", utility: "hover:underline", css: "text-decoration-line: underline;" },
-      { binding: "focus ring (Task 5)", utility: "focus-visible:focus-ring", css: "outline:" },
+      {
+        binding: "link (text)",
+        utility: "text-link",
+        css: "color: var(--link);",
+      },
+      {
+        binding: "underline on hover",
+        utility: "hover:underline",
+        css: "text-decoration-line: underline;",
+      },
+      {
+        binding: "focus ring (Task 5)",
+        utility: "focus-visible:focus-ring",
+        css: "outline:",
+      },
     ]);
-    expect([...action.classList].filter((c) => /^(bg-|h-|px-|border)/.test(c))).toEqual([]);
+    expect(
+      [...action.classList].filter((c) => /^(bg-|h-|px-|border)/.test(c)),
+    ).toEqual([]);
     await user.click(action);
     expect(onClick).toHaveBeenCalledTimes(1);
   });
@@ -337,15 +416,34 @@ describe("Toast", () => {
     const el = toast()!;
     await expectBindings(el, [...TOAST_BINDINGS, ...MOTION_BINDINGS]);
     await expectBindings(el.querySelector("svg")!, ICON_BINDINGS);
-    await expectBindings(el.querySelector('[data-slot="toast-text"]')!, TEXT_BINDINGS);
+    await expectBindings(
+      el.querySelector('[data-slot="toast-text"]')!,
+      TEXT_BINDINGS,
+    );
     // Bottom centre, 24 px from the window edge, above the content.
     await expectBindings(region()!, [
-      { binding: "24 px from the bottom", utility: "bottom-6", css: "bottom: calc(var(--spacing) * 6);" },
-      { binding: "centred", utility: "justify-center", css: "justify-content: center;" },
-      { binding: "over the content", utility: "fixed", css: "position: fixed;" },
+      {
+        binding: "24 px from the bottom",
+        utility: "bottom-6",
+        css: "bottom: calc(var(--spacing) * 6);",
+      },
+      {
+        binding: "centred",
+        utility: "justify-center",
+        css: "justify-content: center;",
+      },
+      {
+        binding: "over the content",
+        utility: "fixed",
+        css: "position: fixed;",
+      },
     ]);
     // Order: icon, text, link.
-    expect([...el.children].map((c) => c.tagName.toLowerCase())).toEqual(["svg", "span", "button"]);
+    expect([...el.children].map((c) => c.tagName.toLowerCase())).toEqual([
+      "svg",
+      "span",
+      "button",
+    ]);
   });
 
   it("reduced_motion_keeps_fade", async () => {
@@ -355,12 +453,23 @@ describe("Toast", () => {
     const el = toast()!;
     await expectBindings(el, REDUCED_MOTION);
     for (const { utility } of REDUCED_MOTION) {
-      expect(await ruleOf(utility), utility).toContain("prefers-reduced-motion: reduce");
+      expect(await ruleOf(utility), utility).toContain(
+        "prefers-reduced-motion: reduce",
+      );
     }
     // The fades are not reset.
-    expect([...el.classList].filter((c) => /^motion-reduce:.*(fade|animate-none)/.test(c))).toEqual([]);
+    expect(
+      [...el.classList].filter((c) =>
+        /^motion-reduce:.*(fade|animate-none)/.test(c),
+      ),
+    ).toEqual([]);
     // tokens.css also zeroes distance/enter under Reduzir movimento (Review Focus 5).
-    const tokens = readFileSync(resolve(process.cwd(), "src/lib/styles/tokens.css"), "utf8");
-    expect(tokens).toMatch(/prefers-reduced-motion: reduce\)\s*\{\s*:root\s*\{\s*--distance-enter: 0px;/);
+    const tokens = readFileSync(
+      resolve(process.cwd(), "src/lib/styles/tokens.css"),
+      "utf8",
+    );
+    expect(tokens).toMatch(
+      /prefers-reduced-motion: reduce\)\s*\{\s*:root\s*\{\s*--distance-enter: 0px;/,
+    );
   });
 });

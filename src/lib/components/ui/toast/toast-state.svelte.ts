@@ -9,88 +9,99 @@ export const HOLD_MS = 4000;
 export const EXIT_MS = 200;
 
 export type ToastAction = { label: string; onClick: () => void };
-export type ToastItem = { id: number; text: string; action?: ToastAction; closing: boolean };
+export type ToastItem = {
+  id: number;
+  text: string;
+  action?: ToastAction;
+  closing: boolean;
+};
 
 class ToastState {
-	current = $state<ToastItem | null>(null);
-	#nextId = 1;
-	#remaining = HOLD_MS;
-	#startedAt = 0;
-	/** Pointer or focus on the Toaster; kept across toasts, since the Toaster outlives them. */
-	#paused = false;
-	/** The entry is over and the hold is counting (or paused). */
-	#holding = false;
-	#enterTimer: ReturnType<typeof setTimeout> | undefined;
-	#holdTimer: ReturnType<typeof setTimeout> | undefined;
-	#exitTimer: ReturnType<typeof setTimeout> | undefined;
+  current = $state<ToastItem | null>(null);
+  #nextId = 1;
+  #remaining = HOLD_MS;
+  #startedAt = 0;
+  /** Pointer or focus on the Toaster; kept across toasts, since the Toaster outlives them. */
+  #paused = false;
+  /** The entry is over and the hold is counting (or paused). */
+  #holding = false;
+  #enterTimer: ReturnType<typeof setTimeout> | undefined;
+  #holdTimer: ReturnType<typeof setTimeout> | undefined;
+  #exitTimer: ReturnType<typeof setTimeout> | undefined;
 
-	/** Shows the toast, replacing the one on screen: one is visible at a time. */
-	show(text: string, action?: ToastAction) {
-		this.#clear();
-		const item: ToastItem = { id: this.#nextId++, text, action, closing: false };
-		this.current = item;
-		this.#remaining = HOLD_MS;
-		this.#holding = false;
-		// The enter animation's end calls entered(); the timer covers no animation (jsdom, no CSS).
-		this.#enterTimer = setTimeout(() => this.entered(item.id), ENTER_MS);
-	}
+  /** Shows the toast, replacing the one on screen: one is visible at a time. */
+  show(text: string, action?: ToastAction) {
+    this.#clear();
+    const item: ToastItem = {
+      id: this.#nextId++,
+      text,
+      action,
+      closing: false,
+    };
+    this.current = item;
+    this.#remaining = HOLD_MS;
+    this.#holding = false;
+    // The enter animation's end calls entered(); the timer covers no animation (jsdom, no CSS).
+    this.#enterTimer = setTimeout(() => this.entered(item.id), ENTER_MS);
+  }
 
-	/** The entry of the toast `id` is over: the hold starts, unless the toast is paused. */
-	entered(id: number) {
-		if (this.current?.id !== id || this.current.closing || this.#holding) return;
-		clearTimeout(this.#enterTimer);
-		this.#holding = true;
-		if (!this.#paused) this.#start();
-	}
+  /** The entry of the toast `id` is over: the hold starts, unless the toast is paused. */
+  entered(id: number) {
+    if (this.current?.id !== id || this.current.closing || this.#holding)
+      return;
+    clearTimeout(this.#enterTimer);
+    this.#holding = true;
+    if (!this.#paused) this.#start();
+  }
 
-	/**
-	 * Pointer or focus on the toast (WCAG 2.2.1): stops the hold and keeps the time that was left,
-	 * so it resumes from there. During the entry it only defers the hold; after the exit has
-	 * started it changes nothing on screen.
-	 */
-	setPaused(paused: boolean) {
-		if (paused === this.#paused) return;
-		this.#paused = paused;
-		if (!this.current || this.current.closing || !this.#holding) return;
-		if (paused) {
-			clearTimeout(this.#holdTimer);
-			this.#remaining -= Date.now() - this.#startedAt;
-		} else {
-			this.#start();
-		}
-	}
+  /**
+   * Pointer or focus on the toast (WCAG 2.2.1): stops the hold and keeps the time that was left,
+   * so it resumes from there. During the entry it only defers the hold; after the exit has
+   * started it changes nothing on screen.
+   */
+  setPaused(paused: boolean) {
+    if (paused === this.#paused) return;
+    this.#paused = paused;
+    if (!this.current || this.current.closing || !this.#holding) return;
+    if (paused) {
+      clearTimeout(this.#holdTimer);
+      this.#remaining -= Date.now() - this.#startedAt;
+    } else {
+      this.#start();
+    }
+  }
 
-	/** Starts the exit of the toast on screen. */
-	close() {
-		const item = this.current;
-		if (!item || item.closing) return;
-		clearTimeout(this.#enterTimer);
-		clearTimeout(this.#holdTimer);
-		item.closing = true;
-		this.#exitTimer = setTimeout(() => {
-			if (this.current?.id === item.id) this.current = null;
-		}, EXIT_MS);
-	}
+  /** Starts the exit of the toast on screen. */
+  close() {
+    const item = this.current;
+    if (!item || item.closing) return;
+    clearTimeout(this.#enterTimer);
+    clearTimeout(this.#holdTimer);
+    item.closing = true;
+    this.#exitTimer = setTimeout(() => {
+      if (this.current?.id === item.id) this.current = null;
+    }, EXIT_MS);
+  }
 
-	/** Drops the toast and every timer at once, with no exit: the Toaster is gone. */
-	reset() {
-		this.#clear();
-		this.current = null;
-		this.#remaining = HOLD_MS;
-		this.#paused = false;
-		this.#holding = false;
-	}
+  /** Drops the toast and every timer at once, with no exit: the Toaster is gone. */
+  reset() {
+    this.#clear();
+    this.current = null;
+    this.#remaining = HOLD_MS;
+    this.#paused = false;
+    this.#holding = false;
+  }
 
-	#start() {
-		this.#startedAt = Date.now();
-		this.#holdTimer = setTimeout(() => this.close(), this.#remaining);
-	}
+  #start() {
+    this.#startedAt = Date.now();
+    this.#holdTimer = setTimeout(() => this.close(), this.#remaining);
+  }
 
-	#clear() {
-		clearTimeout(this.#enterTimer);
-		clearTimeout(this.#holdTimer);
-		clearTimeout(this.#exitTimer);
-	}
+  #clear() {
+    clearTimeout(this.#enterTimer);
+    clearTimeout(this.#holdTimer);
+    clearTimeout(this.#exitTimer);
+  }
 }
 
 export const toastState = new ToastState();
@@ -100,10 +111,10 @@ import.meta.hot?.dispose(() => toastState.reset());
 
 /** Shows a toast with the text and, optionally, a link-styled action. */
 export function notify(text: string, options: { action?: ToastAction } = {}) {
-	toastState.show(text, options.action);
+  toastState.show(text, options.action);
 }
 
 /** Starts the exit of the toast on screen, if any. */
 export function dismiss() {
-	toastState.close();
+  toastState.close();
 }

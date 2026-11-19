@@ -14,7 +14,7 @@ import { buttonVariants } from "../button";
 import Fixture from "./dialog.fixture.svelte";
 
 type Binding = { binding: string; utility: string; css: string };
-type Kind = "apagar" | "kobo" | "sem-campo";
+type Kind = "apagar" | "kobo" | "sem-campo" | "campos";
 
 /** The utilities layer Tailwind emits for one class alone, compiled with the real app.css. */
 async function ruleOf(candidate: string) {
@@ -35,18 +35,26 @@ const TITLE = {
   apagar: "Apagar este livro?",
   kobo: "Kobo novo",
   "sem-campo": "Kobo novo",
+  campos: "Kobo novo",
 };
 const ROLE = {
   apagar: "alertdialog",
   kobo: "dialog",
   "sem-campo": "dialog",
+  campos: "dialog",
 } as const;
-const OPENER = { apagar: "Apagar livro", kobo: "Abrir", "sem-campo": "Abrir" };
+const OPENER = {
+  apagar: "Apagar livro",
+  kobo: "Abrir",
+  "sem-campo": "Abrir",
+  campos: "Abrir",
+};
 
-async function setup(kind: Kind) {
+async function setup(kind: Kind, props: { focusAction?: boolean } = {}) {
   const onconfirm = vi.fn();
   const onOpenChange = vi.fn();
-  render(Fixture, { kind, onconfirm, onOpenChange });
+  const onlink = vi.fn();
+  render(Fixture, { kind, onconfirm, onOpenChange, onlink, ...props });
   const user = userEvent.setup();
   const opener = screen.getByRole("button", { name: OPENER[kind] });
   const open = async () => {
@@ -58,7 +66,7 @@ async function setup(kind: Kind) {
   await waitFor(() =>
     expect(window.contains(document.activeElement)).toBe(true),
   );
-  return { user, opener, window, open, onconfirm, onOpenChange };
+  return { user, opener, window, open, onconfirm, onOpenChange, onlink };
 }
 
 const closed = (kind: Kind) =>
@@ -263,6 +271,60 @@ describe("Janela modal", () => {
     );
   });
 
+  it("initial_focus_refuses_a_button", async () => {
+    // Q-E: never a button, even when asked; the first text field, else the window.
+    for (const kind of ["apagar", "kobo", "sem-campo"] as const) {
+      const { window } = await setup(kind, { focusAction: true });
+      const expected =
+        kind === "kobo"
+          ? screen.getByRole("textbox", { name: "Nome do leitor" })
+          : window;
+      // Past Bits UI's own deferral, so a late focus would show.
+      await new Promise((r) => setTimeout(r, 20));
+      expect(document.activeElement, kind).toBe(expected);
+      cleanup();
+    }
+  });
+
+  it("focus_returns_to_clicked_opener", async () => {
+    // WebKit on macOS doesn't focus a button on click: the opener must still get focus back.
+    for (const kind of ["apagar", "kobo"] as const) {
+      render(Fixture, { kind });
+      const before = screen.getByRole("button", { name: "Antes" });
+      const opener = screen.getByRole("button", { name: OPENER[kind] });
+      before.focus();
+      fireEvent.click(opener);
+      expect(document.activeElement, kind).not.toBe(opener);
+      const window = await screen.findByRole(ROLE[kind]);
+      await waitFor(() =>
+        expect(window.contains(document.activeElement)).toBe(true),
+      );
+      fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+      await closed(kind);
+      await waitFor(() => expect(document.activeElement, kind).toBe(opener));
+      cleanup();
+    }
+  });
+
+  it("closing_before_initial_focus_keeps_focus_on_opener", async () => {
+    // forceMount keeps the closed window in the DOM, as the exit animation does.
+    for (const [kind, forceMount] of [
+      ["apagar", false],
+      ["kobo", false],
+      ["kobo", true],
+    ] as const) {
+      render(Fixture, { kind, forceMount });
+      const opener = screen.getByRole("button", { name: OPENER[kind] });
+      opener.focus();
+      fireEvent.click(opener);
+      const window = await screen.findByRole(ROLE[kind]);
+      fireEvent.keyDown(window, { key: "Escape" });
+      await new Promise((r) => setTimeout(r, 50));
+      expect(document.activeElement, `${kind} ${forceMount}`).toBe(opener);
+      cleanup();
+    }
+  });
+
   it("focus_is_trapped_and_returns_to_opener", async () => {
     const { user, opener, window } = await setup("apagar");
     const cancel = screen.getByRole("button", { name: "Cancelar" });
@@ -363,6 +425,27 @@ describe("Janela modal", () => {
     expect(document.activeElement).toBe(window);
     await user.keyboard("{Enter}");
     expect(onconfirm).toHaveBeenCalledOnce();
+  });
+
+  it("return_is_left_to_links_and_text_areas", async () => {
+    const { user, window, onconfirm, onlink } = await setup("campos");
+    expect(window.querySelector("[data-dialog-default]")).not.toBeNull();
+
+    const link = screen.getByRole("link", { name: "Ajuda" });
+    link.focus();
+    await user.keyboard("{Enter}");
+    expect(onlink).toHaveBeenCalledOnce();
+    expect(onconfirm).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBe(window);
+
+    const note = screen.getByRole("textbox", {
+      name: "Nota",
+    }) as HTMLTextAreaElement;
+    note.focus();
+    await user.keyboard("a{Enter}b");
+    expect(note.value).toBe("a\nb");
+    expect(onconfirm).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBe(window);
   });
 
   it("destructive_action_is_secondary_with_destructive_text", async () => {
