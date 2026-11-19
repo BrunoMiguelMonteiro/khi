@@ -219,7 +219,7 @@ describe('tokens.css (Figma variables)', () => {
 
 	it('contrast_modes_exist_with_every_color', () => {
 		const keys = Object.keys(light).sort();
-		expect(keys).toHaveLength(61);
+		expect(keys).toHaveLength(64);
 		for (const mode of [dark, lightContrast, darkContrast]) {
 			expect(mode).toBeDefined();
 			expect(Object.keys(mode).sort()).toEqual(keys);
