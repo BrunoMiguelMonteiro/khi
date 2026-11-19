@@ -17,6 +17,28 @@
       "progress": "{done} of {total} books"
     },
     "library": {
+      "header": {
+        "newHighlights": "{count} new highlights",
+        "newHighlights_one": "1 new highlight",
+        "newHighlights_other": "{count} new highlights",
+        "inBooks": "in {count} books",
+        "inBooks_one": "in 1 book",
+        "inBooks_other": "in {count} books",
+        "since": "since {date}",
+        "showOnly": "Show only these",
+        "exportBooks": "Export {count} books",
+        "exportBooks_one": "Export 1 book",
+        "exportBooks_other": "Export {count} books",
+        "exporting": "Exporting…",
+        "exported": "✓ Exported",
+        "syncing": "Syncing with the Kobo",
+        "syncProgress": "{done} of {count} books",
+        "syncProgress_one": "{done} of 1 book",
+        "syncProgress_other": "{done} of {count} books",
+        "noNews": "No new highlights",
+        "syncedAt": "synced at {time}",
+        "retry": "Try again"
+      },
       "title": "Library",
       "exportAll": "Export All",
       "exportSelected": "Export Selected",

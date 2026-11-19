@@ -1129,7 +1129,7 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 - anúncios: uma região `aria-live="polite"` à parte, que diz só o início («A sincronizar com o Kobo») e o fim (a mensagem de Novos ou Sem novidades); o «N de M livros» muda no ecrã mas não se anuncia; `role="alert"` no Erro.
 - O ícone que roda (Movimento 2) é o Sincronizar da Barra (Task 30).
 
-- [ ] **Passo 1: testes que falham** (`library-header.test.ts`, com o fixture):
+- [x] **Passo 1: testes que falham** (`library-header.test.ts`, com o fixture):
   - `novos_text_with_plurals`;
   - `syncing_text_counts_books`;
   - `no_news_shows_sync_time`;
@@ -1137,10 +1137,10 @@ Depende da Task 6 (`switch-on`, `input-strong`).
   - `error_is_alert_and_retry_calls_on_retry`;
   - `show_only_and_export_call_callbacks`;
   - `export_button_shows_exported_for_2s`.
-- [ ] **Passo 2:** `npx vitest run src/lib/components/ui/library-header` falha.
-- [ ] **Passo 3:** o componente e as chaves em `screens.library.*`.
-- [ ] **Passo 4:** os testes passam e passam os quatro comandos.
-- [ ] **Passo 5:** commit `feat(ui): LibraryHeader with sync, news and error states`.
+- [x] **Passo 2:** `npx vitest run src/lib/components/ui/library-header` falha.
+- [x] **Passo 3:** o componente e as chaves em `screens.library.*`.
+- [x] **Passo 4:** os testes passam e passam os quatro comandos.
+- [x] **Passo 5:** commit `feat(ui): LibraryHeader with sync, news and error states`.
 
 **Verificar no ecrã:** a quebra de linha com um erro longo; só fade com Reduzir movimento; o VoiceOver diz o início e o fim.
 
