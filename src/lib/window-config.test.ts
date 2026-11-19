@@ -19,7 +19,7 @@ describe("window config", () => {
     // The title bar is the WindowBar's; the Settings window is built in Rust and does not inherit this
     expect(main.titleBarStyle).toBe("Overlay");
     expect(main.hiddenTitle).toBe(true);
-    expect(main.trafficLightPosition).toEqual({ x: 16, y: 20 });
+    expect(main.trafficLightPosition).toEqual({ x: 16, y: 28 });
   });
 
   it("default_capability_allows_start_dragging", () => {

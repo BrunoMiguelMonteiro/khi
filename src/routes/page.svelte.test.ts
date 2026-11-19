@@ -4,10 +4,22 @@ import userEvent from '@testing-library/user-event';
 import { flushSync, tick } from 'svelte';
 
 const handlers = vi.hoisted(() => new Map<string, (event: { payload: unknown }) => void>());
+/** The window's own listeners (`onResized`, `onFocusChanged`), by name, and what ends them. */
+const windowEvents = vi.hoisted(() => new Map<string, (event: { payload: unknown }) => void>());
+const windowUnlisten = vi.hoisted(() => ({ resized: vi.fn(), focus: vi.fn() }));
 const mainWindow = vi.hoisted(() => ({
 	label: 'main',
 	setTheme: vi.fn(() => Promise.resolve()),
-	setFocus: vi.fn(() => Promise.resolve())
+	setFocus: vi.fn(() => Promise.resolve()),
+	isFullscreen: vi.fn(() => Promise.resolve(false)),
+	onResized: vi.fn((handler: (event: { payload: unknown }) => void) => {
+		windowEvents.set('resized', handler);
+		return Promise.resolve(windowUnlisten.resized);
+	}),
+	onFocusChanged: vi.fn((handler: (event: { payload: unknown }) => void) => {
+		windowEvents.set('focus', handler);
+		return Promise.resolve(windowUnlisten.focus);
+	})
 }));
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn() }));
@@ -780,5 +792,93 @@ describe('+page · shortcuts', () => {
 		expect(calls('sync_kobo')).toHaveLength(0);
 		expect(calls('export_library_books')).toHaveLength(0);
 		expect(calls('update_settings')).toHaveLength(0);
+	});
+});
+
+describe('+page · traffic lights', () => {
+	const block = () => bar()?.querySelector<HTMLElement>('[data-traffic-lights]') ?? null;
+	/** Lets the rejected or answered measurement reach the bar. */
+	const settle = async () => {
+		for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+		await tick();
+	};
+
+	beforeEach(() => {
+		vi.mocked(invoke).mockReset();
+		handlers.clear();
+		windowEvents.clear();
+		windowUnlisten.resized.mockClear();
+		windowUnlisten.focus.mockClear();
+		mainWindow.isFullscreen.mockImplementation(() => Promise.resolve(false));
+		resetLibrary();
+	});
+
+	it('bar_reserves_measured_traffic_lights', async () => {
+		await mockLibrary({ books: newBooks(), overrides: { traffic_lights_max_x: () => 76 } });
+		render(Page);
+
+		// The zoom button ends at x = 76 (14 pt lights, 23 pt apart); the bar's px-4 gives the first 16
+		await waitFor(() => expect(block()?.style.width).toBe('60px'));
+		expect(block()!.classList.contains('shrink-0')).toBe(true);
+	});
+
+	it('bar_keeps_52_when_measure_fails', async () => {
+		await mockLibrary({
+			books: newBooks(),
+			overrides: {
+				traffic_lights_max_x: () => {
+					throw 'no NSWindow';
+				}
+			}
+		});
+		const failed = render(Page);
+		await waitFor(() => expect(calls('traffic_lights_max_x')).toHaveLength(1));
+		await settle();
+		expect(block()?.style.width).toBe('52px');
+		failed.unmount();
+
+		// No zoom button, or not macOS: `null`, and the 52 stay too
+		resetLibrary();
+		await mockLibrary({ books: newBooks(), overrides: { traffic_lights_max_x: () => null } });
+		render(Page);
+		await waitFor(() => expect(calls('traffic_lights_max_x')).toHaveLength(2));
+		await settle();
+		expect(block()?.style.width).toBe('52px');
+	});
+
+	it('fullscreen_reserves_no_traffic_light_space', async () => {
+		mainWindow.isFullscreen.mockImplementation(() => Promise.resolve(true));
+		await mockLibrary({ books: newBooks(), overrides: { traffic_lights_max_x: () => 76 } });
+		render(Page);
+		await screen.findByRole('button', { name: "Bruno's Library" });
+
+		// No traffic lights in full screen: the title starts at the bar's px-4, with no gap before it
+		await waitFor(() => expect(block()).toBeNull());
+		expect(within(bar()!.firstElementChild as HTMLElement).getByRole('button', { name: "Bruno's Library" })).toBeInTheDocument();
+
+		// Leaving full screen resizes the window, which measures again
+		mainWindow.isFullscreen.mockImplementation(() => Promise.resolve(false));
+		expect(windowEvents.has('resized')).toBe(true);
+		windowEvents.get('resized')!({ payload: { width: 2000, height: 1400 } });
+		await waitFor(() => expect(block()?.style.width).toBe('60px'));
+	});
+
+	it('bar_remeasures_when_the_window_is_shown', async () => {
+		// The window is still hidden at mount, and tao moves the buttons on its first draw
+		let maxX = 67;
+		await mockLibrary({ books: newBooks(), overrides: { traffic_lights_max_x: () => maxX } });
+		const page = render(Page);
+		await waitFor(() => expect(block()?.style.width).toBe('51px'));
+
+		// Shown, and so focused: measured again
+		maxX = 76;
+		expect(windowEvents.has('focus')).toBe(true);
+		windowEvents.get('focus')!({ payload: true });
+		await waitFor(() => expect(block()?.style.width).toBe('60px'));
+
+		// Both listeners end with the page
+		page.unmount();
+		expect(windowUnlisten.resized).toHaveBeenCalled();
+		expect(windowUnlisten.focus).toHaveBeenCalled();
 	});
 });

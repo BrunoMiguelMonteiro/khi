@@ -47,6 +47,7 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         system_accent::get_system_accent,
         window::open_settings,
         window::settings_reader,
+        window::traffic_lights_max_x,
     ])
     .events(collect_events![
         DeviceDetectedEvent,

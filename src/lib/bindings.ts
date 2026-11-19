@@ -57,6 +57,16 @@ export const commands = {
 	openSettings: (title: string, readerId: number | null) => __TAURI_INVOKE<null>("open_settings", { title, readerId }),
 	/**  The Reader to show in Settings; `None` means the last one opened (R5). */
 	settingsReader: () => __TAURI_INVOKE<number | null>("settings_reader"),
+	/**
+	 *  The right edge of the zoom button, in points from the window's left
+	 *  edge: the WindowBar leaves this much, less its own `px-4`, for the
+	 *  traffic lights (redesign Task 36b). Their size and spacing change between
+	 *  macOS versions, so they are measured, never assumed. `None` without a zoom
+	 *  button or a native window, and off macOS.
+	 *  Async: it runs off the main thread, so waiting there for AppKit never
+	 *  blocks the event loop.
+	 */
+	trafficLightsMaxX: () => __TAURI_INVOKE<number | null>("traffic_lights_max_x"),
 };
 
 /** Events */

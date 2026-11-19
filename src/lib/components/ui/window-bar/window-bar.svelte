@@ -25,6 +25,8 @@
 		canDelete?: boolean;
 		ondelete?: () => void;
 		onback?: () => void;
+		/** The width left for the traffic lights, measured by the page; 0 in full screen, where they are hidden. */
+		trafficLightsWidth?: number;
 		class?: string;
 	};
 </script>
@@ -59,6 +61,7 @@
 		canDelete = false,
 		ondelete,
 		onback,
+		trafficLightsWidth = 52,
 		class: className
 	}: WindowBarProps = $props();
 
@@ -104,8 +107,10 @@
 		className
 	)}
 >
-	<!-- The macOS traffic lights sit here under the Overlay title bar (enabled with screen 1): 52 x 12, so the first control starts at x = 84. The left group takes `mr-auto` because the block is now a third flex item. -->
-	<div data-traffic-lights aria-hidden="true" class="h-3 w-13 shrink-0"></div>
+	<!-- The macOS traffic lights sit here under the Overlay title bar: 52 x 12 in the Figma, measured at runtime (Task 36b), so the first control starts 16 after the zoom button. With no width (full screen) the block is not rendered, so it leaves no gap-4 either. The left group takes `mr-auto` because the block is a third flex item. -->
+	{#if trafficLightsWidth > 0}
+		<div data-traffic-lights aria-hidden="true" class="h-3 shrink-0" style:width="{trafficLightsWidth}px"></div>
+	{/if}
 	{#if screen === 'library'}
 		<div class="flex items-center gap-1 mr-auto">
 			<TitleMenu {readers} {activeReaderId} onselect={onselectReader} />

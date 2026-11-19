@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 	import { getCurrentWindow } from '@tauri-apps/api/window';
-	import { events } from '$lib/bindings';
+	import { commands, events } from '$lib/bindings';
 	import LibraryView from '$lib/components/LibraryView.svelte';
 	import BookDetailsView from '$lib/components/BookDetailsView.svelte';
 	import EmptyStateNoDevice from '$lib/components/EmptyStateNoDevice.svelte';
@@ -61,6 +61,31 @@
 	let unlistenSyncProgress: UnlistenFn | undefined;
 	let unlistenSyncFinished: UnlistenFn | undefined;
 	let unlistenReadersChanged: UnlistenFn | undefined;
+	let unlistenResized: UnlistenFn | undefined;
+	let unlistenFocusChanged: UnlistenFn | undefined;
+
+	/** The bar's room for the traffic lights: the zoom button's right edge less the bar's px-4 (Task 36b). None in full screen; 52, the Figma's, until measured. */
+	let trafficLightsWidth = $state(52);
+	/** Resizes come in bursts: only the latest measurement is kept. */
+	let measurement = 0;
+
+	async function measureTrafficLights() {
+		const run = ++measurement;
+		const [fullscreen, maxX] = await Promise.all([
+			getCurrentWindow()
+				.isFullscreen()
+				.catch(() => false),
+			commands.trafficLightsMaxX().catch((error) => {
+				console.error('Failed to measure the traffic lights:', error);
+				return null;
+			})
+		]);
+		if (run !== measurement) return;
+		if (fullscreen) trafficLightsWidth = 0;
+		else if (typeof maxX === 'number' && Number.isFinite(maxX)) trafficLightsWidth = Math.max(0, maxX - 16);
+		// Out of full screen with no measurement: back to the Figma's
+		else if (trafficLightsWidth === 0) trafficLightsWidth = 52;
+	}
 
 	// Sort books based on selected option
 	let sortedBooks = $derived(
@@ -99,6 +124,22 @@
 		// Setup event listeners for device monitoring
 		setupDeviceListeners();
 
+		// The traffic lights' room in the bar: measured now, on every resize (full screen included), and
+		// when the window gains focus, as it does when shown: tao only moves the buttons on the first draw
+		let destroyed = false;
+		measureTrafficLights();
+		const appWindow = getCurrentWindow();
+		appWindow
+			.onResized(() => measureTrafficLights())
+			.then((unlisten) => (destroyed ? unlisten() : (unlistenResized = unlisten)))
+			.catch((error) => console.error('Failed to listen for resizes:', error));
+		appWindow
+			.onFocusChanged(({ payload: focused }) => {
+				if (focused) measureTrafficLights();
+			})
+			.then((unlisten) => (destroyed ? unlisten() : (unlistenFocusChanged = unlisten)))
+			.catch((error) => console.error('Failed to listen for focus:', error));
+
 		// Open the Library, then look for a Kobo
 		handleStartup();
 
@@ -110,6 +151,9 @@
 			unlistenSyncProgress?.();
 			unlistenSyncFinished?.();
 			unlistenReadersChanged?.();
+			destroyed = true;
+			unlistenResized?.();
+			unlistenFocusChanged?.();
 		};
 	});
 
@@ -362,6 +406,7 @@
 		{#if detailBook}
 			<WindowBar
 				screen="detail"
+				{trafficLightsWidth}
 				onback={handleCloseBookDetails}
 				exportCount={1}
 				onexport={handleBarExport}
@@ -370,6 +415,7 @@
 		{:else}
 			<WindowBar
 				screen="library"
+				{trafficLightsWidth}
 				readers={library.readers}
 				activeReaderId={library.activeReaderId}
 				onselectReader={(id) => handleSelectReader(Number(id))}

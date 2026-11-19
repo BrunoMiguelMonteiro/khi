@@ -166,6 +166,68 @@ pub async fn open_settings(
     Ok(())
 }
 
+/// The right edge of the zoom button, in points from the window's left
+/// edge: the WindowBar leaves this much, less its own `px-4`, for the
+/// traffic lights (redesign Task 36b). Their size and spacing change between
+/// macOS versions, so they are measured, never assumed. `None` without a zoom
+/// button or a native window, and off macOS.
+/// Async: it runs off the main thread, so waiting there for AppKit never
+/// blocks the event loop.
+#[tauri::command]
+#[specta::specta]
+pub async fn traffic_lights_max_x(window: tauri::WebviewWindow) -> Option<f64> {
+    tauri::async_runtime::spawn_blocking(move || traffic_lights::max_x_on_main_thread(&window))
+        .await
+        .unwrap_or_else(|e| {
+            log::warn!("[Window] Measuring the traffic lights stopped ({e})");
+            None
+        })
+}
+
+#[cfg(target_os = "macos")]
+mod traffic_lights {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::{NSWindow, NSWindowButton};
+
+    /// AppKit is main-thread only. Called there, it reads in place; from
+    /// anywhere else it hops to the main thread and waits for the answer.
+    pub(super) fn max_x_on_main_thread(window: &tauri::WebviewWindow) -> Option<f64> {
+        if let Some(mtm) = MainThreadMarker::new() {
+            return read(window, mtm);
+        }
+        let (tx, rx) = std::sync::mpsc::channel();
+        let target = window.clone();
+        let hop = window.run_on_main_thread(move || {
+            let _ = tx.send(MainThreadMarker::new().and_then(|mtm| read(&target, mtm)));
+        });
+        if let Err(e) = hop {
+            log::warn!("[Window] Couldn't reach the main thread ({e}); traffic lights not measured");
+            return None;
+        }
+        // A task dropped unrun drops `tx`, so this never waits forever
+        rx.recv().ok().flatten()
+    }
+
+    fn read(window: &tauri::WebviewWindow, _mtm: MainThreadMarker) -> Option<f64> {
+        // On the main thread Tauri answers this getter in place
+        let ptr = window.ns_window().ok()?.cast::<NSWindow>();
+        // SAFETY: Tauri's NSWindow for this live window, used on the main
+        // thread while `window` keeps it open; a null pointer gives `None`.
+        let ns_window = unsafe { ptr.as_ref() }?;
+        let zoom = ns_window.standardWindowButton(NSWindowButton::ZoomButton)?;
+        // The button's own bounds, to window coordinates (`toView: nil`)
+        let rect = zoom.convertRect_toView(zoom.bounds(), None);
+        Some(rect.origin.x + rect.size.width)
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+mod traffic_lights {
+    pub(super) fn max_x_on_main_thread(_window: &tauri::WebviewWindow) -> Option<f64> {
+        None
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

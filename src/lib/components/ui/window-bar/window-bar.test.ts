@@ -314,13 +314,42 @@ describe("WindowBar window chrome", () => {
       expect(blocksDrag(block)).toBe(false);
       expect(block.textContent).toBe("");
       expect(bar.querySelectorAll("[data-traffic-lights]")).toHaveLength(1);
-      // 52 x 12, kept in the layout even when the row is tight.
-      for (const c of ["w-13", "h-3", "shrink-0"])
+      // 52 x 12 by default, kept in the layout even when the row is tight.
+      expect(block.style.width, props.screen).toBe("52px");
+      for (const c of ["h-3", "shrink-0"])
         expect(block.classList.contains(c), c).toBe(true);
       unmount();
     }
-    expect(await ruleOf("w-13")).toContain("* 13");
     expect(await ruleOf("h-3")).toContain("* 3)");
+  });
+
+  it("traffic_light_space_follows_measured_width", async () => {
+    for (const props of SCREENS) {
+      const { bar, rerender, unmount } = renderBar({
+        ...props,
+        trafficLightsWidth: 60,
+      });
+      const block = () =>
+        bar.querySelector<HTMLElement>("[data-traffic-lights]");
+      expect(block()?.style.width, props.screen).toBe("60px");
+      expect(block()?.classList.contains("shrink-0")).toBe(true);
+      expect(block()?.classList.contains("h-3")).toBe(true);
+
+      // Full screen: no block, so no gap-4 before the first group either.
+      await rerender({ ...props, trafficLightsWidth: 0 });
+      expect(block(), props.screen).toBeNull();
+      expect(bar.firstElementChild?.querySelector("button")).not.toBeNull();
+      unmount();
+    }
+  });
+
+  it("traffic_light_space_defaults_to_52", () => {
+    for (const props of SCREENS) {
+      const { bar, unmount } = renderBar(props);
+      const block = bar.querySelector<HTMLElement>("[data-traffic-lights]");
+      expect(block?.style.width, props.screen).toBe("52px");
+      unmount();
+    }
   });
 });
 

@@ -141,6 +141,8 @@ export function installTauriMock(config: MockConfig): void {
 			case 'plugin:window|show':
 			case 'plugin:window|set_focus':
 				return null;
+			case 'plugin:window|is_fullscreen':
+				return false;
 			case 'plugin:menu|new':
 				return [nextRid++, args.options?.id ?? `mock-menu-${nextRid}`];
 			case 'plugin:menu|set_as_app_menu':
@@ -186,6 +188,9 @@ export function installTauriMock(config: MockConfig): void {
 				return null;
 			case 'open_settings':
 				return null;
+			case 'traffic_lights_max_x':
+				// 68 - the bar's px-4 = 52, the Figma's room for the traffic lights: the baselines stay as they are
+				return 68;
 			case 'clear_cover_cache':
 				return null;
 			case 'list_readers':

@@ -1575,6 +1575,41 @@ Fontes: [W3C APG, Listbox Pattern](https://w3.org/WAI/ARIA/apg/patterns/listbox)
 - as setas, o Enter e o Espaço;
 - o ⌘A seleciona o texto da página e não os livros (fica assim até à Fase 6).
 
+**Verificação no ecrã do ecrã 1 (Bruno, 2026-11-19):**
+- arrastar a barra e clicar nos botões: funciona;
+- exportar e o toast: funcionam;
+- **semáforos desalinhados:** o centro estava a ≈ 17,5 pt do topo, e o centro da barra está a 26.
+  - Causa (tao 0.37.2, `view.rs:1017-1047`): o `y` é a altura do contentor da barra de título menos a do botão, e o botão mantém o `origin.y`, que conta a partir de baixo. O centro fica a cerca de `y + h/2 − origin.y`.
+  - Correção: `trafficLightPosition` passa de `{16, 20}` a `{16, 28}`. Falta voltar a verificar no ecrã.
+- **Seleção:** o Bruno pede uma caixa de seleção visível em cada livro, como na v1: «O command + clique não é intuitivo». Fica para uma **ronda de design própria, depois do ecrã 1**: pesquisa, 3 opções no Figma e a escolha do Bruno. Muda o Cartão do livro (Q-B, B2) e a grelha.
+
+### Task 36b: espaço dos semáforos medido no arranque
+**Decisão do Bruno, 2026-11-19** («Medir no arranque», a opção recomendada).
+- **Problema:** no macOS do Bruno (Darwin 27), cada semáforo tem 14 pt e os centros estão a 23 pt. O bloco vai de x=16 a 76 (60 pt). O Figma (`69:6427`) e a `WindowBar` assumem 12 pt e um passo de 20, ou seja, 52 pt. Por isso o título ficava a 9 pt dos semáforos, e não a 16.
+- **Rejeitados:**
+  - 60 fixo: no macOS 13–15 o título ficava a 24 pt;
+  - um valor por versão do macOS: parte na próxima mudança da Apple.
+- **Implementador:** Opus (código nativo `unsafe` no fio principal).
+
+**Comportamento:**
+1. Rust: um command `traffic_lights_max_x(window) -> Option<f64>`.
+   - No fio principal, lê `standardWindowButton(ZoomButton)` e converte o frame para coordenadas da janela (`convertRect:toView: nil`). Devolve o `maxX` em pontos.
+   - Devolve `None` se faltar o botão ou o `ns_window`.
+   - Segue o padrão do `system_accent.rs` (`MainThreadMarker`, `objc2-app-kit`), com as features mínimas no `Cargo.toml`. Fica registado no `specta` e nos bindings.
+2. `WindowBar`: um prop `trafficLightsWidth?: number`, com 52 por omissão. O bloco `data-traffic-lights` fica com essa largura e mantém o `h-3` e o `shrink-0`.
+3. A página:
+   - no arranque, chama o command e passa `max(0, maxX − 16)` (o `px-4` da Barra);
+   - em ecrã inteiro (`isFullscreen()`), passa 0;
+   - volta a medir no `onResized`;
+   - sem medida (um erro ou `null`), fica com os 52.
+4. O `mock-ipc.ts` devolve 68, o que dá 52 e deixa as baselines como estão.
+
+- [x] **Testes que falham:**
+  - `window-bar.test.ts`: `traffic_light_space_follows_measured_width` e `traffic_light_space_defaults_to_52`. O `reserves_traffic_light_space` adapta-se;
+  - `page.svelte.test.ts`: `bar_reserves_measured_traffic_lights` (76 dá 60), `bar_keeps_52_when_measure_fails` e `fullscreen_reserves_no_traffic_light_space`.
+- [x] **Gate completo** e `UPDATE_BINDINGS=1 cargo test bindings_are_up_to_date`.
+- [ ] **Verificar no ecrã (Bruno):** 16 pt entre o semáforo verde e «Biblioteca», com e sem ecrã inteiro.
+
 ## Fase 6 · Fecho da v2 (tasks a escrever)
 - **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.
   
