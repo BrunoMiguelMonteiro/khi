@@ -287,6 +287,14 @@
       "list": "Ver em lista",
       "gridTooltip": "Grelha",
       "listTooltip": "Lista"
+    },
+    "segmented": {
+      "label": "Mostrar",
+      "all": "Todos",
+      "new": "Novos",
+      "withNotes": "Com notas",
+      "noNew": "Não há destaques novos neste livro",
+      "noNotes": "Não há destaques com notas neste livro"
     }
   }
 }

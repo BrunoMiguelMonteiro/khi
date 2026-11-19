@@ -287,6 +287,14 @@
       "list": "View as list",
       "gridTooltip": "Grid",
       "listTooltip": "List"
+    },
+    "segmented": {
+      "label": "Show",
+      "all": "All",
+      "new": "New",
+      "withNotes": "With notes",
+      "noNew": "No new highlights in this book",
+      "noNotes": "No highlights with notes in this book"
     }
   }
 }

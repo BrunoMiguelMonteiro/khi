@@ -754,7 +754,7 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
 - Contraste aumentado: o escolhido com `inset-ring inset-ring-contrast-outline-strong` (variável nova no Figma em 2026-11-19, ligada a `55:2562`: transparente nos modos normais, `input-strong` nos de contraste, 3:1 contra a calha; o `contrast-outline` dava 2,7 e 2,5);
 - VoiceOver: o grupo chama-se `label` («Mostrar») e cada segmento lê «Novos, 5».
 
-- [ ] **Passo 1: testes que falham** (`segmented.test.ts`):
+- [x] **Passo 1: testes que falham** (`segmented.test.ts`):
   - `radiogroup_named_mostrar`;
   - `segment_name_includes_count`;
   - `arrows_select_and_skip_zero_count_segment`;
@@ -765,12 +765,13 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
   - `matches_figma_sample`: a contagem do escolhido liga a `segmented-selected-count` em `design/components-sample.json`;
   - `no_hover_class_on_segments`;
   - `selected_has_contrast_outline`.
-- [ ] **Passo 2:** `npx vitest run src/lib/components/ui/segmented` falha.
-- [ ] **Passo 3:** o componente e as chaves `ui.segmented.*`.
-- [ ] **Passo 4:** os testes passam e passam os quatro comandos.
-- [ ] **Passo 5:** commit `feat(ui): Segmented filter with disabled zero-count segments`.
+- [x] **Passo 2:** `npx vitest run src/lib/components/ui/segmented` falha.
+- [x] **Passo 3:** o componente e as chaves `ui.segmented.*`.
+- [x] **Passo 4:** os testes passam e passam os quatro comandos.
+- [x] **Passo 5:** commit `feat(ui): Segmented filter with disabled zero-count segments`.
 
 **Verificar no ecrã:** largura igual com contagens diferentes; o fundo muda sem deslizar.
+- **Resultado (2026-11-19):** `src/lib/components/ui/segmented/`, 10 testes, com FIGMA_BINDINGS de `55:2574` e `55:2588`, e `matches_figma_sample` sobre `segment-selected-count`. A interface é `segments={{ value, label, count, emptyReason? }[]}`. O valor por omissão é o primeiro segmento (Todos). A calha é `inline-grid grid-flow-col auto-cols-fr` e cada segmento tem `min-w-24` (96 no Figma). O nome de cada segmento é `aria-label` «Novos, 5». As classes do escolhido escolhem-se no Svelte (strings estáticas completas), não com `data-checked:` nos filhos. Desvio no segmento vazio: fica o `disabled` do Bits UI (`data-disabled`, as setas saltam-no, o clique é ignorado), mas sem o `disabled` nativo, que pode engolir os eventos do ponteiro e, com eles, o tooltip. Leva `aria-disabled` e `preventDefault` no `mousedown`, para o clique não o focar. O `tabindex` é o do Bits (-1 fora da paragem). O `data-disabled` do Bits é reposto depois do tooltip, que o apagava. Chaves `ui.segmented.*`; a frase das notas, «Não há destaques com notas neste livro», é minha e falta aprovar. Mutações apanhadas: sem `inset-ring-contrast-outline-strong`, `bg-segmented-selected` → `bg-background`, Medium → `font-semibold`, o segmento vazio escolhível, o `data-disabled` perdido, a contagem do escolhido em `tertiary-foreground`, sem `auto-cols-fr` e o `mousedown` sem guarda.
 
 ### Task 17: Menu
 **Ficheiros:** `npx shadcn-svelte@1.8.1 add dropdown-menu`; adaptar `src/lib/components/ui/dropdown-menu/*` com `menu-classes.ts` (Task 14); criar `dropdown-menu.test.ts`.
