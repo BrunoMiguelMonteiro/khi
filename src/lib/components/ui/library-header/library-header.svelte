@@ -26,6 +26,7 @@
 	import CircleAlert from 'lucide-svelte/icons/circle-alert';
 	import { onDestroy } from 'svelte';
 	import { fade } from 'svelte/transition';
+	import { prefersReducedMotion } from 'svelte/motion';
 	import { _, locale } from '$lib/i18n';
 	import { cn } from '$lib/utils';
 	import { Button } from '../button';
@@ -104,12 +105,13 @@
 
 <!--
 	Componentes (D7) · 21 · Cabeçalho da Biblioteca (67:5835); Movimento 2 e 3: the strip enters over
-	duration/reveal with ease/out and leaves in a 150 ms fade; with Reduzir movimento only the fades stay.
+	duration/reveal with ease/out and leaves in a 150 ms fade;
+	with Reduzir movimento the strip enters with the fade alone (no slide) and leaves at once.
 -->
 <div
 	data-slot="library-header"
 	data-state={current.kind}
-	out:fade={{ duration: 150 }}
+	out:fade={{ duration: prefersReducedMotion.current ? 0 : 150 }}
 	class={cn(
 		'flex min-h-control flex-wrap items-center justify-between gap-x-4 gap-y-2',
 		'animate-in fade-in-0 slide-in-from-top-(length:--distance-enter) duration-(--duration-reveal) ease-out motion-reduce:slide-in-from-top-0',

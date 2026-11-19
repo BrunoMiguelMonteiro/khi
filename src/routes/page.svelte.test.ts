@@ -44,8 +44,26 @@ import Page from './+page.svelte';
 // jsdom has no pointer capture, which Bits UI's triggers release on pointerdown
 Element.prototype.hasPointerCapture ??= () => false;
 Element.prototype.releasePointerCapture ??= () => {};
-// jsdom has no Web Animations; the toast and the header fade
-Element.prototype.animate ??= vi.fn(() => ({ cancel: vi.fn(), finished: Promise.resolve(), onfinish: null })) as never;
+
+/**
+ * jsdom has no Web Animations: Svelte's outros (the header's 150 ms fade) would never finish.
+ * This runs each animation for its `duration` on a timer, then fires `onfinish`.
+ */
+function playAnimationsOnTimers() {
+	const proto = Element.prototype as unknown as Record<string, unknown>;
+	proto.getAnimations = () => [];
+	proto.animate = function (_keyframes: unknown, options: { duration?: number } | number) {
+		const duration = typeof options === 'number' ? options : (options?.duration ?? 0);
+		const animation = {
+			onfinish: null as null | (() => void),
+			cancel: () => clearTimeout(timer),
+			finish: () => animation.onfinish?.()
+		};
+		const timer = setTimeout(() => animation.onfinish?.(), duration);
+		return animation;
+	};
+}
+playAnimationsOnTimers();
 
 const readers = [
 	{ id: 1, name: 'Bruno', exportPath: null },
@@ -145,30 +163,10 @@ const syncReady = () =>
 	waitFor(() =>
 		expect(within(bar()!).getByRole('button', { name: 'Sync with the Kobo' })).not.toHaveAttribute('aria-disabled', 'true')
 	);
-/**
- * jsdom has no Web Animations: Svelte's outros (the header's 150 ms fade) would never finish.
- * This runs each animation for its `duration` on a timer, then fires `onfinish`.
- */
-function playAnimationsOnTimers() {
-	const proto = Element.prototype as unknown as Record<string, unknown>;
-	proto.getAnimations = () => [];
-	proto.animate = function (_keyframes: unknown, options: { duration?: number } | number) {
-		const duration = typeof options === 'number' ? options : (options?.duration ?? 0);
-		const animation = {
-			onfinish: null as null | (() => void),
-			cancel: () => clearTimeout(timer),
-			finish: () => animation.onfinish?.()
-		};
-		const timer = setTimeout(() => animation.onfinish?.(), duration);
-		return animation;
-	};
-}
-
 const calls = (cmd: string) => vi.mocked(invoke).mock.calls.filter(([c]) => c === cmd);
 
 describe('+page', () => {
 	beforeEach(() => {
-		playAnimationsOnTimers();
 		vi.mocked(invoke).mockReset();
 		handlers.clear();
 		mainWindow.setFocus.mockClear();
@@ -417,6 +415,17 @@ describe('+page · screen 1', () => {
 		expect(screen.queryByText(/synced at/)).toBeNull();
 		// Nothing is left in the grid's place: the grid is the content's first child
 		expect(screen.getByRole('listbox').parentElement!.firstElementChild).toBe(screen.getByRole('listbox'));
+	});
+
+	it('no_news_shows_no_header_in_list', async () => {
+		const read = newBooks().map((b) => ({ ...b, highlights: b.highlights.map((h) => ({ ...h, isNew: false })) }));
+		await mockLibrary({ books: read, summary: { newSince: '2026-11-09T10:00:00Z', lastSyncAt: '2026-11-19T10:42:00Z' }, device: kobo });
+		settings.uiPreferences.libraryViewMode = 'list';
+		render(Page);
+		const list = await screen.findByTestId('books-list');
+		expect(header()).toBeNull();
+		expect(screen.queryByText('No new highlights')).toBeNull();
+		expect(list.parentElement!.firstElementChild).toBe(list);
 	});
 
 	it('header_leaves_after_export_clears_news', async () => {

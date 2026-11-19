@@ -1,7 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/svelte";
+
+// `prefersReducedMotion` (svelte/motion) reads its media query when the module loads: the stub goes in first.
+const reduceMotion = vi.hoisted(() => {
+  const query = { matches: false };
+  const original = window.matchMedia;
+  window.matchMedia = ((q: string) =>
+    /reduced-motion/.test(q)
+      ? Object.assign(query, {
+          media: q,
+          addEventListener: () => {},
+          removeEventListener: () => {},
+        })
+      : original(q)) as typeof window.matchMedia;
+  return query;
+});
+import { render, screen, waitFor } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
 import Fixture from "./library-header-fixture.svelte";
+import ToggleFixture from "./library-header-toggle.fixture.svelte";
 import PropsFixture from "./library-header-props.fixture.svelte";
 import { LibraryHeader } from "./index";
 import type { LibraryHeaderState } from "./index";
@@ -303,5 +319,53 @@ describe("LibraryHeader actions", () => {
     expect(screen.getByRole("button", { name: "✓ Exported" })).toBeTruthy();
     await vi.advanceTimersByTimeAsync(1100);
     expect(screen.getByRole("button", { name: "Export 3 books" })).toBeTruthy();
+  });
+});
+
+describe("LibraryHeader outro", () => {
+  const durations = () =>
+    vi.mocked(Element.prototype.animate).mock.calls.map(
+      ([, options]) => (options as { duration: number }).duration,
+    );
+
+  beforeEach(() => {
+    Element.prototype.getAnimations = () => [];
+    // jsdom has no Web Animations: each one ends after its duration, as Svelte's outro waits for it
+    Element.prototype.animate = vi.fn((_k: unknown, options: { duration: number }) => {
+      const animation = {
+        onfinish: null as null | (() => void),
+        cancel: () => clearTimeout(timer),
+      };
+      const timer = setTimeout(() => animation.onfinish?.(), options.duration);
+      return animation;
+    }) as never;
+  });
+  afterEach(() => {
+    reduceMotion.matches = false;
+  });
+
+  async function leave() {
+    const user = userEvent.setup();
+    render(ToggleFixture, { props: { state: NOVOS } });
+    await user.click(screen.getByRole("button", { name: "Hide" }));
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-slot="library-header"]'),
+      ).toBeNull(),
+    );
+  }
+
+  it("outro_fades_in_150ms", async () => {
+    await leave();
+    expect(durations()).toContain(150);
+  });
+
+  it("outro_is_instant_with_reduced_motion", async () => {
+    reduceMotion.matches = true;
+    await leave();
+    expect(durations()).not.toContain(150);
+    expect(
+      document.querySelector('[data-slot="library-header"]'),
+    ).toBeNull();
   });
 });
