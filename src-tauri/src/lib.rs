@@ -6,6 +6,7 @@ pub mod export;
 pub mod library;
 pub mod models;
 pub mod settings;
+pub mod system_accent;
 pub mod utils;
 pub mod window;
 
@@ -41,12 +42,14 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         commands::library::export_library_books,
         commands::library::set_reader_export_path,
         commands::library::sync_kobo,
+        system_accent::get_system_accent,
     ])
     .events(collect_events![
         DeviceDetectedEvent,
         DeviceDisconnectedEvent,
         commands::library::SyncProgress,
-        commands::library::SyncFinished
+        commands::library::SyncFinished,
+        system_accent::SystemAccent
     ])
     // Errors are thrown, not typed in the commands: listed so the frontend
     // knows the shape of a failed export
@@ -84,6 +87,9 @@ pub fn run() {
 
             // Show window only after frontend signals ready (prevents white flash)
             window::setup_window_show(app);
+
+            // Follow the macOS accent colour (setup runs on the main thread)
+            system_accent::observe(app.handle().clone());
 
             // Start device monitoring
             let app_handle = app.handle().clone();

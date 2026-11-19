@@ -1,0 +1,1114 @@
+{
+  "_meta": {
+    "task": "docs/plans/0002-redesign.md Task 21 — aprovada pelo Bruno a 2026-11-19 (Questão 1; Figma 112:27669)",
+    "generator": "generate.py (oklch.py), OKLCH Björn Ottosson, WCAG 2.x sem arredondar",
+    "modes": "claro / escuro = cor/claro e cor/escuro de design/tokens.json",
+    "multicolor": "azul-tinta (amostras.azul-tinta)",
+    "rule": {
+      "claro": {
+        "primary": [
+          -0.0731,
+          0.8721,
+          -0.18
+        ],
+        "primary-hover": [
+          -0.0417,
+          0.914,
+          -0.2
+        ],
+        "primary-pressed": [
+          -0.0842,
+          0.8258,
+          -0.45
+        ],
+        "tint_L": 0.9395,
+        "tint_Cr": 0.1453,
+        "primary-tint-foreground": [
+          -0.001,
+          0.9837,
+          0.08
+        ]
+      },
+      "escuro": {
+        "primary": [
+          0.1166,
+          0.6793,
+          -1.61
+        ],
+        "primary-hover": [
+          0.048,
+          0.8138,
+          0.01
+        ],
+        "primary-pressed": [
+          0.0979,
+          0.6261,
+          0.36
+        ],
+        "tint_L": 0.3305,
+        "tint_Cr": 0.4774,
+        "link": [
+          -0.021,
+          1.0611,
+          -0.13
+        ],
+        "fg_L": 0.2192,
+        "fg_Cr": 0.4143
+      }
+    }
+  },
+  "sistema": {
+    "grafite": {
+      "claro": {
+        "primary": {
+          "value": "#767676",
+          "source": "derivado:sistema(Task 20 #989898) L-0.0731 C×0.872 h mantido (regra do azul); escurecido L-0.039 até texto ≥ 4,5 no primary/hover/pressed"
+        },
+        "primary-foreground": {
+          "value": "#FFFFFF",
+          "source": "derivado:branco (DECISIONS, Cor 2: claro = texto branco)"
+        },
+        "primary-hover": {
+          "value": "#6A6A6A",
+          "source": "derivado:primary L-0.0417 C×0.914 (regra do azul)"
+        },
+        "primary-pressed": {
+          "value": "#5E5E5E",
+          "source": "derivado:primary L-0.0842 C×0.826 (regra do azul)"
+        },
+        "link": {
+          "value": "#707070",
+          "source": "derivado:link = primary (regra do azul); escurecido L-0.019 até link ≥ 4,5 no background e no card"
+        },
+        "primary-tint": {
+          "value": "#EBEBEB",
+          "source": "derivado:L=0.9395 C=primary.C×0.145 (regra do azul; DECISIONS L≈0,94)"
+        },
+        "primary-tint-foreground": {
+          "value": "#6A6A6A",
+          "source": "derivado:primary L-0.0010 C×0.984 (regra do azul); escurecido L-0.039 até texto ≥ 4,5 no tint e contorno ≥ 3"
+        },
+        "ring": {
+          "value": "#707070",
+          "source": "derivado:ring = link (regra do azul)"
+        }
+      },
+      "escuro": {
+        "primary": {
+          "value": "#B0B0B0",
+          "source": "derivado:sistema(Task 20 #8C8C8C) L+0.1166 C×0.679 h mantido (regra do azul)"
+        },
+        "primary-foreground": {
+          "value": "#1A1A1A",
+          "source": "derivado:L=0.2192 C=primary.C×0.414 h do primary (regra do azul #051A36)"
+        },
+        "primary-hover": {
+          "value": "#BFBFBF",
+          "source": "derivado:primary L+0.0480 C×0.814 (regra do azul)"
+        },
+        "primary-pressed": {
+          "value": "#CFCFCF",
+          "source": "derivado:primary L+0.0979 C×0.626 (regra do azul)"
+        },
+        "link": {
+          "value": "#A9A9A9",
+          "source": "derivado:primary L-0.0210 C×1.061 (regra do azul)"
+        },
+        "primary-tint": {
+          "value": "#353535",
+          "source": "derivado:L=0.3305 C=primary.C×0.477 (regra do azul; DECISIONS L≈0,33)"
+        },
+        "primary-tint-foreground": {
+          "value": "#A9A9A9",
+          "source": "derivado:primary-tint-foreground = link (regra do azul)"
+        },
+        "ring": {
+          "value": "#A9A9A9",
+          "source": "derivado:ring = link (regra do azul)"
+        }
+      }
+    },
+    "vermelho": {
+      "claro": {
+        "primary": {
+          "value": "#BC2E33",
+          "source": "derivado:sistema(Task 20 #E0383E) L-0.0731 C×0.872 h mantido (regra do azul)"
+        },
+        "primary-foreground": {
+          "value": "#FFFFFF",
+          "source": "derivado:branco (DECISIONS, Cor 2: claro = texto branco)"
+        },
+        "primary-hover": {
+          "value": "#A8292D",
+          "source": "derivado:primary L-0.0417 C×0.914 (regra do azul)"
+        },
+        "primary-pressed": {
+          "value": "#942427",
+          "source": "derivado:primary L-0.0842 C×0.826 (regra do azul)"
+        },
+        "link": {
+          "value": "#BC2E33",
+          "source": "derivado:link = primary (regra do azul)"
+        },
+        "primary-tint": {
+          "value": "#FCE5E3",
+          "source": "derivado:L=0.9395 C=primary.C×0.145 (regra do azul; DECISIONS L≈0,94)"
+        },
+        "primary-tint-foreground": {
+          "value": "#BB3034",
+          "source": "derivado:primary L-0.0010 C×0.984 (regra do azul)"
+        },
+        "ring": {
+          "value": "#BC2E33",
+          "source": "derivado:ring = link (regra do azul)"
+        }
+      },
+      "escuro": {
+        "primary": {
+          "value": "#FF9E99",
+          "source": "derivado:sistema(Task 20 #FF5257) L+0.1166 C×0.679 h mantido (regra do azul)"
+        },
+        "primary-foreground": {
+          "value": "#2D100F",
+          "source": "derivado:L=0.2192 C=primary.C×0.414 h do primary (regra do azul #051A36)"
+        },
+        "primary-hover": {
+          "value": "#FFB7B2",
+          "source": "derivado:primary L+0.0480 C×0.814 (regra do azul)"
+        },
+        "primary-pressed": {
+          "value": "#FFCFCB",
+          "source": "derivado:primary L+0.0979 C×0.626 (regra do azul)"
+        },
+        "link": {
+          "value": "#FB9590",
+          "source": "derivado:primary L-0.0210 C×1.061 (regra do azul)"
+        },
+        "primary-tint": {
+          "value": "#4E2928",
+          "source": "derivado:L=0.3305 C=primary.C×0.477 (regra do azul; DECISIONS L≈0,33)"
+        },
+        "primary-tint-foreground": {
+          "value": "#FB9590",
+          "source": "derivado:primary-tint-foreground = link (regra do azul)"
+        },
+        "ring": {
+          "value": "#FB9590",
+          "source": "derivado:ring = link (regra do azul)"
+        }
+      }
+    },
+    "laranja": {
+      "claro": {
+        "primary": {
+          "value": "#BA5D00",
+          "source": "derivado:sistema(Task 20 #F7821B) L-0.0731 C×0.872 h mantido (regra do azul); escurecido L-0.071 até texto ≥ 4,5 no primary/hover/pressed"
+        },
+        "primary-foreground": {
+          "value": "#FFFFFF",
+          "source": "derivado:branco (DECISIONS, Cor 2: claro = texto branco)"
+        },
+        "primary-hover": {
+          "value": "#A75405",
+          "source": "derivado:primary L-0.0417 C×0.914 (regra do azul)"
+        },
+        "primary-pressed": {
+          "value": "#954B09",
+          "source": "derivado:primary L-0.0842 C×0.826 (regra do azul)"
+        },
+        "link": {
+          "value": "#B15800",
+          "source": "derivado:link = primary (regra do azul); escurecido L-0.021 até link ≥ 4,5 no background e no card"
+        },
+        "primary-tint": {
+          "value": "#F7E8DE",
+          "source": "derivado:L=0.9395 C=primary.C×0.145 (regra do azul; DECISIONS L≈0,94)"
+        },
+        "primary-tint-foreground": {
+          "value": "#A75300",
+          "source": "derivado:primary L-0.0010 C×0.984 (regra do azul); escurecido L-0.042 até texto ≥ 4,5 no tint e contorno ≥ 3"
+        },
+        "ring": {
+          "value": "#B15800",
+          "source": "derivado:ring = link (regra do azul)"
+        }
+      },
+      "escuro": {
+        "primary": {
+          "value": "#FFB98C",
+          "source": "derivado:sistema(Task 20 #F7821B) L+0.1166 C×0.679 h mantido (regra do azul)"
+        },
+        "primary-foreground": {
+          "value": "#291406",
+          "source": "derivado:L=0.2192 C=primary.C×0.414 h do primary (regra do azul #051A36)"
+        },
+        "primary-hover": {
+          "value": "#FFCFB1",
+          "source": "derivado:primary L+0.0480 C×0.814 (regra do azul)"
+        },
+        "primary-pressed": {
+          "value": "#FFE5D5",
+          "source": "derivado:primary L+0.0979 C×0.626 (regra do azul)"
+        },
+        "link": {
+          "value": "#FBB181",
+          "source": "derivado:primary L-0.0210 C×1.061 (regra do azul)"
+        },
+        "primary-tint": {
+          "value": "#492E1D",
+          "source": "derivado:L=0.3305 C=primary.C×0.477 (regra do azul; DECISIONS L≈0,33)"
+        },
+        "primary-tint-foreground": {
+          "value": "#FBB181",
+          "source": "derivado:primary-tint-foreground = link (regra do azul)"
+        },
+        "ring": {
+          "value": "#FBB181",
+          "source": "derivado:ring = link (regra do azul)"
+        }
+      }
+    },
+    "amarelo": {
+      "claro": {
+        "primary": {
+          "value": "#957100",
+          "source": "derivado:sistema(Task 20 #FFC726) L-0.0731 C×0.872 h mantido (regra do azul); escurecido L-0.214 até texto ≥ 4,5 no primary/hover/pressed"
+        },
+        "primary-foreground": {
+          "value": "#FFFFFF",
+          "source": "derivado:branco (DECISIONS, Cor 2: claro = texto branco)"
+        },
+        "primary-hover": {
+          "value": "#856605",
+          "source": "derivado:primary L-0.0417 C×0.914 (regra do azul)"
+        },
+        "primary-pressed": {
+          "value": "#765A08",
+          "source": "derivado:primary L-0.0842 C×0.826 (regra do azul)"
+        },
+        "link": {
+          "value": "#8D6C00",
+          "source": "derivado:link = primary (regra do azul); escurecido L-0.020 até link ≥ 4,5 no background e no card"
+        },
+        "primary-tint": {
+          "value": "#F0EBDF",
+          "source": "derivado:L=0.9395 C=primary.C×0.145 (regra do azul; DECISIONS L≈0,94)"
+        },
+        "primary-tint-foreground": {
+          "value": "#866600",
+          "source": "derivado:primary L-0.0010 C×0.984 (regra do azul); escurecido L-0.039 até texto ≥ 4,5 no tint e contorno ≥ 3"
+        },
+        "ring": {
+          "value": "#8D6C00",
+          "source": "derivado:ring = link (regra do azul)"
+        }
+      },
+      "escuro": {
+        "primary": {
+          "value": "#EFCA6E",
+          "source": "derivado:sistema(Task 20 #FFC600) L+0.1166 C×0.679 h mantido (regra do azul); L limitado a 0.8521 para o pressed ficar ≤ 0.95"
+        },
+        "primary-foreground": {
+          "value": "#231900",
+          "source": "derivado:L=0.2192 C=primary.C×0.414 h do primary (regra do azul #051A36)"
+        },
+        "primary-hover": {
+          "value": "#F9DB93",
+          "source": "derivado:primary L+0.0480 C×0.814 (regra do azul)"
+        },
+        "primary-pressed": {
+          "value": "#FFEDC3",
+          "source": "derivado:primary L+0.0979 C×0.626 (regra do azul)"
+        },
+        "link": {
+          "value": "#EAC25F",
+          "source": "derivado:primary L-0.0210 C×1.061 (regra do azul)"
+        },
+        "primary-tint": {
+          "value": "#42330E",
+          "source": "derivado:L=0.3305 C=primary.C×0.477 (regra do azul; DECISIONS L≈0,33)"
+        },
+        "primary-tint-foreground": {
+          "value": "#EAC25F",
+          "source": "derivado:primary-tint-foreground = link (regra do azul)"
+        },
+        "ring": {
+          "value": "#EAC25F",
+          "source": "derivado:ring = link (regra do azul)"
+        }
+      }
+    },
+    "verde": {
+      "claro": {
+        "primary": {
+          "value": "#3C8622",
+          "source": "derivado:sistema(Task 20 #62BA46) L-0.0731 C×0.872 h mantido (regra do azul); escurecido L-0.083 até texto ≥ 4,5 no primary/hover/pressed"
+        },
+        "primary-foreground": {
+          "value": "#FFFFFF",
+          "source": "derivado:branco (DECISIONS, Cor 2: claro = texto branco)"
+        },
+        "primary-hover": {
+          "value": "#36781F",
+          "source": "derivado:primary L-0.0417 C×0.914 (regra do azul)"
+        },
+        "primary-pressed": {
+          "value": "#306A1C",
+          "source": "derivado:primary L-0.0842 C×0.826 (regra do azul)"
+        },
+        "link": {
+          "value": "#36801A",
+          "source": "derivado:link = primary (regra do azul); escurecido L-0.019 até link ≥ 4,5 no background e no card"
+        },
+        "primary-tint": {
+          "value": "#E4EFE1",
+          "source": "derivado:L=0.9395 C=primary.C×0.145 (regra do azul; DECISIONS L≈0,94)"
+        },
+        "primary-tint-foreground": {
+          "value": "#327A16",
+          "source": "derivado:primary L-0.0010 C×0.984 (regra do azul); escurecido L-0.036 até texto ≥ 4,5 no tint e contorno ≥ 3"
+        },
+        "ring": {
+          "value": "#36801A",
+          "source": "derivado:ring = link (regra do azul)"
+        }
+      },
+      "escuro": {
+        "primary": {
+          "value": "#9ED98D",
+          "source": "derivado:sistema(Task 20 #62BA46) L+0.1166 C×0.679 h mantido (regra do azul)"
+        },
+        "primary-foreground": {
+          "value": "#0D2008",
+          "source": "derivado:L=0.2192 C=primary.C×0.414 h do primary (regra do azul #051A36)"
+        },
+        "primary-hover": {
+          "value": "#B5E6A8",
+          "source": "derivado:primary L+0.0480 C×0.814 (regra do azul)"
+        },
+        "primary-pressed": {
+          "value": "#CDF3C3",
+          "source": "derivado:primary L+0.0979 C×0.626 (regra do azul)"
+        },
+        "link": {
+          "value": "#94D383",
+          "source": "derivado:primary L-0.0210 C×1.061 (regra do azul)"
+        },
+        "primary-tint": {
+          "value": "#263C1F",
+          "source": "derivado:L=0.3305 C=primary.C×0.477 (regra do azul; DECISIONS L≈0,33)"
+        },
+        "primary-tint-foreground": {
+          "value": "#94D383",
+          "source": "derivado:primary-tint-foreground = link (regra do azul)"
+        },
+        "ring": {
+          "value": "#94D383",
+          "source": "derivado:ring = link (regra do azul)"
+        }
+      }
+    },
+    "azul": {
+      "claro": {
+        "primary": {
+          "value": "#0066D6",
+          "source": "tokens:cor/claro/primary"
+        },
+        "primary-foreground": {
+          "value": "#FFFFFF",
+          "source": "tokens:cor/claro/primary-foreground"
+        },
+        "primary-hover": {
+          "value": "#005BBF",
+          "source": "tokens:cor/claro/primary-hover"
+        },
+        "primary-pressed": {
+          "value": "#0050A8",
+          "source": "tokens:cor/claro/primary-pressed"
+        },
+        "link": {
+          "value": "#0066D6",
+          "source": "tokens:cor/claro/link"
+        },
+        "primary-tint": {
+          "value": "#E0ECFE",
+          "source": "tokens:cor/claro/primary-tint"
+        },
+        "primary-tint-foreground": {
+          "value": "#0666D4",
+          "source": "tokens:cor/claro/primary-tint-foreground"
+        },
+        "ring": {
+          "value": "#0066D6",
+          "source": "tokens:cor/claro/ring"
+        }
+      },
+      "escuro": {
+        "primary": {
+          "value": "#62A6FF",
+          "source": "tokens:cor/escuro/primary"
+        },
+        "primary-foreground": {
+          "value": "#051A36",
+          "source": "tokens:cor/escuro/primary-foreground"
+        },
+        "primary-hover": {
+          "value": "#7FB6FF",
+          "source": "tokens:cor/escuro/primary-hover"
+        },
+        "primary-pressed": {
+          "value": "#9CC6FF",
+          "source": "tokens:cor/escuro/primary-pressed"
+        },
+        "link": {
+          "value": "#569FFD",
+          "source": "tokens:cor/escuro/link"
+        },
+        "primary-tint": {
+          "value": "#1B3659",
+          "source": "tokens:cor/escuro/primary-tint"
+        },
+        "primary-tint-foreground": {
+          "value": "#569FFD",
+          "source": "tokens:cor/escuro/primary-tint-foreground"
+        },
+        "ring": {
+          "value": "#569FFD",
+          "source": "tokens:cor/escuro/ring"
+        }
+      }
+    },
+    "roxo": {
+      "claro": {
+        "primary": {
+          "value": "#792F7A",
+          "source": "derivado:sistema(Task 20 #953D96) L-0.0731 C×0.872 h mantido (regra do azul)"
+        },
+        "primary-foreground": {
+          "value": "#FFFFFF",
+          "source": "derivado:branco (DECISIONS, Cor 2: claro = texto branco)"
+        },
+        "primary-hover": {
+          "value": "#6A276A",
+          "source": "derivado:primary L-0.0417 C×0.914 (regra do azul)"
+        },
+        "primary-pressed": {
+          "value": "#5A205B",
+          "source": "derivado:primary L-0.0842 C×0.826 (regra do azul)"
+        },
+        "link": {
+          "value": "#792F7A",
+          "source": "derivado:link = primary (regra do azul)"
+        },
+        "primary-tint": {
+          "value": "#F3E6F2",
+          "source": "derivado:L=0.9395 C=primary.C×0.145 (regra do azul; DECISIONS L≈0,94)"
+        },
+        "primary-tint-foreground": {
+          "value": "#783079",
+          "source": "derivado:primary L-0.0010 C×0.984 (regra do azul)"
+        },
+        "ring": {
+          "value": "#792F7A",
+          "source": "derivado:ring = link (regra do azul)"
+        }
+      },
+      "escuro": {
+        "primary": {
+          "value": "#BD82BD",
+          "source": "derivado:sistema(Task 20 #A550A7) L+0.1166 C×0.679 h mantido (regra do azul)"
+        },
+        "primary-foreground": {
+          "value": "#251225",
+          "source": "derivado:L=0.2192 C=primary.C×0.414 h do primary (regra do azul #051A36)"
+        },
+        "primary-hover": {
+          "value": "#C696C6",
+          "source": "derivado:primary L+0.0480 C×0.814 (regra do azul)"
+        },
+        "primary-pressed": {
+          "value": "#D0AAD0",
+          "source": "derivado:primary L+0.0979 C×0.626 (regra do azul)"
+        },
+        "link": {
+          "value": "#B97BBA",
+          "source": "derivado:primary L-0.0210 C×1.061 (regra do azul); clareado L+0.004 até link ≥ 4,5 no background e no card"
+        },
+        "primary-tint": {
+          "value": "#432C43",
+          "source": "derivado:L=0.3305 C=primary.C×0.477 (regra do azul; DECISIONS L≈0,33)"
+        },
+        "primary-tint-foreground": {
+          "value": "#C586C5",
+          "source": "derivado:primary-tint-foreground = link (regra do azul); clareado L+0.035 até texto ≥ 4,5 no tint e contorno ≥ 3"
+        },
+        "ring": {
+          "value": "#B97BBA",
+          "source": "derivado:ring = link (regra do azul)"
+        }
+      }
+    },
+    "rosa": {
+      "claro": {
+        "primary": {
+          "value": "#CD4082",
+          "source": "derivado:sistema(Task 20 #F74F9E) L-0.0731 C×0.872 h mantido (regra do azul); escurecido L-0.016 até texto ≥ 4,5 no primary/hover/pressed"
+        },
+        "primary-foreground": {
+          "value": "#FFFFFF",
+          "source": "derivado:branco (DECISIONS, Cor 2: claro = texto branco)"
+        },
+        "primary-hover": {
+          "value": "#B93B76",
+          "source": "derivado:primary L-0.0417 C×0.914 (regra do azul)"
+        },
+        "primary-pressed": {
+          "value": "#A53669",
+          "source": "derivado:primary L-0.0842 C×0.826 (regra do azul)"
+        },
+        "link": {
+          "value": "#C6397D",
+          "source": "derivado:link = primary (regra do azul); escurecido L-0.019 até link ≥ 4,5 no background e no card"
+        },
+        "primary-tint": {
+          "value": "#FBE4EC",
+          "source": "derivado:L=0.9395 C=primary.C×0.145 (regra do azul; DECISIONS L≈0,94)"
+        },
+        "primary-tint-foreground": {
+          "value": "#BC3275",
+          "source": "derivado:primary L-0.0010 C×0.984 (regra do azul); escurecido L-0.043 até texto ≥ 4,5 no tint e contorno ≥ 3"
+        },
+        "ring": {
+          "value": "#C6397D",
+          "source": "derivado:ring = link (regra do azul)"
+        }
+      },
+      "escuro": {
+        "primary": {
+          "value": "#FF98C0",
+          "source": "derivado:sistema(Task 20 #F74F9E) L+0.1166 C×0.679 h mantido (regra do azul)"
+        },
+        "primary-foreground": {
+          "value": "#2D0E1B",
+          "source": "derivado:L=0.2192 C=primary.C×0.414 h do primary (regra do azul #051A36)"
+        },
+        "primary-hover": {
+          "value": "#FFB3CF",
+          "source": "derivado:primary L+0.0480 C×0.814 (regra do azul)"
+        },
+        "primary-pressed": {
+          "value": "#FFCCDE",
+          "source": "derivado:primary L+0.0979 C×0.626 (regra do azul)"
+        },
+        "link": {
+          "value": "#FB8FBA",
+          "source": "derivado:primary L-0.0210 C×1.061 (regra do azul)"
+        },
+        "primary-tint": {
+          "value": "#4E2737",
+          "source": "derivado:L=0.3305 C=primary.C×0.477 (regra do azul; DECISIONS L≈0,33)"
+        },
+        "primary-tint-foreground": {
+          "value": "#FB8FBA",
+          "source": "derivado:primary-tint-foreground = link (regra do azul)"
+        },
+        "ring": {
+          "value": "#FB8FBA",
+          "source": "derivado:ring = link (regra do azul)"
+        }
+      }
+    }
+  },
+  "amostras": {
+    "azul-tinta": {
+      "claro": {
+        "primary": {
+          "value": "#2C5A8C",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», botão)"
+        },
+        "primary-foreground": {
+          "value": "#FFFFFF",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», texto do botão)"
+        },
+        "primary-hover": {
+          "value": "#254E7B",
+          "source": "derivado:primary L-0.0417 C×0.914 (regra do azul Claro: texto claro)"
+        },
+        "primary-pressed": {
+          "value": "#1F436A",
+          "source": "derivado:primary L-0.0842 C×0.826 (regra do azul Claro: texto claro)"
+        },
+        "link": {
+          "value": "#2C5A8C",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», ligação)"
+        },
+        "primary-tint": {
+          "value": "#DEEDFF",
+          "source": "figma:9:4133"
+        },
+        "primary-tint-foreground": {
+          "value": "#2C5A8C",
+          "source": "figma:9:4134"
+        },
+        "ring": {
+          "value": "#2C5A8C",
+          "source": "derivado:ring = link (regra do azul)"
+        }
+      },
+      "escuro": {
+        "primary": {
+          "value": "#8DB6E8",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», botão)"
+        },
+        "primary-foreground": {
+          "value": "#111B28",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», texto do botão)"
+        },
+        "primary-hover": {
+          "value": "#A3C5EE",
+          "source": "derivado:primary L+0.0480 C×0.814 (regra do azul Escuro: texto escuro)"
+        },
+        "primary-pressed": {
+          "value": "#BAD5F5",
+          "source": "derivado:primary L+0.0979 C×0.626 (regra do azul Escuro: texto escuro)"
+        },
+        "link": {
+          "value": "#8DB6E8",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», ligação)"
+        },
+        "primary-tint": {
+          "value": "#293647",
+          "source": "figma:9:4140"
+        },
+        "primary-tint-foreground": {
+          "value": "#8DB6E8",
+          "source": "figma:9:4141"
+        },
+        "ring": {
+          "value": "#8DB6E8",
+          "source": "derivado:ring = link (regra do azul)"
+        }
+      }
+    },
+    "verde-folha": {
+      "claro": {
+        "primary": {
+          "value": "#3FA34D",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», botão)"
+        },
+        "primary-foreground": {
+          "value": "#06210A",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», texto do botão)"
+        },
+        "primary-hover": {
+          "value": "#62AE69",
+          "source": "derivado:primary L+0.0480 C×0.814 (regra do azul Escuro: texto escuro)"
+        },
+        "primary-pressed": {
+          "value": "#81BA84",
+          "source": "derivado:primary L+0.0979 C×0.626 (regra do azul Escuro: texto escuro)"
+        },
+        "link": {
+          "value": "#13822D",
+          "source": "derivado:aprovado #1B8732 DECISIONS Cor 2 «Amostras vivas» (ligação); escurecido L-0.015 até link ≥ 4,5 no background e no card"
+        },
+        "primary-tint": {
+          "value": "#D8F4D9",
+          "source": "figma:9:4150"
+        },
+        "primary-tint-foreground": {
+          "value": "#047C26",
+          "source": "figma:9:4151"
+        },
+        "ring": {
+          "value": "#13822D",
+          "source": "derivado:ring = link (regra do azul)"
+        }
+      },
+      "escuro": {
+        "primary": {
+          "value": "#3FA34D",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», botão)"
+        },
+        "primary-foreground": {
+          "value": "#06210A",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», texto do botão)"
+        },
+        "primary-hover": {
+          "value": "#62AE69",
+          "source": "derivado:primary L+0.0480 C×0.814 (regra do azul Escuro: texto escuro)"
+        },
+        "primary-pressed": {
+          "value": "#81BA84",
+          "source": "derivado:primary L+0.0979 C×0.626 (regra do azul Escuro: texto escuro)"
+        },
+        "link": {
+          "value": "#40A44E",
+          "source": "derivado:aprovado #3FA34D DECISIONS Cor 2 «Amostras vivas» (ligação); clareado L+0.002 até link ≥ 4,5 no background e no card"
+        },
+        "primary-tint": {
+          "value": "#1E3E21",
+          "source": "figma:9:4157"
+        },
+        "primary-tint-foreground": {
+          "value": "#52B55E",
+          "source": "figma:9:4158"
+        },
+        "ring": {
+          "value": "#40A44E",
+          "source": "derivado:ring = link (regra do azul)"
+        }
+      }
+    },
+    "turquesa": {
+      "claro": {
+        "primary": {
+          "value": "#1FA5A0",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», botão)"
+        },
+        "primary-foreground": {
+          "value": "#00201F",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», texto do botão)"
+        },
+        "primary-hover": {
+          "value": "#56B1AC",
+          "source": "derivado:primary L+0.0480 C×0.814 (regra do azul Escuro: texto escuro)"
+        },
+        "primary-pressed": {
+          "value": "#7BBDB9",
+          "source": "derivado:primary L+0.0979 C×0.626 (regra do azul Escuro: texto escuro)"
+        },
+        "link": {
+          "value": "#007E7A",
+          "source": "derivado:aprovado #058480 DECISIONS Cor 2 «Amostras vivas» (ligação); escurecido L-0.018 até link ≥ 4,5 no background e no card"
+        },
+        "primary-tint": {
+          "value": "#D4F3F0",
+          "source": "figma:9:4167"
+        },
+        "primary-tint-foreground": {
+          "value": "#0B7773",
+          "source": "figma:9:4168"
+        },
+        "ring": {
+          "value": "#007E7A",
+          "source": "derivado:ring = link (regra do azul)"
+        }
+      },
+      "escuro": {
+        "primary": {
+          "value": "#1FA5A0",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», botão)"
+        },
+        "primary-foreground": {
+          "value": "#00201F",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», texto do botão)"
+        },
+        "primary-hover": {
+          "value": "#56B1AC",
+          "source": "derivado:primary L+0.0480 C×0.814 (regra do azul Escuro: texto escuro)"
+        },
+        "primary-pressed": {
+          "value": "#7BBDB9",
+          "source": "derivado:primary L+0.0979 C×0.626 (regra do azul Escuro: texto escuro)"
+        },
+        "link": {
+          "value": "#1FA5A0",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», ligação)"
+        },
+        "primary-tint": {
+          "value": "#173C3B",
+          "source": "figma:9:4174"
+        },
+        "primary-tint-foreground": {
+          "value": "#31B0AB",
+          "source": "figma:9:4175"
+        },
+        "ring": {
+          "value": "#1FA5A0",
+          "source": "derivado:ring = link (regra do azul)"
+        }
+      }
+    },
+    "laranja": {
+      "claro": {
+        "primary": {
+          "value": "#F07A2A",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», botão)"
+        },
+        "primary-foreground": {
+          "value": "#2F1100",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», texto do botão)"
+        },
+        "primary-hover": {
+          "value": "#F3925A",
+          "source": "derivado:primary L+0.0480 C×0.814 (regra do azul Escuro: texto escuro)"
+        },
+        "primary-pressed": {
+          "value": "#F6AA80",
+          "source": "derivado:primary L+0.0979 C×0.626 (regra do azul Escuro: texto escuro)"
+        },
+        "link": {
+          "value": "#B75400",
+          "source": "derivado:aprovado #BD590B DECISIONS Cor 2 «Amostras vivas» (ligação); escurecido L-0.016 até link ≥ 4,5 no background e no card"
+        },
+        "primary-tint": {
+          "value": "#FFE5D8",
+          "source": "figma:9:4184"
+        },
+        "primary-tint-foreground": {
+          "value": "#AB4E02",
+          "source": "figma:9:4185"
+        },
+        "ring": {
+          "value": "#B75400",
+          "source": "derivado:ring = link (regra do azul)"
+        }
+      },
+      "escuro": {
+        "primary": {
+          "value": "#F07A2A",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», botão)"
+        },
+        "primary-foreground": {
+          "value": "#2F1100",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», texto do botão)"
+        },
+        "primary-hover": {
+          "value": "#F3925A",
+          "source": "derivado:primary L+0.0480 C×0.814 (regra do azul Escuro: texto escuro)"
+        },
+        "primary-pressed": {
+          "value": "#F6AA80",
+          "source": "derivado:primary L+0.0979 C×0.626 (regra do azul Escuro: texto escuro)"
+        },
+        "link": {
+          "value": "#F07A2A",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», ligação)"
+        },
+        "primary-tint": {
+          "value": "#512A12",
+          "source": "figma:9:4191"
+        },
+        "primary-tint-foreground": {
+          "value": "#F27C2C",
+          "source": "figma:9:4192"
+        },
+        "ring": {
+          "value": "#F07A2A",
+          "source": "derivado:ring = link (regra do azul)"
+        }
+      }
+    },
+    "amarelo": {
+      "claro": {
+        "primary": {
+          "value": "#F2C230",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», botão)"
+        },
+        "primary-foreground": {
+          "value": "#231900",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», texto do botão)"
+        },
+        "primary-hover": {
+          "value": "#FAD46D",
+          "source": "derivado:primary L+0.0480 C×0.814 (regra do azul Escuro: texto escuro)"
+        },
+        "primary-pressed": {
+          "value": "#FFE6A8",
+          "source": "derivado:primary L+0.0979 C×0.626 (regra do azul Escuro: texto escuro)"
+        },
+        "link": {
+          "value": "#8B6D00",
+          "source": "derivado:aprovado #907107 DECISIONS Cor 2 «Amostras vivas» (ligação); escurecido L-0.015 até link ≥ 4,5 no background e no card"
+        },
+        "primary-tint": {
+          "value": "#F8EAC8",
+          "source": "figma:9:4201"
+        },
+        "primary-tint-foreground": {
+          "value": "#836601",
+          "source": "figma:9:4202"
+        },
+        "ring": {
+          "value": "#8B6D00",
+          "source": "derivado:ring = link (regra do azul)"
+        }
+      },
+      "escuro": {
+        "primary": {
+          "value": "#F2C230",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», botão)"
+        },
+        "primary-foreground": {
+          "value": "#231900",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», texto do botão)"
+        },
+        "primary-hover": {
+          "value": "#FAD46D",
+          "source": "derivado:primary L+0.0480 C×0.814 (regra do azul Escuro: texto escuro)"
+        },
+        "primary-pressed": {
+          "value": "#FFE6A8",
+          "source": "derivado:primary L+0.0979 C×0.626 (regra do azul Escuro: texto escuro)"
+        },
+        "link": {
+          "value": "#F2C230",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», ligação)"
+        },
+        "primary-tint": {
+          "value": "#423305",
+          "source": "figma:9:4208"
+        },
+        "primary-tint-foreground": {
+          "value": "#F2C230",
+          "source": "figma:9:4209"
+        },
+        "ring": {
+          "value": "#F2C230",
+          "source": "derivado:ring = link (regra do azul)"
+        }
+      }
+    },
+    "rosa": {
+      "claro": {
+        "primary": {
+          "value": "#E8559A",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», botão)"
+        },
+        "primary-foreground": {
+          "value": "#2F0C1C",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», texto do botão)"
+        },
+        "primary-hover": {
+          "value": "#EB74A8",
+          "source": "derivado:primary L+0.0480 C×0.814 (regra do azul Escuro: texto escuro)"
+        },
+        "primary-pressed": {
+          "value": "#ED90B6",
+          "source": "derivado:primary L+0.0979 C×0.626 (regra do azul Escuro: texto escuro)"
+        },
+        "link": {
+          "value": "#C8357F",
+          "source": "derivado:aprovado #CF3D85 DECISIONS Cor 2 «Amostras vivas» (ligação); escurecido L-0.021 até link ≥ 4,5 no background e no card"
+        },
+        "primary-tint": {
+          "value": "#FFE2EC",
+          "source": "figma:9:4218"
+        },
+        "primary-tint-foreground": {
+          "value": "#BE2B76",
+          "source": "figma:9:4219"
+        },
+        "ring": {
+          "value": "#C8357F",
+          "source": "derivado:ring = link (regra do azul)"
+        }
+      },
+      "escuro": {
+        "primary": {
+          "value": "#E8559A",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», botão)"
+        },
+        "primary-foreground": {
+          "value": "#2F0C1C",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», texto do botão)"
+        },
+        "primary-hover": {
+          "value": "#EB74A8",
+          "source": "derivado:primary L+0.0480 C×0.814 (regra do azul Escuro: texto escuro)"
+        },
+        "primary-pressed": {
+          "value": "#ED90B6",
+          "source": "derivado:primary L+0.0979 C×0.626 (regra do azul Escuro: texto escuro)"
+        },
+        "link": {
+          "value": "#EE5A9F",
+          "source": "derivado:aprovado #E8559A DECISIONS Cor 2 «Amostras vivas» (ligação); clareado L+0.016 até link ≥ 4,5 no background e no card"
+        },
+        "primary-tint": {
+          "value": "#502537",
+          "source": "figma:9:4225"
+        },
+        "primary-tint-foreground": {
+          "value": "#FA65A9",
+          "source": "figma:9:4226"
+        },
+        "ring": {
+          "value": "#EE5A9F",
+          "source": "derivado:ring = link (regra do azul)"
+        }
+      }
+    },
+    "violeta": {
+      "claro": {
+        "primary": {
+          "value": "#9866EC",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», botão)"
+        },
+        "primary-foreground": {
+          "value": "#1E1332",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», texto do botão)"
+        },
+        "primary-hover": {
+          "value": "#A37EEA",
+          "source": "derivado:primary L+0.0480 C×0.814 (regra do azul Escuro: texto escuro)"
+        },
+        "primary-pressed": {
+          "value": "#AF95E8",
+          "source": "derivado:primary L+0.0979 C×0.626 (regra do azul Escuro: texto escuro)"
+        },
+        "link": {
+          "value": "#8853D8",
+          "source": "derivado:aprovado #8D59DE DECISIONS Cor 2 «Amostras vivas» (ligação); escurecido L-0.018 até link ≥ 4,5 no background e no card"
+        },
+        "primary-tint": {
+          "value": "#EDE7FF",
+          "source": "figma:9:4235"
+        },
+        "primary-tint-foreground": {
+          "value": "#7F4BCF",
+          "source": "figma:9:4236"
+        },
+        "ring": {
+          "value": "#8853D8",
+          "source": "derivado:ring = link (regra do azul)"
+        }
+      },
+      "escuro": {
+        "primary": {
+          "value": "#9866EC",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», botão)"
+        },
+        "primary-foreground": {
+          "value": "#1E1332",
+          "source": "figma:9:3894 (DECISIONS Cor 2 «Amostras vivas», texto do botão)"
+        },
+        "primary-hover": {
+          "value": "#A37EEA",
+          "source": "derivado:primary L+0.0480 C×0.814 (regra do azul Escuro: texto escuro)"
+        },
+        "primary-pressed": {
+          "value": "#AF95E8",
+          "source": "derivado:primary L+0.0979 C×0.626 (regra do azul Escuro: texto escuro)"
+        },
+        "link": {
+          "value": "#A676FC",
+          "source": "derivado:aprovado #9C6BF1 DECISIONS Cor 2 «Amostras vivas» (ligação); clareado L+0.033 até link ≥ 4,5 no background e no card"
+        },
+        "primary-tint": {
+          "value": "#3A2D54",
+          "source": "figma:9:4242"
+        },
+        "primary-tint-foreground": {
+          "value": "#B086FE",
+          "source": "figma:9:4243"
+        },
+        "ring": {
+          "value": "#A676FC",
+          "source": "derivado:ring = link (regra do azul)"
+        }
+      }
+    }
+  }
+}

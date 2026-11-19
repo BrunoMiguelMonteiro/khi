@@ -177,6 +177,20 @@
       "save": "Erro ao guardar as definições",
       "reset": "Erro ao repor as definições",
       "renameReader": "Não foi possível mudar o nome do leitor"
+    },
+    "accent": {
+      "label": "Cor de destaque",
+      "hint": "Sistema usa a cor escolhida no macOS.",
+      "system": "Sistema",
+      "swatches": {
+        "azulTinta": "Azul-tinta",
+        "verdeFolha": "Verde-folha",
+        "turquesa": "Turquesa",
+        "laranja": "Laranja",
+        "amarelo": "Amarelo",
+        "rosa": "Rosa",
+        "violeta": "Violeta"
+      }
     }
   },
   "export": {

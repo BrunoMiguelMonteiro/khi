@@ -177,6 +177,20 @@
       "save": "Error saving settings",
       "reset": "Error resetting settings",
       "renameReader": "Couldn’t rename the reader"
+    },
+    "accent": {
+      "label": "Accent color",
+      "hint": "System uses the color chosen in macOS.",
+      "system": "System",
+      "swatches": {
+        "azulTinta": "Ink blue",
+        "verdeFolha": "Leaf green",
+        "turquesa": "Turquoise",
+        "laranja": "Orange",
+        "amarelo": "Yellow",
+        "rosa": "Pink",
+        "violeta": "Violet"
+      }
     }
   },
   "export": {

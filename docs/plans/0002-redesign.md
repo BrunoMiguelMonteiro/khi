@@ -918,7 +918,7 @@ Depende da Task 6 (`switch-on`, `input-strong`).
   - Foco: o anel da Task 5, encostado;
   - as setas escolhem; a cor aplica-se no momento, sem movimento.
 
-- [ ] **Passo 1: testes que falham:**
+- [x] **Passo 1: testes que falham:**
   - `accent.test.ts`:
     - `every_accent_has_all_tones_with_source_in_both_modes`;
     - `blue_matches_tokens_exactly`: o azul da tabela é igual ao de `tokens.json`, em Claro (`#0066D6` → `#005BBF` → `#0050A8`) e em Escuro (`#62A6FF` → `#7FB6FF` → `#9CC6FF`, mais claro ao premir, texto `#051A36`);
@@ -931,11 +931,13 @@ Depende da Task 6 (`switch-on`, `input-strong`).
     - `arrows_select`;
     - `swatch_classes_are_compiled`: cada classe de `SWATCH_BG` existe no CSS que o `compileAppCss` gera a partir das fontes de produção;
     - `system_swatch_has_ring_and_dot`.
-- [ ] **Passo 2:** `npx vitest run src/lib/accent src/lib/components/ui/swatch` falha.
-- [ ] **Passo 3:** gravar a tabela aprovada em `accent-tones.json`.
-- [ ] **Passo 4:** `accent.ts`, os componentes e as chaves `settings.accent.*`; o Rust, se for preciso.
-- [ ] **Passo 5:** os testes passam e passam os quatro comandos (e `cargo test`, se houver Rust).
-- [ ] **Passo 6:** commit `feat(ui): accent swatches and precomputed accent tones`.
+- [x] **Passo 2:** `npx vitest run src/lib/accent src/lib/components/ui/swatch` falha.
+- [x] **Passo 3:** gravar a tabela aprovada em `accent-tones.json`.
+- [x] **Passo 4:** `accent.ts`, os componentes e as chaves `settings.accent.*`; o Rust, se for preciso.
+- [x] **Passo 5:** os testes passam e passam os quatro comandos (e `cargo test`, se houver Rust).
+- [x] **Passo 6:** commit `feat(ui): accent swatches and precomputed accent tones`.
+
+- **Feito (2026-11-19):** tabela aprovada em `design/accent-tones.json`, gerada por `design/accent-tones/generate.py` (reprodutível ao byte, com autoverificação); `src-tauri/src/system_accent.rs` no padrão da Cmdr (comando `get_system_accent`, evento `system-accent-changed`, 4 testes em Rust); `applyAccent` e as Amostras. Decisões do implementador: um `AppleAccentColor` desconhecido conta como Multicolor; Amostras desativadas mostram o motivo no tooltip; `applyAccent` escreve no estilo da raiz e tem de ser chamado de novo ao mudar claro/escuro. **Em aberto:** `contrast-outline-tint` e `contrast-outline-primary` (Contraste aumentado) não seguem a cor de destaque.
 
 **Verificar no ecrã:** área de clique de 20; o anel de seleção e o de foco juntos; a cor muda com as Definições do Sistema abertas ao lado.
 

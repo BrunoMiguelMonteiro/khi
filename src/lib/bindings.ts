@@ -39,6 +39,8 @@ export const commands = {
 	 *  `sync-progress` per book and `sync-finished` at the end.
 	 */
 	syncKobo: (device: KoboDevice_Deserialize) => __TAURI_INVOKE<SyncReport>("sync_kobo", { device }),
+	/**  Reads the system accent. AppKit is main-thread only, so the read hops to the main thread. */
+	getSystemAccent: () => __TAURI_INVOKE<SystemAccent>("get_system_accent"),
 };
 
 /** Events */
@@ -47,9 +49,13 @@ export const events = {
 	deviceDisconnected: makeEvent<DeviceDisconnectedEvent, DeviceDisconnectedEvent>("device-disconnected"),
 	syncFinished: makeEvent<SyncFinished, SyncFinished>("sync-finished"),
 	syncProgress: makeEvent<SyncProgress, SyncProgress>("sync-progress"),
+	systemAccentChanged: makeEvent<SystemAccent, SystemAccent>("system-accent-changed"),
 };
 
 /* Types */
+/**  The System Settings accent, named as in `design/accent-tones.json` (`sistema`). */
+export type AccentName = "multicolor" | "grafite" | "vermelho" | "laranja" | "amarelo" | "verde" | "azul" | "roxo" | "rosa";
+
 /**  Application settings structure */
 export type AppSettings = AppSettings_Serialize | AppSettings_Deserialize;
 
@@ -289,6 +295,16 @@ export type SyncReport = {
 	removed: number,
 	restored: number,
 	books: number,
+};
+
+/**
+ *  The system accent: its name and `controlAccentColor` in sRGB under Aqua (`light`) and Dark
+ *  Aqua (`dark`), as `#RRGGBB`. Returned by `get_system_accent` and sent with the change event.
+ */
+export type SystemAccent = {
+	name: AccentName,
+	light: string,
+	dark: string,
 };
 
 /**  Theme preference */
