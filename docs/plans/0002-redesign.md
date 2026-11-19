@@ -1320,23 +1320,31 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 
 ### Task 34: Barra `Overlay` na janela principal
 **Passo 0 (coordenador, só leitura no Figma):** medir em `69:6427` o `x` e o `y` dos semáforos e a largura que a barra lhes reserva; escrevê-los aqui antes de entregar a task.
+**Medido a 2026-11-19** (`69:6427`, as três variantes iguais):
+- a barra tem 52 de altura, `px-4` e `gap-4`;
+- o bloco «Semáforos (sistema)» tem 52 × 12 e fica em x=16, y=20: três círculos de 12 com 8 de intervalo, centrados na linha média da barra (y=26);
+- o primeiro controlo começa em x=84, que é 16 + 52 + 16;
+- `trafficLightPosition: { "x": 16, "y": 20 }` é o **valor de partida**. Na tao 0.37.2 (`view.rs:1017-1047`), o `x` é a margem do primeiro botão e o `y` é a margem do topo até à moldura do botão, que no AppKit é um pouco maior do que o círculo. O valor final acerta-se no ecrã (±2) e fica escrito aqui;
+- a `WindowBar` reserva um bloco de 52 × 12 que não é interativo e entra na zona de arrasto, antes do primeiro controlo; o `gap-4` faz o resto.
 
-**Ficheiros:** `src-tauri/tauri.conf.json` (`app.windows[0]`), `src-tauri/capabilities/default.json`, `src/lib/components/ui/window-bar/window-bar.svelte` e o seu teste; criar `src/lib/window-config.test.ts`.
+**Mudança aprovada a 2026-11-19** (Bruno: «Prepara agora, liga no ecrã 1»). A `WindowBar` ainda não está montada em nenhum ecrã: o `+page.svelte` usa o `<header>` antigo e a `LibraryToolbar`. Por isso, a troca para `Overlay` no `tauri.conf.json`, o teste `main_window_is_overlay` e as verificações no ecrã passam para o **ecrã 1 da Fase 5**, quando a Barra for montada. Assim, a app no ramo nunca fica com os semáforos por cima do cabeçalho antigo.
+
+**Ficheiros:** `src-tauri/capabilities/default.json`, `src/lib/components/ui/window-bar/window-bar.svelte` e o seu teste; criar `src/lib/window-config.test.ts`.
 
 **Interfaces que produz:**
-- janela `main` com `titleBarStyle: "Overlay"`, `hiddenTitle: true` e `trafficLightPosition: { x, y }` (Passo 0). O resto fica igual, incluindo `visible: false` e o `app-ready`;
+- ~~janela `main` com Overlay~~ → ecrã 1 da Fase 5;
 - `core:window:allow-start-dragging` na capability `default` (sem ela, o arrasto falha em silêncio);
 - `WindowBar` com `data-tauri-drag-region="deep"` no contentor, e o espaço dos semáforos reservado à esquerda.
 
 - [ ] **Passo 1: testes que falham:**
-  - `window-config.test.ts`: `main_window_is_overlay` (as três chaves, com os valores do Passo 0) e `default_capability_allows_start_dragging`. Os dois leem os JSON do disco;
+  - `window-config.test.ts`: `default_capability_allows_start_dragging`, que lê o JSON do disco (o `main_window_is_overlay` entra no ecrã 1);
   - `window-bar.test.ts`: `bar_is_deep_drag_region`, `every_control_is_semantic` (todo o interativo é `button` ou tem um role interativo, para não arrastar) e `reserves_traffic_light_space`.
 - [ ] **Passo 2:** os testes falham.
 - [ ] **Passo 3:** a config, a capability e a marcação.
-- [ ] **Passo 4:** passam os quatro comandos e `(cd src-tauri && cargo check)` (que confirma que a config aceita a `trafficLightPosition`).
-- [ ] **Passo 5:** commit `feat(window): overlay title bar with drag region`.
+- [ ] **Passo 4:** passam os quatro comandos e `(cd src-tauri && cargo check)`.
+- [ ] **Passo 5:** commit `feat(window): drag region and traffic-light space in WindowBar`.
 
-**Verificar no ecrã (Bruno, com `npm run dev:app`):**
+**Verificar no ecrã (Bruno, com `npm run dev:app`), no ecrã 1 da Fase 5:**
 - os semáforos ficam no sítio depois de redimensionar, de entrar e sair do ecrã inteiro (⌃⌘F), de fazer zoom com duplo clique, de mudar entre Claro e Escuro e de perder o foco;
 - a barra arrasta e os botões clicam;
 - com a janela inativa, o primeiro clique na barra arrasta (tauri#4316). Se não arrastar, decide-se se se usa o `acceptFirstMouse`.
@@ -1381,7 +1389,7 @@ Cada ecrã fica feito em Claro e Escuro, comparado com o Figma, com captura. O B
 
 | Ordem | Ecrã | Figma (Claro / Escuro) | O que muda no comportamento |
 |---|---|---|---|
-| 1 | Biblioteca, grelha | `71:8040` / `71:8273` | Etiquetas «N novos» e cabeçalho, a partir da Fase 3 |
+| 1 | Biblioteca, grelha | `71:8040` / `71:8273` | Etiquetas «N novos» e cabeçalho, a partir da Fase 3. Monta a `WindowBar` e liga o Overlay: `titleBarStyle: "Overlay"`, `hiddenTitle: true` e `trafficLightPosition` (Task 34, Passo 0), com o teste `main_window_is_overlay`, o `cargo check` e as verificações no ecrã da Task 34 |
 | 2 | A sincronizar | `71:8575` / `71:8590` | O `ImportingState` sai e a Biblioteca fica à vista (D5, R17). Exportar fica desativado, com o tooltip «Espera pelo fim da sincronização» |
 | 3 | Kobo desligado, sem novidades | `71:9162` / `71:9177` | Sincronizar desativado, com o tooltip «Liga o Kobo para sincronizar» |
 | 4 | Lista | `71:9740` / `71:9755` | A mesma ordem da grelha |
