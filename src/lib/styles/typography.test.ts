@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { compile } from 'tailwindcss';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { compileAppCss } from '$lib/test/css';
 
 const root = process.cwd();
 const typographyPath = resolve(root, 'src/lib/styles/typography.css');
@@ -102,24 +102,6 @@ function packageFaces(): Map<string, Decls> {
 		}
 	}
 	return faces;
-}
-
-async function compileAppCss(candidates: string[]) {
-	const load = async (id: string, base: string) => {
-		const packages: Record<string, string> = {
-			tailwindcss: 'node_modules/tailwindcss/index.css',
-			'tw-animate-css': 'node_modules/tw-animate-css/dist/tw-animate.css'
-		};
-		const path = id in packages ? resolve(root, packages[id]) : resolve(base, id);
-		return { path, base: dirname(path), content: readFileSync(path, 'utf8') };
-	};
-	const appPath = resolve(root, 'src/app.css');
-	const compiler = await compile(readFileSync(appPath, 'utf8'), {
-		base: dirname(appPath),
-		from: appPath,
-		loadStylesheet: load
-	});
-	return { sources: compiler.sources, css: compiler.build(candidates) };
 }
 
 /** Resolves `var(--x)` against the @theme block, one level deep. */
@@ -242,8 +224,7 @@ describe('typography.css (Figma text styles)', () => {
 		);
 
 		const excluded = sources.filter((s) => s.negated).map((s) => s.pattern);
-		expect(excluded).toContain('./lib/styles/typography.test.ts');
-		expect(excluded).toContain('./lib/utils.test.ts');
+		expect(excluded).toContain('./**/*.test.ts');
 	});
 
 	it('literata_licence_ships_with_the_app', () => {

@@ -1,0 +1,14 @@
+{
+  "_meta": {
+    "source": "Figma KHI nU5CnQTJobxVE8mHMr7iZL, local effect styles, exported 2026-11-19 via figma-console (read-only)",
+    "units": "x, y, blur (Figma radius) and spread in px; color as #RRGGBBAA",
+    "conversions": "alpha is float32 in Figma (0.11999999731779099) and rounded to 2 decimals here, then written as hex alpha",
+    "modes": "effect styles have no modes; the same shadows apply in Claro and Escuro"
+  },
+  "sombra": {
+    "segmento": { "x": 0, "y": 1, "blur": 2, "spread": 0, "color": "#0000001F", "alpha": 0.12 },
+    "menu": { "x": 0, "y": 8, "blur": 24, "spread": 0, "color": "#00000029", "alpha": 0.16 },
+    "janela": { "x": 0, "y": 8, "blur": 24, "spread": 0, "color": "#0000002E", "alpha": 0.18 },
+    "aviso": { "x": 0, "y": 4, "blur": 16, "spread": 0, "color": "#00000024", "alpha": 0.14 }
+  }
+}

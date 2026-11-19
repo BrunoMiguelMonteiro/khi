@@ -460,32 +460,34 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
 
 **Interfaces que produz:**
 - as variantes do estilo vega (nota da Task 4): as `@custom-variant` de `shadcn-svelte/tailwind.css` 1.8.1 que os componentes usam, copiadas com a licença MIT (`data-open:`, `data-closed:`, `data-checked:`, `data-unchecked:`, `data-disabled:`, `data-active:`, `data-horizontal:` e `data-vertical:`); o pacote `shadcn-svelte` não entra, porque traz 940 kB para oito linhas. As variantes de presença que o Tailwind 4 já tem (`data-highlighted:`, `data-selected:`) não se copiam;
-- `@source not './lib/components/ui/**/*.test.ts'` e `@source not './lib/test/**'` em `app.css`, para as classes escritas nos testes não esconderem uma classe que falta no componente;
+- `@source not './**/*.test.ts'` e `@source not './lib/test/**'` em `app.css` (substituem as exclusões ficheiro a ficheiro), para as classes escritas nos testes não esconderem uma classe que falta no componente;
 - `shadow-sombra-segmento`, `shadow-sombra-menu`, `shadow-sombra-janela` e `shadow-sombra-aviso`: os quatro estilos de efeito do Figma, que não são variáveis e faltam ao `tokens.json`;
 - `focus-ring`: `outline: var(--stroke-ring) solid color-mix(in srgb, var(--ring) calc(var(--ring-opacity) * 100%), transparent)` com `outline-offset: 0`. É `outline` e não `box-shadow` para não apagar as sombras nem os contornos `inset-ring` do contraste aumentado.
   - **Quem tem o foco e quem pinta o anel:** por omissão são o mesmo elemento (`focus-visible:focus-ring`). Quando não são (o Cartão: o `gridcell` tem o foco e o anel abraça a capa ou a moldura de seleção), o elemento com foco é um `group/<nome>` e o elemento pintado usa `group-focus-visible/<nome>:focus-ring`; nenhum antepassado até ao contentor da grelha tem `overflow-hidden`, para o anel não ser cortado;
   - o `outline` segue o raio desde o Safari 16.4 (o WebKit do macOS 13.3); confirma-se na primeira comparação da Fase 5 e, se falhar, passa a `box-shadow` composto com o `--tw-ring-shadow`;
 - `src/lib/test/css.ts`: `compileAppCss(candidates)` e `selectorFor(candidate)`, que compila uma classe com o `app.css` real e devolve o seletor; os testes usam-no com `element.matches(selector)` para provar que a variante apanha o atributo que o Bits UI põe mesmo (`data-state="checked"`, `data-highlighted=""`);
-- `src/lib/test/disabled.ts`: `expectDisabledInert({ control, label?, read, popup?, callback })`, que carrega no Espaço, no Return, clica no controlo e no rótulo, e verifica o valor (`read()`), o pop-up fechado, o callback a 0, `aria-disabled`, o foco e o motivo em `aria-describedby`.
+- `src/lib/test/disabled.ts`: `expectDisabledInert({ control, label?, read, popup?, callback, user?, settle? })`, que carrega no Espaço, no Return, clica no controlo e no rótulo, espera depois de cada ação (`settle`: microtarefas, `tick()` e 150 ms de temporizadores, avançados com `vi.useFakeTimers()`) e verifica o valor (`read()`), o pop-up fechado, o callback a 0, `aria-disabled`, o foco e o motivo em `aria-describedby`.
 
-- [ ] **Passo 1: testes que falham:**
+- [x] **Passo 1: testes que falham:**
   - `effects.test.ts`:
     - `effects_json_has_four_shadows`;
     - `shadows_match_figma_effects`: deslocamento, desfoque, espalhamento 0 e opacidade de cada `--shadow-sombra-*` iguais aos de `effects.json`.
   - `ui-rules.test.ts`, sobre todos os `.svelte` e `.ts` de `src/lib/components/ui/` que não são testes:
-    - `ui_has_no_color_literals`: nem hex, nem `[#`, nem `rgb(`;
+    - `ui_has_no_color_literals`: nem hex (3, 4, 6 ou 8 dígitos), nem `[#`, nem funções de cor (`rgb(`, `rgba(`, `hsl(`, `hsla(`, `oklch(`, `oklab(`, `lab(`, `lch(`, `hwb(`, `color(`); o `color-mix(` de tokens é permitido;
     - `ui_imports_lucide_svelte_only`: nenhum `@lucide/svelte`;
     - `ui_data_variants_are_declared`: cada `data-<x>:` usado está em `shadcn-variants.css` ou é uma variante de presença do Tailwind; nenhuma das copiadas fica sem uso no fim da Fase 2;
-    - `ui_has_no_interpolated_classes`: nenhum `${` dentro de uma classe de cor, fundo ou contorno;
-    - `ui_motion_has_reduced_pair`: cada classe com `translate`, `scale`, `slide-in`, `zoom-in` ou `spin` tem um `motion-reduce:` no mesmo elemento;
+    - `ui_has_no_interpolated_classes`: nenhum `${` (nem `{…}` do Svelte) dentro de uma classe de cor, fundo ou contorno, também depois de `/`, `[` ou de variantes (`bg-primary/${o}`, `bg-[var(--swatch-${n})]`);
+    - `ui_motion_has_reduced_pair`: cada `animate-*` (menos `animate-in`/`animate-out`), `slide-in`/`slide-out`, `zoom-in`/`zoom-out`, `spin-in`/`spin-out`, e cada `translate`, `scale` ou `rotate` com variante ou em `class:`, tem no mesmo elemento (atributo `class` e diretivas `class:`) um `motion-reduce:` que repõe a mesma propriedade (`animate-none`, `translate-none`/`-0`, `scale-none`/`-100`, `rotate-none`/`-0`, `zoom-in-100`…) com as mesmas variantes de estado (`hover:scale-105` → `motion-reduce:hover:scale-100`), senão a regra do estado ganha;
     - `focus_ring_uses_ring_tokens`: o `@utility focus-ring` usa `--stroke-ring`, `--ring` e `--ring-opacity`, e nenhum valor literal;
-    - `test_files_are_not_scanned`: as `sources` do `compileAppCss` excluem `**/*.test.ts` de `ui/` e `src/lib/test/`.
-- [ ] **Passo 2:** `npx vitest run src/lib/styles/effects.test.ts src/lib/components/ui` falha.
-- [ ] **Passo 3:** exportar os efeitos com `figma_execute`, só leitura, `fileKey` `nU5CnQTJobxVE8mHMr7iZL`: `figma.getLocalEffectStylesAsync()` → nome, `offset`, `radius`, `spread` e cor de cada `DROP_SHADOW`, gravados em `design/effects.json`. Valores esperados: Segmento 0 1 2 a 12 %, Menu 0 8 24 a 16 %, Janela 0 8 24 a 18 %, Aviso 0 4 16 a 14 %; os mesmos nos dois modos.
-- [ ] **Passo 4:** as variantes em `shadcn-variants.css`; as sombras no `@theme` estático de `tokens.css` (`--shadow-sombra-menu: 0 8px 24px rgb(0 0 0 / 0.16)`); `@utility focus-ring` em `components.css`; os dois imports e as duas exclusões em `app.css`.
-- [ ] **Passo 5:** `src/lib/test/css.ts` e `disabled.ts`; `npm i -D -E @testing-library/user-event@14.6.13`.
-- [ ] **Passo 6:** os testes passam e passam os quatro comandos.
-- [ ] **Passo 7:** commit `build(ui): data-state variants, Figma shadows, focus ring and test helpers`.
+    - `test_files_are_not_scanned`: as `sources` do `compileAppCss` excluem `./**/*.test.ts` e `./lib/test/**`; o `Scanner` do Tailwind não lê nenhum teste e uma classe só escrita nos testes não chega ao CSS.
+- [x] **Passo 2:** `npx vitest run src/lib/styles/effects.test.ts src/lib/components/ui` falha.
+- [x] **Passo 3:** exportar os efeitos com `figma_execute`, só leitura, `fileKey` `nU5CnQTJobxVE8mHMr7iZL`: `figma.getLocalEffectStylesAsync()` → nome, `offset`, `radius`, `spread` e cor de cada `DROP_SHADOW`, gravados em `design/effects.json`. Valores esperados: Segmento 0 1 2 a 12 %, Menu 0 8 24 a 16 %, Janela 0 8 24 a 18 %, Aviso 0 4 16 a 14 %; os mesmos nos dois modos.
+- [x] **Passo 4:** as variantes em `shadcn-variants.css`; as sombras no `@theme` estático de `tokens.css` (`--shadow-sombra-menu: 0 8px 24px rgb(0 0 0 / 0.16)`); `@utility focus-ring` em `components.css`; os dois imports e as duas exclusões em `app.css`.
+- [x] **Passo 5:** `src/lib/test/css.ts` e `disabled.ts`; `npm i -D -E @testing-library/user-event@14.6.13`.
+- [x] **Passo 6:** os testes passam e passam os quatro comandos.
+- [x] **Passo 7:** commit `build(ui): data-state variants, Figma shadows, focus ring and test helpers`.
+- **Resultado (2026-11-19):** 275 testes (1 saltado até à Task 30), `check` 0, build OK, harness 73/73. Desvios aceites: `@testing-library/user-event` 14.6.11 e não 14.6.13 (o `min-release-age=3` do npm recusou a versão com uma hora); `expectDisabledInert` pede `reason` e aceita `user` e `settle`; o Passo 3 (efeitos do Figma) foi feito pelo coordenador. Revisão do Sol: cinco médios (ajudante sem esperar por reações atrasadas, `\&` escapado no `selectorFor`, cores `hsl`/`oklch` e hex curto, interpolação com `/` e `[`, pares de `motion-reduce` que não anulavam o movimento) e um do coordenador (testes fora de `ui/` lidos pelo Tailwind; agora `@source not './**/*.test.ts'`). Todos corrigidos com testes que falhavam antes.
+- **Nota para as tasks seguintes:** o jsdom engana-se com `not-data-disabled:` em `element.matches`; verificar essa variante pela classe. Transforms fixos (sem variante de estado) não contam como movimento.
 
 ### Task 6: contraste aumentado a partir dos modos do Figma
 **Pré-requisitos, feitos pelo coordenador (não são passos do agente):**

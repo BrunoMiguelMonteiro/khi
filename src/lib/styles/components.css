@@ -1,0 +1,12 @@
+/*
+  Utilities shared by the Phase 2 components (src/lib/components/ui/).
+
+  focus-ring: an outline, not a box-shadow, so it keeps the shadow-sombra-* shadows and the
+  contrast-more:inset-ring borders. Use focus-visible:focus-ring on the focused element, or
+  group-focus-visible/<name>:focus-ring when another element paints the ring.
+*/
+@utility focus-ring {
+  outline: var(--stroke-ring) solid
+    color-mix(in srgb, var(--ring) calc(var(--ring-opacity) * 100%), transparent);
+  outline-offset: 0;
+}

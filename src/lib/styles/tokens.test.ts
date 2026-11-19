@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 const root = process.cwd();
 const tokensPath = resolve(root, 'src/lib/styles/tokens.css');
 const figma = JSON.parse(readFileSync(resolve(root, 'design/tokens.json'), 'utf8'));
+const effects = JSON.parse(readFileSync(resolve(root, 'design/effects.json'), 'utf8'));
 const tailwindTheme = readFileSync(resolve(root, 'node_modules/tailwindcss/theme.css'), 'utf8');
 
 // Review Focus 4, from the plan («Fundações»): the outside judge of the Figma contrast modes.
@@ -164,6 +165,14 @@ describe('tokens.css (Figma variables)', () => {
 		expect(t.theme.has('--color-ring-opacity')).toBe(false);
 		expect(t.themeInline.has('--color-ring-opacity')).toBe(false);
 		for (const name of t.theme.keys()) expect(name.startsWith('--color-'), name).toBe(false);
+		// The only colours in @theme static are the Figma effect styles (design/effects.json),
+		// whose values effects.test.ts checks.
+		const shadowNames = Object.keys(effects.sombra).map((k) => `--shadow-sombra-${k}`);
+		for (const [name, value] of t.theme) {
+			if (/#[0-9a-f]{3,8}\b|\b(rgba?|hsla?|oklch|oklab|lab|lch|color)\(/i.test(value)) {
+				expect(shadowNames, `${name} colour comes from effects.json`).toContain(name);
+			}
+		}
 		for (const [name, value] of t.themeInline) expect(value).not.toBe(`var(${name})`);
 	});
 

@@ -2,13 +2,13 @@
 @import './lib/styles/tokens.css';
 @import './lib/styles/typography.css';
 @import 'tw-animate-css';
+@import './lib/styles/shadcn-variants.css';
+@import './lib/styles/components.css';
 @source './**/*.{html,js,svelte,ts}';
-/* tokens.test.ts names the `@theme static` and `@theme inline` blocks; scanning it would emit .static and .inline. */
-@source not './lib/styles/tokens.test.ts';
-/* typography.test.ts names the text-<style> utilities; scanning it would emit them unused. */
-@source not './lib/styles/typography.test.ts';
-/* utils.test.ts names Khi and Tailwind classes to test cn(); scanning it would emit them unused. */
-@source not './lib/utils.test.ts';
+/* Tests and the test helpers name classes (and words like `static`); scanning them could emit unused
+   CSS or hide a class a component lacks. */
+@source not './**/*.test.ts';
+@source not './lib/test/**';
 
 @custom-variant dark (&:where(.dark, .dark *));
 /* v3 selector: specificity 0,3,0 so group-hover:opacity-100 beats disabled:opacity-50 */
