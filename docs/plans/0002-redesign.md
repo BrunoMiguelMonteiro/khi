@@ -1299,7 +1299,7 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 - suite completa (`cargo test` e Vitest) uma vez;
 - 2–3 mutações por task. Exemplos: `>=` no lugar de `>`, `synced_seq` escrito no UPDATE, `opened_seq` com o seq atual em vez do `seen_seq`, snapshot tirado depois de marcar.
 
-**Paragem:** o Bruno aprova a Fase 3.
+**Paragem:** o Bruno aprova a Fase 3. **Aprovada a 2026-11-19**, depois da review do lote 31–33 e das correções `391c815` (DECISIONS, «Review do lote 31–33»).
 
 ## Fase 4 · Janela
 **Tasks aprovadas pelo Bruno a 2026-11-19** (DECISIONS, «Tasks das Fases 3 e 4»).
