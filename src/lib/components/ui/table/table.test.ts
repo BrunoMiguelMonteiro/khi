@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
 import { compileAppCss, selectorFor } from "$lib/test/css";
 import { BookRow, ColumnHeader, type BookRowBook } from "./index";
+import RowsFixture from "./book-rows.fixture.svelte";
 
 type Binding = { binding: string; utility: string; css: string };
 
@@ -303,6 +304,37 @@ describe("BookRow", () => {
     expect([...row.classList].filter((c) => c.startsWith("after:"))).toEqual(
       [],
     );
+  });
+
+  it("separator_is_hidden_on_the_last_row_and_before_a_selected_or_hovered_row", async () => {
+    const books = [1, 2, 3].map((id) => ({ ...MAIAS, id }));
+    const { container } = render(RowsFixture, {
+      props: { books, selectedId: 2 },
+    });
+    const rows = [...container.querySelectorAll('[data-slot="book-row"]')];
+    expect(rows).toHaveLength(3);
+    const LAST = "last:after:hidden";
+    const BEFORE_SELECTED = "has-[+[aria-selected=true]]:after:hidden";
+    const BEFORE_HOVERED = "has-[+:hover]:after:hidden";
+    for (const c of [LAST, BEFORE_SELECTED, BEFORE_HOVERED])
+      // The selected row draws no separator of its own.
+      for (const row of [rows[0], rows[2]])
+        expect(row.classList, c).toContain(c);
+    expect(rows.map((r) => r.getAttribute("aria-selected"))).toEqual([
+      "false",
+      "true",
+      "false",
+    ]);
+    expect(rows[2].nextElementSibling).toBeNull();
+    expect(await selectorFor(LAST)).toContain(":last-child");
+    const selected = await selectorFor(BEFORE_SELECTED);
+    expect(selected).toContain(":has(");
+    expect(selected).toContain("aria-selected");
+    expect(selected).toContain("::after");
+    const hovered = await selectorFor(BEFORE_HOVERED);
+    expect(hovered).toContain(":has(");
+    expect(hovered).toContain(":hover");
+    // Where the line really disappears next to the hovered or selected row is checked on screen (Phase 5).
   });
 
   it("highlights_count_is_tabular_and_right_aligned", async () => {

@@ -38,7 +38,7 @@
 				className
 			)}
 		>
-			{$_('screens.library.titleOf', { reader: active?.name ?? '' })}
+			{active ? $_('screens.library.titleOf', { reader: active.name }) : $_('screens.library.title')}
 			<Icon icon={ChevronDown} size="md" class="text-muted-foreground" />
 		</DropdownMenu.Trigger>
 		<DropdownMenu.Content sideOffset={4} align="start">

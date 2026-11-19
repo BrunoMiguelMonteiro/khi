@@ -48,14 +48,17 @@
 	);
 </script>
 
-<!-- Componentes (D7) · 18 · Cartão do livro (65:4268); the grid, arrows and multiple selection belong to the screen. -->
+<!--
+	Componentes (D7) · 18 · Cartão do livro (65:4268); the grid, arrows and multiple selection belong to the screen.
+	The card is 171 wide (w-42.75), so the selection frame, 2 px out of the 2:3 cover, is 175 × 260.
+-->
 <div
 	role="gridcell"
 	aria-selected={selected}
 	aria-label={label}
 	{tabindex}
 	data-slot="book-card"
-	class={cn('group/card flex flex-col gap-2 outline-none', className)}
+	class={cn('group/card flex w-42.75 flex-col gap-2 outline-none', className)}
 	{...restProps}
 >
 	<div aria-hidden="true" class="relative">

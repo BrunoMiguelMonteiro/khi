@@ -47,7 +47,7 @@
 
 	$effect(() => {
 		clearTimeout(timer);
-		if (exported) {
+		if (exported && !exporting) {
 			showExported = true;
 			timer = setTimeout(() => (showExported = false), 2000);
 		} else showExported = false;
@@ -81,14 +81,16 @@
 					? $_('screens.library.header.syncedAt', { time: time(current.syncedAt) })
 					: current.message
 	);
+	// The alert region always exists, so the change to an error is announced; the Retry button stays outside it.
+	const alertText = $derived(current.kind === 'erro' ? `${message} ${detail}`.trim() : '');
 	// Only the start and the end are announced: the progress changes on screen, not here.
 	const announcement = $derived(current.kind === 'erro' ? '' : message);
 
 	const exportLabel = $derived(
-		exported && showExported
-			? $_('screens.library.header.exported')
-			: exporting
-				? $_('screens.library.header.exporting')
+		exporting
+			? $_('screens.library.header.exporting')
+			: exported && showExported
+				? $_('screens.library.header.exported')
 				: current.kind === 'novos'
 					? $_('screens.library.header.exportBooks', { count: current.books })
 					: ''
@@ -102,11 +104,10 @@
 <div
 	data-slot="library-header"
 	data-state={current.kind}
-	role={current.kind === 'erro' ? 'alert' : undefined}
 	out:fade|global={{ duration: 150 }}
 	class={cn(
 		'flex min-h-control flex-wrap items-center justify-between gap-x-4 gap-y-2',
-		'animate-in fade-in-0 slide-in-from-top-(length:--distance-enter) duration-reveal ease-out motion-reduce:slide-in-from-top-0',
+		'animate-in fade-in-0 slide-in-from-top-(length:--distance-enter) duration-(--duration-reveal) ease-out motion-reduce:slide-in-from-top-0',
 		className
 	)}
 	{...restProps}
@@ -148,3 +149,4 @@
 </div>
 
 <div aria-live="polite" class="sr-only">{announcement}</div>
+<div role="alert" class="sr-only">{alertText}</div>

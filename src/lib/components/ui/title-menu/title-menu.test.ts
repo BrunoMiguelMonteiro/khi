@@ -141,4 +141,27 @@ describe("TitleMenu", () => {
       "false",
     ]);
   });
+
+  it("title_and_check_follow_a_changed_active_reader", async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderMenu();
+    await rerender({ readers: [ANA, RUI], activeReaderId: "rui" });
+    await user.click(screen.getByRole("button", { name: "Library of Rui" }));
+    await waitFor(() => expect(menu()).not.toBeNull());
+    expect(item("Rui").getAttribute("aria-checked")).toBe("true");
+    expect(item("Ana").getAttribute("aria-checked")).toBe("false");
+  });
+
+  it("stale_active_reader_falls_back_to_the_plain_title_and_keeps_the_menu", async () => {
+    const user = userEvent.setup();
+    renderMenu([ANA, RUI], "gone");
+    const button = screen.getByRole("button", { name: "Library" });
+    expect(button.getAttribute("aria-haspopup")).toBe("menu");
+    await user.click(button);
+    await waitFor(() => expect(menu()).not.toBeNull());
+    expect(items().map((i) => i.getAttribute("aria-checked"))).toEqual([
+      "false",
+      "false",
+    ]);
+  });
 });

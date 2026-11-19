@@ -8,6 +8,7 @@ const root = process.cwd();
 const uiDir = resolve(root, 'src/lib/components/ui');
 const variantsCss = readFileSync(resolve(root, 'src/lib/styles/shadcn-variants.css'), 'utf8');
 const componentsCss = readFileSync(resolve(root, 'src/lib/styles/components.css'), 'utf8');
+const tokensCss = readFileSync(resolve(root, 'src/lib/styles/tokens.css'), 'utf8');
 
 type Source = { file: string; text: string };
 
@@ -35,6 +36,15 @@ const COLOR_LITERAL =
 
 function colorLiterals(text: string): string[] {
 	return [...stripComments(text).matchAll(COLOR_LITERAL)].map((m) => m[0]);
+}
+
+// There is no --duration-* theme namespace, so a bare `duration-hover` emits no CSS: the token
+// is used as `duration-(--duration-hover)`.
+const durationTokens = [...new Set([...tokensCss.matchAll(/--duration-([\w-]+)\s*:/g)].map((m) => m[1]))];
+
+function bareDurations(text: string, tokens = durationTokens): string[] {
+	const names = tokens.join('|');
+	return [...stripComments(text).matchAll(new RegExp(`(?<![\\w-])duration-(?:${names})(?![\\w-])`, 'g'))].map((m) => m[0]);
 }
 
 function lucideImports(text: string): string[] {
@@ -244,6 +254,13 @@ describe('ui rules catch violations (fixtures)', () => {
 		expect(colorLiterals('<div class="bg-[color-mix(in_srgb,#fff_50%,transparent)]">')).toEqual(['#fff']);
 	});
 
+	it('bare_duration_tokens', () => {
+		expect(durationTokens).toEqual(expect.arrayContaining(['hover', 'reveal', 'in']));
+		expect(bareDurations('<div class="transition duration-hover ease-hover">')).toEqual(['duration-hover']);
+		expect(bareDurations('<div class="duration-(--duration-reveal) duration-150 md:duration-in">')).toEqual(['duration-in']);
+		expect(bareDurations('<!-- duration-hover --> /* duration-out */')).toEqual([]);
+	});
+
 	it('lucide_imports', () => {
 		expect(lucideImports("import X from '@lucide/svelte/icons/x';")).toHaveLength(1);
 		expect(lucideImports("import X from 'lucide-svelte/icons/x';")).toEqual([]);
@@ -321,6 +338,10 @@ describe('ui components follow the Phase 2 rules', () => {
 
 	it('ui_has_no_color_literals', () => {
 		for (const { file, text } of sources) expect(colorLiterals(text), file).toEqual([]);
+	});
+
+	it('ui_uses_duration_tokens_in_the_variable_form', () => {
+		for (const { file, text } of sources) expect(bareDurations(text), file).toEqual([]);
 	});
 
 	it('ui_imports_lucide_svelte_only', () => {

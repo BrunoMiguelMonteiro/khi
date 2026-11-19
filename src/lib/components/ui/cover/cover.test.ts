@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render } from "@testing-library/svelte";
 import { isInaccessible } from "@testing-library/dom";
 import { tick } from "svelte";
@@ -349,6 +349,61 @@ describe("Cover", () => {
     badge = must(slot(container, "badge"), "badge");
     expect(badge.textContent?.trim()).toBe("3 new");
     expect(badge.hasAttribute("data-closed")).toBe(false);
+  });
+});
+
+describe("Cover badge exit", () => {
+  afterEach(() => vi.useRealTimers());
+
+  async function closing() {
+    const view = render(Cover, { props: { ...BOOK, newCount: 2 } });
+    await view.rerender({ ...BOOK, newCount: 0 });
+    expect(
+      must(slot(view.container, "badge"), "badge").hasAttribute("data-closed"),
+    ).toBe(true);
+    return view;
+  }
+
+  it("animationcancel_clears_the_exiting_badge", async () => {
+    const { container } = await closing();
+    await fireEvent(
+      must(slot(container, "badge"), "badge"),
+      new Event("animationcancel", { bubbles: true }),
+    );
+    await tick();
+    expect(slot(container, "badge")).toBeNull();
+  });
+
+  it("fallback_timeout_clears_it_when_no_event_fires", async () => {
+    vi.useFakeTimers();
+    const { container } = await closing();
+    await vi.advanceTimersByTimeAsync(100);
+    expect(slot(container, "badge")).not.toBeNull();
+    await vi.advanceTimersByTimeAsync(200);
+    expect(slot(container, "badge")).toBeNull();
+  });
+
+  it("new_count_during_the_exit_shows_and_the_timer_is_gone", async () => {
+    vi.useFakeTimers();
+    const { container, rerender, unmount } = await closing();
+    await vi.advanceTimersByTimeAsync(100);
+    await rerender({ ...BOOK, newCount: 5 });
+    const badge = must(slot(container, "badge"), "badge");
+    expect(badge.textContent?.trim()).toBe("5 new");
+    expect(badge.hasAttribute("data-closed")).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
+    await vi.advanceTimersByTimeAsync(500);
+    expect(must(slot(container, "badge"), "badge").textContent?.trim()).toBe(
+      "5 new",
+    );
+    unmount();
+  });
+
+  it("unmount_during_the_exit_clears_the_timer", async () => {
+    vi.useFakeTimers();
+    const { unmount } = await closing();
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
   });
 });
 

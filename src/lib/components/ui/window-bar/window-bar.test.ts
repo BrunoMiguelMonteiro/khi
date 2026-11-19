@@ -259,6 +259,71 @@ describe("WindowBar sync", () => {
     expect(spins()).toBe(true);
   });
 
+  /** A controllable (prefers-reduced-motion: reduce) for the test; the original is restored after. */
+  function mockReducedMotion(initial: boolean) {
+    const original = window.matchMedia;
+    const listeners = new Set<(e: { matches: boolean }) => void>();
+    let matches = initial;
+    window.matchMedia = ((query: string) => ({
+      get matches() {
+        return query.includes("reduce") && matches;
+      },
+      media: query,
+      addEventListener: (_: string, l: (e: { matches: boolean }) => void) =>
+        listeners.add(l),
+      removeEventListener: (_: string, l: (e: { matches: boolean }) => void) =>
+        listeners.delete(l),
+    })) as unknown as typeof window.matchMedia;
+    return {
+      set(value: boolean) {
+        matches = value;
+        for (const l of listeners) l({ matches: value });
+      },
+      restore: () => (window.matchMedia = original),
+    };
+  }
+
+  it("reduced_motion_never_leaves_a_stale_spin", async () => {
+    const media = mockReducedMotion(true);
+    try {
+      const { rerender } = renderBar({ syncing: true });
+      await tick();
+      expect(spins()).toBe(false);
+      await rerender({ ...LIBRARY, syncing: false });
+      media.set(false);
+      await tick();
+      expect(spins()).toBe(false);
+    } finally {
+      media.restore();
+    }
+  });
+
+  it("turning_off_reduced_motion_mid_sync_resumes_and_turning_it_on_stops", async () => {
+    const media = mockReducedMotion(false);
+    try {
+      renderBar({ syncing: true });
+      await tick();
+      expect(spins()).toBe(true);
+      media.set(true);
+      await tick();
+      expect(spins()).toBe(false);
+      media.set(false);
+      await tick();
+      expect(spins()).toBe(true);
+    } finally {
+      media.restore();
+    }
+  });
+
+  it("switching_to_detail_and_back_after_the_sync_ended_is_not_turning", async () => {
+    const { rerender } = renderBar({ syncing: true });
+    await rerender({ ...LIBRARY, syncing: false });
+    expect(spins()).toBe(true);
+    await rerender({ ...LIBRARY, screen: "detail", syncing: false });
+    await rerender({ ...LIBRARY, syncing: false });
+    expect(spins()).toBe(false);
+  });
+
   it("spin_is_1s_linear_and_off_with_reduced_motion", async () => {
     renderBar({ syncing: true });
     const button = screen.getByRole("button", { name: "Sync with the Kobo" });

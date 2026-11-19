@@ -116,7 +116,6 @@ describe("Highlight", () => {
       "p-4",
       "-m-4",
       "transition-colors",
-      "duration-hover",
       "ease-hover",
     ])
       expect(root.classList.contains(c), c).toBe(true);
@@ -135,6 +134,26 @@ describe("Highlight", () => {
     expect(document.activeElement).toBe(button);
     await user.tab();
     expect(document.activeElement).not.toBe(button);
+  });
+
+  it("metadata_and_quote_use_their_type_styles", () => {
+    const { root } = renderHighlight();
+    const meta = must(slot(root, "highlight-meta"), "metadata");
+    expect(meta.textContent).toBe("Capítulo 2 · November 10");
+    for (const c of ["text-callout", "text-muted-foreground"])
+      expect(meta.classList.contains(c), c).toBe(true);
+    const text = must(slot(root, "highlight-text"), "text");
+    for (const c of ["text-reading", "text-foreground"])
+      expect(text.classList.contains(c), c).toBe(true);
+    // The copy button (size-6 at right-4) never covers the quote.
+    expect(must(text.parentElement, "column").classList.contains("pr-8")).toBe(
+      true,
+    );
+    // Metadata the highlight lacks is left out, with no stray separator.
+    const bare = renderHighlight({ chapterTitle: null });
+    expect(
+      must(slot(bare.root, "highlight-meta"), "metadata").textContent,
+    ).toBe("November 10");
   });
 });
 
@@ -166,6 +185,54 @@ describe("Highlight copy", () => {
     expect(button.querySelector(".lucide-check")).toBeNull();
     await vi.advanceTimersByTimeAsync(2001);
     expect(screen.getByRole("button", { name: "Copy quote" })).toBe(button);
+  });
+
+  it("copy_rejection_shows_error", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const oncopy = vi.fn().mockRejectedValue(new Error("denied"));
+    renderHighlight({}, { oncopy });
+    await user.click(copyButton());
+    expect(screen.getByRole("button", { name: "Copy failed" })).toBeTruthy();
+    await vi.advanceTimersByTimeAsync(2001);
+    expect(copyButton()).toBeTruthy();
+  });
+
+  it("double_click_while_pending_copies_once", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    let finish: (ok: boolean) => void = () => {};
+    const oncopy = vi.fn(() => new Promise<boolean>((r) => (finish = r)));
+    renderHighlight({}, { oncopy });
+    await user.dblClick(copyButton());
+    expect(oncopy).toHaveBeenCalledTimes(1);
+    finish(true);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(vi.getTimerCount()).toBe(1);
+  });
+
+  it("click_during_feedback_restarts_it", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const oncopy = vi.fn().mockResolvedValue(true);
+    renderHighlight({}, { oncopy });
+    await user.click(copyButton());
+    await vi.advanceTimersByTimeAsync(1500);
+    await user.click(screen.getByRole("button", { name: "Copied!" }));
+    expect(oncopy).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(screen.getByRole("button", { name: "Copied!" })).toBeTruthy();
+    await vi.advanceTimersByTimeAsync(600);
+    expect(copyButton()).toBeTruthy();
+  });
+
+  it("unmount_while_pending_schedules_nothing", async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    let finish: (ok: boolean) => void = () => {};
+    const oncopy = vi.fn(() => new Promise<boolean>((r) => (finish = r)));
+    const { unmount } = renderHighlight({}, { oncopy });
+    await user.click(copyButton());
+    unmount();
+    finish(true);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it("copies_the_quote_to_the_clipboard_by_default", async () => {

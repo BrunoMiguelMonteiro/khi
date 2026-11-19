@@ -64,8 +64,18 @@
 
 	// Sync keeps turning after `syncing` ends, until the lap is over, so it stops straight.
 	let turning = $state(false);
+	let reducedMotion = $state(false);
 	$effect(() => {
-		if (syncing) turning = true;
+		const query = window.matchMedia('(prefers-reduced-motion: reduce)');
+		reducedMotion = query.matches;
+		const update = (event: { matches: boolean }) => (reducedMotion = event.matches);
+		query.addEventListener('change', update);
+		return () => query.removeEventListener('change', update);
+	});
+	// Nothing animates with Reduzir movimento or off the library, so there is no lap to wait for.
+	$effect(() => {
+		if (reducedMotion || screen !== 'library') turning = false;
+		else if (syncing) turning = true;
 	});
 
 	const sorts: { value: SortPreference_Serialize; label: string }[] = $derived([

@@ -107,6 +107,27 @@ describe("BookCard", () => {
     }
   });
 
+  it("selection_frame_is_175_by_260_from_a_fixed_cover", async () => {
+    const { card, cover, frame } = renderCard({}, true);
+    // The cover is fixed at 171 wide (2:3), so 2 px out on every side gives the 175 × 260 frame.
+    const width = await ruleOf("w-42.75");
+    expect(card.classList.contains("w-42.75")).toBe(true);
+    expect(width).toContain("width: calc(var(--spacing) * 42.75);");
+    const spacing = 4;
+    const coverWidth = 42.75 * spacing;
+    expect(cover.classList.contains("aspect-2/3")).toBe(true);
+    const coverHeight = (coverWidth * 3) / 2;
+    const out = 0.5 * spacing;
+    expect(must(frame, "frame").classList.contains("-inset-0.5")).toBe(true);
+    expect(coverWidth + 2 * out).toBe(175);
+    expect(Math.floor(coverHeight + 2 * out)).toBe(260);
+    // Nothing on the cover wrapper or the cover itself sets another size.
+    const sizing = (el: Element) =>
+      [...el.classList].filter((c) => /^(w|h|size|min-w|max-w)-/.test(c));
+    expect(sizing(cover)).toEqual([]);
+    expect(sizing(must(cover.parentElement, "wrapper"))).toEqual([]);
+  });
+
   it("selected_sets_aria_selected_and_frame", async () => {
     const off = renderCard({}, false);
     expect(off.card.getAttribute("aria-selected")).toBe("false");
@@ -120,7 +141,7 @@ describe("BookCard", () => {
     const selection = must(frame, "selection frame");
     await expectBindings(selection, [
       {
-        binding: "x −2 y −2 (175 × 260)",
+        binding: "x −2 y −2 out from the cover",
         utility: "-inset-0.5",
         css: "inset: calc(var(--spacing) * -0.5);",
       },

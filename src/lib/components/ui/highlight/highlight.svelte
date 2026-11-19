@@ -4,7 +4,7 @@
 
 	export type HighlightState = 'normal' | 'novo' | 'removido';
 
-	export type HighlightProps = Omit<HTMLAttributes<HTMLDivElement>, 'children'> & {
+	export type HighlightProps = Omit<HTMLAttributes<HTMLDivElement>, 'children' | 'oncopy'> & {
 		highlight: HighlightData;
 		state?: HighlightState;
 		/** Copies the quote and says whether it worked; the clipboard when omitted. */
@@ -33,8 +33,13 @@
 	type CopyState = 'idle' | 'success' | 'error';
 	let copied = $state<CopyState>('idle');
 	let timer: ReturnType<typeof setTimeout> | undefined;
+	let pending = false;
+	let alive = true;
 
-	onDestroy(() => clearTimeout(timer));
+	onDestroy(() => {
+		alive = false;
+		clearTimeout(timer);
+	});
 
 	// Kobo stores "" for highlights without a note.
 	const note = $derived(highlight.annotation?.trim() ?? '');
@@ -45,6 +50,7 @@
 			? ''
 			: new Intl.DateTimeFormat($locale, { day: 'numeric', month: 'long' }).format(d);
 	});
+	const meta = $derived([chapter, date].filter(Boolean).join(' · '));
 	// VoiceOver: «Capítulo 2, 10 de novembro, novo, com nota» and then the text.
 	const summary = $derived(
 		[
@@ -66,9 +72,18 @@
 	);
 
 	async function copy() {
-		if (copied !== 'idle') return;
-		const result = oncopy ? await oncopy(highlight) : await copyToClipboard(highlight.text);
-		copied = result === false ? 'error' : 'success';
+		if (pending) return;
+		pending = true;
+		let ok = false;
+		try {
+			ok = (oncopy ? await oncopy(highlight) : await copyToClipboard(highlight.text)) !== false;
+		} catch {
+			ok = false;
+		}
+		pending = false;
+		if (!alive) return;
+		copied = ok ? 'success' : 'error';
+		clearTimeout(timer);
 		timer = setTimeout(() => (copied = 'idle'), 2000);
 	}
 </script>
@@ -84,7 +99,7 @@
 	data-slot="highlight"
 	data-state={tone}
 	class={cn(
-		'group/highlight relative -m-4 rounded-control p-4 transition-colors duration-hover ease-hover hover:bg-accent focus-within:bg-accent',
+		'group/highlight relative -m-4 rounded-control p-4 transition-colors duration-(--duration-hover) ease-hover hover:bg-accent focus-within:bg-accent',
 		className
 	)}
 	{...restProps}
@@ -99,8 +114,11 @@
 			tone === 'removido' && DASHED_LINE
 		)}
 	></span>
-	<div class="flex flex-col gap-2 pl-4">
-		<p data-slot="highlight-text" class="text-foreground">{highlight.text}</p>
+	<div class="flex flex-col gap-2 pr-8 pl-4">
+		{#if meta}
+			<p data-slot="highlight-meta" class="text-callout text-muted-foreground">{meta}</p>
+		{/if}
+		<p data-slot="highlight-text" class="text-reading text-foreground">{highlight.text}</p>
 		{#if note}
 			<p
 				data-slot="highlight-note"
@@ -124,7 +142,7 @@
 		type="button"
 		data-slot="highlight-copy"
 		aria-label={copyLabel}
-		class="absolute top-4 right-4 flex size-6 items-center justify-center rounded-control text-muted-foreground opacity-0 transition-opacity duration-hover ease-hover outline-none group-hover/highlight:opacity-100 group-focus-within/highlight:opacity-100 focus-visible:focus-ring"
+		class="absolute top-4 right-4 flex size-6 items-center justify-center rounded-control text-muted-foreground opacity-0 transition-opacity duration-(--duration-hover) ease-hover outline-none group-hover/highlight:opacity-100 group-focus-within/highlight:opacity-100 focus-visible:focus-ring"
 		onclick={copy}
 	>
 		<Icon icon={copied === 'success' ? Check : Copy} size="md" />

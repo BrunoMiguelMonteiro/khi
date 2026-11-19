@@ -31,7 +31,16 @@
 		});
 	});
 	const badgeCount = $derived(newCount > 0 ? newCount : leaving);
+	// onanimationcancel is missing from Svelte's attribute types, so it goes in through a spread.
 	const closing = $derived(newCount <= 0 && leaving !== null);
+
+	// If the fade is cancelled or never reports its end, the badge still leaves: duration/out
+	// (150 ms) plus a margin. The cleanup covers a new count and the unmount.
+	$effect(() => {
+		if (!closing) return;
+		const timer = setTimeout(() => (leaving = null), 200);
+		return () => clearTimeout(timer);
+	});
 </script>
 
 <!-- Componentes (D7) · 16 · Capa (63:3281). No overflow-hidden here: the card's focus ring is an outline on this element. -->
@@ -68,6 +77,7 @@
 			data-closed={closing ? '' : undefined}
 			aria-hidden={closing ? 'true' : undefined}
 			onanimationend={() => closing && (leaving = null)}
+			{...{ onanimationcancel: () => closing && (leaving = null) }}
 		>
 			{$_('book.newCount', { count: badgeCount })}
 		</Badge>

@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
 import Fixture from "./library-header-fixture.svelte";
+import PropsFixture from "./library-header-props.fixture.svelte";
+import { LibraryHeader } from "./index";
 import type { LibraryHeaderState } from "./index";
 
 const NOVOS: LibraryHeaderState = {
@@ -146,12 +148,14 @@ describe("LibraryHeader error", () => {
     const alert = screen.getByRole("alert");
     expect(alert.textContent).toContain("Could not sync the Kobo");
     expect(alert.textContent).toContain("Could not read the Kobo");
-    expect(alert.querySelector("svg.lucide-circle-alert")).not.toBeNull();
-    expect(
-      alert
-        .querySelector("svg.lucide-circle-alert")
-        ?.classList.contains("text-destructive"),
-    ).toBe(true);
+    // Only the error text is announced: the button is outside the alert.
+    const retry = screen.getByRole("button", { name: "Try again" });
+    expect(alert.contains(retry)).toBe(false);
+    expect(alert.querySelector("button")).toBeNull();
+    const icon = container.querySelector(
+      '[data-slot="library-header"] svg.lucide-circle-alert',
+    );
+    expect(icon?.classList.contains("text-destructive")).toBe(true);
     expect(
       container
         .querySelector('[data-slot="library-header-detail"]')
@@ -162,9 +166,28 @@ describe("LibraryHeader error", () => {
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
+  it("alert_region_persists_and_fills_on_the_transition_to_error", async () => {
+    const { rerender } = renderHeader({
+      kind: "aSincronizar",
+      done: 1,
+      total: 4,
+    });
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent).toBe("");
+    await rerender({
+      state: { kind: "erro", message: "Could not read the Kobo" },
+    });
+    expect(screen.getByRole("alert")).toBe(alert);
+    expect(alert.textContent).toContain("Could not sync the Kobo");
+    expect(alert.textContent).toContain("Could not read the Kobo");
+    expect(alert.querySelector("button")).toBeNull();
+    await rerender({ state: NOVOS });
+    expect(alert.textContent).toBe("");
+  });
+
   it("only_the_error_is_an_alert", () => {
     renderHeader(NOVOS);
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("alert").textContent).toBe("");
   });
 });
 
@@ -197,5 +220,32 @@ describe("LibraryHeader actions", () => {
     expect(screen.getByRole("button", { name: "✓ Exported" })).toBe(button);
     await vi.advanceTimersByTimeAsync(20);
     expect(screen.getByRole("button", { name: "Export 3 books" })).toBe(button);
+  });
+
+  it("exporting_wins_over_a_stale_exported", async () => {
+    render(LibraryHeader, {
+      props: { state: NOVOS, exporting: true, exported: true },
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(screen.getByRole("button", { name: "Exporting…" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "✓ Exported" })).toBeNull();
+  });
+
+  it("a_new_export_clears_the_old_success_and_its_timer", async () => {
+    // Only `exporting` changes, as from a real parent; `exported` stays true.
+    const { component } = render(PropsFixture, { props: { state: NOVOS } });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(screen.getByRole("button", { name: "✓ Exported" })).toBeTruthy();
+    await vi.advanceTimersByTimeAsync(1500);
+    component.setExport({ exporting: true });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(screen.getByRole("button", { name: "Exporting…" })).toBeTruthy();
+    await vi.advanceTimersByTimeAsync(100);
+    component.setExport({ exporting: false });
+    // The first window would have closed at 2000 ms; the new one runs 2 s from here.
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(screen.getByRole("button", { name: "✓ Exported" })).toBeTruthy();
+    await vi.advanceTimersByTimeAsync(1100);
+    expect(screen.getByRole("button", { name: "Export 3 books" })).toBeTruthy();
   });
 });

@@ -18,10 +18,10 @@
 		lastRead: 'w-30 shrink-0'
 	} as const;
 
-	// Whole classes per state. Unselected: a 1 px border separator at the bottom, hidden on hover,
+	// Whole classes per state. Unselected: a 1 px border separator at the bottom, hidden on hover, on the last row and on the row above a selected or hovered one,
 	// and an accent hover. Selected (and focused, Componentes 4): primary, no ring, no animation.
 	const ROW = {
-		idle: 'text-foreground transition-[background-color] duration-(--duration-hover) ease-hover hover:bg-accent after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-border hover:after:hidden',
+		idle: 'text-foreground transition-[background-color] duration-(--duration-hover) ease-hover hover:bg-accent after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-border hover:after:hidden last:after:hidden has-[+[aria-selected=true]]:after:hidden has-[+:hover]:after:hidden',
 		selected: 'bg-primary text-primary-foreground'
 	} as const;
 	const STRONG = { idle: 'text-foreground', selected: 'text-primary-foreground' } as const;
