@@ -68,6 +68,18 @@ const CARD_BINDINGS: Binding[] = [
   },
 ];
 
+// Linha de formulário Tipo=Caixas (55:3488): no visible label, spacing/4 all round, columns of Caixas.
+const CHECKBOX_ROW_BINDINGS: Binding[] = [
+  { binding: "size/form-row (min height)", utility: "min-h-form-row", css: "min-height: var(--size-form-row);" },
+  { binding: "spacing/4 (all sides)", utility: "p-4", css: "padding: calc(var(--spacing) * 4);" },
+  { binding: "spacing/4 (between columns)", utility: "gap-4", css: "gap: calc(var(--spacing) * 4);" },
+];
+const COLUMN_BINDINGS: Binding[] = [
+  { binding: "Coluna: vertical", utility: "flex-col", css: "flex-direction: column;" },
+  { binding: "Coluna: fill width", utility: "flex-1", css: "flex: 1;" },
+  { binding: "Coluna: spacing/2 (gap)", utility: "gap-2", css: "gap: calc(var(--spacing) * 2);" },
+];
+
 describe("FormRow and FormGroup", () => {
   it("control_is_named_by_row_label", () => {
     render(Fixture);
@@ -133,5 +145,39 @@ describe("FormRow and FormGroup", () => {
     render(Fixture, { props: { heading: "" } });
     expect(screen.queryByRole("heading")).toBeNull();
     expect(slots("form-group")[0].hasAttribute("aria-labelledby")).toBe(false);
+  });
+
+  it("checkbox_row_is_group_named_by_label", () => {
+    render(Fixture, { props: { metadata: true } });
+    const group = screen.getByRole("group", { name: "Metadados a incluir" });
+    expect(group.dataset.slot).toBe("form-row");
+    // No visible label: the name is for screen readers only, and no Label is rendered.
+    expect(group.textContent).not.toContain("Metadados a incluir");
+    expect(group.querySelector('[data-slot="form-row-label"]')).toBeNull();
+    const boxes = [...group.querySelectorAll('[role="checkbox"]')];
+    expect(boxes.map((b) => b.getAttribute("aria-labelledby") ?? "")).toEqual(boxes.map(() => ""));
+    expect(screen.getByRole("checkbox", { name: "Autor" }).closest('[role="group"]')).toBe(group);
+    // The other rows are no groups.
+    expect(screen.getAllByRole("group")).toEqual([group]);
+  });
+
+  it("checkbox_row_has_three_columns", async () => {
+    render(Fixture, { props: { metadata: true } });
+    const rows = slots("form-row");
+    expect(rows).toHaveLength(5);
+    const row = rows[4];
+    await expectBindings(row, [...CHECKBOX_ROW_BINDINGS, ...DIVIDER_BINDINGS]);
+    expect([...row.classList].filter((c) => /^(p[xytblr]?-|items-)/.test(c))).toEqual(["p-4"]);
+    const columns = [...row.querySelectorAll<HTMLElement>('[data-slot="form-row-column"]')];
+    expect(columns.map((c) => [...c.querySelectorAll('[data-slot="checkbox-label"]')].map((l) => l.textContent?.trim()))).toEqual([
+      ["Autor", "Data de leitura"],
+      ["ISBN", "Idioma"],
+      ["Editora", "Descrição"],
+    ]);
+    for (const column of columns) {
+      expect(column.parentElement).toBe(row);
+      await expectBindings(column, COLUMN_BINDINGS);
+      expect(column.classList.contains("min-w-0")).toBe(true);
+    }
   });
 });

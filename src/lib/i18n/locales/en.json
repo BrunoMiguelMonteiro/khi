@@ -154,7 +154,12 @@
       "saveChanges": "Save Changes"
     },
     "close": "Close settings",
-    "tabs": "Settings tabs",
+    "tabs": {
+      "label": "Settings tabs",
+      "export": "Export",
+      "appearance": "Appearance",
+      "kobo": "Kobo"
+    },
     "reader": {
       "title": "Reader",
       "name": "Name"

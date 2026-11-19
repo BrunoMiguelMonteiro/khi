@@ -254,7 +254,7 @@
 	</div>
 
 	<!-- Tabs -->
-	<div class="flex gap-2 px-6 py-3 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/50" role="tablist" aria-label={$_('settings.tabs')}>
+	<div class="flex gap-2 px-6 py-3 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/50" role="tablist" aria-label={$_('settings.tabs.label')}>
 		<button
 			class="flex items-center gap-3 px-4 py-2 border-b-2 font-medium text-sm transition-all duration-150 {activeTab === 'export' ? 'border-neutral-900 text-neutral-900 dark:border-white dark:text-white' : 'border-transparent text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100'}"
 			onclick={() => (activeTab = 'export')}

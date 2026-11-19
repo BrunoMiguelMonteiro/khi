@@ -154,7 +154,12 @@
       "saveChanges": "Guardar alterações"
     },
     "close": "Fechar definições",
-    "tabs": "Separadores das definições",
+    "tabs": {
+      "label": "Separadores das definições",
+      "export": "Exportação",
+      "appearance": "Aparência",
+      "kobo": "Kobo"
+    },
     "reader": {
       "title": "Leitor",
       "name": "Nome"

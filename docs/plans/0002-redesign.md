@@ -859,19 +859,20 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 - os três da v2: Exportação (`file-output`), Aparência (`palette`), Kobo (`tablet`), com chaves `settings.tabs.*`.
 - vem da Task 18: o tipo Caixas da Linha de formulário (`55:3488`, Metadados a incluir): três colunas de Caixas, `gap-4` entre colunas e `gap-2` dentro, padding `p-4`; no Figma a linha não tem rótulo visível, por isso é um `role="group"` com nome dado por um `label` obrigatório (só para leitores de ecrã). Testes `checkbox_row_is_group_named_by_label` e `checkbox_row_has_three_columns` em `form.test.ts`.
 
-- [ ] **Passo 1: testes que falham** (`tabs.test.ts`):
+- [x] **Passo 1: testes que falham** (`tabs.test.ts`):
   - `tablist_single_tab_stop_and_arrows_select`;
   - `active_variant_matches_bits_ui_state`;
   - `selected_uses_tint_regular_weight`: sem `font-semibold`;
   - `hover_uses_accent_with_hover_duration`;
   - `icon_is_20`;
   - `selected_has_contrast_outline`.
-- [ ] **Passo 2:** `npx vitest run src/lib/components/ui/tabs` falha.
-- [ ] **Passo 3:** adaptar.
-- [ ] **Passo 4:** os testes passam e passam os quatro comandos.
-- [ ] **Passo 5:** commit `feat(ui): Settings tabs`.
+- [x] **Passo 2:** `npx vitest run src/lib/components/ui/tabs` falha.
+- [x] **Passo 3:** adaptar.
+- [x] **Passo 4:** os testes passam e passam os quatro comandos.
+- [x] **Passo 5:** commit `feat(ui): Settings tabs`.
 
 **Verificar no ecrã:** a barra centrada; o VoiceOver lê «separador, 1 de 3».
+- **Resultado (2026-11-19):** `src/lib/components/ui/tabs/` (do shadcn 1.8.1, `package.json` reposto), 6 testes, com FIGMA_BINDINGS de `55:4977`. Saem o `tabsListVariants`, o `text-sm`, o sublinhado `after:`, o `dark:` e as opacidades. A raiz fixa `activationMode="automatic"` e a orientação horizontal. O `TabsTrigger` recebe `icon` (Ícone `lg`) e põe o rótulo num `span`. O hover é `not-data-disabled:not-data-active:hover:bg-accent`, para não tapar o tint do escolhido (o `:hover` é mais específico que o `:where` do `data-active:`). A transição também só existe com o rato sobre um separador não escolhido. Assim a troca é instantânea nos dois separadores, e sair do hover também é instantâneo (dúvida). O contorno é `data-active:inset-ring data-active:inset-ring-contrast-outline-strong`, para o normal não ter um anel em `currentColor`. As chaves `settings.tabs.*` substituem a string `settings.tabs`, que passa a `settings.tabs.label`; o `SettingsPanel.svelte` muda uma linha e o texto lido fica igual (harness 73/73). Tipo Caixas: `FormRow` com `columns: Snippet[]` em vez de `control`, `role="group"` com `aria-label`, `flex min-h-form-row gap-4 p-4` e Colunas `flex min-w-0 flex-1 flex-col gap-2`; 2 testes em `form.test.ts`, e o fixture ganhou `metadata`. Mutações apanhadas: sem contorno, `bg-accent` no escolhido, `font-semibold`, ícone de 16, hover sem guarda, transição sempre ligada, ativação manual, e no Caixas o `role`, o padding, a largura e o `gap` das colunas. 413 testes, `check` 0, build OK, harness 73/73.
 
 ### Task 20: investigação da cor de destaque
 **Ficheiros:** nenhum no código. Uma sonda temporária no Khi Dev, revertida no fim, como a do `prefers-contrast`. O resultado vai para o DECISIONS, Cor 2, «Por verificar antes de construir».

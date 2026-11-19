@@ -1,18 +1,29 @@
 <script lang="ts">
 	// Test fixture for form.test.ts: a small Definições group, one row per control type that
-	// exists so far. Each control takes the row's ids.
+	// exists so far. Each control takes the row's ids; `metadata` adds the Caixas row.
 	import { Checkbox } from '../checkbox';
 	import { Input } from '../input';
 	import { Select } from '../select';
 	import { Switch } from '../switch';
 	import { FormGroup, FormRow } from './index';
 
-	let { heading = 'Biblioteca' }: { heading?: string } = $props();
+	let { heading = 'Biblioteca', metadata = false }: { heading?: string; metadata?: boolean } =
+		$props();
 
 	let covers = $state(true);
 	let folder = $state('Kobo');
 	let series = $state(false);
 	let format = $state('md');
+
+	// Tipo=Caixas (55:3488): Metadados a incluir, three columns of boxes.
+	const fields = $state({
+		author: true,
+		readDate: true,
+		isbn: false,
+		language: false,
+		publisher: false,
+		description: false
+	});
 
 	const formats = [
 		{ value: 'md', label: 'Markdown' },
@@ -41,4 +52,20 @@
 			<Select bind:value={format} items={formats} aria-labelledby={labelId} aria-describedby={helpId} />
 		{/snippet}
 	</FormRow>
+	{#if metadata}
+		<FormRow label="Metadados a incluir" divider columns={[authorColumn, isbnColumn, publisherColumn]} />
+	{/if}
 </FormGroup>
+
+{#snippet authorColumn()}
+	<Checkbox bind:checked={fields.author} label="Autor" />
+	<Checkbox bind:checked={fields.readDate} label="Data de leitura" />
+{/snippet}
+{#snippet isbnColumn()}
+	<Checkbox bind:checked={fields.isbn} label="ISBN" />
+	<Checkbox bind:checked={fields.language} label="Idioma" />
+{/snippet}
+{#snippet publisherColumn()}
+	<Checkbox bind:checked={fields.publisher} label="Editora" />
+	<Checkbox bind:checked={fields.description} label="Descrição" />
+{/snippet}
