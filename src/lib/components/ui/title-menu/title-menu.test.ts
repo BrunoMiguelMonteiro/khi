@@ -34,7 +34,7 @@ const items = () => [
 const item = (name: string) =>
   items().find((i) => i.textContent?.trim() === name)!;
 
-const trigger = () => screen.getByRole("button", { name: "Library of Ana" });
+const trigger = () => screen.getByRole("button", { name: "Ana's Library" });
 const menu = () =>
   document.querySelector<HTMLElement>('[data-slot="dropdown-menu-content"]');
 
@@ -146,7 +146,7 @@ describe("TitleMenu", () => {
     const user = userEvent.setup();
     const { rerender } = renderMenu();
     await rerender({ readers: [ANA, RUI], activeReaderId: "rui" });
-    await user.click(screen.getByRole("button", { name: "Library of Rui" }));
+    await user.click(screen.getByRole("button", { name: "Rui's Library" }));
     await waitFor(() => expect(menu()).not.toBeNull());
     expect(item("Rui").getAttribute("aria-checked")).toBe("true");
     expect(item("Ana").getAttribute("aria-checked")).toBe("false");

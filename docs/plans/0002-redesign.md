@@ -1190,7 +1190,7 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 
 **Verificar no ecrã:** o ícone pára direito no fim da volta; não roda com Reduzir movimento.
 
-**Paragem:** o Bruno aprova a Fase 2. A comparação visual de cada componente fica para o seu primeiro ecrã (Fase 5).
+**Paragem:** o Bruno aprova a Fase 2. A comparação visual de cada componente fica para o seu primeiro ecrã (Fase 5). **Aprovada a 2026-11-19** (ver DECISIONS, «Paragem da Fase 2»).
 
 ### «Proposta»: juiz de fora para os componentes
 - **Adotado agora, em pequeno:** o coordenador exporta do Figma, só com leitura, `design/components-sample.json` com as ligações a variáveis de três nós de risco alto: o item de menu realçado (`55:3185`), a contagem do segmento escolhido (`55:2588`) e a marca da caixa ligada e desativada (`55:1684`). Os testes `matches_figma_sample` das Tasks 12, 16 e 17 comparam-nas com os mapas de classes e com o CSS compilado. Custo: uma exportação e três testes. Escolhi estes porque são os sítios onde o shadcn, o DECISIONS e o Figma já divergiram.
