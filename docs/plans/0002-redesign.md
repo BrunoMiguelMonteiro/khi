@@ -1580,8 +1580,10 @@ Fontes: [W3C APG, Listbox Pattern](https://w3.org/WAI/ARIA/apg/patterns/listbox)
 - exportar e o toast: funcionam;
 - **semáforos desalinhados:** o centro estava a ≈ 17,5 pt do topo, e o centro da barra está a 26.
   - Causa (tao 0.37.2, `view.rs:1017-1047`): o `y` é a altura do contentor da barra de título menos a do botão, e o botão mantém o `origin.y`, que conta a partir de baixo. O centro fica a cerca de `y + h/2 − origin.y`.
-  - Correção: `trafficLightPosition` passa de `{16, 20}` a `{16, 28}`. Falta voltar a verificar no ecrã.
+  - Correção: `trafficLightPosition` passa de `{16, 20}` a `{16, 28}`. Confirmado no ecrã pelo Bruno (segunda captura).
 - **Seleção:** o Bruno pede uma caixa de seleção visível em cada livro, como na v1: «O command + clique não é intuitivo». Fica para uma **ronda de design própria, depois do ecrã 1**: pesquisa, 3 opções no Figma e a escolha do Bruno. Muda o Cartão do livro (Q-B, B2) e a grelha.
+
+**Ecrã 1 aprovado a 2026-11-19** (Bruno: «Aprovo o ecrã 1»). Na captura final, medida ao píxel: 16 pt da borda ao vermelho, ≈ 16 pt do verde ao título, semáforos e título centrados na mesma linha, e sem cabeçalho quando não há novos. Ficam para depois: a ronda de design da caixa de seleção e, na Fase 6, os semáforos no macOS 13–15.
 
 ### Task 36b: espaço dos semáforos medido no arranque
 **Decisão do Bruno, 2026-11-19** («Medir no arranque», a opção recomendada).
@@ -1608,7 +1610,7 @@ Fontes: [W3C APG, Listbox Pattern](https://w3.org/WAI/ARIA/apg/patterns/listbox)
   - `window-bar.test.ts`: `traffic_light_space_follows_measured_width` e `traffic_light_space_defaults_to_52`. O `reserves_traffic_light_space` adapta-se;
   - `page.svelte.test.ts`: `bar_reserves_measured_traffic_lights` (76 dá 60), `bar_keeps_52_when_measure_fails` e `fullscreen_reserves_no_traffic_light_space`.
 - [x] **Gate completo** e `UPDATE_BINDINGS=1 cargo test bindings_are_up_to_date`.
-- [ ] **Verificar no ecrã (Bruno):** 16 pt entre o semáforo verde e «Biblioteca», com e sem ecrã inteiro.
+- [x] **Verificar no ecrã (Bruno):** 16 pt entre o semáforo verde e «Biblioteca» (aprovado com o ecrã 1, 2026-11-19).
 
 ## Fase 6 · Fecho da v2 (tasks a escrever)
 - **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.
