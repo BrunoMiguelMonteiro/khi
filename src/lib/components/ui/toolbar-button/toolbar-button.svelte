@@ -26,10 +26,13 @@
 	);
 
 	export type ToolbarButtonProps = WithElementRef<
-		Omit<HTMLButtonAttributes, 'disabled' | 'children' | 'aria-label' | 'aria-pressed'>
+		Omit<
+			HTMLButtonAttributes,
+			'disabled' | 'children' | 'aria-label' | 'aria-labelledby' | 'aria-pressed'
+		>
 	> & {
 		icon: LucideIcon;
-		/** The accessible name (aria-label). */
+		/** The accessible name (aria-label); a forwarded aria-labelledby is dropped. */
 		label: string;
 		/** The tooltip text; the label when omitted. */
 		tooltip?: string;
@@ -71,10 +74,12 @@
 <Tooltip
 	text={explained ? (disabledReason as string) : (tooltip ?? label)}
 	shortcut={explained ? undefined : shortcut}
+	id={restProps.id ?? undefined}
+	tabindex={restProps.tabindex}
 >
 	{#snippet children({ props })}
 		{@const merged = withTrigger(restProps, props)}
-		<!-- The name and the disabled state come last, so forwarded props can't undo them. -->
+		<!-- The type, the name and the disabled state come last, so neither forwarded nor trigger props can undo them. -->
 		<button
 			bind:this={ref}
 			data-slot="toolbar-button"
@@ -83,13 +88,15 @@
 				toolbarButtonVariants({ pressed: pressed === true }),
 				className
 			)}
-			{type}
 			{...merged}
+			{type}
 			disabled={undefined}
 			aria-label={label}
+			aria-labelledby={undefined}
 			aria-pressed={pressed === undefined ? undefined : pressed ? 'true' : 'false'}
 			aria-disabled={disabled ? 'true' : undefined}
 			data-disabled={disabled ? '' : undefined}
+			onclickcapture={guardClick(() => disabled, merged.onclickcapture)}
 			onclick={guardClick(() => disabled, merged.onclick, onclick)}
 		>
 			<Icon {icon} size="md" />

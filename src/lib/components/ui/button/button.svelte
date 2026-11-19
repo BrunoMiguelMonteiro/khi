@@ -60,7 +60,16 @@
 
 	type TriggerProps = Record<string, unknown>;
 
-	/** Bits UI trigger props over the forwarded ones, with the event handlers of both kept. */
+	/** The ids of one or more aria-describedby values, deduplicated, space-separated. */
+	function joinIds(...lists: unknown[]): string | undefined {
+		const ids = lists.flatMap((list) => (typeof list === 'string' ? list.split(/\s+/) : []));
+		return [...new Set(ids.filter(Boolean))].join(' ') || undefined;
+	}
+
+	/**
+	 * Bits UI trigger props over the forwarded ones, with the event handlers of both kept. The
+	 * caller's id and tabindex win; aria-describedby keeps the caller's ids and adds the tooltip's.
+	 */
 	export function withTrigger(own: TriggerProps, trigger: TriggerProps): TriggerProps {
 		const merged = { ...own, ...trigger };
 		for (const [key, handler] of Object.entries(trigger)) {
@@ -72,6 +81,8 @@
 				};
 			}
 		}
+		for (const key of ['id', 'tabindex']) if (own[key] != null) merged[key] = own[key];
+		merged['aria-describedby'] = joinIds(own['aria-describedby'], trigger['aria-describedby']);
 		return merged;
 	}
 
@@ -107,20 +118,29 @@
 		children,
 		...restProps
 	}: ButtonProps = $props();
+
+	let reasonOpen = $state(false);
+
+	// No focus event fires when the focused button becomes disabled, so its reason opens here.
+	$effect(() => {
+		if (!disabled) reasonOpen = false;
+		else if (disabledReason && ref && ref === document.activeElement) reasonOpen = true;
+	});
 </script>
 
 {#snippet button(trigger: TriggerProps)}
 	{@const merged = withTrigger(restProps, trigger)}
-	<!-- The disabled state comes last, so forwarded props can't undo it. -->
+	<!-- The type and the disabled state come last, so neither forwarded nor trigger props can undo them. -->
 	<button
 		bind:this={ref}
 		data-slot="button"
 		class={cn(buttonVariants({ variant }), className)}
-		{type}
 		{...merged}
+		{type}
 		disabled={undefined}
 		aria-disabled={disabled ? 'true' : undefined}
 		data-disabled={disabled ? '' : undefined}
+		onclickcapture={guardClick(() => disabled, merged.onclickcapture)}
 		onclick={guardClick(() => disabled, merged.onclick, onclick)}
 	>
 		{#if icon}<Icon {icon} size="md" />{/if}
@@ -128,8 +148,18 @@
 	</button>
 {/snippet}
 
-{#if disabled && disabledReason}
-	<Tooltip text={disabledReason}>
+<!--
+	On disabledReason, not on disabled: toggling disabled keeps the same <button>, and its focus.
+	Enabled, the tooltip is off, and a Button without a reason needs no TooltipProvider.
+-->
+{#if disabledReason}
+	<Tooltip
+		text={disabledReason}
+		disabled={!disabled}
+		bind:open={reasonOpen}
+		id={restProps.id ?? undefined}
+		tabindex={restProps.tabindex}
+	>
 		{#snippet children({ props })}
 			{@render button(props)}
 		{/snippet}

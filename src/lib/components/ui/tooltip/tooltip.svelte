@@ -9,19 +9,25 @@
 		open = $bindable(false),
 		text,
 		shortcut,
+		id,
+		tabindex,
 		children,
 		...restProps
 	}: Omit<TooltipPrimitive.RootProps, 'children'> & {
 		text: string;
 		/** Variant «Com atalho», e.g. "⌘R". */
 		shortcut?: string;
+		/** The trigger's id, for references from outside; generated when omitted. */
+		id?: string;
+		/** The trigger's tabindex, e.g. -1 under a roving tabindex. */
+		tabindex?: number | null;
 		/** The trigger: spread `props` on the focusable element (`<button {...props}>`). */
 		children: Snippet<[{ props: TriggerProps }]>;
 	} = $props();
 </script>
 
 <TooltipPrimitive.Root bind:open {...restProps}>
-	<TooltipPrimitive.Trigger>
+	<TooltipPrimitive.Trigger {id} {tabindex}>
 		{#snippet child({ props })}
 			{@render children({ props })}
 		{/snippet}

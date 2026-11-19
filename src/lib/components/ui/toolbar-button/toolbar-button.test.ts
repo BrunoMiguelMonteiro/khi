@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/svelte";
+import { cleanup, render, screen, waitFor } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
 import { tick } from "svelte";
 import RefreshCw from "lucide-svelte/icons/refresh-cw";
@@ -213,5 +213,80 @@ describe("ToolbarButton", () => {
     expect(button.type).toBe("button");
     await user.click(button);
     expect(onclick).toHaveBeenCalledTimes(1);
+  });
+
+  it("enabled_submit_submits_its_form", async () => {
+    const user = userEvent.setup();
+    const onsubmit = vi.fn();
+    const button = renderToolbarButton({ type: "submit", onsubmit });
+    expect(button.type).toBe("submit");
+    await user.click(button);
+    expect(onsubmit).toHaveBeenCalledTimes(1);
+  });
+
+  it("disabled_submit_keeps_its_type_and_does_not_submit", async () => {
+    const user = userEvent.setup();
+    const onsubmit = vi.fn();
+    const button = renderToolbarButton({
+      type: "submit",
+      disabled: true,
+      disabledReason: "Sem livros",
+      onsubmit,
+    });
+    expect(button.type).toBe("submit");
+    await user.click(button);
+    button.focus();
+    await user.keyboard("{Enter}");
+    expect(onsubmit).not.toHaveBeenCalled();
+  });
+
+  it("keeps_caller_id_tabindex_and_describedby", async () => {
+    for (const disabled of [false, true]) {
+      cleanup();
+      const button = renderToolbarButton({
+        disabled,
+        disabledReason: "Sem livros",
+        id: "caller",
+        tabindex: -1,
+        "aria-describedby": "help",
+      });
+      expect(button.id, `disabled=${disabled}`).toBe("caller");
+      expect(button.getAttribute("tabindex"), `disabled=${disabled}`).toBe("-1");
+      expect(button.getAttribute("aria-describedby"), `disabled=${disabled}`).toBe("help");
+      button.focus();
+      await waitFor(() => expect(tooltip()).not.toBeNull());
+      expect(button.getAttribute("aria-describedby"), `disabled=${disabled}`).toBe(
+        `help ${tooltip()!.id}`,
+      );
+      expect(button.id, `disabled=${disabled}`).toBe("caller");
+      expect(button.getAttribute("tabindex"), `disabled=${disabled}`).toBe("-1");
+    }
+  });
+
+  it("disabled_ignores_onclickcapture", async () => {
+    for (const disabled of [true, false]) {
+      cleanup();
+      const user = userEvent.setup();
+      const onclickcapture = vi.fn();
+      const button = renderToolbarButton({ disabled, disabledReason: "Sem livros", onclickcapture });
+      await user.click(button);
+      expect(onclickcapture, `disabled=${disabled}`).toHaveBeenCalledTimes(disabled ? 0 : 1);
+    }
+  });
+
+  it("label_owns_the_accessible_name", () => {
+    const other = document.createElement("span");
+    other.id = "other-name";
+    other.textContent = "Outro nome";
+    document.body.append(other);
+    try {
+      // aria-labelledby is not in ToolbarButtonProps; a cast forwards it anyway.
+      const button = renderToolbarButton({ "aria-labelledby": "other-name" });
+      expect(screen.getByRole("button", { name: "Sincronizar" })).toBe(button);
+      expect(button.hasAttribute("aria-labelledby")).toBe(false);
+      expect(button.getAttribute("aria-label")).toBe("Sincronizar");
+    } finally {
+      other.remove();
+    }
   });
 });

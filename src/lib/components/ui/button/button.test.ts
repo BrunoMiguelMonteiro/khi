@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/svelte";
+import { cleanup, render, screen, waitFor } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
 import Download from "lucide-svelte/icons/download";
 import { compileAppCss, selectorFor } from "$lib/test/css";
 import { expectDisabledInert } from "$lib/test/disabled";
+import { Button } from "./index";
 import Fixture from "./button.fixture.svelte";
 
 type Binding = { binding: string; utility: string; css: string };
@@ -27,6 +28,16 @@ async function expectBindings(button: HTMLElement, bindings: Binding[]) {
     expect(await ruleOf(utility), utility).toContain(css);
   }
 }
+
+const tooltip = () =>
+  document.querySelector<HTMLElement>('[data-slot="tooltip-content"]:not([data-state="closed"])');
+
+const describedBy = (el: HTMLElement) =>
+  (el.getAttribute("aria-describedby") ?? "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((id) => document.getElementById(id)?.textContent ?? "")
+    .join(" ");
 
 /** Fill, stroke and text colour classes, whatever their variants: nothing beyond the Figma's. */
 const colourClasses = (button: HTMLElement) =>
@@ -253,6 +264,8 @@ describe("Button", () => {
       // aria-disabled and not the native attribute, so it keeps its place in the Tab order.
       expect(button.disabled, variant).toBe(false);
       expect(button.hasAttribute("disabled"), variant).toBe(false);
+      // The Bits UI trigger's own type="button" must not replace the caller's.
+      expect(button.type, variant).toBe("submit");
       await expectDisabledInert({
         control: button,
         read: () => onsubmit.mock.calls.length,
@@ -352,5 +365,67 @@ describe("Button", () => {
     expect(svg?.classList.contains("size-icon")).toBe(true);
     expect(svg?.getAttribute("aria-hidden")).toBe("true");
     expect(screen.getByRole("button", { name: "Exportar" })).toBe(button);
+  });
+
+  it("toggling_disabled_keeps_the_node_and_focus", async () => {
+    const props = { variant: "principal" as const, disabledReason: "Liga o Kobo para exportar" };
+    const { rerender } = render(Fixture, { props: { ...props, disabled: false } });
+    const button = document.querySelector<HTMLButtonElement>('[data-slot="button"]')!;
+    button.focus();
+    await rerender({ ...props, disabled: true });
+    expect(document.querySelector('[data-slot="button"]')).toBe(button);
+    expect(document.activeElement).toBe(button);
+    expect(button.getAttribute("aria-disabled")).toBe("true");
+    // Focused as it becomes disabled: the reason is exposed without moving focus.
+    await waitFor(() => expect(describedBy(button)).toBe("Liga o Kobo para exportar"));
+    await rerender({ ...props, disabled: false });
+    expect(document.querySelector('[data-slot="button"]')).toBe(button);
+    expect(document.activeElement).toBe(button);
+    expect(button.hasAttribute("aria-disabled")).toBe(false);
+    await waitFor(() => expect(tooltip()).toBeNull());
+    expect(button.hasAttribute("aria-describedby")).toBe(false);
+    // Enabled, the reason never shows: not on focus…
+    button.blur();
+    await userEvent.setup().tab();
+    expect(document.activeElement).toBe(button);
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    expect(tooltip()).toBeNull();
+  });
+
+  it("without_reason_needs_no_tooltip_provider", () => {
+    render(Button, { props: { disabled: true } });
+    expect(document.querySelector('[data-slot="button"]')?.getAttribute("aria-disabled")).toBe("true");
+  });
+
+  it("keeps_caller_id_tabindex_and_describedby", async () => {
+    for (const disabled of [false, true]) {
+      cleanup();
+      const button = renderButton({
+        disabled,
+        disabledReason: "Sem livros",
+        id: "caller",
+        tabindex: -1,
+        "aria-describedby": "help",
+      });
+      expect(button.id, `disabled=${disabled}`).toBe("caller");
+      expect(button.getAttribute("tabindex"), `disabled=${disabled}`).toBe("-1");
+      expect(button.getAttribute("aria-describedby"), `disabled=${disabled}`).toBe("help");
+      if (!disabled) continue;
+      button.focus();
+      await waitFor(() => expect(tooltip()).not.toBeNull());
+      expect(button.getAttribute("aria-describedby")).toBe(`help ${tooltip()!.id}`);
+      expect(button.id).toBe("caller");
+    }
+  });
+
+  it("disabled_ignores_onclickcapture", async () => {
+    for (const disabled of [true, false]) {
+      cleanup();
+      const user = userEvent.setup();
+      const onclickcapture = vi.fn();
+      const button = renderButton({ disabled, disabledReason: "Sem livros", onclickcapture });
+      await user.click(button);
+      expect(onclickcapture, `disabled=${disabled}`).toHaveBeenCalledTimes(disabled ? 0 : 1);
+    }
   });
 });
