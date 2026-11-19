@@ -1206,54 +1206,154 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 ### Questões para o Bruno
 1. **Tabela de tons de destaque, antes da Task 21.** Recomendo uma tabela calculada antes, não uma regra aplicada a todas as cores: cada campo (botão, hover, premido, texto do botão, ligação, tom, texto do tom e anel) com a origem escrita (Figma, sistema pela Task 20, ou derivado e como); o azul aprovado fica igual (no Escuro, o premido é mais claro e o texto escuro); as amostras claras, como o Amarelo, podem ter texto escuro; e cada linha passa o contraste sem arredondar, em Claro e Escuro, para o normal, o hover, o premido, a ligação e o tom. Bloqueia só a Task 21. **Decidido (2026-11-19, Bruno: «Ok, concordo»): tabela pré-calculada, como recomendado.** A Task 21 continua à espera da Paragem da Task 20.
 
-## Fase 3 · Backend do «novo» e da sincronização (tasks a escrever)
-- **Migração v2,** acrescentada ao fim de `MIGRATIONS` (a v1 não se edita):
-  
-  - `ALTER TABLE highlights ADD COLUMN synced_at TEXT`;
-    
-  - `ALTER TABLE books ADD COLUMN opened_at TEXT`.
-    
-- **Sincronização:** um destaque inserido recebe `synced_at`, exceto na primeira sincronização do leitor (D1). Os destaques que já existiam ficam com `NULL`.
-  
-- **Sincronização com o Detalhe aberto** (teste a escrever na Fase 3 ou 5): o `syncFinished` recarrega `library.books`.
-  
-  - As marcas «Novo» do livro aberto não podem desaparecer a meio da leitura.
-    
-  - Os destaques que chegam enquanto o livro está aberto ficam novos para a abertura seguinte.
-    
-- **Interfaces:**
-  
-  - `LibraryHighlight.isNew: boolean`, verdadeiro quando `synced_at` não é nulo e é posterior a `opened_at` (ou `opened_at` é nulo);
-    
-  - o command `markBookOpened(readerId: u32, bookId: u32)`;
-    
-  - `lastSyncAt: string | null` do Kobo ligado, para o «sincronizado às 10:42» do ecrã 5;
-    
-  - `newSince: string | null` por leitor, para o «desde 9 nov.».
-    
-- **Testes de integração** em `src-tauri/tests/library_new.rs`, e os bindings regenerados.
-  
-## Fase 4 · Janela (tasks a escrever)
-- **Barra** `Overlay`**:**
-  
-  - `titleBarStyle: "Overlay"`, `hiddenTitle: true` e `trafficLightPosition`, tirada da Barra da janela (`#23`);
-    
-  - `data-tauri-drag-region` na barra;
-    
-  - `core:window:allow-start-dragging` nas capabilities.
-    
-- **Definições numa janela própria (D1):**
-  
-  - abre com ⌘, (o menu já emite `open-settings`);
-    
-  - rota `/definicoes`, janela `settings` nas capabilities;
-    
-  - as definições passam entre janelas por evento;
-    
-  - o `revertUnsavedLanguage` continua a funcionar ao fechar;
-    
-  - o `Modal` atual sai.
-    
+## Fase 3 · Backend do «novo» e da sincronização
+**Pesquisa prévia:** não há candidatos externos. É o esquema interno da Biblioteca, sem biblioteca ou plugin que o resolva; o problema é a ordem dos eventos, não uma API.
+
+**Implementadores (proposta):** Opus nas Tasks 31 e 32 (backend, §6); Sonnet na 33, com testes que fixam a ordem.
+
+**Regras desta fase (do DECISIONS, «Âmbito da v2», «Novo»):**
+- um destaque é novo se `synced_at IS NOT NULL AND (books.opened_at IS NULL OR synced_at > opened_at)`; empate (`=`) não é novo;
+- `synced_at` só se escreve na **inserção real** (o ramo `else` de `upsert_highlight`, `src-tauri/src/library/sync.rs:167-179`); um update ou um restauro nunca lhe toca;
+- primeira sincronização do leitor = **zero linhas em `highlights` desse `reader_id`** (removidos incluídos) antes do ciclo, contadas dentro da transação. Nunca `kobos.last_sync_at IS NULL`, que é por Kobo;
+- **comportamento assumido:** um leitor que apaga todos os livros volta a ter a Biblioteca vazia, e a sincronização seguinte não marca nada como novo;
+- `synced_at` e `opened_at`: o mesmo formato, ISO-8601 UTC com milissegundos (`SecondsFormat::Millis`, sufixo `Z`), para que a comparação em TEXT seja certa. O `kobos.last_sync_at` fica em segundos, porque nunca se compara com os outros;
+- marca-se o livro **ao abrir**, e o Detalhe guarda um **snapshot** dos novos, tirado antes de marcar. Marcar ao sair faria os destaques chegados a meio ficarem com `synced_at < opened_at`, e perdiam-se.
+
+### Task 31: Migração v2, relógio e `synced_at`
+**Ficheiros:** `src-tauri/src/library/schema.rs`, `src-tauri/src/library/mod.rs`, `src-tauri/src/library/sync.rs`; criar `src-tauri/tests/library_new.rs` (os helpers de `library_sync.rs:25-84` que fizerem falta passam para `tests/common/mod.rs`).
+
+**Interfaces que produz:**
+- `MIGRATIONS[1]` (v2): `ALTER TABLE highlights ADD COLUMN synced_at TEXT; ALTER TABLE books ADD COLUMN opened_at TEXT;`. A v1 não se edita;
+- um relógio no `Library`: campo `clock: Box<dyn Fn() -> DateTime<Utc> + Send>`, que por omissão é `Utc::now`, e `#[doc(hidden)] pub fn with_clock(self, f) -> Self` para os testes de integração. O `sync` lê o «agora» do relógio (`sync.rs:37`);
+- `upsert_highlight` recebe o `synced_at: Option<&str>`, que é `None` na primeira sincronização do leitor.
+
+- [ ] **Passo 1: testes que falham** (`library_new.rs`):
+  - `migration_v2_keeps_v1_data`: uma base v1 com destaques migra para `user_version = 2`; as linhas antigas ficam com `synced_at` nulo;
+  - `first_sync_of_reader_marks_nothing`;
+  - `insert_after_first_sync_gets_synced_at`: o valor é o do relógio injetado, com milissegundos;
+  - `second_kobo_unseen_bookmarks_get_synced_at` (cenário `SERIAL-A`/`SERIAL-B` de `library_sync.rs:12-23`);
+  - `same_bookmark_again_keeps_synced_at`: o update e o restauro não mudam o valor;
+  - `last_sync_at_format_unchanged`: continua em segundos.
+- [ ] **Passo 2:** `(cd src-tauri && cargo test --test library_new)` falha.
+- [ ] **Passo 3:** migração, relógio e escrita na inserção.
+- [ ] **Passo 4:** `cargo test` inteiro passa (incluindo `library_sync.rs` sem alterações de comportamento), e os quatro comandos do frontend também.
+- [ ] **Passo 5:** commit `feat(library): v2 migration and synced_at on insert`.
+
+### Task 32: `isNew`, `markBookOpened` e resumo do leitor
+**Ficheiros:** `src-tauri/src/library/mod.rs` (`BOOK_COLUMNS` :116, `query_books` :362-406), `src-tauri/src/commands/library.rs`, `src-tauri/src/lib.rs` (`collect_commands!`), `src/lib/bindings.ts` (regenerado), `src-tauri/tests/library_new.rs`, `src/lib/contract.test.ts`.
+
+**Interfaces que produz:**
+- `LibraryHighlight.is_new: bool` (`isNew`), calculado no SELECT com a regra acima. As colunas novas entram **no fim** dos SELECT posicionais, para não deslocar índices;
+- o command `mark_book_opened(reader_id: u32, book_id: u32) -> ()`: grava `opened_at` com o relógio; um livro de outro leitor dá `NotFound`;
+- o command `library_summary(reader_id: u32) -> LibrarySummary { new_since: Option<String>, last_sync_at: Option<String> }`. O `new_since` é o `MIN(synced_at)` dos destaques novos do leitor (o «desde 9 nov.»). O `last_sync_at` é o `MAX(kobos.last_sync_at)` dos Kobos do leitor (o «sincronizado às 10:42»). **Proposta:** o máximo do leitor em vez do «Kobo ligado», porque o frontend não precisa de saber o número de série;
+- bindings: `UPDATE_BINDINGS=1 cargo test bindings_are_up_to_date`.
+
+- [ ] **Passo 1: testes que falham:**
+  - `never_opened_book_is_new`;
+  - `opening_clears_new`;
+  - `sync_while_open_is_new_next_open`, **o contrato**: abrir (t1), sincronizar com o livro aberto (t2 > t1), reabrir. Os destaques de t2 vêm `isNew`, e os anteriores não;
+  - `tie_is_not_new`: `synced_at == opened_at`;
+  - `mark_book_opened_other_reader_is_not_found`;
+  - `new_since_is_oldest_unseen`, e `new_since_none_when_nothing_new`;
+  - `last_sync_at_is_latest_of_reader_kobos`;
+  - `export_output_unchanged`: o Markdown exportado é igual byte a byte;
+  - `contract.test.ts`: `markBookOpened` e `librarySummary` existem com os argumentos certos.
+- [ ] **Passo 2:** os testes falham.
+- [ ] **Passo 3:** os SELECT, os dois commands e os bindings.
+- [ ] **Passo 4:** passa o `cargo test` inteiro, e os quatro comandos do frontend.
+- [ ] **Passo 5:** commit `feat(library): isNew, markBookOpened and library summary`.
+
+### Task 33: snapshot dos novos no `LibraryStore`
+**Ficheiros:** `src/lib/stores/library.svelte.ts`, `src/lib/stores/library.svelte.test.ts`, `src/routes/+page.svelte` (`handleBookClick` :256-264, só a chamada).
+
+**Interfaces que produz:**
+- `library.openBook(bookId)`, que tira o snapshot `viewingNewIds: Set<number>` com os ids `isNew` do livro, **depois** chama `commands.markBookOpened` e, se der certo, põe `isNew = false` nesse livro em `books` (a grelha deixa de o mostrar como novo ao voltar);
+- `viewingNewIds` só muda ao abrir outro livro. O reload do `syncFinished` (`openReader`, `library.svelte.ts:84-90`) não lhe toca;
+- se o `markBookOpened` falhar, os novos ficam como estavam e o erro vai para o log (não se mostra ao utilizador);
+- o `handleBookClick` passa a chamar `library.openBook` em vez de `setViewingBookId`.
+
+- [ ] **Passo 1: testes que falham:**
+  - `snapshot_taken_before_mark`: no mock do `invoke`, o `mark_book_opened` vê o snapshot já preenchido;
+  - `snapshot_survives_sync_reload`: um `openReader` com dados novos não muda o `viewingNewIds`;
+  - `books_lose_new_after_open`;
+  - `mark_failure_keeps_new`;
+  - `reopen_takes_fresh_snapshot`.
+- [ ] **Passo 2:** `npx vitest run src/lib/stores` falha.
+- [ ] **Passo 3:** o store e a chamada em `+page.svelte`.
+- [ ] **Passo 4:** passam os testes e os quatro comandos.
+- [ ] **Passo 5:** commit `feat(library): snapshot new highlights when opening a book`.
+
+**Fim da Fase 3:** review GPT‑6.2 Sol do lote 31–33; suite completa (`cargo test` e Vitest) uma vez; 2–3 mutações por task (ex.: `>=` no lugar de `>`, `synced_at` escrito no UPDATE, snapshot tirado depois de marcar).
+
+**Paragem:** o Bruno aprova a Fase 3.
+
+## Fase 4 · Janela
+**Versões instaladas (verificadas no `Cargo.lock`):** tauri 2.12.5, tao 0.37.2, wry 0.57.2, `@tauri-apps/api` 2.12.4. Não há `tauri-plugin-store`: as definições vivem num ficheiro, lido e escrito pelos commands `load_settings` e `save_settings` (`src-tauri/src/commands/mod.rs:67`, `:83`).
+
+**Pesquisa prévia e benchmarking (2026-11-19)** (as fontes estão no relatório da pesquisa; o coordenador confirmou as linhas marcadas com ✓ no código instalado):
+
+| Problema | Opções | Escolha | Razão |
+|---|---|---|---|
+| Semáforos na posição certa | config `Overlay` + `trafficLightPosition`; reaplicar em Rust (objc2) nos eventos; `tauri-plugin-decorum` 1.1.1; `tauri-plugin-decor` 1.0 | **Só a config** | A tao 0.37.2 já reaplica a posição no `drawRect:`, ao sair do ecrã inteiro e ao mudar o título (tao#1254). O decorum está parado desde set/2024, e a compatibilidade com a 2.12 não está confirmada. Só reaplicamos em Rust se o ecrã mostrar desvio (wry#1747) |
+| Arrastar pela barra | `data-tauri-drag-region="deep"`; o atributo em cada filho; `startDragging()` à mão | **`"deep"` no contentor** ✓ | Existe desde a 2.11 (`drag.js:46`, `:64`). Os `<button>`, os `[tabindex]` e os roles interativos continuam clicáveis; o duplo clique faz zoom. A documentação oficial ainda não fala disto |
+| Definições entre janelas | evento global depois de guardar; `emitTo("main")`; `tauri-plugin-store`; estado partilhado em Rust | **`app.emit("settings-changed")`** no fim de um `save_settings` com sucesso | Usa o `emit`/`listen` que já temos e não acrescenta dependências; a fonte continua a ser o ficheiro. O store obrigava a migrar os formatos v1 e v2 |
+| Uma só janela de Definições | criar em Rust quando é pedida; criar em JS; declarar no `tauri.conf.json` escondida | **Rust, quando é pedida**: `get_webview_window("settings")` → `unminimize`, `show`, `set_focus`, senão o builder | Fica garantido que há uma só e não é preciso dar permissões de criação ao JS. Declarar a janela escondida carregava um segundo webview em cada arranque |
+| Rota `/definicoes` em produção | fallback do adapter-static; prerender | **O fallback que já existe** ✓ | `adapter({ fallback: "index.html" })`, e o `get_asset` do tauri cai no `index.html` (`manager/mod.rs:410`) |
+
+**Implementadores (proposta):** Sonnet na Task 34 (config e marcação); Opus na 35 (janelas, eventos e fecho).
+
+### Task 34: Barra `Overlay` na janela principal
+**Passo 0 (coordenador, só leitura no Figma):** medir em `69:6427` o `x` e o `y` dos semáforos e a largura que a barra lhes reserva; escrevê-los aqui antes de entregar a task.
+
+**Ficheiros:** `src-tauri/tauri.conf.json` (`app.windows[0]`), `src-tauri/capabilities/default.json`, `src/lib/components/ui/window-bar/window-bar.svelte` e o seu teste; criar `src/lib/window-config.test.ts`.
+
+**Interfaces que produz:**
+- janela `main` com `titleBarStyle: "Overlay"`, `hiddenTitle: true` e `trafficLightPosition: { x, y }` (Passo 0). O resto fica igual, incluindo `visible: false` e o `app-ready`;
+- `core:window:allow-start-dragging` na capability `default` (sem ela, o arrasto falha em silêncio);
+- `WindowBar` com `data-tauri-drag-region="deep"` no contentor, e o espaço dos semáforos reservado à esquerda.
+
+- [ ] **Passo 1: testes que falham:**
+  - `window-config.test.ts`: `main_window_is_overlay` (as três chaves, com os valores do Passo 0) e `default_capability_allows_start_dragging`. Os dois leem os JSON do disco;
+  - `window-bar.test.ts`: `bar_is_deep_drag_region`, `every_control_is_semantic` (todo o interativo é `button` ou tem um role interativo, para não arrastar) e `reserves_traffic_light_space`.
+- [ ] **Passo 2:** os testes falham.
+- [ ] **Passo 3:** a config, a capability e a marcação.
+- [ ] **Passo 4:** passam os quatro comandos e `(cd src-tauri && cargo check)` (que confirma que a config aceita a `trafficLightPosition`).
+- [ ] **Passo 5:** commit `feat(window): overlay title bar with drag region`.
+
+**Verificar no ecrã (Bruno, com `npm run dev:app`):**
+- os semáforos ficam no sítio depois de redimensionar, de entrar e sair do ecrã inteiro (⌃⌘F), de fazer zoom com duplo clique, de mudar entre Claro e Escuro e de perder o foco;
+- a barra arrasta e os botões clicam;
+- com a janela inativa, o primeiro clique na barra arrasta (tauri#4316). Se não arrastar, decide-se se se usa o `acceptFirstMouse`.
+
+### Task 35: Definições numa janela própria
+**Ficheiros:** `src-tauri/src/window.rs` (o command `open_settings`), `src-tauri/src/lib.rs` (`collect_commands!`), `src-tauri/src/commands/mod.rs` (`save_settings` emite), criar `src-tauri/capabilities/settings.json`, criar `src/routes/definicoes/+page.svelte`, `src/routes/+layout.svelte`, `src/lib/menu.ts`, `src/lib/stores/settings.svelte.ts`, `src/routes/+page.svelte` (o `Modal` e o `listen('open-settings')` saem), `tests/visual/scenarios.ts`, e os bindings.
+
+**Interfaces que produz:**
+- o command `open_settings()`: se a janela `settings` existe, faz `unminimize`, `show` e `set_focus`. Se não existe, cria-a com `WebviewUrl::App("definicoes")`, o título traduzido «Definições», `resizable(false)` e a **barra normal** do macOS (sem Overlay). **Proposta:** é a convenção das janelas de definições do macOS; o Figma Q-M não mostra a moldura da janela;
+- o item ⌘, do menu (`menu.ts:10-16`) chama `commands.openSettings()` em vez de `emit('open-settings')`;
+- a capability `settings` (só a janela `settings`): `core:default`, `core:event:default`, `core:window:allow-set-theme`, `core:window:allow-destroy` e `dialog:default` (para escolher a pasta). Nada de `updater`, `process` nem `opener`;
+- `save_settings` faz `app.emit("settings-changed", &settings)` quando guarda; se falhar, não emite. Nas duas janelas, o store ouve o evento e aplica-o;
+- **o idioma pré-visto** muda só a janela das Definições; a principal muda quando se guarda. Fechar sem guardar (botão vermelho, ⌘W, Esc) chama o `revertUnsavedLanguage` no `onCloseRequested` e não emite nada;
+- o `+layout.svelte` só emite o `app-ready` e só corre o `updater.checkOnLaunch` na janela `main`. Na das Definições correm só o i18n, o tema e o `settings.init()`;
+- os cenários `settings*` do harness passam a abrir a rota `/definicoes` diretamente. As baselines `settings--*` são regeneradas, e o coordenador revê o diff de cada uma. O total de cenários continua 73.
+
+- [ ] **Passo 1: testes que falham:**
+  - Rust: `settings_window_spec` (uma função pura devolve o label, o URL, o título, `resizable` e o estilo da barra, e o teste fixa-os); `save_emits_only_on_success`;
+  - Vitest: `menu_settings_invokes_open_settings`; `layout_skips_app_ready_and_updater_outside_main`; `settings_changed_updates_store`; `close_without_save_reverts_language`; `page_has_no_settings_modal`; `settings_capability_is_minimal` (lê o JSON).
+- [ ] **Passo 2:** os testes falham.
+- [ ] **Passo 3:** a implementação; os bindings regenerados.
+- [ ] **Passo 4:** passam os quatro comandos, o `cargo test` e o `npm run test:visual`, com as baselines novas revistas. O `npm run build` também tem de passar, porque a rota tem de existir no build de produção.
+- [ ] **Passo 5:** commit `feat(window): settings in their own window`.
+
+**Verificar no ecrã (Bruno):**
+- ⌘, repetido, com a janela minimizada, com as Definições em foco, e depois de as fechar e reabrir: há sempre uma só janela;
+- guardar atualiza a principal sem recarregar (idioma, tema, cor de destaque);
+- com o build de produção, a janela abre a rota sem dar 404.
+
+**Fim da Fase 4:** review GPT‑6.2 Sol do lote 34–35; suite completa uma vez; 2–3 mutações por task (ex.: tirar o `allow-start-dragging`, emitir antes de guardar, correr o updater na janela `settings`).
+
+**Paragem:** o Bruno aprova a Fase 4. Depois vem a Fase 5, um ecrã de cada vez.
+
 ## Fase 5 · Ecrãs, por moldura (tasks a escrever)
 Cada ecrã fica feito em Claro e Escuro, comparado com o Figma, com captura. O Bruno aprova antes do seguinte («Ecrãs · Ordem de construção»).
 
@@ -1271,6 +1371,9 @@ Cada ecrã fica feito em Claro e Escuro, comparado com o Figma, com captura. O B
 | 10 | Vários leitores | `74:17138` / `74:17195` e seguintes | Título-menu como seletor (R4) |
 
 O diálogo de atualização (Q-U, Q-V) passa aos componentes novos junto com o ecrã 7.
+
+**Teste de UI obrigatório no ecrã 5 (Detalhe):** `detail_keeps_new_marks_through_sync`. Com o Detalhe aberto e marcas «Novo» à vista, um `syncFinished` que traz destaques novos para o mesmo livro não apaga as marcas visíveis nem acrescenta as novas; fechar e reabrir mostra só as que chegaram durante a leitura. Lê o `viewingNewIds` da Task 33, e não o `isNew`.
+
 ## Fase 6 · Fecho da v2 (tasks a escrever)
 - **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.
   
