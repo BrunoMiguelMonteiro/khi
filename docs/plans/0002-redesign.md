@@ -1207,6 +1207,8 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 1. **Tabela de tons de destaque, antes da Task 21.** Recomendo uma tabela calculada antes, não uma regra aplicada a todas as cores: cada campo (botão, hover, premido, texto do botão, ligação, tom, texto do tom e anel) com a origem escrita (Figma, sistema pela Task 20, ou derivado e como); o azul aprovado fica igual (no Escuro, o premido é mais claro e o texto escuro); as amostras claras, como o Amarelo, podem ter texto escuro; e cada linha passa o contraste sem arredondar, em Claro e Escuro, para o normal, o hover, o premido, a ligação e o tom. Bloqueia só a Task 21. **Decidido (2026-11-19, Bruno: «Ok, concordo»): tabela pré-calculada, como recomendado.** A Task 21 continua à espera da Paragem da Task 20.
 
 ## Fase 3 · Backend do «novo» e da sincronização
+**Tasks aprovadas pelo Bruno a 2026-11-19** (DECISIONS, «Tasks das Fases 3 e 4»).
+
 **Pesquisa prévia:** não há candidatos externos. É o esquema interno da Biblioteca, sem biblioteca ou plugin que o resolva; o problema é a ordem dos eventos, não uma API.
 
 **Implementadores (proposta):** Opus nas Tasks 31 e 32 (backend, §6); Sonnet na 33, com testes que fixam a ordem.
@@ -1246,10 +1248,9 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 **Interfaces que produz:**
 - `LibraryHighlight.is_new: bool` (`isNew`) e `synced_seq: Option<u32>` (`syncedSeq`), calculados no SELECT. As colunas novas entram **no fim** dos SELECT posicionais, para não deslocar índices;
 - o command `mark_book_opened(reader_id: u32, book_id: u32, seen_seq: u32) -> ()`: faz `opened_seq = MAX(COALESCE(opened_seq, 0), seen_seq)`, sem nunca baixar. Um livro de outro leitor dá `NotFound`;
-- o command `library_summary(reader_id: u32) -> LibrarySummary { new_since: Option<String>, last_sync_at: Option<String> }`:
+- o command `library_summary(reader_id: u32, kobo_serial: Option<String>) -> LibrarySummary { new_since: Option<String>, last_sync_at: Option<String> }`:
   - `new_since` é o `MIN(synced_at)` dos destaques novos do leitor (o «desde 9 nov.»);
-  - `last_sync_at` é o `MAX(kobos.last_sync_at)` dos Kobos do leitor (o «sincronizado às 10:42»);
-  - **proposta:** o máximo do leitor em vez do «Kobo ligado», porque assim o frontend não precisa de saber o número de série;
+  - `last_sync_at` é o `kobos.last_sync_at` **do Kobo ligado** (o «sincronizado às 10:42»; Bruno, 2026-11-19). O frontend passa o `connectedDevice.serialNumber` (`library.svelte.ts:162-163`). Sem Kobo ligado, ou com um Kobo de outro leitor, vem `None` e o texto não se mostra;
 - bindings: `UPDATE_BINDINGS=1 cargo test bindings_are_up_to_date`.
 
 - [ ] **Passo 1: testes que falham:**
@@ -1260,7 +1261,7 @@ Depende da Task 6 (`switch-on`, `input-strong`).
   - `mark_never_lowers_opened_seq`;
   - `mark_book_opened_other_reader_is_not_found`;
   - `new_since_is_oldest_unseen` e `new_since_none_when_nothing_new`;
-  - `last_sync_at_is_latest_of_reader_kobos`;
+  - `last_sync_at_is_the_connected_kobos`, `last_sync_at_none_without_kobo` e `last_sync_at_none_for_other_readers_kobo`;
   - `export_output_unchanged`: o Markdown exportado é igual byte a byte;
   - `contract.test.ts`: `markBookOpened` e `librarySummary` existem com os argumentos certos.
 - [ ] **Passo 2:** os testes falham.
@@ -1301,6 +1302,8 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 **Paragem:** o Bruno aprova a Fase 3.
 
 ## Fase 4 · Janela
+**Tasks aprovadas pelo Bruno a 2026-11-19** (DECISIONS, «Tasks das Fases 3 e 4»).
+
 **Versões instaladas (verificadas no `Cargo.lock`):** tauri 2.12.5, tao 0.37.2, wry 0.57.2, `@tauri-apps/api` 2.12.4. Não há `tauri-plugin-store`: as definições vivem num ficheiro, lido e escrito pelos commands `load_settings` e `save_settings` (`src-tauri/src/commands/mod.rs:67`, `:83`).
 
 **Pesquisa prévia e benchmarking (2026-11-19)** (as fontes estão no relatório da pesquisa; o coordenador confirmou as linhas marcadas com ✓ no código instalado):
