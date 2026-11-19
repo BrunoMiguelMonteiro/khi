@@ -523,18 +523,19 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
 - traço de 1,333 px em todos os tamanhos (`absoluteStrokeWidth`), cor `currentColor`; a cor vem do pai (`text-muted-foreground`, etc.);
 - sem `label`, `aria-hidden="true"`; com `label`, `role="img"` e `aria-label`.
 
-- [ ] **Passo 1: testes que falham** (`icon.test.ts`):
+- [x] **Passo 1: testes que falham** (`icon.test.ts`):
   - `decorative_icon_is_hidden`;
   - `labelled_icon_has_img_role`;
   - `sizes_use_figma_tokens`: `size-icon-sm`, `size-icon`, `size-icon-lg`;
   - `stroke_is_1_333_at_every_size`;
   - `figma_icons_exist_in_lucide`: os 22 do Figma (os 21 do ledger, `55:33` a `55:136`, e `copy`, `69:6930`) importam de `lucide-svelte/icons/<nome>`.
-- [ ] **Passo 2:** `npx vitest run src/lib/components/ui/icon` falha.
-- [ ] **Passo 3:** o componente.
-- [ ] **Passo 4:** os testes passam e passam os quatro comandos.
-- [ ] **Passo 5:** commit `feat(ui): Icon wrapper with Figma sizes and 1.333 stroke`.
+- [x] **Passo 2:** `npx vitest run src/lib/components/ui/icon` falha.
+- [x] **Passo 3:** o componente.
+- [x] **Passo 4:** os testes passam e passam os quatro comandos.
+- [x] **Passo 5:** commit `feat(ui): Icon wrapper with Figma sizes and 1.333 stroke`.
 
 **Verificar no ecrã:** o traço igual a 12, 16 e 20.
+- **Resultado (2026-11-19):** 281 testes, `check` 0, harness 73/73. Extras: `shrink-0` e um teste da cor herdada do pai. Revisão no lote 7 + 9 + 13.
 
 ### Task 8: Tooltip
 **Ficheiros:** `npx shadcn-svelte@1.8.1 add tooltip`; adaptar `src/lib/components/ui/tooltip/*`; criar `tooltip.test.ts`.
