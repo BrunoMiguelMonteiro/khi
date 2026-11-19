@@ -1,0 +1,45 @@
+{
+  "$description": "Ligações a variáveis de três nós de risco do Figma KHI (nU5CnQTJobxVE8mHMr7iZL), exportadas só com leitura pelo coordenador em 2026-11-19. Usadas pelos testes matches_figma_sample das Tasks 12, 16 e 17.",
+  "checkbox-checked-disabled": {
+    "figma": "55:1684 › Valor=Ligada, Estado=Desativado",
+    "box": {
+      "fill": "toolbar-icon-disabled"
+    },
+    "mark": {
+      "stroke": "disabled-mark"
+    },
+    "label": {
+      "fill": "disabled-foreground"
+    }
+  },
+  "segment-selected-count": {
+    "figma": "55:2588 › Segmento escolhido (55:2576)",
+    "segment": {
+      "fill": "segmented-selected"
+    },
+    "text": {
+      "fill": "foreground"
+    },
+    "count": {
+      "fill": "segmented-selected-count"
+    },
+    "unselected-count": {
+      "fill": "tertiary-foreground"
+    }
+  },
+  "menu-highlighted": {
+    "figma": "55:3185 › Item de menu realçado (55:3166)",
+    "item": {
+      "fill": "primary"
+    },
+    "text": {
+      "fill": "primary-foreground"
+    },
+    "check": {
+      "stroke": "primary-foreground"
+    },
+    "shortcut": {
+      "fill": "primary-foreground"
+    }
+  }
+}

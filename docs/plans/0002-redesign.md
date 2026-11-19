@@ -645,7 +645,7 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
 **Interfaces que produz** (Componentes (D7) · 4 · Caixa, `55:1684`):
 - `<Checkbox bind:checked label disabled? disabledReason? />`; o rótulo fica à direita, a `gap-2`, em `text-body text-foreground`, e clicar nele muda a caixa;
 - caixa de 14 × 14, `rounded-checkbox`, marca `check` de 10;
-- desligada: `bg-background border border-input-strong`, premido `bg-accent-pressed`;
+- desligada: `bg-background border border-input-strong` (Figma `55:1684`, ligado a `input-strong` em 2026-11-19; era `input`), premido `bg-accent-pressed`;
 - ligada (`data-checked:`): `bg-primary`, marca `text-primary-foreground`, premido `bg-primary-pressed`;
 - desativada: `readonly` do Bits UI (fica focável e não muda), com `aria-disabled` e `data-disabled`; desligada `bg-disabled border-disabled-border`; ligada `bg-toolbar-icon-disabled` com a marca em `text-disabled-mark`; rótulo `text-disabled-foreground`;
 - o anel segue o raio da caixa.
@@ -807,7 +807,7 @@ Depende da Task 6 (`switch-on`, `input-strong`).
   - 32 × 18 à vista e área de clique de 32 × 20 (1 px de padding transparente; Amostra de cor, opção B);
   - `p-0.5`, raio 9 (`rounded-full`, metade da altura);
   - botão de 14 em `bg-switch-thumb shadow-sombra-segmento`;
-  - calha desligada `bg-input-strong`, ligada `bg-switch-on`;
+  - calha desligada `bg-input-strong`, ligada `bg-switch-on` (Figma `55:3471`, ligadas em 2026-11-19; eram `input` / `primary`);
   - desativado: o Bits UI não tem `readonly` no Switch, por isso `bind:checked` é uma ligação de função que recusa a escrita; desligado `bg-disabled-border`, ligado `bg-primary-disabled`;
   - o botão desliza em `duration-in` 200 com `ease-out`; com Reduzir movimento, muda sem deslizar;
   - `role="switch"` com `aria-checked`.
@@ -816,7 +816,7 @@ Depende da Task 6 (`switch-on`, `input-strong`).
   - `min-h-form-row px-4 py-2 gap-4`; rótulo `text-body text-foreground`; ajuda a `gap-1`, em `text-callout text-tertiary-foreground`;
   - `divider` põe um filete `border-t border-border` (da segunda linha em diante);
   - os tipos do Figma (Pop-up, Campo de 160, Botão «Escolher…», Switch, Caixas, Amostras) são o conteúdo do snippet.
-- `<FormGroup heading?>{linhas}</FormGroup>`: cabeçalho `text-body-semibold` com `px-4`, `gap-2` até ao cartão; cartão `bg-card rounded-group`, sem contorno; com Contraste aumentado, `contrast-more:inset-ring` em `border`.
+- `<FormGroup heading?>{linhas}</FormGroup>`: cabeçalho `text-body-semibold` com `px-4`, `gap-2` até ao cartão; cartão `bg-card rounded-group`, sem contorno visível; com Contraste aumentado, `inset-ring inset-ring-contrast-outline` (Figma `55:3553`, traço ligado em 2026-11-19).
 
 - [ ] **Passo 1: testes que falham:**
   - `switch.test.ts`:
@@ -827,7 +827,7 @@ Depende da Task 6 (`switch-on`, `input-strong`).
     - `disabled_is_inert_and_explains_itself`: `expectDisabledInert` sobre `bind:checked`;
     - `disabled_tracks_use_disabled_tokens`.
   - `form.test.ts`, com `form-fixture.svelte`:
-    - `control_is_named_by_row_label`: o Switch e o Pop-up do fixture têm o nome do rótulo;
+    - `control_is_named_by_row_label`: o Switch, o Campo e a Caixa do fixture têm o nome do rótulo (o Pop-up só chega na Task 14, que acrescenta o seu caso a este teste);
     - `control_is_described_by_help`;
     - `divider_adds_top_border`;
     - `group_card_has_no_border_but_contrast_outline`.
