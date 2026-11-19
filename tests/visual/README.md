@@ -27,7 +27,7 @@ Scenarios (`scenarios.ts`):
 
 - `empty`: no Kobo connected.
 - `grid`: Kobo connected, library grid: the window bar, the header with news («N destaques novos em M livros») and the grid (a listbox of cards, one tab stop).
-- `grid-no-news`: the same Library with nothing new: the header reads «Sem destaques novos · sincronizado às 09:42».
+- `grid-no-news`: the same Library with nothing new: no header, the grid starts 24 px below the bar.
 - `list`: library list view.
 - `detail`: book detail.
 - `settings`: settings panel open.

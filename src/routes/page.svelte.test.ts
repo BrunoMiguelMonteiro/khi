@@ -145,10 +145,30 @@ const syncReady = () =>
 	waitFor(() =>
 		expect(within(bar()!).getByRole('button', { name: 'Sync with the Kobo' })).not.toHaveAttribute('aria-disabled', 'true')
 	);
+/**
+ * jsdom has no Web Animations: Svelte's outros (the header's 150 ms fade) would never finish.
+ * This runs each animation for its `duration` on a timer, then fires `onfinish`.
+ */
+function playAnimationsOnTimers() {
+	const proto = Element.prototype as unknown as Record<string, unknown>;
+	proto.getAnimations = () => [];
+	proto.animate = function (_keyframes: unknown, options: { duration?: number } | number) {
+		const duration = typeof options === 'number' ? options : (options?.duration ?? 0);
+		const animation = {
+			onfinish: null as null | (() => void),
+			cancel: () => clearTimeout(timer),
+			finish: () => animation.onfinish?.()
+		};
+		const timer = setTimeout(() => animation.onfinish?.(), duration);
+		return animation;
+	};
+}
+
 const calls = (cmd: string) => vi.mocked(invoke).mock.calls.filter(([c]) => c === cmd);
 
 describe('+page', () => {
 	beforeEach(() => {
+		playAnimationsOnTimers();
 		vi.mocked(invoke).mockReset();
 		handlers.clear();
 		mainWindow.setFocus.mockClear();
@@ -361,22 +381,21 @@ describe('+page · screen 1', () => {
 		expect(detail()).toBeUndefined();
 		view.unmount();
 
-		// Nothing new, Kobo connected: the sync time
+		// Nothing new, Kobo connected: no header at all
 		resetLibrary();
 		const read = newBooks().map((b) => ({ ...b, highlights: b.highlights.map((h) => ({ ...h, isNew: false })) }));
 		await mockLibrary({ books: read, summary, device: kobo });
 		view = render(Page);
-		await waitFor(() => expect(header()?.dataset.state).toBe('semNovidades'));
-		expect(message()).toBe('No new highlights');
-		await waitFor(() => expect(detail()).toMatch(/^synced at \d\d:\d\d/));
+		await waitFor(() => expect(options()).toHaveLength(3));
+		expect(header()).toBeNull();
 		view.unmount();
 
-		// Nothing new, no Kobo: no time
+		// Nothing new, no Kobo: no header either
 		resetLibrary();
 		await mockLibrary({ books: read, summary });
 		view = render(Page);
-		await waitFor(() => expect(header()?.dataset.state).toBe('semNovidades'));
-		expect(detail()).toBeUndefined();
+		await waitFor(() => expect(options()).toHaveLength(3));
+		expect(header()).toBeNull();
 		view.unmount();
 
 		// No books: no header (the empty state is screen 6's)
@@ -386,6 +405,36 @@ describe('+page · screen 1', () => {
 		await screen.findByTestId('empty-state');
 		expect(header()).toBeNull();
 		view.unmount();
+	});
+
+	it('no_news_shows_no_header', async () => {
+		const read = newBooks().map((b) => ({ ...b, highlights: b.highlights.map((h) => ({ ...h, isNew: false })) }));
+		await mockLibrary({ books: read, summary: { newSince: '2026-11-09T10:00:00Z', lastSyncAt: '2026-11-19T10:42:00Z' }, device: kobo });
+		render(Page);
+		await waitFor(() => expect(options()).toHaveLength(3));
+		expect(header()).toBeNull();
+		expect(screen.queryByText('No new highlights')).toBeNull();
+		expect(screen.queryByText(/synced at/)).toBeNull();
+		// Nothing is left in the grid's place: the grid is the content's first child
+		expect(screen.getByRole('listbox').parentElement!.firstElementChild).toBe(screen.getByRole('listbox'));
+	});
+
+	it('header_leaves_after_export_clears_news', async () => {
+		const user = userEvent.setup();
+		await mockLibrary({
+			books: newBooks(),
+			summary: { newSince: '2026-11-09T10:00:00Z', lastSyncAt: null },
+			overrides: { export_library_books: () => ['/x/Alpha.md', '/x/Gamma.md'] }
+		});
+		render(Page);
+		await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+
+		await user.click(within(header()!).getByRole('button', { name: 'Export 2 books' }));
+
+		await waitFor(() => expect(calls('mark_book_opened')).toHaveLength(2));
+		// The header leaves, and nothing takes its place
+		await waitFor(() => expect(header()).toBeNull());
+		expect(screen.queryByText('No new highlights')).toBeNull();
 	});
 
 	it('header_follows_a_book_being_opened', async () => {
@@ -426,7 +475,7 @@ describe('+page · screen 1', () => {
 		await waitFor(() => expect(calls('mark_book_opened')).toHaveLength(2));
 		expect(invoke).toHaveBeenCalledWith('mark_book_opened', { readerId: 1, bookId: 1, seenSeq: 3 });
 		expect(invoke).toHaveBeenCalledWith('mark_book_opened', { readerId: 1, bookId: 3, seenSeq: 4 });
-		await waitFor(() => expect(header()?.dataset.state).toBe('semNovidades'));
+		await waitFor(() => expect(header()).toBeNull());
 	});
 
 	it('exported_mark_belongs_to_the_header_export_alone', async () => {

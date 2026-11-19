@@ -49,7 +49,8 @@
 		if (newHighlights > 0) {
 			return { kind: 'novos', highlights: newHighlights, books: newBookIds.length, since: library.summary?.newSince };
 		}
-		return { kind: 'semNovidades', syncedAt: library.summary?.lastSyncAt };
+		// Nothing new: no header at all (Plano 0002, «Sem novidades, sem cabeçalho»)
+		return null;
 	});
 	/** The book on screen in the detail, never while a Sync replaces the content. */
 	const detailBook = $derived(!library.isImporting && library.uiState === 'book-details' ? library.viewingBook : undefined);

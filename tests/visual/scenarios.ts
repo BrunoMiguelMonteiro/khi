@@ -43,7 +43,7 @@ export interface Scenario {
 	name: string;
 	description: string;
 	viewMode?: ViewMode;
-	/** Every book has been opened or exported: no highlight is new, so the header reads «Sem destaques novos». */
+	/** Every book has been opened or exported: no highlight is new, so there is no header: the grid starts 24 px below the bar. */
 	withoutNews?: boolean;
 	/** The Kobo's Reader and its Library exist (all but `empty`). */
 	withLibrary: boolean;
@@ -233,7 +233,7 @@ export const SCENARIOS: Record<string, Scenario> = {
 	},
 	'grid-no-news': {
 		name: 'grid-no-news',
-		description: 'Kobo connected, nothing new: the header reads «Sem destaques novos» with the last sync time',
+		description: 'Kobo connected, nothing new: no header, the grid starts 24 px below the bar',
 		withLibrary: true,
 		withoutNews: true,
 		reach: library
