@@ -1384,6 +1384,32 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 
 **Paragem:** o Bruno aprova a Fase 4. Depois vem a Fase 5, um ecrã de cada vez.
 
+**Feita e aprovada a 2026-11-19** (Bruno: «Aprovo»).
+- **Review do lote 34–35:** a review independente foi feita pelo `dod-guard:adversarial-reviewer` (Opus), porque não há GPT. As correções estão em `323f717`:
+  - `update_settings(patch)`, com lock no Rust;
+  - a principal lembra a ordenação e a vista;
+  - o `confirm()` passa a ser esperado com `await`;
+  - guarda no updater;
+  - fechar a principal sai da app;
+  - lock no `open_settings`;
+  - `settings_reader`;
+  - `readers-changed`;
+  - a janela é criada escondida.
+- **Verificado no ecrã com `npm run dev:app`:**
+  - ⌘, repetido e com a janela minimizada;
+  - fechar a principal sai da app;
+  - ⌘Q limpo;
+  - não há flash;
+  - Guardar atualiza a principal;
+  - a ordenação e a vista mantêm-se entre arranques;
+  - Repor padrões e Cancelar pedem confirmação.
+- **Fica para a Fase 5 (ecrã 7):**
+  - as Definições mostram o Leitor que a principal tem aberto;
+  - renomear um Leitor atualiza a principal.
+  
+  Os dados dev não têm nenhum Kobo sincronizado. Até lá, estes dois pontos estão cobertos pelos testes `shows the Reader the main window has open`, `settings_reader_keeps_a_name_draft` e `reloads the readers when Settings renamed one`.
+- **Ainda por verificar:** a rota sem 404 no build de produção (passa o `npm run build`, mas não se abriu a `.app`).
+
 ## Fase 5 · Ecrãs, por moldura (tasks a escrever)
 Cada ecrã fica feito em Claro e Escuro, comparado com o Figma, com captura. O Bruno aprova antes do seguinte («Ecrãs · Ordem de construção»).
 
@@ -1395,7 +1421,7 @@ Cada ecrã fica feito em Claro e Escuro, comparado com o Figma, com captura. O B
 | 4 | Lista | `71:9740` / `71:9755` | A mesma ordem da grelha |
 | 5 | Detalhe | `71:10560` / `71:10965` | Filtro Todos · Novos · Com notas, e `markBookOpened` (D2) |
 | 6 | Primeiro arranque e Kobo novo | `72:11425` / `72:11443`, `72:11461` / `72:11500` | Texto novo do Kobo novo em pt e en |
-| 7 | Definições | secção `73:12021` e Q-M (`74:18560`) | Pop-up de leitor com dois ou mais leitores, e 4 textos novos |
+| 7 | Definições | secção `73:12021` e Q-M (`74:18560`) | Pop-up de leitor com dois ou mais leitores, e 4 textos novos. Verificar no ecrã, com um Kobo sincronizado na build dev: as Definições mostram o Leitor da principal, e renomear um Leitor atualiza a principal (adiado da Fase 4) |
 | 8 | Exportação | por rever no Figma (D4) | O erro segue `folderNotWritable`, não «a pasta já não existe» |
 | 9 | Apagar livro | `74:16535` / `74:16671`, `74:16868` / `74:16918` | ⌘⌫ e a janela modal Q-A |
 | 10 | Vários leitores | `74:17138` / `74:17195` e seguintes | Título-menu como seletor (R4) |
