@@ -1020,7 +1020,7 @@ Depende da Task 6 (`switch-on`, `input-strong`).
   - a Capa não tem foco: é o elemento pintado do anel do Cartão (Task 25), por isso aceita a classe `group-focus-visible/card:focus-ring` e não corta o que está fora (`overflow-hidden` só na imagem, não no contorno);
 - `<Thumbnail src? bookId />`: 24 × 36, `rounded-thumb`, contorno `cover-border`, decorativa.
 
-- [ ] **Passo 1: testes que falham** (`cover.test.ts`):
+- [x] **Passo 1: testes que falham** (`cover.test.ts`):
   - `cover_tone_is_stable_per_book`;
   - `cover_tone_uses_all_eight_tones`;
   - `cover_classes_are_compiled`: cada classe de `COVER_BG` existe no CSS gerado pelas fontes de produção;
@@ -1028,10 +1028,10 @@ Depende da Task 6 (`switch-on`, `input-strong`).
   - `title_uses_line_clamp_4`;
   - `badge_shows_new_count_and_leaves_when_zero`;
   - `thumbnail_is_24_by_36_and_decorative`.
-- [ ] **Passo 2:** `npx vitest run src/lib/components/ui/cover` falha.
-- [ ] **Passo 3:** os componentes.
-- [ ] **Passo 4:** os testes passam e passam os quatro comandos.
-- [ ] **Passo 5:** commit `feat(ui): Cover and Thumbnail`.
+- [x] **Passo 2:** `npx vitest run src/lib/components/ui/cover` falha.
+- [x] **Passo 3:** os componentes.
+- [x] **Passo 4:** os testes passam e passam os quatro comandos.
+- [x] **Passo 5:** commit `feat(ui): Cover and Thumbnail`.
 
 **Verificar no ecrã:** quatro linhas com reticências; o fade da etiqueta; o contorno sobre capas claras.
 

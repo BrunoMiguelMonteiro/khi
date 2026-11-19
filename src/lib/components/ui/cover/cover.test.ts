@@ -1,0 +1,405 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { describe, expect, it } from "vitest";
+import { fireEvent, render } from "@testing-library/svelte";
+import { isInaccessible } from "@testing-library/dom";
+import { tick } from "svelte";
+import { Scanner } from "@tailwindcss/oxide";
+import { compileAppCss } from "$lib/test/css";
+import { COVER_BG, COVER_TONES, Cover, Thumbnail, coverTone } from "./index";
+
+type Binding = { binding: string; utility: string; css: string };
+
+/** The utilities layer Tailwind emits for one class alone, compiled with the real app.css. */
+async function ruleOf(candidate: string) {
+  const { css } = await compileAppCss([candidate]);
+  return css.match(/@layer utilities \{[\s\S]*?\n\}/)?.[0] ?? "";
+}
+
+async function expectBindings(el: Element, bindings: Binding[]) {
+  for (const { binding, utility, css } of bindings) {
+    expect(el.classList.contains(utility), `${binding} → ${utility}`).toBe(
+      true,
+    );
+    expect(await ruleOf(utility), utility).toContain(css);
+  }
+}
+
+const locale = (lang: "pt" | "en") =>
+  JSON.parse(
+    readFileSync(
+      resolve(process.cwd(), `src/lib/i18n/locales/${lang}.json`),
+      "utf8",
+    ),
+  );
+
+const slot = (root: ParentNode, name: string) =>
+  root.querySelector<HTMLElement>(`[data-slot="${name}"]`);
+
+function must(el: HTMLElement | null, what: string): HTMLElement {
+  if (!el) throw new Error(`no ${what} rendered`);
+  return el;
+}
+
+const BOOK = { title: "Os Maias", author: "Eça de Queirós", bookId: 42 };
+
+// Capas 1: the eight tones, in the order of the Figma variants (Capa, 63:3281).
+const TONES = [
+  "verde",
+  "ardosia",
+  "castanho",
+  "ameixa",
+  "azul",
+  "oliva",
+  "petroleo",
+  "tijolo",
+];
+
+// Componentes (D7) · 16 · Capa (63:3281).
+const COVER_BINDINGS: Binding[] = [
+  { binding: "2:3", utility: "aspect-2/3", css: "aspect-ratio: 2/3;" },
+  {
+    binding: "radius/cover",
+    utility: "rounded-cover",
+    css: "border-radius: var(--radius-cover);",
+  },
+  {
+    binding: "spacing/3 (padding)",
+    utility: "p-3",
+    css: "padding: calc(var(--spacing) * 3);",
+  },
+  {
+    binding: "spacing/1 (gap)",
+    utility: "gap-1",
+    css: "gap: var(--spacing);",
+  },
+];
+// Componentes 6: 1 px inside, over the image, in cover-border.
+const BORDER_BINDINGS: Binding[] = [
+  {
+    binding: "stroke/border (inside)",
+    utility: "inset-ring",
+    css: "inset 0 0 0 1px",
+  },
+  {
+    binding: "cover-border",
+    utility: "inset-ring-cover-border",
+    css: "--tw-inset-ring-color: var(--cover-border);",
+  },
+];
+const TITLE_BINDINGS: Binding[] = [
+  {
+    binding: "Capa/Título",
+    utility: "text-cover-title",
+    css: "font-size: 15px;",
+  },
+  {
+    binding: "cover-foreground",
+    utility: "text-cover-foreground",
+    css: "color: var(--cover-foreground);",
+  },
+  {
+    binding: "up to 4 lines with an ellipsis",
+    utility: "line-clamp-4",
+    css: "-webkit-line-clamp: 4;",
+  },
+];
+const AUTHOR_BINDINGS: Binding[] = [
+  {
+    binding: "Capa/Autor",
+    utility: "text-cover-author",
+    css: "font-style: italic;",
+  },
+  {
+    binding: "cover-foreground",
+    utility: "text-cover-foreground",
+    css: "color: var(--cover-foreground);",
+  },
+  {
+    binding: "one line with an ellipsis",
+    utility: "truncate",
+    css: "text-overflow: ellipsis;",
+  },
+];
+// Movimento 3: the badge leaves with a 150 ms fade on ease/out.
+const BADGE_EXIT: Binding[] = [
+  {
+    binding: "fade",
+    utility: "data-closed:fade-out-0",
+    css: "--tw-exit-opacity: 0;",
+  },
+  {
+    binding: "duration/out",
+    utility: "data-closed:duration-(--duration-out)",
+    css: "--tw-duration: var(--duration-out);",
+  },
+  {
+    binding: "ease/out",
+    utility: "data-closed:ease-out",
+    css: "--tw-ease: var(--ease-out);",
+  },
+];
+
+describe("coverTone", () => {
+  it("cover_tone_is_stable_per_book", async () => {
+    const ids = Array.from({ length: 50 }, (_, i) => i * 7 + 1);
+    const first = ids.map((id) => coverTone(id));
+    expect(ids.map((id) => coverTone(id))).toEqual(first);
+    // The tone comes from the id alone: a string id is the same book.
+    expect(ids.map((id) => coverTone(String(id)))).toEqual(first);
+    // Pinned (FNV-1a): a new hash would recolour every library on update.
+    expect([1, 2, 3, 42, 1000, 31337].map((id) => coverTone(id))).toEqual([
+      "azul",
+      "oliva",
+      "castanho",
+      "ameixa",
+      "azul",
+      "verde",
+    ]);
+
+    // The cover follows the book, not its title or author.
+    const a = render(Cover, { props: { ...BOOK } });
+    const b = render(Cover, {
+      props: { ...BOOK, title: "A Cidade e as Serras", author: "Outro" },
+    });
+    const tone = COVER_BG[coverTone(BOOK.bookId)];
+    expect(must(slot(a.container, "cover"), "cover").classList).toContain(tone);
+    expect(must(slot(b.container, "cover"), "cover").classList).toContain(tone);
+    await expectBindings(
+      must(slot(a.container, "cover"), "cover"),
+      COVER_BINDINGS,
+    );
+  });
+
+  it("cover_tone_uses_all_eight_tones", () => {
+    expect([...COVER_TONES]).toEqual(TONES);
+    const counts = new Map<string, number>();
+    for (let id = 1; id <= 800; id++) {
+      const tone = coverTone(id);
+      counts.set(tone, (counts.get(tone) ?? 0) + 1);
+    }
+    expect([...counts.keys()].sort()).toEqual([...TONES].sort());
+    // Spread evenly: no tone takes more than twice, or less than half, its share of 100.
+    for (const [tone, n] of counts) {
+      expect(n, tone).toBeGreaterThanOrEqual(50);
+      expect(n, tone).toBeLessThanOrEqual(200);
+    }
+  });
+});
+
+describe("Cover", () => {
+  it("cover_classes_are_compiled", async () => {
+    expect(Object.keys(COVER_BG)).toEqual(TONES);
+    // Scan the production sources as the Vite plugin does, then compile what it finds.
+    const { sources } = await compileAppCss([]);
+    const candidates = new Scanner({ sources }).scan();
+    const { css } = await compileAppCss(candidates);
+    for (const [tone, utility] of Object.entries(COVER_BG)) {
+      expect(utility).toBe(`bg-cover-${tone}`);
+      expect(candidates, utility).toContain(utility);
+      expect(css, utility).toContain(
+        `.${utility} {\n    background-color: var(--cover-${tone});`,
+      );
+    }
+  });
+
+  it("painted_text_is_hidden_from_voiceover", () => {
+    const { container, getByText } = render(Cover, { props: { ...BOOK } });
+    const cover = must(slot(container, "cover"), "cover");
+    // Painted on the cover: seen, not read (the card names the book).
+    expect(isInaccessible(getByText("Os Maias"))).toBe(true);
+    expect(isInaccessible(getByText("Eça de Queirós"))).toBe(true);
+    // The cover takes no focus: the card's gridcell does, and paints its ring here.
+    expect(cover.hasAttribute("tabindex")).toBe(false);
+    expect(cover.getAttribute("role")).toBeNull();
+
+    // With an image: decorative, and no painted text over it.
+    const img = render(Cover, { props: { ...BOOK, src: "cover.jpg" } });
+    const picture = must(img.container.querySelector("img"), "img");
+    // alt="": a presentational image, not an unnamed one.
+    expect(picture.getAttribute("alt")).toBe("");
+    expect(img.queryByRole("img")).toBeNull();
+    expect(img.container.textContent?.trim()).toBe("");
+  });
+
+  it("title_uses_line_clamp_4", async () => {
+    const { container, getByText } = render(Cover, { props: { ...BOOK } });
+    await expectBindings(getByText("Os Maias"), TITLE_BINDINGS);
+    await expectBindings(getByText("Eça de Queirós"), AUTHOR_BINDINGS);
+    // The title wraps (up to four lines); only the author stays on one.
+    expect(getByText("Os Maias").classList).not.toContain("truncate");
+    const cover = must(slot(container, "cover"), "cover");
+    expect(getByText("Os Maias").parentElement).toBe(cover);
+    expect(getByText("Eça de Queirós").parentElement).toBe(cover);
+  });
+
+  it("cover_border_sits_over_the_image_and_ring_is_not_clipped", async () => {
+    const { container } = render(Cover, {
+      props: {
+        ...BOOK,
+        src: "cover.jpg",
+        class: "group-focus-visible/card:focus-ring",
+      },
+    });
+    const cover = must(slot(container, "cover"), "cover");
+    const img = must(cover.querySelector("img"), "img");
+    const border = must(slot(cover, "cover-border"), "cover border");
+    // The ring is an outline on the cover: nothing on the cover clips it.
+    expect(cover.classList).toContain("group-focus-visible/card:focus-ring");
+    expect(cover.classList).not.toContain("overflow-hidden");
+    expect(cover.classList).not.toContain("overflow-clip");
+    // The image fills and crops itself; the border is painted after it, so over it.
+    expect([...img.classList]).toEqual(
+      expect.arrayContaining([
+        "object-cover",
+        "overflow-hidden",
+        "rounded-cover",
+        "size-full",
+      ]),
+    );
+    expect(
+      img.compareDocumentPosition(border) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    await expectBindings(border, [
+      ...BORDER_BINDINGS,
+      {
+        binding: "radius/cover",
+        utility: "rounded-cover",
+        css: "border-radius: var(--radius-cover);",
+      },
+      {
+        binding: "covers the image",
+        utility: "inset-0",
+        css: "inset: 0px;",
+      },
+    ]);
+    expect(border.getAttribute("aria-hidden")).toBe("true");
+    // A real cover shows the image, not a tone.
+    for (const tone of Object.values(COVER_BG))
+      expect(cover.classList).not.toContain(tone);
+  });
+
+  it("badge_shows_new_count_and_leaves_when_zero", async () => {
+    const pt = locale("pt").book;
+    const en = locale("en").book;
+    expect([pt.newCount, pt.newCount_one, pt.newCount_other]).toEqual([
+      "{count} novos",
+      "1 novo",
+      "{count} novos",
+    ]);
+    expect([en.newCount, en.newCount_one, en.newCount_other]).toEqual([
+      "{count} new",
+      "1 new",
+      "{count} new",
+    ]);
+
+    // No new highlights: no badge at all, not an empty or invisible one.
+    const none = render(Cover, { props: { ...BOOK, newCount: 0 } });
+    expect(slot(none.container, "badge")).toBeNull();
+    none.unmount();
+
+    const { container, rerender } = render(Cover, {
+      props: { ...BOOK, newCount: 11 },
+    });
+    let badge = must(slot(container, "badge"), "badge");
+    expect(badge.textContent?.trim()).toBe("11 new");
+    expect(isInaccessible(badge)).toBe(false);
+    expect(badge.hasAttribute("data-closed")).toBe(false);
+    // 8 px from the bottom and left edges (Capas 1).
+    await expectBindings(badge, [
+      { binding: "absolute", utility: "absolute", css: "position: absolute;" },
+      {
+        binding: "8 px from the bottom",
+        utility: "bottom-2",
+        css: "bottom: calc(var(--spacing) * 2);",
+      },
+      {
+        binding: "8 px from the left",
+        utility: "left-2",
+        css: "left: calc(var(--spacing) * 2);",
+      },
+    ]);
+
+    await rerender({ ...BOOK, newCount: 1 });
+    expect(must(slot(container, "badge"), "badge").textContent?.trim()).toBe(
+      "1 new",
+    );
+
+    // Exported: it keeps its last number while it fades out, then leaves.
+    await rerender({ ...BOOK, newCount: 0 });
+    badge = must(slot(container, "badge"), "badge");
+    expect(badge.textContent?.trim()).toBe("1 new");
+    expect(badge.hasAttribute("data-closed")).toBe(true);
+    expect(badge.getAttribute("aria-hidden")).toBe("true");
+    expect(badge.classList).toContain("data-closed:animate-out");
+    expect(badge.classList).toContain("data-closed:fill-mode-forwards");
+    await expectBindings(badge, BADGE_EXIT);
+    // A fade only: no slide or zoom, so Reduzir movimento keeps it as is.
+    expect(
+      [...badge.classList].filter((c) =>
+        /slide|zoom|spin|translate|scale/.test(c),
+      ),
+    ).toEqual([]);
+    await fireEvent.animationEnd(badge);
+    await tick();
+    expect(slot(container, "badge")).toBeNull();
+
+    // New highlights again: back at once, without the exit state.
+    await rerender({ ...BOOK, newCount: 3 });
+    badge = must(slot(container, "badge"), "badge");
+    expect(badge.textContent?.trim()).toBe("3 new");
+    expect(badge.hasAttribute("data-closed")).toBe(false);
+  });
+});
+
+describe("Thumbnail", () => {
+  it("thumbnail_is_24_by_36_and_decorative", async () => {
+    const { container } = render(Thumbnail, { props: { bookId: BOOK.bookId } });
+    const thumb = must(slot(container, "thumbnail"), "thumbnail");
+    // Componentes (D7) · 17 · Miniatura (63:3295).
+    await expectBindings(thumb, [
+      {
+        binding: "24 wide",
+        utility: "w-6",
+        css: "width: calc(var(--spacing) * 6);",
+      },
+      {
+        binding: "36 tall",
+        utility: "h-9",
+        css: "height: calc(var(--spacing) * 9);",
+      },
+      {
+        binding: "radius/thumb",
+        utility: "rounded-thumb",
+        css: "border-radius: var(--radius-thumb);",
+      },
+    ]);
+    // The same tone as the book's cover.
+    expect(thumb.classList).toContain(COVER_BG[coverTone(BOOK.bookId)]);
+    const border = must(slot(thumb, "cover-border"), "thumbnail border");
+    await expectBindings(border, [
+      ...BORDER_BINDINGS,
+      {
+        binding: "radius/thumb",
+        utility: "rounded-thumb",
+        css: "border-radius: var(--radius-thumb);",
+      },
+    ]);
+    expect(thumb.getAttribute("aria-hidden")).toBe("true");
+    expect(isInaccessible(thumb)).toBe(true);
+    expect(thumb.textContent?.trim()).toBe("");
+
+    const img = render(Thumbnail, { props: { bookId: 7, src: "cover.jpg" } });
+    const thumbImg = must(slot(img.container, "thumbnail"), "thumbnail");
+    const picture = must(thumbImg.querySelector("img"), "img");
+    expect(picture.getAttribute("alt")).toBe("");
+    expect(isInaccessible(picture)).toBe(true);
+    const imgBorder = must(slot(thumbImg, "cover-border"), "border");
+    expect(
+      picture.compareDocumentPosition(imgBorder) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    for (const tone of Object.values(COVER_BG))
+      expect(thumbImg.classList).not.toContain(tone);
+  });
+});
