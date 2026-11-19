@@ -97,6 +97,8 @@
     "copied": "Copied!",
     "copyError": "Copy failed",
     "removedFromKobo": "Removed from Kobo",
+    "new": "new",
+    "withNote": "with note",
     "note": "Note"
   },
   "settings": {

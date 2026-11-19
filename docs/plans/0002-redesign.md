@@ -1102,7 +1102,7 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 - o espaço de 48 entre destaques (Q-H, `gap-12`) é da lista, no ecrã (Fase 5);
 - VoiceOver: «Capítulo 2, 10 de novembro, novo, com nota» e depois o texto.
 
-- [ ] **Passo 1: testes que falham** (`highlight.test.ts`):
+- [x] **Passo 1: testes que falham** (`highlight.test.ts`):
   - `line_token_per_state`;
   - `removed_is_dashed_with_label`;
   - `note_icon_is_labelled_nota`;
@@ -1110,10 +1110,10 @@ Depende da Task 6 (`switch-on`, `input-strong`).
   - `copy_shows_check_for_2s`;
   - `copy_error_label`;
   - `accessible_summary_reads_chapter_date_new_note`: o texto do nome acessível, não o que o VoiceOver diz.
-- [ ] **Passo 2:** `npx vitest run src/lib/components/ui/highlight` falha.
-- [ ] **Passo 3:** o componente e as chaves em `highlight.*`.
-- [ ] **Passo 4:** os testes passam e passam os quatro comandos.
-- [ ] **Passo 5:** commit `feat(ui): Highlight with copy on hover and focus`.
+- [x] **Passo 2:** `npx vitest run src/lib/components/ui/highlight` falha.
+- [x] **Passo 3:** o componente e as chaves em `highlight.*`.
+- [x] **Passo 4:** os testes passam e passam os quatro comandos.
+- [x] **Passo 5:** commit `feat(ui): Highlight with copy on hover and focus`.
 
 **Verificar no ecrã:** o fundo do hover em fade, também com Reduzir movimento; o tracejado 4/4; o VoiceOver.
 

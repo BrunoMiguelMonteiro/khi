@@ -95,6 +95,8 @@
     "copied": "Copiado!",
     "copyError": "Erro ao copiar",
     "removedFromKobo": "Removido do Kobo",
+    "new": "novo",
+    "withNote": "com nota",
     "note": "Nota",
     "excludeTitle": "Excluir da exportação",
     "includeTitle": "Incluir na exportação"
