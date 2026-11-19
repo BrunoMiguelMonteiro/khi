@@ -7,7 +7,7 @@ const tokensPath = resolve(root, 'src/lib/styles/tokens.css');
 const figma = JSON.parse(readFileSync(resolve(root, 'design/tokens.json'), 'utf8'));
 const tailwindTheme = readFileSync(resolve(root, 'node_modules/tailwindcss/theme.css'), 'utf8');
 
-// Review Focus 4: not in Figma, from the plan («Fundações»).
+// Review Focus 4, from the plan («Fundações»): the outside judge of the Figma contrast modes.
 const DISABLED_VAR = '--disabled-foreground';
 const DISABLED_MORE_CONTRAST_LIGHT = '#636366';
 const DISABLED_MORE_CONTRAST_DARK = '#8E8E92';
@@ -16,6 +16,9 @@ const ENTER_DISTANCE_VAR = '--distance-enter';
 
 const light: Record<string, string> = figma.cor.claro;
 const dark: Record<string, string> = figma.cor.escuro;
+const lightContrast: Record<string, string> = figma.cor['claro-contraste'];
+const darkContrast: Record<string, string> = figma.cor['escuro-contraste'];
+const NEW_COLORS = ['scrim', 'input-strong', 'switch-on'];
 const raio: Record<string, number> = figma.raio;
 const medidas: Record<string, number> = figma.medidas;
 const movimento: Record<string, number | string> = figma.movimento;
@@ -66,11 +69,30 @@ function find(list: Block[], prelude: string): Decls {
 	return decls(found[0].body);
 }
 
+const CONTRAST_MEDIA = '@media (prefers-contrast: more)';
+
+// Only rules, no stray declarations or text between them.
+function onlyRules(css: string): Block[] {
+	const list = blocks(css);
+	let rest = css;
+	for (const b of list) rest = rest.replace(b.prelude, '').replace(`{${b.body}}`, '');
+	expect(rest.trim(), 'nothing outside the rules').toBe('');
+	return list;
+}
+
 function load() {
 	expect(existsSync(tokensPath), 'src/lib/styles/tokens.css exists').toBe(true);
 	const css = readFileSync(tokensPath, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
 	const top = blocks(css);
-	const contrast = blocks(top.find((b) => b.prelude === '@media (prefers-contrast: more)')?.body ?? '');
+	const contrastMedia = top.filter((b) => b.prelude.includes('prefers-contrast'));
+	expect(contrastMedia.map((b) => b.prelude), 'exactly one contrast block').toEqual([
+		CONTRAST_MEDIA
+	]);
+	const contrast = onlyRules(contrastMedia[0].body);
+	expect(
+		contrast.map((b) => b.prelude),
+		'the contrast block holds exactly :root then .dark'
+	).toEqual([':root', '.dark']);
 	const reduced = blocks(
 		top.find((b) => b.prelude === '@media (prefers-reduced-motion: reduce)')?.body ?? ''
 	);
@@ -183,6 +205,67 @@ describe('tokens.css (Figma variables)', () => {
 		expect(tailwindTheme).toMatch(/--spacing:\s*0\.25rem;/);
 		for (const name of [...theme.keys(), ...themeInline.keys()]) {
 			expect(name, 'Tailwind spacing scale is not redefined').not.toMatch(/^--spacing(-[\d-]+)?$/);
+		}
+	});
+
+	it('contrast_modes_exist_with_every_color', () => {
+		const keys = Object.keys(light).sort();
+		expect(keys).toHaveLength(61);
+		for (const mode of [dark, lightContrast, darkContrast]) {
+			expect(mode).toBeDefined();
+			expect(Object.keys(mode).sort()).toEqual(keys);
+		}
+	});
+
+	it('contrast_block_is_figma_mode_diff', () => {
+		// :root is the light diff. .dark also matches <html class="dark"> after the contrast
+		// :root, so it redeclares every light-diff key too, with the Escuro · Contraste value.
+		const { contrastRoot, contrastDark } = load();
+		const changed = (base: Record<string, string>, mode: Record<string, string>) =>
+			Object.keys(mode).filter((key) => mode[key].toLowerCase() !== base[key].toLowerCase());
+		const entries = (keys: string[], mode: Record<string, string>) =>
+			[...new Set(keys)].map((key) => [`--${key}`, mode[key].toLowerCase()]).sort();
+		const actual = (block: Decls) =>
+			[...block].map(([name, value]) => [name, value.toLowerCase()]).sort();
+		const lightKeys = changed(light, lightContrast);
+		expect(lightKeys.length).toBeGreaterThan(0);
+		expect(actual(contrastRoot)).toEqual(entries(lightKeys, lightContrast));
+		expect(actual(contrastDark)).toEqual(
+			entries([...lightKeys, ...changed(dark, darkContrast)], darkContrast)
+		);
+	});
+
+	it('contrast_effective_palettes_are_figma_modes', () => {
+		// Cascade order on <html> (same specificity, so source order wins).
+		const t = load();
+		const palette = (...layers: Decls[]) => {
+			const out: Record<string, string> = {};
+			for (const layer of layers) for (const [name, value] of layer) out[name] = value;
+			return Object.keys(light).map((key) => [`--${key}`, lower(out[`--${key}`])]);
+		};
+		const expected = (mode: Record<string, string>) =>
+			Object.keys(light).map((key) => [`--${key}`, mode[key].toLowerCase()]);
+		expect(palette(t.root, t.contrastRoot), 'light + contrast').toEqual(expected(lightContrast));
+		expect(palette(t.root, t.dark, t.contrastRoot, t.contrastDark), 'dark + contrast').toEqual(
+			expected(darkContrast)
+		);
+	});
+
+	it('contrast_raises_disabled_as_foundations', () => {
+		expect(lower(lightContrast[DISABLED_VAR.slice(2)])).toBe(
+			DISABLED_MORE_CONTRAST_LIGHT.toLowerCase()
+		);
+		expect(lower(darkContrast[DISABLED_VAR.slice(2)])).toBe(
+			DISABLED_MORE_CONTRAST_DARK.toLowerCase()
+		);
+	});
+
+	it('new_colors_come_from_figma', () => {
+		const { root, dark: darkDecls, themeInline } = load();
+		for (const key of NEW_COLORS) {
+			expect(lower(root.get(`--${key}`)), `--${key}`).toBe(light[key].toLowerCase());
+			expect(lower(darkDecls.get(`--${key}`)), `.dark --${key}`).toBe(dark[key].toLowerCase());
+			expect(themeInline.get(`--color-${key}`), `--color-${key}`).toBe(`var(--${key})`);
 		}
 	});
 

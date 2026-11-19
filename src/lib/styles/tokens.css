@@ -63,6 +63,9 @@
   --switch-thumb: #FFFFFF;
   --destructive-text: #D70015;
   --segmented-selected-count: #535358;
+  --scrim: #00000026;
+  --input-strong: #C7C7CC;
+  --switch-on: #0066D6;
   --ring-opacity: 0.5;
 
   --size-control: 28px;
@@ -151,16 +154,34 @@
   --switch-thumb: #FFFFFF;
   --destructive-text: #FF6961;
   --segmented-selected-count: #E5E5EA;
+  --scrim: #00000026;
+  --input-strong: #48484A;
+  --switch-on: #62A6FF;
 }
 
-/* Review Focus 4: not in Figma, from «Fundações». */
+/*
+  Increased contrast, from the Figma modes (design/tokens.json): :root holds the variables
+  where «Claro · Contraste» (90:0) differs from «Claro»; .dark holds those plus the ones
+  where «Escuro · Contraste» (90:1) differs from «Escuro», with the Escuro · Contraste
+  values, because this :root also matches <html class="dark"> after the base .dark.
+  Guarded by contrast_block_is_figma_mode_diff and contrast_effective_palettes_are_figma_modes.
+*/
 @media (prefers-contrast: more) {
   :root {
+    --border: #8D8D91;
+    --highlight-line: #8D8D91;
+    --highlight-line-new: #1D1D1F;
     --disabled-foreground: #636366;
+    --input-strong: #858589;
   }
 
   .dark {
+    --border: #757579;
+    --highlight-line: #757579;
+    --highlight-line-new: #F5F5F7;
     --disabled-foreground: #8E8E92;
+    --input-strong: #838387;
+    --switch-on: #0A84FF;
   }
 }
 
@@ -249,6 +270,9 @@
   --color-switch-thumb: var(--switch-thumb);
   --color-destructive-text: var(--destructive-text);
   --color-segmented-selected-count: var(--segmented-selected-count);
+  --color-scrim: var(--scrim);
+  --color-input-strong: var(--input-strong);
+  --color-switch-on: var(--switch-on);
 
   --spacing-control: var(--size-control);
   --spacing-segment: var(--size-segment);

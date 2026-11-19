@@ -497,19 +497,21 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
 
 **Interfaces que produz:**
 - `bg-scrim`, `border-input-strong`, `inset-ring-input-strong` e `bg-switch-on`, nos dois modos;
-- o bloco `@media (prefers-contrast: more)` inteiro é a diferença entre os modos do Figma, sem valores escolhidos à mão: em `:root`, cada variável de «Claro · Contraste» diferente da de «Claro»; em `.dark`, cada uma de «Escuro · Contraste» diferente da de «Escuro». Hoje dá, Claro / Escuro: `border` e `highlight-line` `#8D8D91` / `#757579`, `highlight-line-new` `#1D1D1F` / `#F5F5F7`, `disabled-foreground` `#636366` / `#8E8E92`, `input-strong` `#858589` / `#838387`, e `switch-on` `#0A84FF` só no Escuro. O `--disabled-foreground` da Review Focus 4 passa a vir daqui;
+- o bloco `@media (prefers-contrast: more)` inteiro é a diferença entre os modos do Figma, sem valores escolhidos à mão: em `:root`, cada variável de «Claro · Contraste» diferente da de «Claro»; em `.dark`, cada uma de «Escuro · Contraste» diferente da de «Escuro» e ainda as do `:root` de contraste, com o valor de «Escuro · Contraste» (o `:root` também vale em `<html class="dark">` e vem depois do `.dark` base; assim nada do contraste claro passa para o escuro). Hoje dá, Claro / Escuro: `border` e `highlight-line` `#8D8D91` / `#757579`, `highlight-line-new` `#1D1D1F` / `#F5F5F7`, `disabled-foreground` `#636366` / `#8E8E92`, `input-strong` `#858589` / `#838387`, e `switch-on` `#0A84FF` só no Escuro. O `--disabled-foreground` da Review Focus 4 passa a vir daqui;
 - os contornos de 1 px por dentro ficam nos componentes (Tema 3; «Revisão · Contraste do que não é texto», Opção 2): `contrast-more:inset-ring-input-strong` no segmento, na vista e no separador selecionados; `primary-tint-foreground` no Botão de toolbar selecionado e nas etiquetas; `primary-foreground` no botão Principal.
 
-- [ ] **Passo 1: testes que falham** (`tokens.test.ts`):
+- [x] **Passo 1: testes que falham** (`tokens.test.ts`):
   - `contrast_modes_exist_with_every_color`: os quatro modos têm as mesmas chaves;
   - `contrast_block_is_figma_mode_diff`: o bloco tem, em `:root` e em `.dark`, exatamente as variáveis que mudam, com os valores do Figma, e nenhuma outra;
+  - `contrast_effective_palettes_are_figma_modes`: aplicadas pela ordem da cascata, as regras dão exatamente «Claro · Contraste» e «Escuro · Contraste»; e há um só bloco `prefers-contrast: more`, só com `:root` e depois `.dark`;
   - `contrast_raises_disabled_as_foundations`: os valores do modo batem com os da Review Focus 4 (`#636366` / `#8E8E92`), que ficam como juiz de fora;
   - `new_colors_come_from_figma`: `scrim`, `input-strong` e `switch-on` em `:root` e `.dark` com os valores do `tokens.json`;
   - os três testes que já falham hoje passam; o `no_color_outside_figma` não se relaxa.
-- [ ] **Passo 2:** `npx vitest run src/lib/styles/tokens.test.ts` falha.
-- [ ] **Passo 3:** as três variáveis nos blocos de modo e no `@theme inline`; o bloco de contraste gerado da diferença por um script em `scripts/` (sem dependências novas) e colado em `tokens.css`, com um comentário que aponta para os modos do Figma; o teste do Passo 1 é o que garante que o bloco e o JSON não divergem.
-- [ ] **Passo 4:** os testes passam e passam os quatro comandos.
-- [ ] **Passo 5:** commit `feat(tokens): increased-contrast modes and scrim, input-strong, switch-on from Figma`.
+- [x] **Passo 2:** `npx vitest run src/lib/styles/tokens.test.ts` falha.
+- [x] **Passo 3:** as três variáveis nos blocos de modo e no `@theme inline`; o bloco de contraste gerado da diferença por um script em `scripts/` (sem dependências novas) e colado em `tokens.css`, com um comentário que aponta para os modos do Figma; o teste do Passo 1 é o que garante que o bloco e o JSON não divergem.
+- [x] **Passo 4:** os testes passam e passam os quatro comandos.
+- [x] **Passo 5:** commit `feat(tokens): increased-contrast modes and scrim, input-strong, switch-on from Figma`.
+- **Resultado (2026-11-19):** 247 testes, `check` 0, harness 73/73. Desvio aceite: sem script em `scripts/`; a diferença calculou-se com `node -e` e o teste é a guarda. Revisão do Sol: dois buracos médios nos testes (regras extra no bloco; fuga de um valor só do Claro para o Escuro). Corrigidos com a verificação da estrutura, o `.dark` com a união das chaves e a paleta efetiva em cascata; verificados por mutação.
 
 ### Task 7: Ícone
 **Ficheiros:** criar `src/lib/components/ui/icon/icon.svelte`, `index.ts` e `icon.test.ts`. Sem base shadcn.
