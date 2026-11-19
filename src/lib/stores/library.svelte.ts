@@ -20,6 +20,7 @@ class LibraryStore {
 	/** The Reader that owns the connected Kobo, when it is known. */
 	connectedReaderId = $state<number | null>(null);
 	viewingBookId = $state<number | null>(null);
+	#viewingNewIds = $state<ReadonlySet<string>>(new Set());
 
 	// Derived state
 	selectedBooks = $derived(this.books.filter((book) => this.selectedBookIds.includes(book.id)));
@@ -70,8 +71,45 @@ class LibraryStore {
 		this.connectedReaderId = null;
 	}
 
-	setViewingBookId(bookId: number | null) {
+	/** The ids of the open book's highlights that were new when it was opened.
+	 * Changes only in `openBook`, so a reload mid-reading leaves it alone (D1). */
+	get viewingNewIds(): ReadonlySet<string> {
+		return this.#viewingNewIds;
+	}
+
+	/** The only way to open a book. The snapshot of its new highlights is
+	 * taken before the book is marked as seen, and only those ids are cleared
+	 * afterwards: a reload while the mark is in flight may bring others, which
+	 * stay new. A failed mark is logged and leaves everything as it was. */
+	async openBook(bookId: number): Promise<void> {
+		const highlights = this.books.find((b) => b.id === bookId)?.highlights ?? [];
+		const snapshot = new Set(highlights.filter((h) => h.isNew).map((h) => h.id));
+		const seenSeq = Math.max(0, ...highlights.map((h) => h.syncedSeq ?? 0));
+		this.#viewingNewIds = snapshot;
 		this.viewingBookId = bookId;
+		if (this.activeReaderId === null) return;
+
+		try {
+			await commands.markBookOpened(this.activeReaderId, bookId, seenSeq);
+		} catch (error) {
+			console.error('Failed to mark the book as opened:', error);
+			return;
+		}
+		// Read this.books now: openReader may have replaced it while waiting.
+		this.books = this.books.map((book) =>
+			book.id === bookId
+				? {
+						...book,
+						highlights: book.highlights.map((h) =>
+							snapshot.has(h.id) ? { ...h, isNew: false } : h
+						)
+					}
+				: book
+		);
+	}
+
+	closeBook() {
+		this.viewingBookId = null;
 	}
 
 	// Readers

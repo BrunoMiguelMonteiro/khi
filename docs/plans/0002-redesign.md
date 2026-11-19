@@ -1274,7 +1274,7 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 
 **Interfaces que produz:**
 - `library.openBook(bookId)` é **o único ponto de entrada** para abrir um livro. A ordem é esta:
-  1. tira o snapshot `viewingNewIds: Set<number>` com os ids `isNew` do livro;
+  1. tira o snapshot `viewingNewIds: ReadonlySet<string>` (os ids dos destaques são `string` nos bindings) com os ids `isNew` do livro;
   2. calcula `seenSeq`, o maior `syncedSeq` dos destaques carregados desse livro (ou 0);
   3. chama `commands.markBookOpened(readerId, bookId, seenSeq)`;
   4. se der certo, põe `isNew = false` **só nos ids do `viewingNewIds`**. Os que tenham chegado entretanto num reload ficam novos.
@@ -1282,17 +1282,17 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 - `viewingNewIds` só muda ao abrir outro livro. O reload do `syncFinished` (`openReader`, `library.svelte.ts:84-90`) não lhe toca;
 - se o `markBookOpened` falhar, os novos ficam como estavam e o erro vai para o log (não se mostra ao utilizador).
 
-- [ ] **Passo 1: testes que falham:**
+- [x] **Passo 1: testes que falham:**
   - `snapshot_taken_before_mark`: no mock do `invoke`, o `mark_book_opened` vê o snapshot já preenchido e recebe o `seenSeq` dos dados carregados;
   - `snapshot_survives_sync_reload`: um `openReader` com dados novos não muda o `viewingNewIds`;
   - `mark_clears_only_snapshot_ids`: um reload que chega antes da resposta do `markBookOpened` traz um destaque novo, e esse fica `isNew`;
   - `mark_failure_keeps_new`;
   - `reopen_takes_fresh_snapshot`;
   - `open_book_is_the_only_entry`: um teste de fonte confirma que nada fora do store chama o `setViewingBookId`.
-- [ ] **Passo 2:** `npx vitest run src/lib/stores` falha.
-- [ ] **Passo 3:** o store e as chamadas em `+page.svelte`.
-- [ ] **Passo 4:** passam os testes e os quatro comandos.
-- [ ] **Passo 5:** commit `feat(library): snapshot new highlights when opening a book`.
+- [x] **Passo 2:** `npx vitest run src/lib/stores` falha.
+- [x] **Passo 3:** o store e as chamadas em `+page.svelte`.
+- [x] **Passo 4:** passam os testes e os quatro comandos.
+- [x] **Passo 5:** commit `feat(library): snapshot new highlights when opening a book`.
 
 **Fim da Fase 3:**
 - review GPT‑6.2 Sol do lote 31–33;

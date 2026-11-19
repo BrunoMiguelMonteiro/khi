@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
 	library,
@@ -5,7 +7,7 @@ import {
 	validateExportPath
 } from './library.svelte';
 import type { Book, KoboDevice } from '../types';
-import { makeBook, makeDevice } from '../test-fixtures';
+import { makeBook, makeDevice, makeHighlight } from '../test-fixtures';
 
 // Mock Tauri API
 vi.mock('@tauri-apps/api/core', () => ({
@@ -343,6 +345,115 @@ describe('Library Store', () => {
 		it('should return false on error', async () => {
 			vi.mocked(invoke).mockRejectedValueOnce(new Error('Validation failed'));
 			expect(await validateExportPath('/path')).toBe(false);
+		});
+	});
+
+	describe('Opening a book (D1)', () => {
+		const hl = (id: string, isNew: boolean, syncedSeq: number | null) =>
+			makeHighlight({ id, text: id, dateCreated: '2026-01-01', isNew, syncedSeq });
+		const bookWith = (...highlights: ReturnType<typeof hl>[]) =>
+			makeBook({ id: 1, title: 'B', author: 'A', highlights });
+		const isNewOf = (id: string) =>
+			library.books.find((b) => b.id === 1)?.highlights.find((h) => h.id === id)?.isNew;
+
+		beforeEach(() => {
+			library.closeBook();
+			library.activeReaderId = 9;
+		});
+
+		it('snapshot_taken_before_mark', async () => {
+			library.setBooks([bookWith(hl('a', true, 2), hl('b', false, 1), hl('c', true, 3))]);
+			let seen: Set<string> | undefined;
+			vi.mocked(invoke).mockImplementation((cmd: string) => {
+				if (cmd === 'mark_book_opened') seen = new Set(library.viewingNewIds);
+				return Promise.resolve(null);
+			});
+
+			await library.openBook(1);
+
+			expect(invoke).toHaveBeenCalledWith('mark_book_opened', { readerId: 9, bookId: 1, seenSeq: 3 });
+			expect(seen).toEqual(new Set(['a', 'c']));
+			expect(library.viewingBookId).toBe(1);
+		});
+
+		it('uses seenSeq 0 when nothing carries a syncedSeq', async () => {
+			library.setBooks([bookWith(hl('a', true, null))]);
+			answer({ mark_book_opened: null });
+
+			await library.openBook(1);
+
+			expect(invoke).toHaveBeenCalledWith('mark_book_opened', { readerId: 9, bookId: 1, seenSeq: 0 });
+		});
+
+		it('snapshot_survives_sync_reload', async () => {
+			library.setBooks([bookWith(hl('a', true, 2))]);
+			answer({ mark_book_opened: null });
+			await library.openBook(1);
+
+			answer({ get_library: [bookWith(hl('a', false, 2), hl('z', true, 5))] });
+			await library.openReader(9);
+
+			expect(library.viewingNewIds).toEqual(new Set(['a']));
+		});
+
+		it('mark_clears_only_snapshot_ids', async () => {
+			library.setBooks([bookWith(hl('a', true, 2), hl('b', false, 1))]);
+			let resolveMark!: () => void;
+			vi.mocked(invoke).mockImplementation((cmd: string) => {
+				if (cmd === 'mark_book_opened') return new Promise((r) => (resolveMark = () => r(null)));
+				if (cmd === 'get_library')
+					return Promise.resolve([bookWith(hl('a', true, 2), hl('b', false, 1), hl('z', true, 5))]);
+				return Promise.reject(new Error(`unexpected ${cmd}`));
+			});
+
+			const opening = library.openBook(1);
+			await library.openReader(9);
+			resolveMark();
+			await opening;
+
+			expect(isNewOf('a')).toBe(false);
+			expect(isNewOf('z')).toBe(true);
+			expect(library.viewingNewIds).toEqual(new Set(['a']));
+		});
+
+		it('mark_failure_keeps_new', async () => {
+			library.setBooks([bookWith(hl('a', true, 2))]);
+			const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+			vi.mocked(invoke).mockRejectedValue(new Error('boom'));
+
+			await expect(library.openBook(1)).resolves.toBeUndefined();
+
+			expect(isNewOf('a')).toBe(true);
+			expect(library.viewingNewIds).toEqual(new Set(['a']));
+			expect(log).toHaveBeenCalled();
+			log.mockRestore();
+		});
+
+		it('reopen_takes_fresh_snapshot', async () => {
+			library.setBooks([bookWith(hl('a', true, 2))]);
+			answer({ mark_book_opened: null });
+			await library.openBook(1);
+			expect(isNewOf('a')).toBe(false);
+
+			library.setBooks([bookWith(hl('a', false, 2), hl('z', true, 5))]);
+			await library.openBook(1);
+
+			expect(library.viewingNewIds).toEqual(new Set(['z']));
+			expect(invoke).toHaveBeenLastCalledWith('mark_book_opened', { readerId: 9, bookId: 1, seenSeq: 5 });
+		});
+
+		it('open_book_is_the_only_entry', () => {
+			const dir = join(process.cwd(), 'src');
+			const offenders = readdirSync(dir, { recursive: true, encoding: 'utf8' })
+				.filter((f) => /\.(svelte|ts)$/.test(f) && !/\.(test|spec)\.ts$/.test(f))
+				.filter((f) => !f.endsWith('library.svelte.ts'))
+				.filter((f) => {
+					const source = readFileSync(join(dir, f), 'utf8');
+					// Neither the old setter nor a direct write may bypass openBook.
+					return source.includes('setViewingBookId') || /viewingBookId\s*=(?!=)/.test(source);
+				});
+			expect(offenders).toEqual([]);
+			expect((library as unknown as Record<string, unknown>).setViewingBookId).toBeUndefined();
 		});
 	});
 });

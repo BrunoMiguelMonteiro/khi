@@ -258,14 +258,14 @@
 		const isShift = event.shiftKey;
 
 		if (!isCtrlOrCmd && !isShift) {
-			library.setViewingBookId(book.id);
+			library.openBook(book.id);
 			library.setUiState('book-details');
 			showSettings = false;
 		}
 	}
 
 	function handleCloseBookDetails() {
-		library.setViewingBookId(null);
+		library.closeBook();
 		library.setUiState('library');
 	}
 
