@@ -882,15 +882,17 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 - **Valores do sistema:** os da tabela «Cor · 3» batem com os do macOS?
 - **Atualização:** a cor muda com a app aberta?
 
-- [ ] **Passo 1: registo do ambiente.** A versão do macOS (`sw_vers`), a do WebKit (`navigator.userAgent` na sonda) e a escolha atual do Bruno (`defaults read -g AppleAccentColor`, e se a chave não existe), para a repor no fim.
-- [ ] **Passo 2: referência de cor.** `swift -e 'import AppKit; print(NSColor.controlAccentColor.usingColorSpace(.sRGB)!)'`, corrido na mesma aparência (Claro ou Escuro) que a app. É um processo novo: dá a cor certa, mas não prova que a app é avisada de uma mudança.
-- [ ] **Passo 3: sonda** no Khi Dev, com `npm run dev:app` e o Bruno avisado antes: um elemento com `color: AccentColor` e o `getComputedStyle` em sRGB, mostrado na própria janela.
-- [ ] **Passo 4: experiência**, com o Khi Dev sempre aberto e sem recarregar: Multicolor → Azul explícito → uma cor bem diferente (Rosa). Em cada passo, o valor da sonda, o do `swift` e se a sonda mudou sozinha.
-- [ ] **Passo 5: critério.**
+- [x] **Passo 1: registo do ambiente.** A versão do macOS (`sw_vers`), a do WebKit (`navigator.userAgent` na sonda) e a escolha atual do Bruno (`defaults read -g AppleAccentColor`, e se a chave não existe), para a repor no fim.
+- [x] **Passo 2: referência de cor.** `swift -e 'import AppKit; print(NSColor.controlAccentColor.usingColorSpace(.sRGB)!)'`, corrido na mesma aparência (Claro ou Escuro) que a app. É um processo novo: dá a cor certa, mas não prova que a app é avisada de uma mudança.
+- [x] **Passo 3: sonda** no Khi Dev, com `npm run dev:app` e o Bruno avisado antes: um elemento com `color: AccentColor` e o `getComputedStyle` em sRGB, mostrado na própria janela.
+- [x] **Passo 4: experiência**, com o Khi Dev sempre aberto e sem recarregar: Multicolor → Azul explícito → uma cor bem diferente (Rosa). Em cada passo, o valor da sonda, o do `swift` e se a sonda mudou sozinha.
+- [x] **Passo 5: critério.**
   - O CSS chega se a sonda bater com o `swift` (±1 por canal), **distinguir** Multicolor do Azul **e** mudar sem reabrir.
   - Se não distinguir ou não mudar sozinho, pára o teste do CSS e verifica-se o caminho nativo: um comando Rust que lê `AppleAccentColor` e `NSColor.controlAccentColor`, e um evento na notificação `AppleColorPreferencesChangedNotification`, emitido para a janela; o mesmo Multicolor → Azul → Rosa, com a app aberta.
-- [ ] **Passo 6: tabela das oito cores** (grafite, vermelho, laranja, amarelo, verde, azul, roxo, rosa), em Claro e Escuro, com o valor do `swift` e o do caminho escolhido; vai para a tabela de tons (Questão 1).
-- [ ] **Passo 7:** repor a escolha do Bruno (Passo 1) e confirmar com o `defaults read`; reverter a sonda; escrever o resultado no DECISIONS (Cor 2) e nesta task.
+- [x] **Passo 6: tabela das oito cores** (grafite, vermelho, laranja, amarelo, verde, azul, roxo, rosa), em Claro e Escuro, com o valor do `swift` e o do caminho escolhido; vai para a tabela de tons (Questão 1).
+- [x] **Passo 7:** repor a escolha do Bruno (Passo 1) e confirmar com o `defaults read`; reverter a sonda; escrever o resultado no DECISIONS (Cor 2) e nesta task.
+
+- **Resultado (2026-11-19):** o CSS `AccentColor` falha os dois critérios: dá `#007AFF` em Multicolor e em Azul, e não muda com a app aberta (sistema em Rosa durante 3 min, a sonda continuou azul). O caminho nativo passa: `NSColor.systemColorsDidChangeNotification` chega na hora, com `AppleAccentColor` já atualizado (ausente = Multicolor). A tabela das oito cores, medida em Claro e Escuro, está no DECISIONS, Cor 2, «Verificado». A sonda (no `+layout.svelte` e um ouvinte temporário no `vite.config.ts`) foi revertida; a escolha do Bruno (Multicolor, chave ausente) foi reposta e confirmada com o `defaults read`. Consequência para a Task 21: comando e evento em Rust, e os tons das cores do sistema recalculados a partir dos valores medidos.
 
 **Paragem:** o Bruno lê o resultado e aprova a forma de ler a cor. Bloqueia só a Task 21.
 
