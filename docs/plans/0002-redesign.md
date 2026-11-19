@@ -650,7 +650,7 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
 - desativada: `readonly` do Bits UI (fica focável e não muda), com `aria-disabled` e `data-disabled`; desligada `bg-disabled border-disabled-border`; ligada `bg-toolbar-icon-disabled` com a marca em `text-disabled-mark`; rótulo `text-disabled-foreground`;
 - o anel segue o raio da caixa.
 
-- [ ] **Passo 1: testes que falham** (`checkbox.test.ts`):
+- [x] **Passo 1: testes que falham** (`checkbox.test.ts`):
   - `role_checkbox_with_label_name`;
   - `space_and_label_click_toggle`;
   - `checked_variant_matches_bits_ui_state`: `selectorFor('data-checked:bg-primary')` apanha a caixa ligada e não a desligada;
@@ -658,12 +658,13 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
   - `disabled_is_inert_and_explains_itself`: `expectDisabledInert` sobre `bind:checked`, com o Espaço, o clique e o clique no rótulo;
   - `disabled_checked_uses_toolbar_icon_disabled_and_disabled_mark`;
   - `matches_figma_sample`: a marca da caixa ligada e desativada liga a `disabled-mark` em `design/components-sample.json` («Proposta», versão pequena).
-- [ ] **Passo 2:** `npx vitest run src/lib/components/ui/checkbox` falha.
-- [ ] **Passo 3:** adaptar.
-- [ ] **Passo 4:** os testes passam e passam os quatro comandos.
-- [ ] **Passo 5:** commit `feat(ui): Checkbox with Khi states`.
+- [x] **Passo 2:** `npx vitest run src/lib/components/ui/checkbox` falha.
+- [x] **Passo 3:** adaptar.
+- [x] **Passo 4:** os testes passam e passam os quatro comandos.
+- [x] **Passo 5:** commit `feat(ui): Checkbox with Khi states`.
 
 **Verificar no ecrã:** área de clique com o rótulo; o anel segue o raio da caixa.
+- **Resultado (2026-11-19):** `src/lib/components/ui/checkbox/`, 13 testes, com FIGMA_BINDINGS de `55:1684` e `matches_figma_sample` sobre `design/components-sample.json`. Contorno `input-strong` (o Figma foi corrigido de `input`). O premido é instantâneo: a Caixa não tem hover, como o Botão. Marca de 10 com traço de 4/3 px (convenção do Ícone). Desativado com `readonly` do Bits UI, sem `aria-readonly`; o `data-state` do Bits é reposto depois do tooltip. Mutações (`border-input`, marca desativada) apanhadas. 341 testes.
 
 ### Task 13: Campo de texto
 **Ficheiros:** `npx shadcn-svelte@1.8.1 add input`; adaptar `src/lib/components/ui/input/*`; criar `input.test.ts`. Depende da Task 6 (`input-strong`).
@@ -818,7 +819,7 @@ Depende da Task 6 (`switch-on`, `input-strong`).
   - os tipos do Figma (Pop-up, Campo de 160, Botão «Escolher…», Switch, Caixas, Amostras) são o conteúdo do snippet.
 - `<FormGroup heading?>{linhas}</FormGroup>`: cabeçalho `text-body-semibold` com `px-4`, `gap-2` até ao cartão; cartão `bg-card rounded-group`, sem contorno visível; com Contraste aumentado, `inset-ring inset-ring-contrast-outline` (Figma `55:3553`, traço ligado em 2026-11-19).
 
-- [ ] **Passo 1: testes que falham:**
+- [x] **Passo 1: testes que falham:**
   - `switch.test.ts`:
     - `is_read_as_switch`;
     - `space_toggles`;
@@ -831,12 +832,13 @@ Depende da Task 6 (`switch-on`, `input-strong`).
     - `control_is_described_by_help`;
     - `divider_adds_top_border`;
     - `group_card_has_no_border_but_contrast_outline`.
-- [ ] **Passo 2:** `npx vitest run src/lib/components/ui/switch src/lib/components/ui/form` falha.
-- [ ] **Passo 3:** os componentes.
-- [ ] **Passo 4:** os testes passam e passam os quatro comandos.
-- [ ] **Passo 5:** commit `feat(ui): mini Switch, FormRow and FormGroup`.
+- [x] **Passo 2:** `npx vitest run src/lib/components/ui/switch src/lib/components/ui/form` falha.
+- [x] **Passo 3:** os componentes.
+- [x] **Passo 4:** os testes passam e passam os quatro comandos.
+- [x] **Passo 5:** commit `feat(ui): mini Switch, FormRow and FormGroup`.
 
 **Verificar no ecrã:** área de clique de 20; o botão não desliza com Reduzir movimento; o VoiceOver lê o rótulo e a ajuda.
+- **Resultado (2026-11-19):** `switch/` (9 testes), `label/`, `form/` (5 testes). Calha `input-strong` / `switch-on` (o Figma foi ligado a estas variáveis); o botão desliza com `margin-left` em `duration-(--duration-in) ease-out`, e não com translate, porque a regra do movimento repõe os translates com Reduzir movimento; com Reduzir movimento só se desliga a transição. Desativado: a ligação recusa a escrita e `onCheckedChange` não é chamado. FormGroup com `<h2>` no cabeçalho, `inset-ring-contrast-outline` (traço novo no Figma `55:3553`). O fixture usa Switch, Campo e Caixa; o Pop-up entra na Task 14. O tipo Caixas (Metadados) fica para a Task 19. Mutações (6) apanhadas. 355 testes, check 0, build OK, harness 73.
 
 ### Task 19: Separador das Definições
 **Ficheiros:** `npx shadcn-svelte@1.8.1 add tabs`; adaptar `src/lib/components/ui/tabs/*`; criar `tabs.test.ts`. Depende da Task 6 (`input-strong`).
