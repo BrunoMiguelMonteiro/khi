@@ -867,6 +867,9 @@ describe('+page · traffic lights', () => {
 		windowEvents.clear();
 		windowUnlisten.resized.mockClear();
 		windowUnlisten.focus.mockClear();
+		mainWindow.onFocusChanged.mockClear();
+		mainWindow.onResized.mockClear();
+		mainWindow.isFullscreen.mockReset();
 		mainWindow.isFullscreen.mockImplementation(() => Promise.resolve(false));
 		resetLibrary();
 	});
@@ -921,22 +924,89 @@ describe('+page · traffic lights', () => {
 		await waitFor(() => expect(block()?.style.width).toBe('60px'));
 	});
 
-	it('bar_remeasures_when_the_window_is_shown', async () => {
-		// The window is still hidden at mount, and tao moves the buttons on its first draw
-		let maxX = 67;
-		await mockLibrary({ books: newBooks(), overrides: { traffic_lights_max_x: () => maxX } });
+	it('bar_measures_once_without_waiting_for_focus', async () => {
+		// Rust gives the lights' edge as tao will leave them, drawn or not: the mount's answer stands
+		await mockLibrary({ books: newBooks(), overrides: { traffic_lights_max_x: () => 76 } });
 		const page = render(Page);
-		await waitFor(() => expect(block()?.style.width).toBe('51px'));
-
-		// Shown, and so focused: measured again
-		maxX = 76;
-		expect(windowEvents.has('focus')).toBe(true);
-		windowEvents.get('focus')!({ payload: true });
 		await waitFor(() => expect(block()?.style.width).toBe('60px'));
+		await settle();
+		expect(mainWindow.onFocusChanged).not.toHaveBeenCalled();
+		expect(calls('traffic_lights_max_x')).toHaveLength(1);
 
-		// Both listeners end with the page
 		page.unmount();
 		expect(windowUnlisten.resized).toHaveBeenCalled();
-		expect(windowUnlisten.focus).toHaveBeenCalled();
+	});
+
+	it('live_resize_checks_full_screen_without_measuring', async () => {
+		await mockLibrary({ books: newBooks(), overrides: { traffic_lights_max_x: () => 76 } });
+		render(Page);
+		await waitFor(() => expect(block()?.style.width).toBe('60px'));
+		await settle();
+		mainWindow.isFullscreen.mockClear();
+
+		// A live resize: one event per frame
+		for (let i = 0; i < 20; i++) windowEvents.get('resized')!({ payload: { width: 1000 + i, height: 700 } });
+		await settle();
+
+		// One check, and one more for the events that came while it ran; the span is not measured again
+		expect(mainWindow.isFullscreen.mock.calls.length).toBeLessThanOrEqual(2);
+		expect(mainWindow.isFullscreen).toHaveBeenCalled();
+		expect(calls('traffic_lights_max_x')).toHaveLength(1);
+		expect(block()?.style.width).toBe('60px');
+	});
+
+	it('leaving_full_screen_restores_the_last_measurement', async () => {
+		let answer: () => number | null = () => 76;
+		await mockLibrary({ books: newBooks(), overrides: { traffic_lights_max_x: () => answer() } });
+		render(Page);
+		await waitFor(() => expect(block()?.style.width).toBe('60px'));
+
+		// Measuring would fail from now on
+		answer = () => {
+			throw 'no NSWindow';
+		};
+		mainWindow.isFullscreen.mockImplementation(() => Promise.resolve(true));
+		windowEvents.get('resized')!({ payload: { width: 2000, height: 1400 } });
+		await waitFor(() => expect(block()).toBeNull());
+
+		mainWindow.isFullscreen.mockImplementation(() => Promise.resolve(false));
+		windowEvents.get('resized')!({ payload: { width: 1000, height: 700 } });
+		await settle();
+		// The 60 measured at mount, not the Figma's 52
+		expect(block()?.style.width).toBe('60px');
+	});
+
+	it('a_resize_during_a_check_is_checked_again', async () => {
+		await mockLibrary({ books: newBooks(), overrides: { traffic_lights_max_x: () => 76 } });
+		render(Page);
+		await waitFor(() => expect(block()?.style.width).toBe('60px'));
+		await settle();
+
+		// Entering full screen: the check is slow, and answers what it saw when it started (not yet)
+		let answerFirst!: (fullscreen: boolean) => void;
+		mainWindow.isFullscreen.mockImplementationOnce(() => new Promise((resolve) => (answerFirst = resolve)));
+		mainWindow.isFullscreen.mockImplementation(() => Promise.resolve(true));
+		windowEvents.get('resized')!({ payload: { width: 1500, height: 1000 } });
+		// The last resize of the transition comes while that check runs
+		windowEvents.get('resized')!({ payload: { width: 2000, height: 1400 } });
+		answerFirst(false);
+		await settle();
+
+		// The late resize is checked after the stale answer, so full screen wins
+		expect(block()).toBeNull();
+	});
+
+	it('a_listener_that_registers_after_destroy_is_removed', async () => {
+		const late = vi.fn();
+		let register!: (unlisten: typeof late) => void;
+		mainWindow.onResized.mockImplementationOnce(() => new Promise((resolve) => (register = resolve)));
+		await mockLibrary({ books: newBooks(), overrides: { traffic_lights_max_x: () => 76 } });
+		const page = render(Page);
+		await waitFor(() => expect(mainWindow.onResized).toHaveBeenCalled());
+
+		page.unmount();
+		register(late);
+		await settle();
+		expect(late).toHaveBeenCalledTimes(1);
 	});
 });

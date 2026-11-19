@@ -63,29 +63,42 @@
 	let unlistenSyncFinished: UnlistenFn | undefined;
 	let unlistenReadersChanged: UnlistenFn | undefined;
 	let unlistenResized: UnlistenFn | undefined;
-	let unlistenFocusChanged: UnlistenFn | undefined;
 
-	/** The bar's room for the traffic lights: the zoom button's right edge less the bar's px-4 (Task 36b). None in full screen; 52, the Figma's, until measured. */
-	let trafficLightsWidth = $state(52);
-	/** Resizes come in bursts: only the latest measurement is kept. */
-	let measurement = 0;
+	/** The traffic lights' room in the bar: their right edge less the bar's px-4 (Task 36b); 52, the Figma's, until measured. */
+	let measuredTrafficLights = $state<number | null>(null);
+	/** No traffic lights in full screen. */
+	let fullscreen = $state(false);
+	const trafficLightsWidth = $derived(fullscreen ? 0 : (measuredTrafficLights ?? 52));
 
+	/** Measured once: Rust gives the edge tao leaves them at, drawn or not, and a resize does not move them. */
 	async function measureTrafficLights() {
-		const run = ++measurement;
-		const [fullscreen, maxX] = await Promise.all([
-			getCurrentWindow()
-				.isFullscreen()
-				.catch(() => false),
-			commands.trafficLightsMaxX().catch((error) => {
-				console.error('Failed to measure the traffic lights:', error);
-				return null;
-			})
-		]);
-		if (run !== measurement) return;
-		if (fullscreen) trafficLightsWidth = 0;
-		else if (typeof maxX === 'number' && Number.isFinite(maxX)) trafficLightsWidth = Math.max(0, maxX - 16);
-		// Out of full screen with no measurement: back to the Figma's
-		else if (trafficLightsWidth === 0) trafficLightsWidth = 52;
+		try {
+			const maxX = await commands.trafficLightsMaxX();
+			if (typeof maxX === 'number' && Number.isFinite(maxX)) measuredTrafficLights = Math.max(0, maxX - 16);
+		} catch (error) {
+			console.error('Failed to measure the traffic lights:', error);
+		}
+	}
+
+	/** Resizes come one per frame: one check at a time, and one more for the events that came while it ran. */
+	let checkingFullscreen = false;
+	let fullscreenChangedSinceCheck = false;
+	async function checkFullscreen() {
+		if (checkingFullscreen) {
+			fullscreenChangedSinceCheck = true;
+			return;
+		}
+		checkingFullscreen = true;
+		try {
+			do {
+				fullscreenChangedSinceCheck = false;
+				fullscreen = await getCurrentWindow()
+					.isFullscreen()
+					.catch(() => fullscreen);
+			} while (fullscreenChangedSinceCheck);
+		} finally {
+			checkingFullscreen = false;
+		}
 	}
 
 	// Sort books based on selected option
@@ -125,21 +138,14 @@
 		// Setup event listeners for device monitoring
 		setupDeviceListeners();
 
-		// The traffic lights' room in the bar: measured now, on every resize (full screen included), and
-		// when the window gains focus, as it does when shown: tao only moves the buttons on the first draw
+		// The traffic lights' room in the bar: measured now; a resize only checks for full screen
 		let destroyed = false;
 		measureTrafficLights();
-		const appWindow = getCurrentWindow();
-		appWindow
-			.onResized(() => measureTrafficLights())
+		checkFullscreen();
+		getCurrentWindow()
+			.onResized(() => checkFullscreen())
 			.then((unlisten) => (destroyed ? unlisten() : (unlistenResized = unlisten)))
 			.catch((error) => console.error('Failed to listen for resizes:', error));
-		appWindow
-			.onFocusChanged(({ payload: focused }) => {
-				if (focused) measureTrafficLights();
-			})
-			.then((unlisten) => (destroyed ? unlisten() : (unlistenFocusChanged = unlisten)))
-			.catch((error) => console.error('Failed to listen for focus:', error));
 
 		// Open the Library, then look for a Kobo
 		handleStartup();
@@ -154,7 +160,6 @@
 			unlistenReadersChanged?.();
 			destroyed = true;
 			unlistenResized?.();
-			unlistenFocusChanged?.();
 		};
 	});
 

@@ -166,35 +166,78 @@ pub async fn open_settings(
     Ok(())
 }
 
-/// The right edge of the zoom button, in points from the window's left
-/// edge: the WindowBar leaves this much, less its own `px-4`, for the
-/// traffic lights (redesign Task 36b). Their size and spacing change between
-/// macOS versions, so they are measured, never assumed. `None` without a zoom
-/// button or a native window, and off macOS.
+/// Where the traffic lights end, in points from the window's left edge: the
+/// WindowBar leaves this much, less its own `px-4`, for them (redesign Task
+/// 36b). Their size and spacing change between macOS versions, so they are
+/// measured, never assumed. `None` without the buttons or a native window,
+/// and off macOS.
 /// Async: it runs off the main thread, so waiting there for AppKit never
 /// blocks the event loop.
 #[tauri::command]
 #[specta::specta]
 pub async fn traffic_lights_max_x(window: tauri::WebviewWindow) -> Option<f64> {
-    tauri::async_runtime::spawn_blocking(move || traffic_lights::max_x_on_main_thread(&window))
-        .await
-        .unwrap_or_else(|e| {
-            log::warn!("[Window] Measuring the traffic lights stopped ({e})");
-            None
-        })
+    let inset_x = configured_inset_x(window.config(), window.label());
+    tauri::async_runtime::spawn_blocking(move || {
+        traffic_lights::edges_on_main_thread(&window)
+            .map(|edges| traffic_lights_right_edge(inset_x, edges))
+    })
+    .await
+    .unwrap_or_else(|e| {
+        log::warn!("[Window] Measuring the traffic lights stopped ({e})");
+        None
+    })
+}
+
+/// The `trafficLightPosition.x` of this window in `tauri.conf.json`, if any.
+pub fn configured_inset_x(config: &tauri::Config, label: &str) -> Option<f64> {
+    config
+        .app
+        .windows
+        .iter()
+        .find(|w| w.label == label)
+        .and_then(|w| w.traffic_light_position.as_ref())
+        .map(|position| position.x)
+}
+
+/// The buttons as AppKit has them now, in window points.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ButtonEdges {
+    /// Where the buttons' superview starts.
+    pub superview_x: f64,
+    /// The close button's left edge.
+    pub close_min_x: f64,
+    /// The zoom button's right edge.
+    pub zoom_max_x: f64,
+}
+
+/// Where tao leaves the lights' right edge, whether it has moved them yet or
+/// not. tao's `inset_traffic_lights` (tao 0.37.2, `view.rs:1017-1047`) puts
+/// button `i` at `x + i * space_between` in its superview, with
+/// `space_between` read from AppKit's own spacing, and leaves the sizes
+/// alone. It runs on `drawRect:` (`view.rs:197`), so before the hidden
+/// window's first draw the buttons are still where AppKit put them. The span
+/// from close.minX to zoom.maxX is the same either way.
+pub fn traffic_lights_right_edge(inset_x: Option<f64>, edges: ButtonEdges) -> f64 {
+    match inset_x {
+        Some(x) => edges.superview_x + x + (edges.zoom_max_x - edges.close_min_x),
+        // No inset: AppKit's place is the place
+        None => edges.zoom_max_x,
+    }
 }
 
 #[cfg(target_os = "macos")]
 mod traffic_lights {
     use objc2::MainThreadMarker;
-    use objc2_app_kit::{NSWindow, NSWindowButton};
+    use objc2_app_kit::{NSButton, NSWindow, NSWindowButton};
 
-    /// AppKit is main-thread only. Called there, it reads in place; from
-    /// anywhere else it hops to the main thread and waits for the answer.
-    pub(super) fn max_x_on_main_thread(window: &tauri::WebviewWindow) -> Option<f64> {
-        if let Some(mtm) = MainThreadMarker::new() {
-            return read(window, mtm);
-        }
+    use super::ButtonEdges;
+
+    /// AppKit is main-thread only, so the read hops there and this waits for
+    /// the answer. The command calls it from the blocking pool; were it ever
+    /// called on the main thread, Tauri would run the task in place
+    /// (tauri-runtime-wry `send_user_message`), and the answer would already
+    /// be waiting.
+    pub(super) fn edges_on_main_thread(window: &tauri::WebviewWindow) -> Option<ButtonEdges> {
         let (tx, rx) = std::sync::mpsc::channel();
         let target = window.clone();
         let hop = window.run_on_main_thread(move || {
@@ -204,26 +247,43 @@ mod traffic_lights {
             log::warn!("[Window] Couldn't reach the main thread ({e}); traffic lights not measured");
             return None;
         }
-        // A task dropped unrun drops `tx`, so this never waits forever
+        // A task the event loop drops unrun drops `tx`, and this gives `None`.
+        // If the event loop stops with the task still queued, this waits until
+        // the process exits: it holds a pool thread, never the main thread.
         rx.recv().ok().flatten()
     }
 
-    fn read(window: &tauri::WebviewWindow, _mtm: MainThreadMarker) -> Option<f64> {
+    /// `bounds`, to window coordinates (`toView: nil`).
+    fn in_window(button: &NSButton) -> (f64, f64) {
+        let rect = button.convertRect_toView(button.bounds(), None);
+        (rect.origin.x, rect.origin.x + rect.size.width)
+    }
+
+    fn read(window: &tauri::WebviewWindow, _mtm: MainThreadMarker) -> Option<ButtonEdges> {
         // On the main thread Tauri answers this getter in place
         let ptr = window.ns_window().ok()?.cast::<NSWindow>();
-        // SAFETY: Tauri's NSWindow for this live window, used on the main
-        // thread while `window` keeps it open; a null pointer gives `None`.
+        // SAFETY: Tauri's NSWindow pointer, not retained for us: the
+        // `WebviewWindow` handle does not keep it alive. It is used at once,
+        // on the main thread, in the task that read it; a window only closes
+        // on the main thread, so it cannot go away in between. A null pointer
+        // gives `None`.
         let ns_window = unsafe { ptr.as_ref() }?;
+        let close = ns_window.standardWindowButton(NSWindowButton::CloseButton)?;
         let zoom = ns_window.standardWindowButton(NSWindowButton::ZoomButton)?;
-        // The button's own bounds, to window coordinates (`toView: nil`)
-        let rect = zoom.convertRect_toView(zoom.bounds(), None);
-        Some(rect.origin.x + rect.size.width)
+        let (close_min_x, _) = in_window(&close);
+        let (_, zoom_max_x) = in_window(&zoom);
+        Some(ButtonEdges {
+            // `frame` is in the superview, where tao's x applies
+            superview_x: close_min_x - close.frame().origin.x,
+            close_min_x,
+            zoom_max_x,
+        })
     }
 }
 
 #[cfg(not(target_os = "macos"))]
 mod traffic_lights {
-    pub(super) fn max_x_on_main_thread(_window: &tauri::WebviewWindow) -> Option<f64> {
+    pub(super) fn edges_on_main_thread(_window: &tauri::WebviewWindow) -> Option<super::ButtonEdges> {
         None
     }
 }
@@ -251,6 +311,32 @@ mod tests {
         // Closing Settings closes only Settings
         assert!(!super::exits_app("settings", &WindowEvent::Destroyed));
         assert!(!super::exits_app("main", &WindowEvent::Focused(false)));
+    }
+
+    #[test]
+    fn traffic_lights_edge_is_the_same_before_and_after_the_inset() {
+        use super::{traffic_lights_right_edge, ButtonEdges};
+        // Darwin 27: 14 pt lights, 23 pt apart, so close.minX to zoom.maxX is 60.
+        // Before tao's first draw AppKit has them at its own x (here 9)...
+        let before = ButtonEdges { superview_x: 0.0, close_min_x: 9.0, zoom_max_x: 69.0 };
+        // ...and after it, at `trafficLightPosition.x` (16).
+        let after = ButtonEdges { superview_x: 0.0, close_min_x: 16.0, zoom_max_x: 76.0 };
+        assert_eq!(traffic_lights_right_edge(Some(16.0), before), 76.0);
+        assert_eq!(traffic_lights_right_edge(Some(16.0), after), 76.0);
+        // tao's x is in the buttons' superview: its own offset in the window counts
+        let offset = ButtonEdges { superview_x: 2.0, close_min_x: 11.0, zoom_max_x: 71.0 };
+        assert_eq!(traffic_lights_right_edge(Some(16.0), offset), 78.0);
+        // No inset configured: AppKit's place is the place, as measured
+        assert_eq!(traffic_lights_right_edge(None, before), 69.0);
+    }
+
+    #[test]
+    fn traffic_light_inset_comes_from_the_window_config() {
+        let config: tauri::Config =
+            serde_json::from_str(include_str!("../tauri.conf.json")).expect("tauri.conf.json");
+        assert_eq!(super::configured_inset_x(&config, "main"), Some(16.0));
+        // Settings is built in code, with the normal title bar
+        assert_eq!(super::configured_inset_x(&config, "settings"), None);
     }
 
     #[test]

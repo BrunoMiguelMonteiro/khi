@@ -1625,6 +1625,8 @@ Fontes: [W3C APG, Listbox Pattern](https://w3.org/WAI/ARIA/apg/patterns/listbox)
     
   - verificação com o macOS em português;
     
+  - os semáforos no macOS 13–15: o `trafficLightPosition` com `y` 28 foi acertado no Darwin 27, onde os semáforos têm 14 pt. Nas versões anteriores têm 12 pt, e o `origin.y` dos botões pode ser outro (review da Task 36b, M4);
+    
   - teste do Tab do Bruno.
     
 ## Visto à margem (não se apaga sem pedido)
