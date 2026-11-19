@@ -598,7 +598,7 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
 - desativado: `<button>` sem `disabled`, com `aria-disabled` e o `onclick` ignorado (não há estado interno do Bits UI);
 - as reticências ficam no texto, não numa propriedade (`buttons.md`).
 
-- [ ] **Passo 1: testes que falham** (`button.test.ts`):
+- [x] **Passo 1: testes que falham** (`button.test.ts`):
   - `principal_uses_primary_tokens_per_state`;
   - `secundario_uses_input_border_and_accent_states`;
   - `ligacao_underlines_only_on_hover`;
@@ -606,12 +606,13 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
   - `disabled_has_no_hover_class` (`not-data-disabled:hover:`);
   - `focus_ring_only_on_focus_visible`;
   - `principal_has_contrast_outline`.
-- [ ] **Passo 2:** `npx vitest run src/lib/components/ui/button` falha.
-- [ ] **Passo 3:** adaptar o `tv()` do vega às três variantes e ligar o Tooltip.
-- [ ] **Passo 4:** os testes passam e passam os quatro comandos.
-- [ ] **Passo 5:** commit `feat(ui): Button with primary, secondary and link variants`.
+- [x] **Passo 2:** `npx vitest run src/lib/components/ui/button` falha.
+- [x] **Passo 3:** adaptar o `tv()` do vega às três variantes e ligar o Tooltip.
+- [x] **Passo 4:** os testes passam e passam os quatro comandos.
+- [x] **Passo 5:** commit `feat(ui): Button with primary, secondary and link variants`.
 
 **Verificar no ecrã:** o anel com o teclado e não com o rato; o VoiceOver lê «esbatido» e o motivo.
+- **Resultado (2026-11-19):** `src/lib/components/ui/button/`, 11 testes, com FIGMA_BINDINGS de `55:787`. Secundário `border-input-strong`; Principal com `inset-ring-contrast-outline-primary`, transparente quando desativado; Secundário é a variante por omissão. O hover anima com `duration-(--duration-hover) ease-hover`, e o premido é instantâneo (`not-data-disabled:active:transition-none`, corrigido pelo coordenador). `buttonVariants` tem `shape: text | toolbar` interno; `withTrigger` e `guardClick` exportados (um submit desativado não submete). Sem `href`. Com `disabledReason`, precisa de `TooltipProvider`. Mutações (`border-input`, sem contorno Principal, premido com transição) apanhadas. 319 testes, check 0, build OK, harness 73.
 
 ### Task 11: Botão de toolbar
 **Ficheiros:** criar `src/lib/components/ui/toolbar-button/toolbar-button.svelte`, `index.ts` e `toolbar-button.test.ts`, sobre o `buttonVariants` da Task 10.
@@ -624,18 +625,19 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
 - desativado: ícone `text-toolbar-icon-disabled`, com o tooltip do motivo (por exemplo «Liga o Kobo para sincronizar»);
 - `aria-label` = `label`; o Tooltip mostra `tooltip` e `shortcut`.
 
-- [ ] **Passo 1: testes que falham** (`toolbar-button.test.ts`):
+- [x] **Passo 1: testes que falham** (`toolbar-button.test.ts`):
   - `has_aria_label_and_tooltip_with_shortcut`;
   - `normal_has_no_background_or_border`;
   - `pressed_sets_aria_pressed_and_tint`;
   - `disabled_is_inert_and_explains_itself`: `expectDisabledInert`, e o ícone em `text-toolbar-icon-disabled`;
   - `pressed_has_contrast_outline`.
-- [ ] **Passo 2:** `npx vitest run src/lib/components/ui/toolbar-button` falha.
-- [ ] **Passo 3:** o componente.
-- [ ] **Passo 4:** os testes passam e passam os quatro comandos.
-- [ ] **Passo 5:** commit `feat(ui): ToolbarButton with tonal selected state`.
+- [x] **Passo 2:** `npx vitest run src/lib/components/ui/toolbar-button` falha.
+- [x] **Passo 3:** o componente.
+- [x] **Passo 4:** os testes passam e passam os quatro comandos.
+- [x] **Passo 5:** commit `feat(ui): ToolbarButton with tonal selected state`.
 
-**Verificar no ecrã:** área de clique de 28; o anel segue o raio.
+**Verificar no ecrã:** área de clique de 32; o anel segue o raio.
+- **Resultado (2026-11-19):** `src/lib/components/ui/toolbar-button/`, 7 testes. 32 × 32 (`size-toolbar-button`, como o Figma `55:1346`; o «28» do Verificar no ecrã estava errado). Contorno `inset-ring-contrast-outline` em todos os estados, `-tint` no selecionado; o selecionado não muda no hover nem no premido. `aria-pressed` só quando `pressed` é dado. Desativado: o tooltip mostra o motivo em vez do nome, sem atalho; o nome fica no `aria-label`. Precisa de `TooltipProvider`. Mutação do contorno selecionado apanhada.
 
 ### Task 12: Caixa
 **Ficheiros:** `npx shadcn-svelte@1.8.1 add checkbox`; adaptar `src/lib/components/ui/checkbox/*`; criar `checkbox.test.ts`. Depende da Task 6 (`input-strong`).
