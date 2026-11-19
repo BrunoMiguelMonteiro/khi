@@ -1430,6 +1430,151 @@ O diálogo de atualização (Q-U, Q-V) passa aos componentes novos junto com o e
 
 **Teste de UI obrigatório no ecrã 5 (Detalhe):** `detail_keeps_new_marks_through_sync`. Com o Detalhe aberto e marcas «Novo» à vista, um `syncFinished` que traz destaques novos para o mesmo livro não apaga as marcas visíveis nem acrescenta as novas; fechar e reabrir mostra só as que chegaram durante a leitura. Lê o `viewingNewIds` da Task 33, e não o `isNew`.
 
+### Task 36: Ecrã 1 · Biblioteca, grelha
+**Decisões do Bruno a 2026-11-19** (AskUserQuestion, as quatro na opção recomendada; ver DECISIONS, «Ecrã 1»): «Mostrar só estes» adiado e escondido; atalhos com um `keydown` na página; avisos no cabeçalho e no toast; um livro deixa de ser novo quando se abre ou quando entra numa exportação.
+
+**Figma:** `71:8040` (Claro) e `71:8273` (Escuro), secção «1 · Biblioteca · Grelha»; nota `71:8468`. Medido a 2026-11-19, só em leitura:
+- a janela tem 1000 × 700 (mínimo 800 × 600). A Barra tem 52 de altura. O conteúdo tem `p-6` e `gap-6` em coluna;
+- o Cabeçalho da Biblioteca ocupa 952 × 28. A grelha começa a 24 por baixo dele, e a 1.ª linha de capas fica a 128 do topo (52 + 24 + 28 + 24);
+- a grelha tem colunas de 171, com mínimo de 160 e sem largura máxima. Os intervalos são de 24 × 24. Mais largura dá mais colunas, e a capa fica entre 170 e 173;
+- o Cartão do livro (componente 18) tem 171 × 318, ou 334 com o título em duas linhas. A etiqueta «N novos» fica sobre a capa;
+- a Barra não tem engrenagem, indicador do Kobo nem logótipo.
+
+**Pesquisa (2026-11-19).** O Overlay já foi pesquisado na Fase 4. Os dois problemas novos são estes:
+
+| Problema | Opções | Proposta | Razão |
+|---|---|---|---|
+| Teclado e seleção na grelha | um Tab por cartão, como hoje; `listbox` com `aria-multiselectable` e roving tabindex; `grid` da ARIA | **`listbox` multisseleção com roving tabindex** | No APG, a listbox multisseleção separa o foco da seleção: as setas movem o foco sem selecionar e o Espaço alterna a seleção. Só há uma paragem de Tab (o item ativo tem `tabindex=0` e os outros `-1`). O `grid` da ARIA é para células tabulares, o que um conjunto de capas não é. Um Tab por cartão dá dezenas de paragens |
+| «Mostrar só estes» | toggle como o filtro do Mail; desenhar o estado filtrado no Figma; adiar o botão | **Adiar e esconder** (Bruno) | O Figma não tem o estado filtrado desenhado. No Mail, o botão Filtro alterna entre «só não lidos» e tudo, e muda de cor quando está ativo |
+
+Fontes: [W3C APG, Listbox Pattern](https://w3.org/WAI/ARIA/apg/patterns/listbox), [MDN, aria-multiselectable](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Attributes/aria-multiselectable), [MDN, grid role](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/grid_role), [Apple, Mail: filtrar e-mails](https://support.apple.com/guide/mail/mlhl1f6cf15a/mac).
+
+**Implementador (proposta):** Sonnet.
+
+**O que sai do ecrã antigo e para onde vai** (cada linha é intencional; a review não a marca como regressão):
+
+| Sai | Vai para |
+|---|---|
+| `<header>` com o logótipo «khi» | sai; o título é o Título-menu da Barra |
+| Indicador do Kobo (`kobo-indicator`) | sai; com `!library.canSync`, o Sincronizar fica desativado com um `syncDisabledReason`. **Proposta:** antecipar já o texto do ecrã 3, «Liga o Kobo para sincronizar» |
+| `ReaderPicker` | `TitleMenu` dentro da Barra (`readers`, `activeReaderId` e `onselectReader` → `handleSelectReader`) |
+| Engrenagem da `LibraryToolbar` | sai; as Definições ficam no ⌘, (o Figma não a tem) |
+| `LibraryToolbar` (ordenar, vista, sincronizar, exportar, limpar a seleção) | a `WindowBar` (`screen="library"`) |
+| `InlineNotification` | aprovado pelo Bruno a 2026-11-19 (o `<Toaster>` é montado na página): o erro de sincronização vai para o estado `erro` do `LibraryHeader`, com `onRetry` → `handleSync`. O sucesso da exportação vai para o botão («✓ Exportado») e para o `ui/toast`, um aviso neutro «N livros exportados», ainda sem «Mostrar no Finder», que entra no ecrã 8. Os outros erros (associar, criar ou abrir um Leitor) vão para o toast |
+
+**Ficheiros:**
+- `src-tauri/tauri.conf.json`;
+- `src/lib/window-config.test.ts`;
+- `src/routes/+page.svelte`;
+- `src/lib/components/LibraryView.svelte` (só o ramo da grelha);
+- criar `src/lib/components/ui/library-grid/` (`library-grid.svelte`, `index.ts`, `library-grid.test.ts`);
+- `src/lib/stores/library.svelte.ts` (o resumo);
+- `src/lib/i18n/locales/{pt,en}.json`;
+- `tests/visual/{scenarios,mock-ipc}.ts` e as baselines.
+
+**Comportamento:**
+1. **Overlay.** A janela `main` no `tauri.conf.json` fica com `"titleBarStyle": "Overlay"`, `"hiddenTitle": true` e `"trafficLightPosition": { "x": 16, "y": 20 }` (o valor de partida da Task 34). O valor final acerta-se no ecrã (±2) e fica escrito na Task 34. As Definições são criadas pelo builder em Rust e não herdam nada disto (verificado: o builder não chama `title_bar_style`).
+2. **A Barra em todos os estados.** A `WindowBar` sai do `<main>` e fica sempre à vista, para os semáforos nunca ficarem por cima de conteúdo antigo:
+   - em `library`, `no-device` e durante o `ImportingState`, com `screen="library"`;
+   - em `book-details`, com `screen="detail"`, `onback` → `handleCloseBookDetails` e `onexport` a exportar esse livro;
+   - o `canDelete` fica `false` até ao ecrã 9;
+   - o `BookDetailsView` mantém o seu cabeçalho até ao ecrã 5. A duplicação do «voltar» é provisória e aceite;
+   - Exportar sem livros não faz nada (provisório até aos ecrãs 2 e 6);
+   - o fundo e as linhas da página passam aos tokens (`bg-background`, `border-border`); saem os `bg-white` e `dark:bg-neutral-*`.
+3. **Barra da Biblioteca:**
+   - `view` e `onview` → `handleViewModeChange`; `sort` e `onsort` → `handleSortChange`. Gravam no clique e nunca num `$effect` (§7);
+   - `syncing` = `library.isImporting`, e `onsync` → `handleSync`;
+   - `exportCount` é o tamanho da seleção, se houver, ou então o número de livros. `onexport` exporta essa seleção ou todos (`handleExportSelected` ou `handleExportAll`).
+4. **Cabeçalho da Biblioteca** (Biblioteca 4, F3), dentro da área que desliza, antes da grelha:
+   - **contagens**, derivadas de `library.books`, que são reativos e mudam no `openBook`:
+     - `highlights` = número de destaques com `isNew` e sem `removedAt`;
+     - `books` = número de livros com pelo menos um desses destaques;
+   - **datas**, do `commands.librarySummary(readerId, connectedSerial)`: `since` = `newSince` e `syncedAt` = `lastSyncAt`. O store guarda o resumo em `library.summary` e recarrega-o:
+     - no fim do `openReader`, que já corre depois de cada sincronização e do `syncFinished`;
+     - ao ligar e ao desligar o Kobo;
+   - **o Rust não muda.** O `lastSyncAt` é a hora do Kobo ligado, e sem Kobo ligado é `null`. É a decisão do Bruno em DECISIONS, «Tasks das Fases 3 e 4»: «sem Kobo ligado, não se mostra». A moldura do ecrã 3 (`71:9162`) mostra a hora com o Kobo desligado e contradiz esta decisão. Isso resolve-se no ecrã 3;
+   - **estados:**
+     - novos > 0 → `novos`. Se o `newSince` for nulo, omite-se o «desde»: o componente aceita o `since` opcional, um ajuste pequeno coberto por teste;
+     - novos = 0 → `semNovidades`, «Sem destaques novos». O «sincronizado às 10:42» só aparece com `lastSyncAt`; o `syncedAt` do componente passa a opcional, com o teste `no_news_without_sync_time_omits_time`;
+     - sem livros, não há cabeçalho (o estado vazio é do ecrã 6);
+     - erro de sincronização → `erro`, até à próxima sincronização ou ao «Tentar de novo». Vale para o `catch` do `handleSync` e para o do `handleDeviceConnected`;
+     - `aSincronizar` → fica para o ecrã 2 (o `ImportingState` mantém-se até lá);
+   - «Exportar M livros» no cabeçalho exporta os M livros com novos: põe a seleção nesses livros e chama `handleExport`. Substitui a seleção que houver; aceite;
+   - `exporting` = `library.isExporting`; `exported` liga-se no fim de uma exportação com sucesso;
+   - **exportar limpa os «novos»** (Bruno, 2026-11-19: um livro deixa de ser novo quando se abre ou quando entra numa exportação). Cumpre a Cor 6: depois de exportar, o cabeçalho passa a «Sem destaques novos» e as etiquetas saem. No `library.exportIds(bookIds)`:
+     - antes de exportar, guarda por livro o snapshot dos ids com `isNew` e o `seenSeq` (o máximo do `syncedSeq`), como o `openBook`;
+     - com o export bem-sucedido, chama o `commands.markBookOpened(readerId, bookId, seenSeq)` para cada livro e limpa o `isNew` só dos ids do snapshot. Um destaque que chegue a meio da exportação continua novo;
+     - o `openBook` e o export partilham um helper privado (por exemplo, `#markSeen(bookId, snapshot, seenSeq)`). O comportamento do `openBook` não muda: o `viewingNewIds` continua a ser só dele;
+     - um `markBookOpened` que falhe é registado e não desfaz a exportação. Esse livro fica novo;
+     - um export que falhe não toca nos novos;
+     - não há nada a mudar no Rust: o `mark_book_opened` já faz `MAX(opened_seq, seen_seq)`;
+   - «Mostrar só estes»: **adiado e escondido** (Bruno, 2026-11-19). O estado filtrado desenha-se no Figma numa ronda própria (3 opções), e o botão entra quando for aprovado. O `LibraryHeader` passa a mostrar o botão **só quando recebe o `onShowOnly`**, com o teste `show_only_hidden_without_handler`; hoje aparece sempre (`library-header.svelte:137`). A página não lhe passa o `onShowOnly`.
+5. **Grelha** (`LibraryGrid`, usada pelo `LibraryView` quando `viewMode === 'grid'`; a lista não muda até ao ecrã 4):
+   - `grid-template-columns: repeat(auto-fill, minmax(160px, 1fr))` e `gap-6`, com o `BookCard` de `ui/book-card`;
+   - `highlightCount` = `highlights.length` (o mesmo número que a ordenação `highlight_count` usa); `newCount` = a contagem do ponto 4 para esse livro; `coverSrc` como hoje;
+   - teclado e seleção (proposta: listbox): `role="listbox"`, `aria-multiselectable="true"` e `aria-label`;
+     - cada cartão recebe `role="option"` pela grelha. O `BookCard` tem `role="gridcell"` (`book-card.svelte:56`), mas o `{...restProps}` vem depois e sobrepõe-no. O componente e os seus testes não mudam;
+     - setas ← → ↑ ↓ movem o foco (↑ e ↓ saltam uma linha, com o número de colunas medido no DOM), e Home e End vão ao primeiro e ao último;
+     - Enter abre o livro com o foco;
+     - Espaço alterna a seleção;
+     - Esc limpa a seleção;
+     - **⌘A fica de fora:** o menu nativo tem o `SelectAll` predefinido (`menu.ts:79`), que apanha o atalho antes do webview;
+   - rato: clique simples abre; ⌘-clique alterna; ⇧-clique seleciona o intervalo desde o último clicado (a lógica que já existe no `LibraryView`);
+   - **abrir um livro passa sempre por uma só função da página, `openBook(book)`**, que chama `library.openBook(id)` e `library.setUiState('book-details')`. O clique e o Enter chamam-na. Não se passa um `KeyboardEvent` ao `handleBookClick(book, event: MouseEvent)`, porque o `check` deixava de dar 0/0. O `viewingBookId` nunca se escreve à mão.
+6. **Atalhos dos tooltips** (⌘R, ⌘E, ⌘1, ⌘2): um `keydown` na página, sem tocar na barra de menus (Bruno, 2026-11-19). Os itens de menu ficam para a Fase 6.
+   - ⌘R sincroniza só com `library.canSync`;
+   - ⌘E faz o mesmo que o Exportar da Barra;
+   - ⌘1 e ⌘2 mudam a vista e gravam-na, como o clique;
+   - os atalhos não disparam com o foco num campo de texto, com uma janela modal aberta (Kobo novo, atualização) nem fora da Biblioteca. O ⌘E dispara também no Detalhe, onde exporta esse livro.
+
+- [ ] **Passo 1: testes que falham:**
+  - `window-config.test.ts`: `main_window_is_overlay` (lê o JSON: `titleBarStyle`, `hiddenTitle` e `trafficLightPosition` `{16, 20}`);
+  - `library-grid.test.ts`:
+    - `grid_is_multiselect_listbox_with_one_tab_stop`;
+    - `arrows_move_focus_without_selecting`;
+    - `enter_opens_focused_book`;
+    - `space_toggles_selection`;
+    - `cmd_click_toggles_and_shift_click_selects_range`;
+    - `escape_clears_selection`;
+    - `card_shows_new_count`;
+  - `src/routes/page.svelte.test.ts` (o que já existe, com o mesmo mock e um `AppSettings` completo, §4):
+    - `window_bar_is_mounted_in_every_state` (`library`, `no-device`, a importar, `book-details`);
+    - `opening_a_book_goes_through_open_book` (o Enter e o clique chamam o `library.openBook` com o id);
+    - `header_state_follows_counts_and_summary` (os casos do ponto 4, com e sem Kobo ligado);
+    - `header_export_exports_books_with_news`;
+    - `sync_error_shows_header_error_and_retry_syncs`;
+  - `page.svelte.test.ts`, os atalhos: `shortcuts_sync_export_and_switch_view` e `shortcuts_ignored_in_text_field_and_modal`;
+  - `library.svelte.test.ts` (ou o teste do store que já existe):
+    - `export_clears_new_of_exported_books`;
+    - `export_keeps_new_that_arrived_during_export`;
+    - `failed_export_keeps_new`;
+    - `open_book_behaviour_unchanged`: os testes do `openBook` que já existem continuam verdes;
+  - `library-header.test.ts`: `novos_without_since_omits_date`, `no_news_without_sync_time_omits_time` e `show_only_hidden_without_handler`.
+- [ ] **Passo 2:** os testes falham pela razão certa.
+- [ ] **Passo 3:** a config, o store, a grelha, a página e as chaves em `pt` e `en`.
+- [ ] **Passo 4:** o gate completo:
+  - `cargo test`, e o `cargo clippy` com os mesmos 7 avisos;
+  - `cargo check`;
+  - Vitest duas vezes;
+  - `npm run check` e `npm run build`;
+  - `npm run test:visual`, com um mock de `library_summary` no `mock-ipc.ts`. **Primeiro**, muda-se a espera de `scenarios.ts:128` (`getByRole('group', { name: books[0].title })`), senão todos os cenários da principal partem nesse ponto;
+  - os cenários antigos que dependem do `<header>`, da `LibraryToolbar` ou da caixa de seleção do cartão antigo são substituídos por cenários da Barra, do Cabeçalho e da grelha nova, em Claro e Escuro;
+  - **as baselines novas são revistas uma a uma** pelo coordenador, contra o `71:8040` e o `71:8273`.
+- [ ] **Passo 5:** commit `feat(library): screen 1, library grid with window bar and overlay`.
+
+**Mutações do coordenador:**
+- tirar o `titleBarStyle` do conf (o `main_window_is_overlay` falha);
+- tirar a Barra do estado `book-details` (o `window_bar_is_mounted_in_every_state` falha);
+- abrir o livro escrevendo o `uiState` sem chamar o `openBook` (o `opening_a_book_goes_through_open_book` falha);
+- limpar todos os `isNew` do livro depois de exportar, e não só os do snapshot (o `export_keeps_new_that_arrived_during_export` falha).
+
+**Verificar no ecrã (Bruno, com `npm run dev:app`):**
+- as verificações da Task 34: os semáforos depois de redimensionar, ⌃⌘F, zoom com duplo clique, Claro e Escuro, e perder o foco; a barra arrasta e os botões clicam; o primeiro clique com a janela inativa arrasta;
+- a grelha comparada com o Figma a 1000 × 700, e mais colunas ao alargar;
+- o VoiceOver na grelha («Os Maias, Eça de Queirós, 58 destaques, 11 novos», e «selecionado»);
+- as setas, o Enter e o Espaço;
+- o ⌘A seleciona o texto da página e não os livros (fica assim até à Fase 6).
+
 ## Fase 6 · Fecho da v2 (tasks a escrever)
 - **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.
   
