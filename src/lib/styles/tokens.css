@@ -69,6 +69,7 @@
   --contrast-outline: #00000000;
   --contrast-outline-tint: #00000000;
   --contrast-outline-primary: #00000000;
+  --contrast-outline-strong: #00000000;
   --ring-opacity: 0.5;
 
   --size-control: 28px;
@@ -163,6 +164,7 @@
   --contrast-outline: #00000000;
   --contrast-outline-tint: #00000000;
   --contrast-outline-primary: #00000000;
+  --contrast-outline-strong: #00000000;
 }
 
 /*
@@ -182,6 +184,7 @@
     --contrast-outline: #8D8D91;
     --contrast-outline-tint: #0666D4;
     --contrast-outline-primary: #FFFFFF;
+    --contrast-outline-strong: #858589;
   }
 
   .dark {
@@ -194,6 +197,7 @@
     --contrast-outline: #757579;
     --contrast-outline-tint: #569FFD;
     --contrast-outline-primary: #051A36;
+    --contrast-outline-strong: #838387;
   }
 }
 
@@ -294,6 +298,7 @@
   --color-contrast-outline: var(--contrast-outline);
   --color-contrast-outline-tint: var(--contrast-outline-tint);
   --color-contrast-outline-primary: var(--contrast-outline-primary);
+  --color-contrast-outline-strong: var(--contrast-outline-strong);
 
   --spacing-control: var(--size-control);
   --spacing-segment: var(--size-segment);

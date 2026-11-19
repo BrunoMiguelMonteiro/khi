@@ -444,7 +444,7 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
     - foco com `focus-visible:focus-ring` (Task 5), sem animação, nunca no clique do rato;
     - **desativado no próprio primitivo**, não só nos callbacks: o Bits UI muda o estado interno sozinho (a Caixa muda com o Espaço). Cada task diz como: `readonly` do Bits UI onde existe (Caixa, Amostras), uma ligação de função que recusa a escrita onde não existe (Switch, abertura do Pop-up), `readonly` nativo no Campo, `aria-disabled` e um clique ignorado no Botão. O controlo fica na ordem do Tab, com `aria-disabled="true"` e `data-disabled`, e mostra `disabledReason` num Tooltip ao receber o foco, ligado por `aria-describedby`. **Exceções:** os itens desativados dos menus e o segmento com contagem 0 saem da ordem do Tab e das setas, como no macOS (Tasks 16 e 17).
     - os testes do desativado usam `expectDisabledInert` (Task 5): depois do Espaço, do Return, do clique no controlo e do clique no rótulo, o valor ligado não muda, o pop-up não abre e o callback foi chamado 0 vezes; e o motivo lê-se com o foco.
-  - **Contraste aumentado:** os modos «Claro · Contraste» e «Escuro · Contraste» do Figma, pela Task 6; os contornos de 1 px por dentro (Tema 3) são variáveis do Figma desde 2026-11-19 (decisão do Bruno): `contrast-outline` (botões de ícone), `contrast-outline-tint` (selecionado e etiquetas) e `contrast-outline-primary` (Principal). São transparentes nos modos normais e têm cor nos de contraste, e o componente desenha sempre `inset-ring inset-ring-<variável>`, sem `contrast-more:`. Os contornos que ainda não estão no Figma (segmento, vista, item da barra lateral e grupo) entram no Figma, como variável, na task de cada um.
+  - **Contraste aumentado:** os modos «Claro · Contraste» e «Escuro · Contraste» do Figma, pela Task 6; os contornos de 1 px por dentro (Tema 3) são variáveis do Figma desde 2026-11-19 (decisão do Bruno): `contrast-outline` (botões de ícone), `contrast-outline-tint` (selecionado e etiquetas), `contrast-outline-primary` (Principal) e `contrast-outline-strong` (segmento e separador escolhidos, 2026-11-19). São transparentes nos modos normais e têm cor nos de contraste, e o componente desenha sempre `inset-ring inset-ring-<variável>`, sem `contrast-more:`. Os contornos que ainda não estão no Figma (item da barra lateral) entram no Figma, como variável, na task de cada um; a vista usa os do Botão de toolbar e o grupo usa `contrast-outline`.
   - **Movimento** (Movimento 6): com `motion-reduce:` saem o deslocamento, a escala e a rotação; ficam os fades e as mudanças de cor.
   - **Textos:** chaves novas em `ui.<componente>` (ou nas secções que já existem, como `book.*`), em `pt.json` e `en.json` no mesmo commit, com plurais `_one`/`_other`. Os testes verificam o texto aprovado, palavra a palavra.
   - **Testes** (`<nome>.test.ts`, ao lado do componente; o conteúdo dos portais do Bits UI procura-se com `screen`):
@@ -724,7 +724,7 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
 - `<ViewGroup bind:value={'grid' | 'list'} />`: dois botões (`layout-grid`, `list`) a `gap-1`, sem animação;
 - `role="radiogroup"` com nome; cada botão é `radio` com `aria-label` «Ver em grelha» / «Ver em lista» e tooltip «Grelha ⌘1» / «Lista ⌘2»;
 - uma só paragem do Tab; as setas escolhem;
-- o escolhido usa o Selecionado tonal da Task 11, com `contrast-more:inset-ring-input-strong`.
+- os dois botões são instâncias do Botão de toolbar (Task 11) no Figma: o escolhido no estado Selecionado (`primary-tint`, `inset-ring-contrast-outline-tint`) e o outro no Normal (`inset-ring-contrast-outline`), com os mesmos hover, premido e foco; não há contorno próprio do grupo (corrigido 2026-11-19 a partir das ligações de `55:2440`).
 
 - [ ] **Passo 1: testes que falham** (`view-group.test.ts`):
   - `is_radiogroup_with_two_named_radios`;
@@ -750,7 +750,7 @@ A partir daqui, o critério de «sem mudança visual» das Tasks 1 a 4 é o `npm
 - escolhido: `bg-segmented-selected shadow-sombra-segmento`, rótulo `text-callout-medium`, contagem em `text-segmented-selected-count` (ver «Discrepâncias resolvidas»). O fundo muda em `duration-hover` 120 com `ease-hover`, sem deslizar;
 - sem hover;
 - contagem 0 (Q-C): `disabled` do Bits UI no item, com rótulo e contagem em `text-disabled-foreground`; não se escolhe e as setas saltam-no. **Fica fora da regra do desativado focável:** um segmento vazio não é paragem, como no macOS; o tooltip «Não há destaques novos neste livro» (e o equivalente para notas) aparece com o ponteiro, e o VoiceOver lê-o como esbatido dentro do grupo;
-- Contraste aumentado: o escolhido com `contrast-more:inset-ring-input-strong`;
+- Contraste aumentado: o escolhido com `inset-ring inset-ring-contrast-outline-strong` (variável nova no Figma em 2026-11-19, ligada a `55:2562`: transparente nos modos normais, `input-strong` nos de contraste, 3:1 contra a calha; o `contrast-outline` dava 2,7 e 2,5);
 - VoiceOver: o grupo chama-se `label` («Mostrar») e cada segmento lê «Novos, 5».
 
 - [ ] **Passo 1: testes que falham** (`segmented.test.ts`):
@@ -851,10 +851,11 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 **Interfaces que produz** (Componentes (D7) · 12 · Separador das Definições, `55:4977`; Q-K):
 - `<Tabs bind:value>` com `<TabsTrigger value icon>{rótulo}</TabsTrigger>`, ativação automática (as setas escolhem); barra centrada, `gap-1`, filete `border-b border-border`;
 - separador: `px-2 py-1 gap-1 rounded-control`, ícone de 20 em cima, rótulo `text-subheadline` (Regular nos três estados, Q-K);
-- Normal `text-muted-foreground`; hover `bg-accent` em `duration-hover`; Selecionado (`data-active:`) `bg-primary-tint text-primary-tint-foreground`, com `contrast-more:inset-ring-input-strong`;
+- Normal `text-muted-foreground`; hover `bg-accent` em `duration-hover`; Selecionado (`data-active:`) `bg-primary-tint text-primary-tint-foreground`, com `inset-ring inset-ring-contrast-outline-strong` (Figma `55:4973`, 2026-11-19);
 - a troca de separador não tem transição;
 - uma paragem do Tab, setas lá dentro;
 - os três da v2: Exportação (`file-output`), Aparência (`palette`), Kobo (`tablet`), com chaves `settings.tabs.*`.
+- vem da Task 18: o tipo Caixas da Linha de formulário (`55:3488`, Metadados a incluir): três colunas de Caixas, `gap-4` entre colunas e `gap-2` dentro, padding `p-4`; no Figma a linha não tem rótulo visível, por isso é um `role="group"` com nome dado por um `label` obrigatório (só para leitores de ecrã). Testes `checkbox_row_is_group_named_by_label` e `checkbox_row_has_three_columns` em `form.test.ts`.
 
 - [ ] **Passo 1: testes que falham** (`tabs.test.ts`):
   - `tablist_single_tab_stop_and_arrows_select`;
