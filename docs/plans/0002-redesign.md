@@ -1612,6 +1612,76 @@ Fontes: [W3C APG, Listbox Pattern](https://w3.org/WAI/ARIA/apg/patterns/listbox)
 - [x] **Gate completo** e `UPDATE_BINDINGS=1 cargo test bindings_are_up_to_date`.
 - [x] **Verificar no ecrã (Bruno):** 16 pt entre o semáforo verde e «Biblioteca» (aprovado com o ecrã 1, 2026-11-19).
 
+### Task 37: caixa de seleção no Cartão (B com a E1)
+**Decisões do Bruno a 2026-11-19** (ver DECISIONS, «Componentes · 7» e «Componentes · 8»):
+- **Quando se vê (B):** em repouso, nada. Aparece com o ponteiro sobre o cartão e com o foco do teclado (`focus-visible`). A partir do primeiro livro selecionado, aparece em todas as capas, até a seleção ficar vazia.
+- **Desenho (E1):** anel claro com halo. A recomendação era a E3; o Bruno escolheu a E1 e aceitou os 1,3:1 sobre a capa branca.
+- **Clique na capa durante a seleção:** abre sempre, como no Gmail (Bruno, contra a recomendação «alterna durante a seleção»). Só a caixa seleciona.
+- **Rejeitadas:** A (sempre visível), C (a v1 literal), E2 (disco de vidro), E3 (anel com contorno) e «a capa alterna durante a seleção».
+
+**Task aprovada pelo Bruno a 2026-11-19** («Aprovo a Task 37»).
+
+**Figma:** «Iteração · Componentes», secções `115:28070` (quando se vê) e `116:29048` (desenho, com lupa a 3×); notas `116:29026` e `116:29711`. O Cartão é o `65:4268`.
+
+**Implementador (proposta):** Sonnet. O Opus acrescenta antes, no Figma, as variantes `Estado=Ponteiro` e `Estado=Em seleção` ao `65:4268` (Passo 0), para o componente acompanhar o código.
+
+**Medidas (E1):**
+- círculo de 20 × 20 pt, a 8 pt da direita e de baixo da capa, no sítio do visto. **Um só elemento de 24 × 24**, a 6 pt da direita e de baixo (`right-1.5 bottom-1.5`), desenha o círculo de 20 ao centro: a caixa E1 quando o livro não está selecionado, o visto quando está. A área de clique é a mesma nos dois estados;
+- vazia: interior `rgb(0 0 0 / 0.10)`, anel branco de 2 pt por dentro (`inset`), halo `0 0 4px rgb(0 0 0 / 0.35)` e sombra `0 1px 2px rgb(0 0 0 / 0.20)`;
+- com o ponteiro sobre o cartão: interior `rgb(0 0 0 / 0.30)`;
+- igual no Claro e no Escuro (está sobre a capa, não sobre o fundo);
+- selecionada: o mesmo elemento desenha o visto do Q-B aprovado (primary, anel da cor `background` de 2 pt: branco no Claro, escuro no Escuro) com a moldura de 3 px. Nunca aparecem os dois;
+- entra e sai com um fade de 150 ms (`--duration-out`, 150 ms em `tokens.css:90`, ease-out); com Reduzir movimento, sem fade.
+
+**Ficheiros:**
+- `src/lib/components/ui/book-card/book-card.svelte` e `book-card.test.ts`;
+- `src/lib/components/ui/library-grid/library-grid.svelte` e `library-grid.test.ts`;
+- `tests/visual/scenarios.ts` e as baselines que mudam (`hover-book-card`, `focus-book-card`, `grid-selected`, `hover-selected-card`) mais o cenário novo.
+
+**Comportamento:**
+1. `BookCard` ganha a prop `selecting?: boolean` (por omissão `false`) e põe `data-selecting` no cartão quando é verdadeira.
+2. O controlo é um `<span data-slot="selection-box" aria-hidden="true">` de 24 × 24, sem `tabindex`, sem `role` e sem `<button>`: o cartão é um `role="option"` e uma option não pode ter filhos interativos. Tem `data-state="checked"` quando o livro está selecionado (desenha o visto, e substitui o `selection-check` de hoje) e `data-state="unchecked"` quando não está (desenha a caixa E1).
+3. Com `unchecked`, está escondido (opacidade 0 e `pointer-events-none`, para o clique cair na capa) e aparece (opacidade 1 e `pointer-events-auto`) com qualquer destes: `group-hover/card`, `group-focus-visible/card` ou `data-selecting`. O interior passa a 30 % com `group-hover/card`. Com `checked`, está sempre visível e clicável.
+4. `LibraryGrid` passa a cada cartão `selecting`, verdadeiro quando algum livro de `books` está em `selectedBookIds` (contam só os ids que existem na grelha; um id antigo não acende as caixas).
+5. Em `handleClick`, um clique cujo alvo está dentro de `[data-slot="selection-box"]` conta como um clique com modificador: alterna a seleção desse livro (e passa a ser a âncora) e **não abre**. Com ⇧ sobre a caixa, segue a regra do intervalo que já existe. O clique no resto do cartão continua a abrir.
+6. No teclado nada muda: o Espaço alterna, o Enter abre, o Esc limpa. O VoiceOver continua a ler o rótulo do cartão e «selecionado» pelo `aria-selected`.
+7. O ⌘-clique e o ⇧-clique continuam a funcionar como hoje.
+
+- [ ] **Passo 0 (Opus, Figma):** as variantes `Estado=Ponteiro` e `Estado=Em seleção` no `65:4268`, com a caixa E1.
+- [ ] **Passo 1: testes que falham:**
+  - `book-card.test.ts`:
+    - `selection_box_is_hidden_from_assistive_tech`: a caixa tem `aria-hidden="true"`, não tem `tabindex` e não é um `button`;
+    - `selection_box_shows_check_when_selected`: com `selected`, a caixa tem `data-state="checked"`; sem ela, `unchecked`. Há um só `selection-box` e nenhum outro visto;
+    - `selection_box_is_24_in_both_states`: as classes de tamanho e posição são as mesmas com e sem `selected`;
+    - `selecting_marks_card`: com `selecting`, o cartão tem `data-selecting`; sem ela, não tem;
+  - `library-grid.test.ts`:
+    - `click_on_selection_box_selects_without_opening`: `onOpen` não é chamado e `onSelectionChange` recebe `[id]`;
+    - `click_on_checked_box_deselects_without_opening`: o clique na caixa de um livro selecionado tira-o da seleção e não abre;
+    - `shift_click_on_selection_box_selects_range`;
+    - `click_on_cover_still_opens`;
+    - `click_on_cover_opens_while_selecting`: com um livro selecionado, o clique na capa de outro abre-o e não mexe na seleção;
+    - `cards_are_selecting_when_any_book_is_selected`: sem seleção, nenhum cartão tem `data-selecting`; com um selecionado, todos têm;
+    - `stale_selected_id_does_not_mark_selecting`: um id em `selectedBookIds` que não está em `books` não acende as caixas.
+- [ ] **Passo 2:** os testes falham pela razão certa.
+- [ ] **Passo 3:** o Cartão e a grelha.
+- [ ] **Passo 4:** o harness visual:
+  - cenário novo `select-by-box`, com o ponteiro real (`hover()` e depois `click()` na caixa; **não** o `dispatchEvent` do `selectBooks`, para o `pointer-events` ser testado): seleciona sem abrir, e as outras capas mostram a caixa;
+  - as baselines que mudam revistas uma a uma, em Claro e Escuro.
+- [ ] **Passo 5:** o gate completo (`cargo test`, clippy com os mesmos 7 avisos, Vitest duas vezes e com `--sequence.shuffle`, `npm run check` 0/0, `npm run build`, `npm run test:visual`).
+- [ ] **Passo 6:** commit `feat(library): selection box on book cards`.
+
+**Mutações do coordenador:**
+- tirar a deteção da caixa em `handleClick` (o clique na caixa abre o livro);
+- `selecting` sempre falso (as outras capas não mostram a caixa durante a seleção);
+- tirar o `aria-hidden` da caixa;
+- tirar o `pointer-events-auto` do hover (o clique na caixa cai na capa e abre o livro; só o cenário `select-by-box` o apanha, porque o jsdom não avalia CSS).
+
+**Verificar no ecrã (Bruno, com `npm run dev:app`):**
+- passar o ponteiro mostra a caixa; clicar nela seleciona sem abrir;
+- com um livro selecionado, todas as capas mostram a caixa; o Esc limpa e as caixas desaparecem;
+- clicar no visto desmarca sem abrir; clicar na capa abre;
+- em capas claras e escuras, nos dois temas.
+
 ## Fase 6 · Fecho da v2 (tasks a escrever)
 - **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.
   
