@@ -27,14 +27,23 @@ const locale = (lang: "pt" | "en") =>
   JSON.parse(readFileSync(resolve(process.cwd(), `src/lib/i18n/locales/${lang}.json`), "utf8"));
 
 /** Renders the fixture, whose own state is bound as `<Segmented bind:value />`; `bound` follows it. */
-function renderBound(counts: Counts = { all: 9, new: 2, withNotes: 3 }, value?: string) {
+function renderBound(
+  counts: Counts = { all: 9, new: 2, withNotes: 3 },
+  value?: string,
+  extra: { name?: string; disabled?: boolean } = {},
+) {
   const bound: { value: string | undefined } = { value };
-  render(Fixture, { props: { counts, value, onbound: (v: string | undefined) => (bound.value = v) } });
+  const { rerender } = render(Fixture, {
+    props: { counts, value, ...extra, onbound: (v: string | undefined) => (bound.value = v) },
+  });
   const rail = document.querySelector<HTMLElement>('[data-slot="segmented"]');
   if (!rail) throw new Error("no segmented rendered");
   const [all, news, notes] = screen.getAllByRole("radio");
-  return { rail, all, news, notes, bound };
+  return { rail, all, news, notes, bound, rerender };
 }
+
+const submitted = () =>
+  new FormData(screen.getByTestId<HTMLFormElement>("filter-form")).get("filter");
 
 const part = (segment: HTMLElement, slot: "label" | "count") =>
   segment.querySelector<HTMLElement>(`[data-slot="segment-${slot}"]`)!;
@@ -252,5 +261,61 @@ describe("Segmented", () => {
     // Only the selected one is outlined, never through contrast-more:.
     expect([...news.classList].filter((c) => c.includes("inset-ring"))).toEqual([]);
     expect([...all.classList].filter((c) => c.includes("contrast-more"))).toEqual([]);
+  });
+
+  it("zero_count_value_falls_back_to_first_enabled_segment", async () => {
+    // A parent that assigns an empty segment, at first and later.
+    const { all, news, notes, bound, rerender } = renderBound({ all: 5, new: 0, withNotes: 5 }, "new", {
+      name: "filter",
+    });
+    await tick();
+    expect(bound.value).toBe("all");
+    expect(submitted()).toBe("all");
+    expect([all, news, notes].map((r) => r.getAttribute("aria-checked"))).toEqual(["true", "false", "false"]);
+    await rerender({ value: "withNotes" });
+    expect(bound.value).toBe("withNotes");
+    await rerender({ value: "new" });
+    await tick();
+    expect(bound.value).toBe("all");
+    expect(submitted()).toBe("all");
+    expect(news.getAttribute("aria-checked")).toBe("false");
+    expect([all, news, notes].map((r) => r.getAttribute("tabindex"))).toEqual(["0", "-1", "-1"]);
+  });
+
+  it("selected_segment_whose_count_drops_to_zero_is_left", async () => {
+    const user = userEvent.setup();
+    const { all, news, notes, bound, rerender } = renderBound({ all: 5, new: 2, withNotes: 0 }, "new", {
+      name: "filter",
+    });
+    expect(submitted()).toBe("new");
+    // The last new highlight is read: Novos empties while chosen.
+    await rerender({ counts: { all: 5, new: 0, withNotes: 0 } });
+    await tick();
+    expect(bound.value).toBe("all");
+    expect(submitted()).toBe("all");
+    expect([all, news, notes].map((r) => r.getAttribute("aria-checked"))).toEqual(["true", "false", "false"]);
+    await user.tab();
+    expect(document.activeElement).toBe(all);
+    // Nothing left to choose: the value clears.
+    await rerender({ counts: { all: 0, new: 0, withNotes: 0 } });
+    await tick();
+    expect(bound.value).toBeUndefined();
+    expect(submitted() ?? "").toBe("");
+    expect([all, news, notes].map((r) => r.getAttribute("aria-checked"))).toEqual(["false", "false", "false"]);
+  });
+
+  it("disabled_group_refuses_click_and_keyboard", async () => {
+    const user = userEvent.setup();
+    const { all, news, notes, bound } = renderBound(undefined, undefined, { disabled: true });
+    expect(bound.value).toBe("all");
+    for (const segment of [all, news, notes]) expect(segment.hasAttribute("disabled"), segment.textContent!).toBe(true);
+    await user.click(notes);
+    expect(bound.value).toBe("all");
+    expect(notes.getAttribute("aria-checked")).toBe("false");
+    await user.tab();
+    expect([all, news, notes]).not.toContain(document.activeElement);
+    all.focus();
+    await user.keyboard("{ArrowRight} ");
+    expect(bound.value).toBe("all");
   });
 });

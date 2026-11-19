@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { tick } from "svelte";
 import { render, screen } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
 import { compileAppCss, selectorFor } from "$lib/test/css";
@@ -26,8 +27,8 @@ const locale = (lang: "pt" | "en") =>
 
 /** Renders the fixture, whose own state is bound as `<Tabs bind:value />`; `bound` follows it. */
 function renderBound(initial = "export") {
-  const bound = { value: initial };
-  render(Fixture, { props: { value: initial, onbound: (v: string) => (bound.value = v) } });
+  const bound: { value: string | undefined } = { value: initial };
+  render(Fixture, { props: { value: initial, onbound: (v: string | undefined) => (bound.value = v) } });
   const list = screen.getByRole("tablist");
   const [exportTab, appearance, kobo] = screen.getAllByRole("tab");
   return { list, exportTab, appearance, kobo, tabs: [exportTab, appearance, kobo], bound };
@@ -207,5 +208,28 @@ describe("Tabs", () => {
     expect(appearance.matches(await selectorFor("data-active:inset-ring"))).toBe(false);
     // Only through the token, never contrast-more:.
     expect([...exportTab.classList].filter((c) => c.includes("contrast-more"))).toEqual([]);
+  });
+
+  it("no_value_selects_first_enabled_tab", async () => {
+    let bound: string | undefined;
+    const { unmount } = render(Fixture, { props: { onbound: (v: string | undefined) => (bound = v) } });
+    await tick();
+    let [exportTab, appearance, kobo] = screen.getAllByRole("tab");
+    expect(bound).toBe("export");
+    expect([exportTab, appearance, kobo].map((t) => t.getAttribute("aria-selected"))).toEqual(["true", "false", "false"]);
+    expect([exportTab, appearance, kobo].map((t) => t.getAttribute("tabindex"))).toEqual(["0", "-1", "-1"]);
+    expect(screen.getByRole("tabpanel").textContent).toContain("Export panel");
+    unmount();
+
+    // A disabled first tab is passed over.
+    render(Fixture, { props: { exportDisabled: true, onbound: (v: string | undefined) => (bound = v) } });
+    await tick();
+    [exportTab, appearance, kobo] = screen.getAllByRole("tab");
+    expect(bound).toBe("appearance");
+    expect(appearance.getAttribute("aria-selected")).toBe("true");
+    expect([exportTab, appearance, kobo].map((t) => t.getAttribute("tabindex"))).toEqual(["-1", "0", "-1"]);
+    expect(screen.getByRole("tabpanel").textContent).toContain("Appearance panel");
+    await userEvent.setup().tab();
+    expect(document.activeElement).toBe(appearance);
   });
 });

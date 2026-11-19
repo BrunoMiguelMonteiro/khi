@@ -33,13 +33,20 @@
 		label,
 		segments,
 		onValueChange,
+		disabled = false,
 		class: className,
 		...restProps
 	}: SegmentedProps = $props();
 
-	// Todos (the first segment) when nothing is chosen yet.
+	// Only a segment with something to show can stay chosen: on init, when the parent writes and when
+	// counts change, fall back to the first one that can (Todos), or to none if no segment can.
+	const effective = $derived(
+		segments.some((s) => s.value === value && s.count > 0)
+			? value
+			: segments.find((s) => s.count > 0)?.value
+	);
 	$effect.pre(() => {
-		if (value === undefined && segments.length) value = segments[0].value;
+		if (value !== effective) value = effective;
 	});
 
 	const keepFocus = (e: MouseEvent) => e.preventDefault();
@@ -50,18 +57,20 @@
 	Tab stop, arrows choose, clicking the chosen one keeps it. No hover: the chosen fill changes in
 	duration/hover, without sliding. A segment with count 0 is Bits UI disabled, so neither arrows
 	nor clicks choose it, and, like macOS, it is no Tab stop; native disabled is left off so the
-	pointer still reaches its tooltip.
+	pointer still reaches its tooltip. A disabled group keeps native disabled on every segment: Bits
+	UI checks only the item's own disabled on click.
 -->
 <Primitive.Root
 	bind:ref
 	bind:value={
-		() => value ?? segments[0]?.value,
+		() => effective ?? '',
 		(v) => {
 			value = v;
 			onValueChange?.(v);
 		}
 	}
 	{...restProps}
+	{disabled}
 	orientation="horizontal"
 	loop
 	data-slot="segmented"
@@ -88,15 +97,15 @@
 							aria-label={`${segment.label}, ${segment.count}`}
 							data-state={props['data-state']}
 							data-disabled={props['data-disabled']}
-							disabled={undefined}
-							aria-disabled={empty ? 'true' : undefined}
+							disabled={disabled ? true : undefined}
+							aria-disabled={empty && !disabled ? 'true' : undefined}
 							onmousedown={empty ? keepFocus : undefined}
 						>
 							<span
 								data-slot="segment-label"
 								class={checked
 									? 'text-callout-medium text-foreground'
-									: empty
+									: empty || disabled
 										? 'text-callout text-disabled-foreground'
 										: 'text-callout text-foreground'}>{segment.label}</span
 							>
@@ -104,7 +113,7 @@
 								data-slot="segment-count"
 								class={checked
 									? 'text-callout tabular-nums text-segmented-selected-count'
-									: empty
+									: empty || disabled
 										? 'text-callout tabular-nums text-disabled-foreground'
 										: 'text-callout tabular-nums text-tertiary-foreground'}>{segment.count}</span
 							>
