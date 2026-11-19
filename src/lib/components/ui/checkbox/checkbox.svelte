@@ -29,7 +29,7 @@
 	import { Checkbox as Primitive } from 'bits-ui';
 	import Check from 'lucide-svelte/icons/check';
 	import { cn } from '$lib/utils.js';
-	import { withTrigger } from '../button';
+	import { guardClick, withTrigger } from '../button';
 	import { Tooltip } from '../tooltip';
 
 	const uid = $props.id();
@@ -40,6 +40,8 @@
 		label,
 		disabled = false,
 		disabledReason,
+		required = false,
+		type = 'button',
 		id = `checkbox-${uid}`,
 		class: className,
 		...restProps
@@ -65,12 +67,27 @@
 	input-strong already darkens in the contrast modes, so there is no contrast outline.
 -->
 {#snippet box(trigger: TriggerProps)}
-	<Primitive.Root bind:ref bind:checked {...forwarded} {id} readonly={disabled} disabled={false}>
+	<!--
+		Disabled is readonly, so the hidden backing input still submits its value, as a readonly
+		field does; it is just not required, or a box the user can't change would block the form.
+	-->
+	<Primitive.Root
+		bind:ref
+		bind:checked
+		{...forwarded}
+		{id}
+		{type}
+		required={required && !disabled}
+		readonly={disabled}
+		disabled={false}
+	>
 		{#snippet child({ props, checked: on })}
 			{@const merged = withTrigger(props, trigger)}
 			<!--
-				The checked and disabled states come last, so neither forwarded nor trigger props can
-				undo them: the tooltip trigger's own data-state (closed, delayed-open) must not hide it.
+				The type and the checked and disabled states come last, so neither forwarded nor trigger
+				props can undo them: the tooltip trigger's own type="button" must not replace the caller's,
+				nor its data-state (closed, delayed-open) hide the box's. The click guard keeps a disabled
+				submit or reset box from acting on its form.
 			-->
 			<button
 				{...merged}
@@ -86,11 +103,15 @@
 					'data-disabled:data-checked:bg-toolbar-icon-disabled data-disabled:text-disabled-mark'
 				)}
 				role="checkbox"
+				{type}
 				data-state={props['data-state']}
+				aria-required={required ? 'true' : 'false'}
 				aria-readonly={undefined}
 				data-readonly={undefined}
 				aria-disabled={disabled ? 'true' : undefined}
 				data-disabled={disabled ? '' : undefined}
+				onclickcapture={guardClick(() => disabled, merged.onclickcapture)}
+				onclick={guardClick(() => disabled, merged.onclick)}
 			>
 				{#if on}
 					<Check

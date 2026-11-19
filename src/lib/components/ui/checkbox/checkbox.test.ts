@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
 import { compileAppCss, selectorFor } from "$lib/test/css";
@@ -393,5 +393,82 @@ describe("Checkbox", () => {
     expect(document.querySelector('[data-slot="checkbox-label"]')).toBeNull();
     document.getElementById("row-label")?.remove();
     document.getElementById("row-help")?.remove();
+  });
+});
+
+/** A form in the document, its submit and reset counted; the fixture renders inside unless `outside`. */
+function renderInForm(props: Record<string, unknown>, { outside = false } = {}) {
+  const form = document.createElement("form");
+  form.id = "settings";
+  const onsubmit = vi.fn((e: Event) => e.preventDefault());
+  const onreset = vi.fn();
+  form.addEventListener("submit", onsubmit);
+  form.addEventListener("reset", onreset);
+  const host = document.createElement("div");
+  document.body.append(form, host);
+  render(Fixture, { target: outside ? host : form, props: { label: "Mostrar a capa", ...props } });
+  const box = document.querySelector<HTMLButtonElement>('[data-slot="checkbox"]')!;
+  const label = document.querySelector<HTMLElement>('[data-slot="checkbox-label"]')!;
+  return { form, box, label, onsubmit, onreset };
+}
+
+describe("Checkbox in a form", () => {
+  afterEach(() => {
+    cleanup();
+    document.body.replaceChildren();
+  });
+
+  it("disabled_does_not_submit_or_reset_its_form", async () => {
+    const user = userEvent.setup();
+    // The harness does see a submit: an enabled submit box submits its form.
+    const enabled = renderInForm({ type: "submit" });
+    await user.click(enabled.box);
+    expect(enabled.onsubmit).toHaveBeenCalledTimes(1);
+    for (const type of ["submit", "reset"] as const) {
+      for (const disabledReason of [undefined, "Liga o Kobo para mudar"]) {
+        cleanup();
+        document.body.replaceChildren();
+        const { box, label, onsubmit, onreset } = renderInForm({ type, disabled: true, disabledReason });
+        await user.click(box);
+        await user.click(label);
+        expect(onsubmit, `${type} ${disabledReason}`).not.toHaveBeenCalled();
+        expect(onreset, `${type} ${disabledReason}`).not.toHaveBeenCalled();
+        expect(box.getAttribute("aria-checked")).toBe("false");
+      }
+    }
+  });
+
+  it("keeps_the_caller_type_with_a_reason", () => {
+    for (const disabled of [false, true]) {
+      for (const type of ["submit", "reset"] as const) {
+        cleanup();
+        const { box } = renderInForm({ type, disabled, disabledReason: "Sem livros" });
+        expect(box.type, `${type} disabled=${disabled}`).toBe(type);
+      }
+      cleanup();
+      expect(renderInForm({ disabled, disabledReason: "Sem livros" }).box.type).toBe("button");
+    }
+  });
+
+  it("disabled_required_does_not_block_its_form", () => {
+    const props = { name: "covers", value: "yes", required: true, checked: false };
+    expect(renderInForm(props).form.checkValidity()).toBe(false);
+    cleanup();
+    document.body.replaceChildren();
+    expect(renderInForm({ ...props, disabled: true }).form.checkValidity()).toBe(true);
+    cleanup();
+    document.body.replaceChildren();
+    // Like a readonly field, the disabled value still submits.
+    const { form } = renderInForm({ ...props, checked: true, disabled: true });
+    expect(new FormData(form).getAll("covers")).toEqual(["yes"]);
+  });
+
+  it("external_form_gets_the_value", () => {
+    for (const checked of [true, false]) {
+      cleanup();
+      document.body.replaceChildren();
+      const { form } = renderInForm({ form: "settings", name: "covers", value: "yes", checked }, { outside: true });
+      expect(new FormData(form).getAll("covers")).toEqual(checked ? ["yes"] : []);
+    }
   });
 });

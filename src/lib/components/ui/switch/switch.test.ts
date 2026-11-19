@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
 import { compileAppCss, selectorFor } from "$lib/test/css";
@@ -261,5 +261,88 @@ describe("Switch", () => {
   it("without_reason_needs_no_tooltip_provider", () => {
     render(Switch, { props: { "aria-label": "Mostrar capas", disabled: true } });
     expect(screen.getByRole("switch", { name: "Mostrar capas" }).getAttribute("aria-disabled")).toBe("true");
+  });
+});
+
+/** A form in the document, its submit and reset counted; the fixture renders inside unless `outside`. */
+function renderInForm(props: Record<string, unknown>, { outside = false } = {}) {
+  const form = document.createElement("form");
+  form.id = "settings";
+  const onsubmit = vi.fn((e: Event) => e.preventDefault());
+  const onreset = vi.fn();
+  form.addEventListener("submit", onsubmit);
+  form.addEventListener("reset", onreset);
+  const host = document.createElement("div");
+  document.body.append(form, host);
+  const parent = outside ? host : form;
+  const label = document.createElement("label");
+  label.htmlFor = "covers-switch";
+  label.textContent = "Mostrar capas";
+  parent.append(label);
+  render(Fixture, { target: parent, props: { id: "covers-switch", ...props } });
+  const control = document.querySelector<HTMLButtonElement>('[data-slot="switch"]')!;
+  return { form, control, label, onsubmit, onreset };
+}
+
+describe("Switch in a form", () => {
+  afterEach(() => {
+    cleanup();
+    document.body.replaceChildren();
+  });
+
+  it("disabled_does_not_submit_or_reset_its_form", async () => {
+    const user = userEvent.setup();
+    for (const type of ["submit", "reset"] as const) {
+      // The harness does see them: an enabled switch of that type submits or resets its form.
+      cleanup();
+      document.body.replaceChildren();
+      const enabled = renderInForm({ type });
+      await user.click(enabled.control);
+      expect((type === "submit" ? enabled.onsubmit : enabled.onreset).mock.calls.length, type).toBe(1);
+      for (const disabledReason of [undefined, "Liga o Kobo para mudar"]) {
+        cleanup();
+        document.body.replaceChildren();
+        const { control, label, onsubmit, onreset } = renderInForm({ type, disabled: true, disabledReason });
+        await user.click(control);
+        await user.click(label);
+        expect(onsubmit, `${type} ${disabledReason}`).not.toHaveBeenCalled();
+        expect(onreset, `${type} ${disabledReason}`).not.toHaveBeenCalled();
+        expect(control.getAttribute("aria-checked")).toBe("false");
+      }
+    }
+  });
+
+  it("keeps_the_caller_type_with_a_reason", () => {
+    for (const disabled of [false, true]) {
+      for (const type of ["submit", "reset"] as const) {
+        cleanup();
+        const { control } = renderInForm({ type, disabled, disabledReason: "Sem Kobo" });
+        expect(control.type, `${type} disabled=${disabled}`).toBe(type);
+      }
+      cleanup();
+      expect(renderInForm({ disabled, disabledReason: "Sem Kobo" }).control.type).toBe("button");
+    }
+  });
+
+  it("disabled_required_does_not_block_its_form", () => {
+    const props = { name: "covers", value: "yes", required: true, checked: false };
+    expect(renderInForm(props).form.checkValidity()).toBe(false);
+    cleanup();
+    document.body.replaceChildren();
+    expect(renderInForm({ ...props, disabled: true }).form.checkValidity()).toBe(true);
+    cleanup();
+    document.body.replaceChildren();
+    // Like a readonly field, the disabled value still submits.
+    const { form } = renderInForm({ ...props, checked: true, disabled: true });
+    expect(new FormData(form).getAll("covers")).toEqual(["yes"]);
+  });
+
+  it("external_form_gets_the_value", () => {
+    for (const checked of [true, false]) {
+      cleanup();
+      document.body.replaceChildren();
+      const { form } = renderInForm({ form: "settings", name: "covers", value: "yes", checked }, { outside: true });
+      expect(new FormData(form).getAll("covers")).toEqual(checked ? ["yes"] : []);
+    }
   });
 });

@@ -17,7 +17,7 @@
 <script lang="ts">
 	import { Switch as Primitive } from 'bits-ui';
 	import { cn } from '$lib/utils.js';
-	import { withTrigger } from '../button';
+	import { guardClick, withTrigger } from '../button';
 	import { Tooltip } from '../tooltip';
 
 	const uid = $props.id();
@@ -28,6 +28,10 @@
 		disabled = false,
 		disabledReason,
 		onCheckedChange,
+		name,
+		value = 'on',
+		required = false,
+		type = 'button',
 		id = `switch-${uid}`,
 		class: className,
 		...restProps
@@ -67,6 +71,8 @@
 		}}
 		{...forwarded}
 		{id}
+		{type}
+		{required}
 		disabled={false}
 	>
 		{#snippet child({ props, checked: on })}
@@ -75,14 +81,21 @@
 				'data-state': on ? 'checked' : 'unchecked',
 				'data-disabled': disabled ? '' : undefined
 			}}
-			<!-- The checked and disabled states come last: the tooltip trigger's data-state must not hide them. -->
+			<!--
+				The type and the checked and disabled states come last: the tooltip trigger's type="button"
+				must not replace the caller's, nor its data-state hide them. The click guard keeps a
+				disabled submit or reset switch from acting on its form.
+			-->
 			<button
 				{...merged}
 				data-slot="switch"
 				class={cn('group/switch inline-flex h-5 w-8 shrink-0 py-px outline-none', className)}
 				role="switch"
+				{type}
 				{...state}
 				aria-disabled={disabled ? 'true' : undefined}
+				onclickcapture={guardClick(() => disabled, merged.onclickcapture)}
+				onclick={guardClick(() => disabled, merged.onclick)}
 			>
 				<span
 					data-slot="switch-track"
@@ -105,6 +118,28 @@
 			</button>
 		{/snippet}
 	</Primitive.Root>
+	<!--
+		The backing input is the wrapper's, not Bits UI's (which gets no name, so renders none): Bits
+		doesn't give its input the form attribute, and an externally associated switch would drop its
+		value. Like a readonly field, a disabled switch still submits its value; it is just not
+		required, or a switch the user can't change would block the form. defaultChecked mirrors the
+		state, as Bits does, so a form reset keeps it.
+	-->
+	{#if name !== undefined}
+		<input
+			type="checkbox"
+			aria-hidden="true"
+			tabindex={-1}
+			class="sr-only top-0 left-0"
+			{name}
+			{value}
+			{checked}
+			defaultChecked={checked}
+			form={forwarded.form as string | undefined}
+			required={required && !disabled}
+			onfocus={() => ref?.focus()}
+		/>
+	{/if}
 {/snippet}
 
 <!-- On disabledReason, not on disabled: toggling disabled keeps the same switch, and its focus. -->
