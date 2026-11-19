@@ -10,8 +10,10 @@
  * This store uses the Backend (Rust) as the Single Source of Truth for defaults.
  */
 
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { commands } from "../bindings";
 import { locale } from "$lib/i18n";
+import { currentWindowLabel } from "$lib/window";
 import type {
   AppSettings,
   ExportConfig,
@@ -21,6 +23,55 @@ import type {
   ViewMode,
   SortPreference,
 } from "../types";
+
+/**
+ * What the Settings window edits (the fields of `SettingsPanel`), by leaf:
+ * the rest of the file belongs to the main window (sort, window size).
+ */
+export const SETTINGS_WINDOW_FIELDS = [
+  "exportConfig.exportPath",
+  "exportConfig.metadata",
+  "exportConfig.dateFormat",
+  "language",
+  "uiPreferences.theme",
+  "uiPreferences.libraryViewMode",
+  "uiPreferences.syncOnConnect",
+  "uiPreferences.checkForUpdates",
+] as const;
+
+const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+
+function read(settings: AppSettings, path: string): unknown {
+  return path.split(".").reduce<any>((node, key) => node?.[key], settings);
+}
+
+function write(settings: AppSettings, path: string, value: unknown) {
+  const keys = path.split(".");
+  const last = keys.pop()!;
+  const parent = keys.reduce<any>((node, key) => node[key], settings);
+  parent[last] = copy(value);
+}
+
+function same(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (!a || !b || typeof a !== "object" || typeof b !== "object") return false;
+  const keys = Object.keys(a);
+  return (
+    keys.length === Object.keys(b).length &&
+    keys.every((key) => same((a as any)[key], (b as any)[key]))
+  );
+}
+
+/** A copy of `target` with `fields` taken from `source`. */
+function withFields(
+  target: AppSettings,
+  source: AppSettings,
+  fields: readonly string[],
+): AppSettings {
+  const out = copy(target);
+  for (const path of fields) write(out, path, read(source, path));
+  return out;
+}
 
 /**
  * Initial empty state to satisfy TypeScript before Rust provides actual values.
@@ -115,6 +166,11 @@ class SettingsStore {
   isLoading = $state(false);
   /** The language on disk, which the export uses; see revertUnsavedLanguage. */
   private savedLanguage: Language | null = null;
+  /** `main` or `settings`: each window has its own store (see initialize). */
+  private windowLabel = "main";
+  /** The file as this window last knew it: loaded, saved or announced. */
+  private saved: AppSettings | null = null;
+  private unlistenChanges: UnlistenFn | null = null;
   error = $state<string | null>(null);
 
   // Derived state for easier access
@@ -254,6 +310,7 @@ class SettingsStore {
       const loadedSettings = await commands.loadSettings();
       this.state = loadedSettings;
       this.savedLanguage = loadedSettings.language;
+      this.saved = copy(loadedSettings);
       // $effect will apply theme automatically when state changes
     } catch (err) {
       console.error("Failed to load settings:", err);
@@ -274,8 +331,16 @@ class SettingsStore {
     this.error = null;
 
     try {
-      await commands.saveSettings(this.state);
-      this.savedLanguage = this.state.language;
+      // Settings write their fields over the file as it is now, so what the
+      // main window saved since they opened is kept
+      const toSave =
+        this.windowLabel === "settings"
+          ? withFields(await commands.loadSettings(), this.state, SETTINGS_WINDOW_FIELDS)
+          : this.state;
+      await commands.saveSettings(toSave);
+      this.savedLanguage = toSave.language;
+      this.saved = copy(toSave);
+      if (toSave !== this.state) this.state = toSave;
     } catch (err) {
       console.error("Failed to save settings:", err);
       this.error =
@@ -298,8 +363,43 @@ class SettingsStore {
    * Initialize settings on app startup
    */
   async initialize() {
+    this.windowLabel = currentWindowLabel();
     await this.load();
     // $effect in constructor will handle theme setup automatically
+    await this.listenForChanges();
+  }
+
+  /** Rust emits `settings-changed` with the file after every save. */
+  private async listenForChanges() {
+    this.unlistenChanges?.();
+    try {
+      this.unlistenChanges = await listen<AppSettings>("settings-changed", (event) =>
+        this.applySaved(event.payload),
+      );
+    } catch (err) {
+      console.error("Failed to listen for settings changes:", err);
+    }
+  }
+
+  /**
+   * The main window takes only the Settings fields this save changed, so its
+   * own view mode and sort stay. The Settings window keeps its unsaved draft
+   * and takes the rest.
+   */
+  private applySaved(saved: AppSettings) {
+    const base = this.saved;
+    if (this.windowLabel === "settings") {
+      const touched = base
+        ? SETTINGS_WINDOW_FIELDS.filter((path) => !same(read(this.state, path), read(base, path)))
+        : [];
+      this.state = withFields(saved, this.state, touched);
+    } else {
+      for (const path of SETTINGS_WINDOW_FIELDS) {
+        if (!base || !same(read(saved, path), read(base, path))) write(this.state, path, read(saved, path));
+      }
+    }
+    this.saved = copy(saved);
+    this.savedLanguage = saved.language;
   }
 
 }

@@ -17,4 +17,21 @@ describe("window config", () => {
     expect(main.permissions).toContain("core:window:allow-start-dragging");
     expect(main.windows).toContain("main");
   });
+
+  it("settings_capability_is_minimal", () => {
+    const settings = capability("settings");
+    expect(settings.windows).toEqual(["settings"]);
+    // Esc ends in close(), onCloseRequested in destroy(), a saved language in setTitle()
+    expect([...settings.permissions].sort()).toEqual(
+      [
+        "core:default",
+        "core:event:default",
+        "core:window:allow-set-theme",
+        "core:window:allow-set-title",
+        "core:window:allow-close",
+        "core:window:allow-destroy",
+        "dialog:default",
+      ].sort(),
+    );
+  });
 });

@@ -26,6 +26,8 @@ export interface MockConfig {
 	library: Record<number, LibraryBook_Serialize[]>;
 	/** What `plugin:updater|check` returns: `null` when up to date. */
 	update: unknown;
+	/** The window this page runs in: `main`, or `settings` (the `/definicoes` route). */
+	windowLabel: 'main' | 'settings';
 }
 
 export interface IpcCall {
@@ -131,6 +133,9 @@ export function installTauriMock(config: MockConfig): void {
 			case 'plugin:app|version':
 				return config.appVersion;
 			case 'plugin:window|set_theme':
+			case 'plugin:window|set_title':
+			case 'plugin:window|close':
+			case 'plugin:window|destroy':
 				return null;
 			case 'plugin:menu|new':
 				return [nextRid++, args.options?.id ?? `mock-menu-${nextRid}`];
@@ -165,6 +170,8 @@ export function installTauriMock(config: MockConfig): void {
 				return null;
 			case 'pick_export_folder':
 				return null;
+			case 'open_settings':
+				return null;
 			case 'clear_cover_cache':
 				return null;
 			case 'list_readers':
@@ -177,6 +184,7 @@ export function installTauriMock(config: MockConfig): void {
 			case 'rename_reader':
 			case 'associate_kobo':
 			case 'delete_book':
+			case 'mark_book_opened':
 			case 'set_reader_export_path':
 				return null;
 			case 'reader_for_kobo':
@@ -246,8 +254,8 @@ export function installTauriMock(config: MockConfig): void {
 			return `${protocol}://localhost/${encodeURIComponent(filePath)}`;
 		},
 		metadata: {
-			currentWindow: { label: 'main' },
-			currentWebview: { windowLabel: 'main', label: 'main' }
+			currentWindow: { label: config.windowLabel },
+			currentWebview: { windowLabel: config.windowLabel, label: config.windowLabel }
 		},
 		plugins: { path: { sep: '/', delimiter: ':' } }
 	};

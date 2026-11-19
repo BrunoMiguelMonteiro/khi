@@ -3,6 +3,7 @@
     "name": "Khi",
     "title": "Khi - Kobo Highlights Exporter",
     "menuEdit": "Edit",
+    "menuWindow": "Window",
     "close": "Close",
     "loading": "Loading...",
     "koboDevice": "Kobo e-reader device"
@@ -126,6 +127,7 @@
   },
   "settings": {
     "title": "Settings",
+    "windowTitle": "Settings",
     "export": {
       "tab": "Export",
       "defaultFormat": "Default Format",

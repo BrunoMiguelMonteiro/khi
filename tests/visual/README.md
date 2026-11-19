@@ -30,6 +30,8 @@ Scenarios (`scenarios.ts`):
 - `list`: library list view.
 - `detail`: book detail.
 - `settings`: settings panel open.
+
+  The `settings*` scenarios run in the Settings window: they open `/definicoes` directly, the mock reports window label `settings` (so no `app-ready`, no updater check, no menu), and the viewport is that window's fixed size, 700×540 (`settings_window_spec` in `src-tauri/src/window.rs`). The window is not resizable, so `settings--*--min` equals `settings--*`.
 - `settings-appearance`: the appearance section of settings.
 - `grid-selected` / `list-selected`: two books selected (indicators, checkboxes, the selection toolbar with «Clear selection» and the count).
 - `settings-updates`: the Updates tab, with the automatic-check switch (hover, keyboard focus) and «Check now».
@@ -53,7 +55,7 @@ All scenarios × all themes, plus:
 
 Fixed for every capture:
 
-- viewport 1000×669 at deviceScaleFactor 2 (the 1000×700 window less a 31px title bar); `--min` captures use tauri.conf.json's `minWidth` × `minHeight` less the same 31px (800×569);
+- viewport 1000×669 at deviceScaleFactor 2 (the 1000×700 window less a 31px title bar); `--min` captures use tauri.conf.json's `minWidth` × `minHeight` less the same 31px (800×569); `settings*` captures use the Settings window's 700×540;
 - locale pt-PT and app language pt;
 - timezone Europe/Lisbon;
 - clock frozen at 2026-11-15T10:00:00Z.
@@ -69,7 +71,7 @@ Requests to any origin other than the local server are aborted.
   - `window.__KHI_MOCK__.hold(cmd)` makes the next call of `cmd` never resolve (it is listed in `held`, not counted as pending), to capture loading states. A held `sync_kobo` also emits two `sync-progress` events.
 - **`fixtures.ts`**: deterministic data: 5 books, 1 reader, 1 device, and the settings for each theme.
 - **`harness.ts`**: one capture:
-  1. Waits for `app-ready`.
+  1. Waits for `app-ready` (in the Settings window, which never emits it: for `load_settings`).
   2. Drives the scenario.
   3. Waits for IPC to go quiet: menu built, nothing pending, more than 700 ms since the last call.
   4. Asserts the theme class on `<html>`.

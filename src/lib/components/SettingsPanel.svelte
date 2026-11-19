@@ -29,9 +29,11 @@
 	interface Props {
 		onClose?: () => void;
 		onSave?: () => void;
+		/** «Check Now»; by default this window's updater checks. */
+		onCheckNow?: () => void;
 	}
 
-	let { onClose, onSave }: Props = $props();
+	let { onClose, onSave, onCheckNow = () => updater.checkNow() }: Props = $props();
 
 	// Local state for unsaved changes
 	let hasChanges = $state(false);
@@ -221,11 +223,10 @@
 	}
 </script>
 
-<div
-	class="flex flex-col bg-white dark:bg-neutral-900 rounded-lg min-w-[700px] max-w-[900px] max-h-[80vh] overflow-hidden shadow-xl"
-	role="dialog"
+<!-- The whole Settings window -->
+<main
+	class="flex flex-col h-screen bg-white dark:bg-neutral-900 overflow-hidden"
 	aria-labelledby="settings-title"
-	aria-modal="true"
 >
 	<div class="flex justify-between items-center p-6 border-b border-neutral-200 dark:border-neutral-800">
 		<h2 id="settings-title" class="text-xl font-semibold text-neutral-900 dark:text-neutral-100 m-0">{$_('settings.title')}</h2>
@@ -703,7 +704,7 @@
 							{lastCheckedLabel(updater.lastChecked, language)}
 						</span>
 					</div>
-					<Button variant="secondary" disabled={updater.state === 'checking'} onclick={() => updater.checkNow()}>
+					<Button variant="secondary" disabled={updater.state === 'checking'} onclick={() => onCheckNow()}>
 						{$_('updates.settings.checkNow')}
 					</Button>
 				</section>
@@ -760,4 +761,4 @@
 			</Button>
 		</div>
 	</div>
-</div>
+</main>

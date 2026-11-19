@@ -45,6 +45,11 @@ export const commands = {
 	syncKobo: (device: KoboDevice_Deserialize) => __TAURI_INVOKE<SyncReport>("sync_kobo", { device }),
 	/**  Reads the system accent. AppKit is main-thread only, so the read hops to the main thread. */
 	getSystemAccent: () => __TAURI_INVOKE<SystemAccent>("get_system_accent"),
+	/**
+	 *  Brings the Settings window forward, or opens it: there is only ever one.
+	 *  Async, because a sync command that builds a window can deadlock.
+	 */
+	openSettings: (title: string) => __TAURI_INVOKE<null>("open_settings", { title }),
 };
 
 /** Events */

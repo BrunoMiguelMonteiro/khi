@@ -9,6 +9,7 @@ vi.mock('@tauri-apps/api/event', () => ({
 vi.mock('$lib/menu', () => ({ createApplicationMenu: vi.fn() }));
 
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import Page from './+page.svelte';
 
 const readers = [
@@ -35,5 +36,23 @@ describe('+page', () => {
 		await fireEvent.change(picker, { target: { value: '2' } });
 
 		expect(await screen.findByText("Could not open this reader's Library")).toBeInTheDocument();
+	});
+
+	it('page_has_no_settings_modal', async () => {
+		vi.mocked(invoke).mockImplementation((cmd: string) => {
+			if (cmd === 'list_readers') return Promise.resolve(readers);
+			if (cmd === 'last_reader') return Promise.resolve(1);
+			if (cmd === 'get_library') return Promise.resolve([]);
+			return Promise.resolve(null);
+		});
+		render(Page);
+		const gear = await screen.findByRole('button', { name: 'Settings' });
+
+		await fireEvent.click(gear);
+
+		// The gear opens the Settings window (Rust), never a panel in this one
+		expect(invoke).toHaveBeenCalledWith('open_settings', { title: 'Settings' });
+		expect(document.querySelector('[aria-labelledby="settings-title"]')).toBeNull();
+		expect(vi.mocked(listen).mock.calls.map(([event]) => event)).not.toContain('open-settings');
 	});
 });

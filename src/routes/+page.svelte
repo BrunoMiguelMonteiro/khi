@@ -1,12 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-	import { events } from '$lib/bindings';
+	import { commands, events } from '$lib/bindings';
 	import LibraryToolbar from '$lib/components/LibraryToolbar.svelte';
 	import LibraryView from '$lib/components/LibraryView.svelte';
 	import BookDetailsView from '$lib/components/BookDetailsView.svelte';
-	import SettingsPanel from '$lib/components/SettingsPanel.svelte';
-	import Modal from '$lib/components/Modal.svelte';
 	import EmptyStateNoDevice from '$lib/components/EmptyStateNoDevice.svelte';
 	import ImportingState from '$lib/components/ImportingState.svelte';
 	import InlineNotification from '$lib/components/InlineNotification.svelte';
@@ -26,7 +24,6 @@
 	let sortBy = $derived(settings.uiPreferences.librarySort);
 
 	// Local state
-	let showSettings = $state(false);
 	/** A connected Kobo with no Reader yet: asked before any Sync (R7). */
 	let unknownDevice = $state<KoboDevice | null>(null);
 	let notification = $state<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -41,7 +38,6 @@
 	// Event unlisten functions for cleanup
 	let unlistenDeviceDetected: UnlistenFn | undefined;
 	let unlistenDeviceDisconnected: UnlistenFn | undefined;
-	let unlistenSettings: UnlistenFn | undefined;
 	let unlistenCheckForUpdates: UnlistenFn | undefined;
 	let unlistenSyncProgress: UnlistenFn | undefined;
 	let unlistenSyncFinished: UnlistenFn | undefined;
@@ -90,7 +86,6 @@
 		return () => {
 			unlistenDeviceDetected?.();
 			unlistenDeviceDisconnected?.();
-			unlistenSettings?.();
 			unlistenCheckForUpdates?.();
 			unlistenSyncProgress?.();
 			unlistenSyncFinished?.();
@@ -99,11 +94,6 @@
 
 	async function setupDeviceListeners() {
 		try {
-			// Listen for settings event from native menu
-			unlistenSettings = await listen('open-settings', () => {
-				showSettings = true;
-			});
-
 			// «Procurar atualizações…» in the native menu
 			unlistenCheckForUpdates = await listen('check-for-updates', () => {
 				updater.checkNow();
@@ -260,7 +250,6 @@
 		if (!isCtrlOrCmd && !isShift) {
 			library.openBook(book.id);
 			library.setUiState('book-details');
-			showSettings = false;
 		}
 	}
 
@@ -269,13 +258,11 @@
 		library.setUiState('library');
 	}
 
+	/** The gear opens the Settings window, like ⌘, in the menu. */
 	function handleOpenSettings() {
-		showSettings = true;
-	}
-
-	function handleCloseSettings() {
-		showSettings = false;
-		settings.revertUnsavedLanguage();
+		commands.openSettings($_('settings.windowTitle')).catch((error) =>
+			console.error('Failed to open settings:', error)
+		);
 	}
 
 </script>
@@ -341,13 +328,6 @@
 		onChoose={handleChooseReader}
 		onCreate={handleCreateReader}
 	/>
-{/if}
-
-<!-- Settings Modal (overlay) -->
-{#if showSettings}
-	<Modal isOpen={showSettings} onClose={handleCloseSettings}>
-		<SettingsPanel onClose={handleCloseSettings} />
-	</Modal>
 {/if}
 
 <UpdateDialog {isBusy} />

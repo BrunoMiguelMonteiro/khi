@@ -5,7 +5,7 @@ use crate::covers::CoverExtractor;
 use crate::models::KoboDevice;
 use crate::settings::{AppSettings, SettingsManager};
 use std::path::PathBuf;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 /// Scan for connected Kobo devices
 #[tauri::command]
@@ -80,8 +80,13 @@ pub fn get_default_settings() -> AppSettings {
 /// Save application settings to disk
 #[tauri::command]
 #[specta::specta]
-pub fn save_settings(settings: AppSettings) -> Result<(), String> {
-    save_settings_with(settings_manager()?, settings)
+pub fn save_settings(app: tauri::AppHandle, settings: AppSettings) -> Result<(), String> {
+    // Every window follows the saved settings (the main one and Settings)
+    save_settings_and_notify(settings_manager()?, settings, |saved| {
+        if let Err(e) = app.emit("settings-changed", saved) {
+            log::error!("Failed to emit settings-changed: {}", e);
+        }
+    })
 }
 
 fn save_settings_with(mut manager: SettingsManager, settings: AppSettings) -> Result<(), String> {
@@ -92,6 +97,17 @@ fn save_settings_with(mut manager: SettingsManager, settings: AppSettings) -> Re
         .save()
         .map_err(|e| format!("Failed to save settings: {}", e))?;
 
+    Ok(())
+}
+
+/// Saves, then calls `notify` with what was saved; a failed save notifies nothing.
+fn save_settings_and_notify(
+    manager: SettingsManager,
+    settings: AppSettings,
+    notify: impl FnOnce(&AppSettings),
+) -> Result<(), String> {
+    save_settings_with(manager, settings.clone())?;
+    notify(&settings);
     Ok(())
 }
 
@@ -196,6 +212,31 @@ mod tests {
         save_settings_with(temp_manager(&dir), settings.clone()).unwrap();
 
         assert_eq!(temp_manager(&dir).get(), &settings);
+    }
+
+    #[test]
+    fn save_emits_only_on_success() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let mut settings = AppSettings::default();
+        settings.ui_preferences.theme = crate::settings::ThemePreference::Dark;
+
+        let mut announced = Vec::new();
+        save_settings_and_notify(temp_manager(&dir), settings.clone(), |saved| {
+            // Saved by now: the event never runs ahead of the file
+            assert_eq!(temp_manager(&dir).get(), saved);
+            announced.push(saved.clone());
+        })
+        .unwrap();
+        assert_eq!(announced, vec![settings.clone()]);
+
+        // A folder that cannot be created (its parent is a file): no event
+        let blocker = dir.path().join("not-a-folder");
+        std::fs::write(&blocker, "").unwrap();
+        let broken = SettingsManager::with_path(blocker.join("settings.json")).unwrap();
+        let mut failed = 0;
+        let result = save_settings_and_notify(broken, settings, |_| failed += 1);
+        assert!(result.is_err());
+        assert_eq!(failed, 0);
     }
 
     #[test]

@@ -3,6 +3,7 @@
     "name": "Khi",
     "title": "Khi - Kobo Highlights Exporter",
     "menuEdit": "Editar",
+    "menuWindow": "Janela",
     "close": "Fechar",
     "loading": "A carregar...",
     "koboDevice": "Leitor Kobo"
@@ -126,6 +127,7 @@
   },
   "settings": {
     "title": "Definições",
+    "windowTitle": "Definições",
     "export": {
       "tab": "Exportação",
       "defaultFormat": "Formato Padrão",

@@ -43,6 +43,8 @@ export interface Scenario {
 	viewMode?: ViewMode;
 	/** The Kobo's Reader and its Library exist (all but `empty`). */
 	withLibrary: boolean;
+	/** `settings`: the Settings window, its own route (`/definicoes`) and size. Default: the main window. */
+	window?: 'settings';
 	update?: boolean;
 	/** Records keyboard focus states by pressing Tab. */
 	focusStops?: number;
@@ -126,10 +128,10 @@ async function library(page: Page, text: Strings) {
 	await expect(page.getByRole('group', { name: books[0].title })).toBeVisible();
 }
 
-async function openSettings(page: Page, text: Strings) {
-	await library(page, text);
-	await emitWhenListening(page, 'open-settings');
+/** The Settings window, as Rust opens it: its route, with the Reader the main window has open. */
+async function openSettings(page: Page) {
 	await expect(page.locator('[aria-labelledby="settings-title"]')).toBeVisible();
+	await expect(page.getByTestId('reader-name')).toHaveValue(reader.name);
 	await expect(page.locator('#export-tab')).toHaveAttribute('aria-selected', 'true');
 }
 
@@ -298,6 +300,7 @@ export const SCENARIOS: Record<string, Scenario> = {
 		name: 'settings',
 		description: 'Settings open on the Export tab',
 		withLibrary: true,
+		window: 'settings',
 		focusStops: 3,
 		states: [
 			// The focus ring (`focus:ring-2 focus:border-blue-500`)
@@ -317,6 +320,7 @@ export const SCENARIOS: Record<string, Scenario> = {
 		name: 'settings-appearance',
 		description: 'Settings open on the Appearance tab',
 		withLibrary: true,
+		window: 'settings',
 		states: [
 			{ name: 'hover-segmented', kind: 'hover', target: (p) => p.locator('#appearance-panel button[aria-pressed="false"]') },
 			{ name: 'focus-segmented', kind: 'focus', target: (p) => p.locator('#appearance-panel button[aria-pressed="false"]') },
@@ -324,7 +328,7 @@ export const SCENARIOS: Record<string, Scenario> = {
 			{ name: 'focus-native-checkbox', kind: 'focus', target: (p) => p.locator('#appearance-panel input[type="checkbox"]'), root: 'label' }
 		],
 		async reach(page, text) {
-			await openSettings(page, text);
+			await openSettings(page);
 			await page.locator('#appearance-tab').dispatchEvent('click');
 			await expect(page.locator('#appearance-tab')).toHaveAttribute('aria-selected', 'true');
 		}
@@ -333,13 +337,14 @@ export const SCENARIOS: Record<string, Scenario> = {
 		name: 'settings-updates',
 		description: 'Settings open on the Updates tab: the automatic-check switch',
 		withLibrary: true,
+		window: 'settings',
 		states: [
 			{ name: 'hover-switch-row', kind: 'hover', target: (p) => p.locator('#updates-panel label:has([data-testid="check-for-updates"])') },
 			{ name: 'focus-switch', kind: 'focus', target: (p) => p.getByTestId('check-for-updates'), root: 'label' },
 			{ name: 'hover-check-now', kind: 'hover', target: (p, t) => p.getByRole('button', { name: t.checkNow, exact: true }) }
 		],
 		async reach(page, text) {
-			await openSettings(page, text);
+			await openSettings(page);
 			await page.locator('#updates-tab').dispatchEvent('click');
 			await expect(page.locator('#updates-tab')).toHaveAttribute('aria-selected', 'true');
 			await expect(page.getByTestId('check-for-updates')).toBeChecked();
@@ -398,8 +403,9 @@ export const SCENARIOS: Record<string, Scenario> = {
 		name: 'settings-saving',
 		description: 'Settings while saving: the primary button with its spinner',
 		withLibrary: true,
+		window: 'settings',
 		async reach(page, text) {
-			await openSettings(page, text);
+			await openSettings(page);
 			const radio = page.locator(`${SETTINGS} [role="radio"][aria-checked="false"]`).first();
 			const value = await radio.getAttribute('data-value');
 			await radio.dispatchEvent('click');
@@ -465,6 +471,7 @@ export function mockConfigFor(scenario: Scenario, variant: Variant): MockConfig 
 		deviceAtStartup: null,
 		koboOwners: scenario.withLibrary ? { [device.serialNumber!]: reader.id } : {},
 		library: scenario.withLibrary ? { [reader.id]: books } : {},
-		update: scenario.update ? availableUpdate : null
+		update: scenario.update ? availableUpdate : null,
+		windowLabel: scenario.window ?? 'main'
 	};
 }

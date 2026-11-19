@@ -28,6 +28,12 @@ function minViewport() {
 	const window = conf.app.windows[0];
 	return { width: window.minWidth as number, height: (window.minHeight as number) - (window.height - VIEWPORT.height) };
 }
+/**
+ * The Settings window: `inner_size` in `settings_window_spec`
+ * (src-tauri/src/window.rs), the webview without its title bar. It is not
+ * resizable, so `--min` captures of it use the same size.
+ */
+export const SETTINGS_VIEWPORT = { width: 700, height: 540 };
 /** Every capture happens at this instant: dates and «last checked» labels never move. */
 export const NOW = new Date('2026-11-15T10:00:00Z');
 
@@ -228,26 +234,27 @@ async function recordState(page: Page, probe: StateProbe, text: Strings, common:
 	return { record, shot: await clipShot(page, subtree![0].b) };
 }
 
-/** Waits until the app stops talking to the backend: the native menu is built and nothing is pending. */
-async function waitForIpcQuiet(page: Page) {
+/** Waits until the app stops talking to the backend: the native menu is built (by the main window only) and nothing is pending. */
+async function waitForIpcQuiet(page: Page, withMenu: boolean) {
 	await page.waitForFunction(
-		() => {
+		(menu) => {
 			const mock = window.__KHI_MOCK__;
 			return (
-				mock.calls.some((c) => c.cmd === 'plugin:menu|set_as_app_menu') &&
+				(!menu || mock.calls.some((c) => c.cmd === 'plugin:menu|set_as_app_menu')) &&
 				mock.pending === 0 &&
 				performance.now() - mock.lastCallAt > 700
 			);
 		},
-		undefined,
+		withMenu,
 		{ polling: 100 }
 	);
 }
 
 export async function capture(browser: Browser, { id, scenario, variant }: Capture, options: CaptureOptions = {}): Promise<CaptureResult> {
 	const theme = THEMES[variant.theme];
+	const inSettings = scenario.window === 'settings';
 	const context = await browser.newContext({
-		viewport: variant.size === 'min' ? MIN_VIEWPORT : VIEWPORT,
+		viewport: inSettings ? SETTINGS_VIEWPORT : variant.size === 'min' ? MIN_VIEWPORT : VIEWPORT,
 		deviceScaleFactor: 2,
 		locale: variant.language === 'pt' ? 'pt-PT' : 'en-US',
 		timezoneId: 'Europe/Lisbon',
@@ -268,14 +275,16 @@ export async function capture(browser: Browser, { id, scenario, variant }: Captu
 	try {
 		await page.clock.setFixedTime(NOW);
 		await page.addInitScript(installTauriMock, mockConfigFor(scenario, variant));
-		await page.goto(`${BASE_URL}/`);
+		await page.goto(`${BASE_URL}${inSettings ? '/definicoes' : '/'}`);
 
 		// Settings are applied once `app-ready` is emitted (even if they failed:
-		// then the expected theme and texts below catch it)
-		await page.waitForFunction(() => window.__KHI_MOCK__.emitted.includes('app-ready'));
+		// then the expected theme and texts below catch it). The Settings window
+		// never emits it: there, the settings have been read.
+		if (inSettings) await page.waitForFunction(() => window.__KHI_MOCK__.calls.some((c) => c.cmd === 'load_settings'));
+		else await page.waitForFunction(() => window.__KHI_MOCK__.emitted.includes('app-ready'));
 		const text = stringsFor(variant.language);
 		await scenario.reach(page, text, variant);
-		await waitForIpcQuiet(page);
+		await waitForIpcQuiet(page, !inSettings);
 		const html = page.locator('html');
 		await expect(html).toHaveClass(new RegExp(`(^|\\s)${theme.htmlClass}(\\s|$)`));
 		await expect(html).not.toHaveClass(new RegExp(`(^|\\s)${theme.htmlClass === 'dark' ? 'light' : 'dark'}(\\s|$)`));

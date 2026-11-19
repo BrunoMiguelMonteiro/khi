@@ -1367,13 +1367,13 @@ Depende da Task 6 (`switch-on`, `input-strong`).
 - o `+layout.svelte` só emite o `app-ready` e só corre o `updater.checkOnLaunch` na janela `main`. Na das Definições correm só o i18n, o tema e o `settings.init()`;
 - os cenários `settings*` do harness passam a abrir a rota `/definicoes` diretamente, e o mock do `getCurrentWindow()` devolve o label `settings` (senão o layout corre o `app-ready` e o updater, e as baselines mudam por outra razão). As baselines `settings--*` são regeneradas, e o coordenador revê o diff de cada uma. O total de cenários continua 73.
 
-- [ ] **Passo 1: testes que falham:**
+- [x] **Passo 1: testes que falham:**
   - Rust: `settings_window_spec` (uma função pura devolve o label, o URL, o título, `resizable` e o estilo da barra, e o teste fixa-os); `save_emits_only_on_success`;
   - Vitest: `menu_settings_invokes_open_settings` (com o título traduzido); `menu_has_close_window`; `layout_skips_app_ready_and_updater_outside_main`; `settings_changed_updates_only_settings_fields_in_main`; `event_keeps_unsaved_draft`; `settings_save_keeps_main_changes`; `close_without_save_reverts_language`; `saved_language_updates_window_title`; `page_has_no_settings_modal`; `settings_capability_is_minimal` (lê o JSON, e inclui `allow-close` e `allow-set-title`).
-- [ ] **Passo 2:** os testes falham.
-- [ ] **Passo 3:** a implementação; os bindings regenerados.
-- [ ] **Passo 4:** passam os quatro comandos, o `cargo test` e o `npm run test:visual`, com as baselines novas revistas. O `npm run build` também tem de passar, porque a rota tem de existir no build de produção.
-- [ ] **Passo 5:** commit `feat(window): settings in their own window`.
+- [x] **Passo 2:** os testes falham.
+- [x] **Passo 3:** a implementação; os bindings regenerados.
+- [x] **Passo 4:** passam os quatro comandos, o `cargo test` e o `npm run test:visual`, com as baselines novas revistas. O `npm run build` também tem de passar, porque a rota tem de existir no build de produção.
+- [x] **Passo 5:** commit `feat(window): settings in their own window`.
 
 **Verificar no ecrã (Bruno):**
 - ⌘, repetido, com a janela minimizada, com as Definições em foco, e depois de as fechar e reabrir: há sempre uma só janela;

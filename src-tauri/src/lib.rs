@@ -45,6 +45,7 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         commands::library::set_reader_export_path,
         commands::library::sync_kobo,
         system_accent::get_system_accent,
+        window::open_settings,
     ])
     .events(collect_events![
         DeviceDetectedEvent,

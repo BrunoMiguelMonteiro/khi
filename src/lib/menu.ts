@@ -1,5 +1,6 @@
 import { Menu, Submenu, MenuItem, PredefinedMenuItem } from '@tauri-apps/api/menu';
 import { emit } from '@tauri-apps/api/event';
+import { commands } from '$lib/bindings';
 import { Image } from '@tauri-apps/api/image';
 import { resolveResource } from '@tauri-apps/api/path';
 import type { MessageFormatter } from '$lib/i18n';
@@ -12,7 +13,10 @@ export async function createApplicationMenu(t: MessageFormatter) {
             text: t('settings.title') + '...',
             accelerator: 'CmdOrCtrl+,',
             action: () => {
-                emit('open-settings');
+                // Settings live in their own window (one only), opened by Rust
+                commands.openSettings(t('settings.windowTitle')).catch((error) =>
+                    console.error('[MENU] Failed to open settings:', error)
+                );
             }
         });
 
@@ -71,10 +75,19 @@ export async function createApplicationMenu(t: MessageFormatter) {
             ]
         });
 
+        // Window Menu: ⌘M and ⌘W, for the main window and Settings
+        const windowMenu = await Submenu.new({
+            text: t('app.menuWindow'),
+            items: [
+                await PredefinedMenuItem.new({ item: 'Minimize' }),
+                await PredefinedMenuItem.new({ item: 'CloseWindow' })
+            ]
+        });
+
         // Create the menu
         const menu = await Menu.new({
             id: 'main-menu',
-            items: [appMenu, editMenu]
+            items: [appMenu, editMenu, windowMenu]
         });
 
         // Set as application menu
