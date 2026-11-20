@@ -352,7 +352,7 @@ export const SCENARIOS: Record<string, Scenario> = {
 				name: 'hover-box',
 				kind: 'hover',
 				target: (p) => p.getByTestId('book-row'),
-				// The box is click-through until the row is hovered: the row first, then the box itself
+				// The pointer on the box itself, which turns the outline to its hover value
 				ready: async (p) => {
 					const box = p.getByTestId('book-row').first().locator('[data-slot="selection-box"]');
 					await box.hover();
@@ -418,6 +418,13 @@ export const SCENARIOS: Record<string, Scenario> = {
 				name: 'hover-selected-row',
 				kind: 'hover',
 				target: (p) => p.getByTestId('book-row').nth(SELECTED[0])
+			},
+			// The selected and focused row: the 2 px primary-foreground ring, recessed 2 px
+			{
+				name: 'focus-selected-row',
+				kind: 'focus',
+				target: (p) => p.getByTestId('book-row').nth(SELECTED[0]),
+				root: '[data-testid="book-row"]'
 			}
 		],
 		async reach(page, text) {
@@ -427,7 +434,7 @@ export const SCENARIOS: Record<string, Scenario> = {
 	},
 	'list-selecting': {
 		name: 'list-selecting',
-		description: 'One book selected through its selection box: every row shows its box',
+		description: 'One book selected through its selection box: the other rows keep their empty box',
 		withLibrary: true,
 		viewMode: 'list',
 		async reach(page, text) {
@@ -436,8 +443,10 @@ export const SCENARIOS: Record<string, Scenario> = {
 			await row.locator('[data-slot="selection-box"]').dispatchEvent('click');
 			await expect(row).toHaveAttribute('aria-selected', 'true');
 			await expect(page.getByTestId('books-list')).toBeVisible();
-			await expect(page.getByTestId('book-row').nth(0)).toHaveAttribute('data-selecting', '');
-			await expect(page.getByTestId('book-row').nth(0).locator('[data-slot="selection-box"]')).toHaveCSS('opacity', '1');
+			await expect(page.getByTestId('book-row').nth(1)).toHaveAttribute('aria-selected', 'false');
+			const box = page.getByTestId('book-row').nth(1).locator('[data-slot="selection-box"]');
+			await expect(box).toBeVisible();
+			await expect(box.locator(':scope > span')).toHaveCSS('border-top-color', 'rgb(142, 142, 146)');
 			await page.mouse.move(0, 0);
 		}
 	},

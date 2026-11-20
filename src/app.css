@@ -74,6 +74,24 @@
   --shadow-selection-box: inset 0 0 0 2px #fff, 0 0 4px rgb(0 0 0 / 0.35), 0 1px 2px rgb(0 0 0 / 0.2);
 }
 
+/*
+  Task 41: the empty selection box in the list (Figma M2). The values are the Figma variables neutral/300 and neutral/400
+  (#8E8E92, #636366), not the --color-neutral-300/400 above. Measured: Light 3.26:1 on background and 5.37:1 on accent;
+  Dark 5.11:1 and 4.27:1. Written after tokens.css, so .dark wins over :root on <html class="dark">.
+*/
+:root {
+  --selection-outline: #8E8E92;
+  --selection-outline-hover: #636366;
+}
+.dark {
+  --selection-outline: #8E8E92;
+  --selection-outline-hover: #8E8E92;
+}
+@theme inline {
+  --color-selection-outline: var(--selection-outline);
+  --color-selection-outline-hover: var(--selection-outline-hover);
+}
+
 @theme inline {
   --drop-shadow-md: 0 4px 3px rgb(0 0 0 / 0.07), 0 2px 2px rgb(0 0 0 / 0.06);
 }

@@ -45,14 +45,18 @@ const MAIAS: BookRowBook = {
 };
 
 /** A row needs a table around it, or the parser drops the tr. */
-function renderRow(book: Partial<BookRowBook> = {}, selected?: boolean) {
+function renderRow(
+  book: Partial<BookRowBook> = {},
+  selected?: boolean,
+  extra: { narrow?: boolean } = {},
+) {
   const table = document.createElement("table");
   const body = document.createElement("tbody");
   table.append(body);
   document.body.append(table);
   const result = render(BookRow, {
     target: body,
-    props: { book: { ...MAIAS, ...book }, selected },
+    props: { book: { ...MAIAS, ...book }, selected, ...extra },
   });
   const row = screen.getByRole("row");
   const cell = (name: string) => must(slot(row, `book-row-${name}`), name);
@@ -93,7 +97,7 @@ const SEPARATOR = [
 describe("BookRow", () => {
   it("row_columns_have_figma_widths", async () => {
     const { row, cell } = renderRow();
-    // Componentes (D7) · 19 · Linha da lista (66:4618): 44 high, px-2, gap-4, radius/control.
+    // Componentes (D7) · 19 · Linha da lista (66:4618): 56 high (Task 41, M2), no left padding (the box strip starts the row), pr-2, gap-4, radius/control.
     await expectBindings(row, [
       { binding: "horizontal", utility: "flex", css: "display: flex;" },
       {
@@ -102,15 +106,16 @@ describe("BookRow", () => {
         css: "align-items: center;",
       },
       {
-        binding: "44 high",
-        utility: "h-11",
-        css: "height: calc(var(--spacing) * 11);",
+        binding: "56 high",
+        utility: "h-14",
+        css: "height: calc(var(--spacing) * 14);",
       },
       {
-        binding: "spacing/2",
-        utility: "px-2",
-        css: "padding-inline: calc(var(--spacing) * 2);",
+        binding: "spacing/2 at the end only",
+        utility: "pr-2",
+        css: "padding-right: calc(var(--spacing) * 2);",
       },
+      { binding: "none at the start", utility: "pl-0", css: "padding-left: 0px;" },
       {
         binding: "spacing/4",
         utility: "gap-4",
@@ -139,11 +144,6 @@ describe("BookRow", () => {
         utility: "min-w-0",
         css: "min-width: 0px;",
       },
-      {
-        binding: "spacing/2",
-        utility: "gap-2",
-        css: "gap: calc(var(--spacing) * 2);",
-      },
     ]);
     for (const [name, utility, px] of [
       ["author", "w-50", "50"],
@@ -159,7 +159,7 @@ describe("BookRow", () => {
         { binding: "fixed", utility: "shrink-0", css: "flex-shrink: 0;" },
       ]);
     }
-    // Title: the 24 pt selection slot, Miniatura, the title on one line, then the badge 8 px after it.
+    // Title: the 36 pt selection strip, Miniatura 4 after it, the title 16 after that, on one line, then the badge 8 after it.
     const title = cell("title");
     expect(must(slot(title, "thumbnail"), "thumbnail").previousElementSibling).toBe(
       slot(title, "selection-box"),
@@ -268,13 +268,85 @@ describe("BookRow", () => {
         name,
       ).toEqual([]);
     }
-    // Componentes 4: no ring, no animation, no hover; the badge keeps its own fill.
+    // No animation, no hover, no unselected focus ring; the focus indicator is the inset border on ::after (Task 41).
     expect(
       [...row.classList].filter((c) =>
         /ring|hover|transition|duration|ease|animate/.test(c),
       ),
     ).toEqual([]);
     expect(must(slot(row, "badge"), "badge").className).toBe(offBadge);
+  });
+
+  it("selection_box_is_visible_at_rest_in_every_row", async () => {
+    for (const selected of [false, true]) {
+      const { row, unmount } = renderRow({}, selected);
+      const box = must(slot(row, "selection-box"), "box");
+      expect(box.classList, String(selected)).not.toContain("opacity-0");
+      expect(box.classList, String(selected)).not.toContain("pointer-events-none");
+      expect(box.className).not.toMatch(/group-.*:opacity-100/);
+      const disc = must(box.querySelector<HTMLElement>(":scope > span"), "disc");
+      if (!selected) {
+        expect(disc.classList).toContain("border-[1.5px]");
+        expect(disc.classList).toContain("border-selection-outline");
+      }
+      unmount();
+    }
+    const { row } = renderRow();
+    const box = must(slot(row, "selection-box"), "box");
+    // The click strip: 36 wide, the whole row tall.
+    await expectBindings(box, [
+      { binding: "36 wide", utility: "w-9", css: "width: calc(var(--spacing) * 9);" },
+      { binding: "row tall", utility: "inset-y-0", css: "inset-block: 0px;" },
+    ]);
+    // The empty disc: 20 px, a 1.5 px outline in selection-outline, the hover value with the pointer on the row.
+    const disc = must(box.querySelector<HTMLElement>(":scope > span"), "disc");
+    await expectBindings(disc, [
+      { binding: "20 px", utility: "size-5", css: "width: calc(var(--spacing) * 5);" },
+      { binding: "1.5 px outline", utility: "border-[1.5px]", css: "border-width: 1.5px;" },
+      { binding: "rest", utility: "border-selection-outline", css: "var(--selection-outline)" },
+      {
+        binding: "row hover",
+        utility: "group-[:hover]/row:border-selection-outline-hover",
+        css: "var(--selection-outline-hover)",
+      },
+    ]);
+    expect(disc.classList).not.toContain("bg-selection-box");
+  });
+
+  it("selected_row_shows_a_2px_inset_primary_foreground_ring_only_when_focused", async () => {
+    const { row, unmount } = renderRow({}, true);
+    await expectBindings(row, [
+      { binding: "ring drawn on ::after", utility: "after:absolute", css: "position: absolute;" },
+      { binding: "recessed 2 px", utility: "after:inset-0.5", css: "inset: calc(var(--spacing) * 0.5);" },
+      { binding: "2 px", utility: "after:border-2", css: "border-width: 2px;" },
+      {
+        binding: "primary-foreground",
+        utility: "after:border-primary-foreground",
+        css: "border-color: var(--primary-foreground);",
+      },
+      { binding: "hidden at rest", utility: "after:hidden", css: "display: none;" },
+      { binding: "shown on keyboard focus", utility: "focus-visible:after:block", css: "display: block;" },
+    ]);
+    expect(row.classList).not.toContain("focus-visible:focus-ring");
+    unmount();
+    const idle = renderRow({ id: 43 }, false);
+    expect(idle.row.classList).toContain("focus-visible:focus-ring");
+    expect(idle.row.className).not.toContain("after:border-primary-foreground");
+  });
+
+  it("narrow_row_drops_last_read_and_shrinks_author_to_160", async () => {
+    const wide = renderRow();
+    expect(wide.cell("author").classList).toContain("w-50");
+    expect(slot(wide.row, "book-row-last-read")).not.toBeNull();
+    wide.unmount();
+
+    const { row, cell } = renderRow({}, false, { narrow: true });
+    expect(slot(row, "book-row-last-read")).toBeNull();
+    expect(row.textContent).not.toContain("há 2 dias");
+    await expectBindings(cell("author"), [
+      { binding: "160 wide", utility: "w-40", css: "width: calc(var(--spacing) * 40);" },
+    ]);
+    expect(cell("author").classList).not.toContain("w-50");
   });
 
   it("separator_hidden_on_hover_and_selected", async () => {
@@ -306,9 +378,12 @@ describe("BookRow", () => {
     off.unmount();
 
     const { row } = renderRow({}, true);
-    expect([...row.classList].filter((c) => c.startsWith("after:"))).toEqual(
-      [],
-    );
+    // Only the focus ring (border, recess, rounding) is left on ::after: no separator.
+    expect(
+      [...row.classList].filter(
+        (c) => c.startsWith("after:") && !/inset-0\.5|border|rounded|hidden|pointer-events/.test(c),
+      ),
+    ).toEqual(["after:absolute"]);
   });
 
   it("separator_is_hidden_on_the_last_row_and_before_a_selected_or_hovered_row", async () => {

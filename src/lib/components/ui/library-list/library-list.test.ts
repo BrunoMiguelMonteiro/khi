@@ -1,5 +1,5 @@
 import { tick } from "svelte";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
 import { makeBook } from "$lib/test-fixtures";
@@ -255,16 +255,69 @@ describe("LibraryList", () => {
     expect(badge.classList.contains("animate-in")).toBe(false);
   });
 
-  it("box_shows_while_selecting", async () => {
-    const { rerender } = renderList();
-    expect(rows().filter((r) => r.hasAttribute("data-selecting"))).toHaveLength(0);
+  it("box_is_visible_at_rest_in_every_row_and_clicking_it_selects", async () => {
+    const user = userEvent.setup();
+    const { onOpen, onSelectionChange } = renderList();
+    expect(rows().map((_, i) => box(i))).toHaveLength(BOOKS.length);
+    for (let i = 0; i < BOOKS.length; i++) {
+      expect(box(i).classList).not.toContain("opacity-0");
+      expect(box(i).classList).not.toContain("pointer-events-none");
+    }
+    await user.click(box(3));
+    expect(onSelectionChange).toHaveBeenCalledWith([4]);
+    expect(onOpen).not.toHaveBeenCalled();
+    await user.click(rows()[3]);
+    expect(onOpen).toHaveBeenCalledWith(BOOKS[3]);
+  });
 
-    await rerender({ selectedBookIds: [3] });
-    expect(rows().filter((r) => r.hasAttribute("data-selecting"))).toHaveLength(BOOKS.length);
+  it("title_header_aligns_with_the_title_text", () => {
+    renderList();
+    // Box strip 36 + 4 + cover 32 + 16 = 88 from the row's start.
+    expect(screen.getByRole("columnheader", { name: "Title" }).classList).toContain("pl-22");
+  });
 
-    // A stale id does not count
-    await rerender({ selectedBookIds: [999] });
-    expect(rows().filter((r) => r.hasAttribute("data-selecting"))).toHaveLength(0);
+  describe("narrow window", () => {
+    const original = window.innerWidth;
+    const resizeTo = async (width: number) => {
+      Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
+      window.dispatchEvent(new Event("resize"));
+      await tick();
+    };
+    afterEach(() => resizeTo(original));
+
+    it("below_900_there_is_no_last_read_header_or_cell", async () => {
+      await resizeTo(899);
+      renderList();
+      expect(screen.queryByRole("columnheader", { name: "Last read" })).toBeNull();
+      expect(screen.getAllByRole("columnheader")).toHaveLength(3);
+      expect(document.querySelectorAll('[data-slot="book-row-last-read"]')).toHaveLength(0);
+      expect(document.querySelector('[data-slot="book-row-author"]')!.classList).toContain("w-40");
+    });
+
+    it("at_900_the_column_is_there", async () => {
+      await resizeTo(900);
+      renderList();
+      expect(screen.getByRole("columnheader", { name: "Last read" })).toBeTruthy();
+      expect(document.querySelectorAll('[data-slot="book-row-last-read"]')).toHaveLength(BOOKS.length);
+      expect(document.querySelector('[data-slot="book-row-author"]')!.classList).toContain("w-50");
+    });
+
+    it("resizing_across_900_adds_and_removes_the_column", async () => {
+      await resizeTo(1000);
+      renderList();
+      expect(screen.getByRole("columnheader", { name: "Last read" })).toBeTruthy();
+      await resizeTo(800);
+      expect(screen.queryByRole("columnheader", { name: "Last read" })).toBeNull();
+      await resizeTo(1000);
+      expect(screen.getByRole("columnheader", { name: "Last read" })).toBeTruthy();
+    });
+
+    it("sorted_by_date_there_is_no_arrow_and_no_orphan_aria_sort", async () => {
+      await resizeTo(800);
+      renderList({ sort: "date_last_read", reversed: false });
+      expect(document.querySelectorAll('[aria-sort="ascending"], [aria-sort="descending"]')).toHaveLength(0);
+      expect(document.querySelectorAll('[data-slot="column-header"] svg')).toHaveLength(0);
+    });
   });
 
   it("last_read_is_relative_and_a_dash_without_date", () => {

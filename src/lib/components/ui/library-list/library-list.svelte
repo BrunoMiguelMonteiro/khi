@@ -19,6 +19,9 @@
 		class?: string;
 	};
 
+	/** The window width, in px, under which the list is narrow (Task 41). */
+	const NARROW_BELOW = 900;
+
 	/** Whether each criterion's natural direction is ascending: names A to Z, dates and counts the largest first. */
 	const NATURAL_ASC: Record<SortPreference, boolean> = {
 		title: true,
@@ -31,6 +34,7 @@
 <script lang="ts">
 	import { convertFileSrc } from '@tauri-apps/api/core';
 	import { onDestroy, onMount, untrack } from 'svelte';
+	import { innerWidth } from 'svelte/reactivity/window';
 	import { _, locale } from '$lib/i18n';
 	import { newHighlightCount } from '$lib/stores/library.svelte';
 	import { cn } from '$lib/utils';
@@ -94,9 +98,11 @@
 		if (index !== -1) rows()[index]?.focus();
 	});
 
+	// Below 900 px of window width the «Última leitura» column goes (header and cells) and Autor shrinks to 160.
+	// The window width, not the list's: the Library's own margins are fixed, so the two move together, and the rule stays testable.
+	const narrow = $derived((innerWidth.current ?? Infinity) < NARROW_BELOW);
+
 	const isSelected = (bookId: number) => selectedBookIds.includes(bookId);
-	/** Some book of this list is selected (a stale id does not count): every row then shows its selection box. */
-	const selecting = $derived(books.some((book) => selectedBookIds.includes(book.id)));
 
 	function toggle(book: Book) {
 		onSelectionChange(
@@ -219,17 +225,17 @@
 	onfocusin={handleFocusin}
 >
 	<Header role="rowgroup" class="sticky top-0 z-10 block bg-background">
-		<HeaderRow role="row" class="flex h-7 items-center gap-4 border-b-0 px-2">
+		<HeaderRow role="row" class="flex h-7 items-center gap-4 border-b-0 pr-2">
 			<ColumnHeader
 				flush
-				class={cn(BOOK_ROW_COLUMNS.title, 'pl-8')}
+				class={cn(BOOK_ROW_COLUMNS.title, 'pl-22')}
 				label={$_('screens.library.columns.title')}
 				sort={direction('title')}
 				onclick={() => onSortChange('title')}
 			/>
 			<ColumnHeader
 				flush
-				class={BOOK_ROW_COLUMNS.author}
+				class={narrow ? BOOK_ROW_COLUMNS.authorNarrow : BOOK_ROW_COLUMNS.author}
 				label={$_('screens.library.columns.author')}
 				sort={direction('author')}
 				onclick={() => onSortChange('author')}
@@ -242,13 +248,15 @@
 				sort={direction('highlight_count')}
 				onclick={() => onSortChange('highlight_count')}
 			/>
-			<ColumnHeader
-				flush
-				class={BOOK_ROW_COLUMNS.lastRead}
-				label={$_('screens.library.columns.lastRead')}
-				sort={direction('date_last_read')}
-				onclick={() => onSortChange('date_last_read')}
-			/>
+			{#if !narrow}
+				<ColumnHeader
+					flush
+					class={BOOK_ROW_COLUMNS.lastRead}
+					label={$_('screens.library.columns.lastRead')}
+					sort={direction('date_last_read')}
+					onclick={() => onSortChange('date_last_read')}
+				/>
+			{/if}
 		</HeaderRow>
 	</Header>
 	<Body role="rowgroup" class="block">
@@ -259,7 +267,7 @@
 				aria-label={labelOf(book, newCount)}
 				tabindex={index === activeIndex ? 0 : -1}
 				selected={isSelected(book.id)}
-				{selecting}
+				{narrow}
 				badgeEnter={badgeEnter && enterIds.has(book.id)}
 				book={{
 					id: book.id,

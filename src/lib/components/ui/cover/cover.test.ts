@@ -446,25 +446,25 @@ describe("Cover badge exit", () => {
 });
 
 describe("Thumbnail", () => {
-  it("thumbnail_is_24_by_36_and_decorative", async () => {
+  it("thumbnail_is_32_by_48_and_decorative", async () => {
     const { container } = render(Thumbnail, { props: { bookId: BOOK.bookId } });
     const thumb = must(slot(container, "thumbnail"), "thumbnail");
     // Componentes (D7) · 17 · Miniatura (63:3295).
     await expectBindings(thumb, [
       {
-        binding: "24 wide",
-        utility: "w-6",
-        css: "width: calc(var(--spacing) * 6);",
+        binding: "32 wide",
+        utility: "w-8",
+        css: "width: calc(var(--spacing) * 8);",
       },
       {
-        binding: "36 tall",
-        utility: "h-9",
-        css: "height: calc(var(--spacing) * 9);",
+        binding: "48 tall",
+        utility: "h-12",
+        css: "height: calc(var(--spacing) * 12);",
       },
       {
-        binding: "radius/thumb",
-        utility: "rounded-thumb",
-        css: "border-radius: var(--radius-thumb);",
+        binding: "radius 3 (M2)",
+        utility: "rounded-[3px]",
+        css: "border-radius: 3px;",
       },
     ]);
     // The same tone as the book's cover.
@@ -473,9 +473,9 @@ describe("Thumbnail", () => {
     await expectBindings(border, [
       ...BORDER_BINDINGS,
       {
-        binding: "radius/thumb",
-        utility: "rounded-thumb",
-        css: "border-radius: var(--radius-thumb);",
+        binding: "radius 3 (M2)",
+        utility: "rounded-[3px]",
+        css: "border-radius: 3px;",
       },
     ]);
     expect(thumb.getAttribute("aria-hidden")).toBe("true");

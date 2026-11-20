@@ -33,4 +33,38 @@ describe('app.css (Tailwind v4)', () => {
 	it('macos_minimum_is_13_3', () => {
 		expect(tauriConf.bundle.macOS.minimumSystemVersion).toBe('13.3');
 	});
+
+	describe('selection-outline contrast (Task 41)', () => {
+		const tokens = readFileSync(resolve(root, 'src/lib/styles/tokens.css'), 'utf8');
+
+		// The first block with this selector that declares the variable (tokens.css has other :root blocks, e.g. media queries).
+		function value(css: string, selector: ':root' | '.dark', name: string): string {
+			for (const m of css.matchAll(new RegExp(`(^|\\n)${selector.replace('.', '\\.')}\\s*\\{([^}]*)\\}`, 'g'))) {
+				const hit = m[2].match(new RegExp(`${name}:\\s*(#[0-9a-fA-F]{6})\\s*;`));
+				if (hit) return hit[1];
+			}
+			throw new Error(`${name} not declared in ${selector}`);
+		}
+		const channel = (c: number) => {
+			const s = c / 255;
+			return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+		};
+		const luminance = (hex: string) => {
+			const [r, g, b] = [1, 3, 5].map((i) => channel(parseInt(hex.slice(i, i + 2), 16)));
+			return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+		};
+		const ratio = (a: string, b: string) => {
+			const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+			return (hi + 0.05) / (lo + 0.05);
+		};
+
+		for (const [mode, selector] of [['light', ':root'], ['dark', '.dark']] as const) {
+			it(`${mode}: rest on background and hover on accent are at least 3:1`, () => {
+				const rest = value(appCss, selector, '--selection-outline');
+				const hover = value(appCss, selector, '--selection-outline-hover');
+				expect(ratio(rest, value(tokens, selector, '--background'))).toBeGreaterThanOrEqual(3);
+				expect(ratio(hover, value(tokens, selector, '--accent'))).toBeGreaterThanOrEqual(3);
+			});
+		}
+	});
 });

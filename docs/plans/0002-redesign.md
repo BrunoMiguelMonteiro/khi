@@ -2001,6 +2001,40 @@ Fontes: [Apple HIG, Progress indicators](https://developer.apple.com/design/huma
 - voltar do Detalhe devolve o foco à linha;
 - em Claro e Escuro.
 
+### Task 41: Lista · densidade M2 e caixa sempre visível
+**Task aprovada pelo Bruno a 2026-11-20** («Aprovo a Task 41»).
+
+**Decisões do Bruno a 2026-11-20** (DECISIONS, «Componentes · 10 · Densidade da lista: M2 escolhida»): a M2 · Confortável da ronda Q-M. Figma `127:32392`, M2 `127:32889`, nota `128:33401`. As medidas exatas lêem-se da M2; os números abaixo são os da ronda.
+
+**Já existe:** a lista da Task 40 (`LibraryList`, `BookRow`, `ColumnHeader`, `Thumbnail`) e o ⇧ com as setas (`a93f533`).
+
+**Implementador:** um Sonnet. Review adversarial (Opus) no fim, centrada no contraste dos tokens, no foco da linha selecionada e no corte da coluna abaixo de 900 px.
+
+**Ficheiros:** `src/app.css` (token novo), `src/lib/components/ui/cover/thumbnail.svelte`, `src/lib/components/ui/table/{book-row,column-header}.svelte` e `table.test.ts`, `src/lib/components/ui/library-list/library-list.svelte` e o seu teste, `tests/visual/scenarios.ts` e as baselines da lista.
+
+**Comportamento:**
+1. **Token `selection-outline`** (nota `128:33401`, proposta `129:33536`/`129:33537`):
+   - Claro: repouso = Figma `neutral/300` (3,26:1 sobre `background`); com o ponteiro = Figma `neutral/400` (5,37:1 sobre `accent`).
+   - Escuro: `neutral/300` nos dois estados (5,11:1 e 4,27:1).
+   - **Atenção:** os primitivos `--color-neutral-300/400` do `app.css` (#D1D5DB, #9CA3AF) **não** são os do Figma. Ler o hex das variáveis do Figma (ficheiro KHI `nU5CnQTJobxVE8mHMr7iZL`, nunca o `123ROaxISSoGiEDMT8AswI`) e escrevê-lo no token semântico; não mexer nos primitivos existentes. Um teste mede ≥ 3:1 nos quatro pares.
+2. **Miniatura** 32 × 48, raio 3, contorno interior de 1 px a 20 % como hoje. Só a lista a usa.
+3. **Linha** de 56 px; capa → título 16 px; o texto do título começa onde a M2 o põe (≈ 88 px do início da linha).
+4. **Caixa sempre visível** em todas as linhas, sem regra B na lista: disco de 20 px; vazio com contorno de 1,5 px em `selection-outline` (com o ponteiro na linha, o valor de hover); selecionado como hoje. Área de clique 36 × 56. Clicar na caixa seleciona, no resto da linha abre; ⌘ e ⇧ como hoje. A grelha não muda.
+5. **Cabeçalho:** «Título» alinhado com o texto do título.
+6. **Foco na linha selecionada:** anel interior de 2 px em `primary-foreground`, recuado 2 px. A linha não selecionada mantém o `focus-ring` de hoje.
+7. **Janela estreita:** abaixo de 900 px de largura da janela, a coluna «Última leitura» (cabeçalho e células) desaparece e o Autor passa de 200 a 160. Ordenar por data continua no menu Ordenar; se essa for a ordem ativa, não há seta visível e o `aria-sort` não fica órfão.
+
+**Passos:**
+- [x] **Passo 1:** testes que falham: a caixa existe e está visível em repouso em todas as linhas; clicar nela seleciona e no resto abre; abaixo de 900 px não há `columnheader` «Última leitura» nem células; a linha selecionada e focada tem o indicador.
+- [x] **Passo 2:** token, miniatura, linha, caixa, cabeçalho, foco e coluna estreita.
+- [x] **Passo 3:** cenários visuais: atualizar `list`, `list-selected`, `list-selecting`, `list-reversed`; o `--min` (800) mostra a coluna a sair; acrescentar o foco numa linha selecionada.
+- [x] **Passo 4:** gate completo (Vitest, check, build, `test:visual`).
+- [x] **Passo 5:** review adversarial (Opus) e mutações minhas; commit `feat(library): comfortable list density with always-visible selection box`. Feito: a review encontrou 0 blockers e 0 majors, e 2 minors que foram corrigidos (`scroll-pt-7` sob o header sticky; asserções de visibilidade da caixa reforçadas). Mutações: 9/9 mortas (token Light rest e hover, limiar 900, coluna de data no header e nas células, Autor estreito, anel na linha selecionada, alinhamento do header, caixa escondida em repouso).
+
+**Feito (2026-11-20).** Passo 1: 12 testes falharam primeiro (2 de contraste, 1 miniatura, 4 linha, 5 lista). Implementado com as métricas do Figma M2 (linha h-14, caixa 20 px a 8 px, capa 32×48 r3, «Título» a 88 px, anel de foco 2 px inset 2 px em `primary-foreground`). Token `selection-outline` com os hex do Figma `neutral/300` e `neutral/400` (os primitivos de `app.css` ficam intactos): Claro #8E8E92 / hover #636366; Escuro #8E8E92 / #8E8E92. Rácios medidos: Claro 3,26:1 sobre `background` e 5,37:1 (hover) sobre `accent`; Escuro 5,11:1 e 4,27:1. Coluna estreita: largura da janela (`innerWidth`, < 900 px) remove cabeçalho e células de «Última leitura» do DOM; com ordenação por data não resta seta nem `aria-sort`. Desvios: removidos `selecting`/`data-selecting` da lista (a caixa é sempre visível; a grelha não mudou); miniatura com `rounded-[3px]` porque `--radius-thumb` é 2 px; os testes de contraste leem `background`/`accent` de `tokens.css`, importado por `app.css`. Novo estado visual `focus-selected-row`. Review: (1) `scroll-pt-7` no contentor de scroll de `LibraryView`, para o cabeçalho fixo de 28 px não tapar a linha focada com ↑ (sem teste: o jsdom do Vitest não faz scroll nem layout); (2) o cenário `list-selecting` passou a verificar `toBeVisible()` e `border-top-color` `rgb(142, 142, 146)` no disco vazio, e `selection_box_is_visible_at_rest_in_every_row` passou a exigir `border-[1.5px]` e `border-selection-outline`. Gate (antes e depois do review): Vitest 788 passed / 1 skipped, check 0/0, build ok, test:visual 109 passed.
+
+**Verificar no ecrã (Bruno):** as capas reais reconhecem-se; as caixas vêem-se em repouso no Claro; com a janela estreita, «Última leitura» sai sem saltos; navegar com as setas sobre linhas selecionadas mostra sempre onde está o foco.
+
 ## Fase 6 · Fecho da v2 (tasks a escrever)
 - **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.
   
