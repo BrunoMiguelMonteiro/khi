@@ -71,6 +71,7 @@
       "koboDisconnected": "Kobo disconnected",
       "sync": "Sync",
       "syncDisabledReason": "Connect your Kobo to sync",
+      "syncOtherReaderReason": "The connected Kobo belongs to {reader}",
       "exportDisabledReason": "Wait for the sync to finish",
       "viewMode": "View mode",
       "gridViewLabel": "Grid view",

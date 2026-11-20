@@ -1802,6 +1802,67 @@ Fontes: [Apple HIG, Progress indicators](https://developer.apple.com/design/huma
 
 **Ecrã 2 aprovado a 2026-11-20** (Bruno: «Aprovo o ecrã 2»), depois de o verificar no ecrã com a sua Biblioteca. A W2 (Biblioteca vazia na primeira sincronização) não se vê com uma Biblioteca já feita; foi aprovada pelas capturas do harness (`library-empty-syncing`, Claro e Escuro).
 
+### Task 39: Ecrã 3 · Kobo desligado, sem novidades
+**Task aprovada pelo Bruno a 2026-11-20** («Aprovo a Task 39»).
+**Decisão do Bruno a 2026-11-20** (AskUserQuestion, a recomendada): com o Kobo de **outro** leitor ligado e a sincronização ao ligar desligada, o Sincronizar fica desativado com o tooltip «O Kobo ligado é de {leitor}» (en: «The connected Kobo belongs to {reader}»). Não há efeitos escondidos: troca-se de leitor pelo Título-menu. Rejeitadas: o clique trocar de leitor e sincronizar; ficar «Liga o Kobo para sincronizar», que é falso com o Kobo ligado. Fecha o ponto aceite na review da Task 36 («afina-se no ecrã 3»).
+
+**Figma:** secção `71:9158`: janela Claro `71:9162`, Escuro `71:9177` (DECISIONS, «Ecrãs · 5», aprovado a 2026-11-18). A moldura ainda mostra o Cabeçalho «Sem destaques novos · sincronizado às 10:42». Prevalece a decisão posterior «Sem novidades, sem cabeçalho» (2026-11-19): sem cabeçalho, a grelha começa a 24 da Barra, como no `grid-no-news`. A moldura não se mexe nesta task (Figma só em leitura). O resto é a moldura do ecrã 1:
+- nenhuma capa tem etiqueta;
+- Sincronizar desativado, com o tooltip «Liga o Kobo para sincronizar», na posição do tooltip do ecrã 2 (4 abaixo do botão, preso a 8 da margem direita);
+- Exportar, Grelha, Lista e Ordenar ativos, porque os destaques ficam guardados.
+
+**Já feito (ecrã 1, Task 36):** o `canSync`, a prop `syncDisabledReason` da `WindowBar` com o texto `screens.library.syncDisabledReason`, a Biblioteca à vista sem o Kobo (R17), a hora e o erro limpos ao desligar, e o cabeçalho só com novos. Esta task não os refaz; acrescenta o que falta e as provas.
+
+**Implementador:** Sonnet (é ligação de props, i18n, testes e harness; não há lógica de estado delicada).
+
+**Ficheiros:**
+- `src/routes/+page.svelte` e `src/routes/page.svelte.test.ts`;
+- `src/lib/i18n/locales/{pt,en}.json`;
+- `tests/visual/{scenarios,mock-ipc}.ts` e as baselines novas.
+
+**Comportamento:**
+1. **Motivo do Sincronizar** (por esta ordem; a sincronização em curso continua sem motivo, Task 38):
+   - sem Kobo ligado: «Liga o Kobo para sincronizar» (como hoje);
+   - com o Kobo de outro leitor (`connectedDevice` presente, `connectedReaderId` não nulo e diferente do `activeReaderId`): «O Kobo ligado é de {leitor}», com o nome de `library.readers`. Chave nova `screens.library.syncOtherReaderReason`, pt e en no mesmo commit. Se o nome não estiver em `readers`, cai no texto de cima;
+   - um Kobo ligado sem leitor (`connectedReaderId` nulo) é o ecrã 6 (Kobo novo); aqui fica o texto de cima.
+   O motivo passa para um `$derived` na página (`syncDisabledReason`), em vez da expressão no atributo.
+2. **⌘R** sem `canSync` não faz nada (não chama o `syncKobo`, não mexe no `exported` nem no erro).
+3. **Exportar** fica ativo sem Kobo: a Barra e o ⌘E exportam da Biblioteca guardada.
+4. **Desligar e voltar a ligar** o mesmo Kobo: o Sincronizar passa a ativo sem recarregar a página.
+
+- [x] **Passo 1: testes que falham** (`page.svelte.test.ts`):
+  - `sync_disabled_without_kobo`: sem Kobo, o Sincronizar tem `aria-disabled` e o tooltip «Liga o Kobo para sincronizar»; não há cabeçalho sem novos;
+  - `sync_disabled_with_other_readers_kobo`: com dois leitores, o A aberto e o Kobo do B ligado (sincronização ao ligar desligada), o tooltip é «O Kobo ligado é de B»;
+  - `sync_reason_falls_back_without_reader_name`;
+  - `sync_shortcut_does_nothing_without_kobo`;
+  - `export_works_without_kobo`: a Barra e o ⌘E chamam o export;
+  - `sync_enables_on_reconnect`: desligar e voltar a ligar o mesmo Kobo reativa o botão.
+  Os testes que já passam por causa da Task 36 ficam como regressão; o `sync_disabled_with_other_readers_kobo` tem de falhar antes.
+- [x] **Passo 2:** os testes novos falham pela razão certa (só o do outro leitor, e o do nome em falta, por desenho).
+- [x] **Passo 3 (Sonnet):** Comportamento 1 a 4.
+- [x] **Passo 4: o harness visual**, em Claro e Escuro:
+  - `mock-ipc.ts`: um modo sem Kobo ligado (sem `device-detected`) e um modo com o Kobo de outro leitor;
+  - `library-disconnected`: a grelha sem novos e sem cabeçalho, Sincronizar desativado, Exportar ativo (comparado com o `71:9162` menos o cabeçalho);
+  - `library-disconnected-tooltip`: hover no Sincronizar, tooltip «Liga o Kobo para sincronizar» aberto;
+  - `library-other-reader-tooltip`: o tooltip «O Kobo ligado é de …»;
+  - as baselines que mudam revistas uma a uma (não deve mudar nenhuma das que existem).
+- [x] **Passo 5:** o gate completo (`cargo test`; clippy com os mesmos 7 avisos; Vitest duas vezes e com `--sequence.shuffle`, ignorando as falhas antigas conhecidas; `npm run check` 0/0; `npm run build`; `npm run test:visual`, a contar a linha «N failed»).
+- [x] **Passo 6:** review adversarial (Opus), com o foco no motivo do Sincronizar e nas transições ligar/desligar/trocar de leitor. Depois, o commit `feat(library): explain why Sync is disabled`.
+
+**Feito (2026-11-20).** Implementado pelo Sonnet. Antes do código, só falhou o `sync_disabled_with_other_readers_kobo` («Connect your Kobo to sync» em vez de «… belongs to Ana»); os outros cinco já passavam pelo trabalho da Task 36 e ficam como regressão. Os Comportamentos 2 a 4 já funcionavam, por isso não mudou código para eles. O `mock-ipc.ts` não precisou de mudar: o `MockConfig` já tinha os leitores e os donos dos Kobos. Review adversarial (Opus): «aprovar», sem bloqueadores nem majors. Confirmou no caminho real que o `deviceConnected` grava o `connectedReaderId` do dono antes de olhar para a sincronização ao ligar, e que a troca pelo Título-menu, desligar, voltar a ligar e o `readers-changed` dão o motivo certo. Um minor corrigido: uma espera repetida no cenário `library-other-reader-tooltip`. Gate: Vitest 749 passam e 1 ignorado (duas corridas e shuffle), `npm run check` 0/0, build OK, `cargo test` verde, clippy com os mesmos 7 avisos, `test:visual` 103/103 (9 baselines novas, nenhuma das antigas mudou). As quatro mutações do coordenador foram apanhadas.
+
+**Mutações do coordenador:**
+- comparar o `connectedReaderId` com o `activeReaderId` ao contrário (`===`): o motivo do outro leitor aparece com o próprio Kobo;
+- tirar a guarda do `canSync` no ⌘R;
+- desativar o Exportar sem Kobo;
+- usar o `activeReaderId` para o nome (mostra o leitor aberto em vez do dono do Kobo).
+
+**Verificar no ecrã (Bruno, com `npm run dev:app`):**
+- sem o Kobo: Sincronizar desativado com o tooltip, Exportar funciona, sem cabeçalho;
+- ligar o Kobo: o Sincronizar fica ativo;
+- se tiveres dois leitores: com o outro aberto e a sincronização ao ligar desligada, o tooltip diz de quem é o Kobo;
+- em Claro e Escuro.
+
 ## Fase 6 · Fecho da v2 (tasks a escrever)
 - **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.
   

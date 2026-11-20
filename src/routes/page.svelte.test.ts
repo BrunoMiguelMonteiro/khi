@@ -1867,6 +1867,107 @@ describe('+page · shortcuts', () => {
 	});
 });
 
+describe('+page · screen 3 · no Kobo', () => {
+	beforeEach(() => {
+		vi.mocked(invoke).mockReset();
+		handlers.clear();
+		resetLibrary();
+	});
+
+	const settle = async () => {
+		for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+		await tick();
+	};
+	const syncButton = () => within(bar()!).getByRole('button', { name: 'Sync with the Kobo' });
+	const exportButton = () => within(bar()!).getByRole('button', { name: /^Export \d+ books?$/ });
+	const press = (key: string) => fireEvent.keyDown(window, { key, code: `Key${key.toUpperCase()}`, metaKey: true });
+	/** The reason a disabled Sync gives: it is in aria-describedby once the button has focus. */
+	const syncReason = async () => {
+		syncButton().focus();
+		await waitFor(() => expect(syncButton().getAttribute('aria-describedby')).toBeTruthy());
+		return (syncButton().getAttribute('aria-describedby') ?? '')
+			.split(/\s+/)
+			.map((id) => document.getElementById(id)?.textContent ?? '')
+			.join(' ')
+			.trim();
+	};
+	const otherReadersKobo = async (list = readers) => {
+		await mockLibrary({ list, books: newBooks(), overrides: { reader_for_kobo: () => 2 } });
+		render(Page);
+		await waitFor(() => expect(options()).toHaveLength(3));
+		await waitFor(() => expect(handlers.has('device-detected')).toBe(true));
+		handlers.get('device-detected')!({ payload: { device: kobo } });
+		await waitFor(() => expect(library.connectedReaderId).toBe(2));
+	};
+
+	it('sync_disabled_without_kobo', async () => {
+		await mockLibrary({ books: [makeBook({ id: 2, title: 'Beta', author: 'B', highlights: [hl('b1')] })] });
+		render(Page);
+		await waitFor(() => expect(options()).toHaveLength(1));
+
+		expect(syncButton()).toHaveAttribute('aria-disabled', 'true');
+		expect(await syncReason()).toBe('Connect your Kobo to sync');
+		expect(header()).toBeNull();
+	});
+
+	it('sync_disabled_with_other_readers_kobo', async () => {
+		await otherReadersKobo();
+
+		expect(library.activeReaderId).toBe(1);
+		expect(syncButton()).toHaveAttribute('aria-disabled', 'true');
+		expect(await syncReason()).toBe('The connected Kobo belongs to Ana');
+	});
+
+	it('sync_reason_falls_back_without_reader_name', async () => {
+		await otherReadersKobo([readers[0]]);
+
+		expect(syncButton()).toHaveAttribute('aria-disabled', 'true');
+		expect(await syncReason()).toBe('Connect your Kobo to sync');
+	});
+
+	it('sync_shortcut_does_nothing_without_kobo', async () => {
+		await mockLibrary({ books: newBooks() });
+		render(Page);
+		await waitFor(() => expect(options()).toHaveLength(3));
+
+		await press('r');
+		await settle();
+
+		expect(calls('sync_kobo')).toHaveLength(0);
+		expect(library.lastSyncFailed).toBe(false);
+		expect(library.isImporting).toBe(false);
+	});
+
+	it('export_works_without_kobo', async () => {
+		const user = userEvent.setup();
+		await mockLibrary({ books: newBooks() });
+		render(Page);
+		await waitFor(() => expect(options()).toHaveLength(3));
+		expect(exportButton()).not.toHaveAttribute('aria-disabled', 'true');
+
+		await user.click(exportButton());
+		await waitFor(() => expect(calls('export_library_books')).toHaveLength(1));
+		expect(invoke).toHaveBeenCalledWith('export_library_books', { readerId: 1, bookIds: [1, 2, 3] });
+
+		vi.mocked(invoke).mockClear();
+		await press('e');
+		await waitFor(() => expect(calls('export_library_books')).toHaveLength(1));
+	});
+
+	it('sync_enables_on_reconnect', async () => {
+		await mockLibrary({ books: newBooks(), device: kobo });
+		render(Page);
+		await syncReady();
+
+		handlers.get('device-disconnected')!({ payload: null });
+		await waitFor(() => expect(syncButton()).toHaveAttribute('aria-disabled', 'true'));
+
+		handlers.get('device-detected')!({ payload: { device: kobo } });
+		await syncReady();
+		expect(calls('sync_kobo')).toHaveLength(0);
+	});
+});
+
 describe('+page · traffic lights', () => {
 	const block = () => bar()?.querySelector<HTMLElement>('[data-traffic-lights]') ?? null;
 	/** Lets the rejected or answered measurement reach the bar. */

@@ -82,6 +82,16 @@
 
 	/** Export waits for the end of a Sync, in the Library and in a book. */
 	const exportDisabledReason = $derived(library.isImporting ? $_('screens.library.exportDisabledReason') : undefined);
+	/** Why Sync is off: the connected Kobo is another Reader's (named by its owner, not the open Reader), else no Kobo. */
+	const syncDisabledReason = $derived.by(() => {
+		if (library.canSync || library.isImporting) return undefined;
+		const ownerId = library.connectedReaderId;
+		if (library.connectedDevice && ownerId !== null && ownerId !== library.activeReaderId) {
+			const owner = library.readers.find((reader) => reader.id === ownerId);
+			if (owner) return $_('screens.library.syncOtherReaderReason', { reader: owner.name });
+		}
+		return $_('screens.library.syncDisabledReason');
+	});
 	/** The book on screen in the detail; it stays open while a Sync runs (Task 38). */
 	const detailBook = $derived(library.uiState === 'book-details' ? library.viewingBook : undefined);
 
@@ -486,7 +496,7 @@
 				onsort={handleSortChange}
 				syncing={library.isImporting}
 				syncProgress={library.syncProgress}
-				syncDisabledReason={library.canSync || library.isImporting ? undefined : $_('screens.library.syncDisabledReason')}
+				{syncDisabledReason}
 				onsync={handleSync}
 				exportCount={library.selectedBookIds.length || library.books.length}
 				{exportDisabledReason}

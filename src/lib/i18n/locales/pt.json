@@ -71,6 +71,7 @@
       "selectAllTitle": "Selecionar todos (Ctrl+A)",
       "sync": "Sincronizar",
       "syncDisabledReason": "Liga o Kobo para sincronizar",
+      "syncOtherReaderReason": "O Kobo ligado é de {reader}",
       "exportDisabledReason": "Espera pelo fim da sincronização",
       "viewMode": "Modo de vista",
       "gridViewLabel": "Vista em grelha",

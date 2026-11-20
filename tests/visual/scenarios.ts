@@ -39,6 +39,9 @@ export interface StateProbe {
 	root?: string;
 }
 
+/** The second Reader of `otherReaderKobo`: the name the tooltip gives. */
+const otherReader = { id: 2, name: 'Ana', exportPath: null };
+
 export interface Scenario {
 	name: string;
 	description: string;
@@ -47,6 +50,8 @@ export interface Scenario {
 	withoutNews?: boolean;
 	/** The Kobo's Reader and its Library exist (all but `empty`). */
 	withLibrary: boolean;
+	/** The Kobo that connects belongs to a second Reader, Ana, while Bruno's Library is open (Sync on connect off). */
+	otherReaderKobo?: boolean;
 	/** The Reader exists with no books yet: the first Sync. */
 	emptyLibrary?: boolean;
 	/** `settings`: the Settings window, its own route (`/definicoes`) and size. Default: the main window. */
@@ -78,6 +83,8 @@ export interface Strings {
 	syncTooltip: string;
 	/** Why the Export waits. */
 	exportDisabledReason: string;
+	syncDisabledReason: string;
+	syncOtherReaderReason: string;
 	/** The title of the first Sync's centred state, and its text at 12 of 42 books. */
 	syncingTitle: string;
 	syncingText: string;
@@ -101,6 +108,8 @@ const STRINGS: Record<Language, Strings> = {
 		exportAll: 'Exportar 5 livros',
 		syncTooltip: 'A sincronizar · 12 de 42 livros',
 		exportDisabledReason: 'Espera pelo fim da sincronização',
+		syncDisabledReason: 'Liga o Kobo para sincronizar',
+		syncOtherReaderReason: 'O Kobo ligado é de Ana',
 		syncingTitle: 'A sincronizar com o Kobo',
 		syncingText: '12 de 42 livros',
 		closeSettings: 'Fechar definições',
@@ -121,6 +130,8 @@ const STRINGS: Record<Language, Strings> = {
 		exportAll: 'Export 5 books',
 		syncTooltip: 'Syncing · 12 of 42 books',
 		exportDisabledReason: 'Wait for the sync to finish',
+		syncDisabledReason: 'Connect your Kobo to sync',
+		syncOtherReaderReason: 'The connected Kobo belongs to Ana',
 		syncingTitle: 'Syncing with the Kobo',
 		syncingText: '12 of 42 books',
 		closeSettings: 'Close settings',
@@ -162,6 +173,14 @@ async function library(page: Page, text: Strings) {
 	await expect(page.getByTestId('books-grid')).toBeVisible();
 	await expect(page.getByTestId('book-card')).toHaveCount(books.length);
 	await expect(page.getByRole('option', { name: books[0].title })).toBeVisible();
+}
+
+/** The Library of the last Reader with no Kobo connected: nothing emits `device-detected`. */
+async function libraryWithoutKobo(page: Page, text: Strings) {
+	await expect(page.getByTestId('books-grid')).toBeVisible();
+	await expect(page.getByTestId('book-card')).toHaveCount(booksWithoutNews.length);
+	await page.waitForFunction(() => (window.__KHI_MOCK__.listeners['device-disconnected'] ?? []).length > 0);
+	await expect(page.getByRole('button', { name: text.sync, exact: true })).toBeVisible();
 }
 
 /** The Settings window, as Rust opens it: its route, with the Reader the main window has open. */
@@ -279,6 +298,48 @@ export const SCENARIOS: Record<string, Scenario> = {
 		withLibrary: true,
 		withoutNews: true,
 		reach: library
+	},
+	'library-disconnected': {
+		name: 'library-disconnected',
+		description: 'No Kobo, nothing new: no header, Sync disabled, Export enabled because the highlights are stored',
+		withLibrary: true,
+		withoutNews: true,
+		async reach(page, text) {
+			await libraryWithoutKobo(page, text);
+			await expect(page.locator('[data-slot="library-header"]')).toHaveCount(0);
+			await expect(bar(page).getByRole('button', { name: text.sync, exact: true })).toHaveAttribute('aria-disabled', 'true');
+			await expect(bar(page).getByRole('button', { name: text.exportAll, exact: true })).not.toHaveAttribute('aria-disabled', 'true');
+		}
+	},
+	'library-disconnected-tooltip': {
+		name: 'library-disconnected-tooltip',
+		description: 'Hover on the disabled Sync with no Kobo: the tooltip says «Liga o Kobo para sincronizar»',
+		withLibrary: true,
+		withoutNews: true,
+		async reach(page, text) {
+			await libraryWithoutKobo(page, text);
+			const sync = bar(page).getByRole('button', { name: text.sync, exact: true });
+			await expect(sync).toHaveAttribute('aria-disabled', 'true');
+			await sync.hover();
+			await tooltipOpen(page);
+			await expect(page.locator('[data-slot="tooltip-content"]:not([data-state="closed"])')).toHaveText(text.syncDisabledReason);
+		}
+	},
+	'library-other-reader-tooltip': {
+		name: 'library-other-reader-tooltip',
+		description: "Another Reader's Kobo is connected: Sync is disabled and the tooltip says whose Kobo it is",
+		withLibrary: true,
+		withoutNews: true,
+		otherReaderKobo: true,
+		async reach(page, text) {
+			await libraryWithoutKobo(page, text);
+			await emitWhenListening(page, 'device-detected', { device });
+			const sync = bar(page).getByRole('button', { name: text.sync, exact: true });
+			await sync.hover();
+			await tooltipOpen(page);
+			await expect(page.locator('[data-slot="tooltip-content"]:not([data-state="closed"])')).toHaveText(text.syncOtherReaderReason);
+			await expect(sync).toHaveAttribute('aria-disabled', 'true');
+		}
 	},
 	list: {
 		name: 'list',
@@ -642,11 +703,11 @@ export function mockConfigFor(scenario: Scenario, variant: Variant): MockConfig 
 		defaultSettings: defaultSettings(variant.language),
 		defaultExportPath: `${HOME}/Documents/Kobo Highlights`,
 		appVersion: APP_VERSION,
-		readers: scenario.withLibrary ? [reader] : [],
+		readers: scenario.withLibrary ? (scenario.otherReaderKobo ? [reader, otherReader] : [reader]) : [],
 		lastReader: scenario.withLibrary ? reader.id : null,
 		deviceAtStartup: null,
-		koboOwners: scenario.withLibrary ? { [device.serialNumber!]: reader.id } : {},
-		library: scenario.withLibrary ? { [reader.id]: library } : {},
+		koboOwners: scenario.withLibrary ? { [device.serialNumber!]: scenario.otherReaderKobo ? otherReader.id : reader.id } : {},
+		library: scenario.withLibrary ? { [reader.id]: library, ...(scenario.otherReaderKobo ? { [otherReader.id]: [] } : {}) } : {},
 		summary,
 		update: scenario.update ? availableUpdate : null,
 		windowLabel: scenario.window ?? 'main'
