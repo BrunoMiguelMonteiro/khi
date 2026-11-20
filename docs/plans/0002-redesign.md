@@ -1863,6 +1863,8 @@ Fontes: [Apple HIG, Progress indicators](https://developer.apple.com/design/huma
 - se tiveres dois leitores: com o outro aberto e a sincronização ao ligar desligada, o tooltip diz de quem é o Kobo;
 - em Claro e Escuro.
 
+**Ecrã 3 aprovado a 2026-11-20** (Bruno: «Avança», ao pedido de aprovação dos ecrãs 3 e 4).
+
 ### Task 40: Ecrã 4 · Biblioteca, lista
 **Task aprovada pelo Bruno a 2026-11-20** («Aprovo a Task 40»).
 
@@ -2001,6 +2003,8 @@ Fontes: [Apple HIG, Progress indicators](https://developer.apple.com/design/huma
 - voltar do Detalhe devolve o foco à linha;
 - em Claro e Escuro.
 
+**Ecrã 4 aprovado a 2026-11-20** (Bruno: «Avança», depois das Tasks 41 e 42 e do pedido de aprovação dos ecrãs 3 e 4).
+
 ### Task 41: Lista · densidade M2 e caixa sempre visível
 **Task aprovada pelo Bruno a 2026-11-20** («Aprovo a Task 41»).
 
@@ -2062,6 +2066,39 @@ Fontes: [Apple HIG, Progress indicators](https://developer.apple.com/design/huma
 **Feito (2026-11-20).** Passo 1: 10 testes falharam primeiro (7 do `relative-date`, por a função ainda se chamar `formatRelativeDate`; 2 da caixa em `table.test.ts`, disco 16 e visto 10; 1 do separador do cabeçalho). Implementado: `HeaderRow` perde o `border-b-0` e herda o `border-b border-border` do `table-row`, igual às linhas; disco `size-4` nos dois estados com o visto a `size-2.5` (10 px; o `Icon` não tem esse tamanho, passa-se a classe sem mexer nos tamanhos existentes) e `pl-2.5` na tira de 36 × 56, para o centro ficar nos 18 px de antes; a grelha não mudou (o teste dos 20 px do `book-card` continua verde). `formatRelativeDate` passou a `formatLastRead`: 0–6 dias relativo, 7–30 «Há N semanas», a partir de 31 dias data curta; o formatador do resumo foi extraído para `src/lib/utils/short-date.ts` (`formatShortDate`) e é partilhado com `library-header`. Desvios: em inglês o ano vem depois de um espaço («Nov 20 2026»), o mesmo esquema do resumo, sem vírgula; o `formatShortDate` usa o locale tal e qual (com `pt-PT` o WebKit dá «9 11»); o cenário visual `listView` ganhou asserções (linha do cabeçalho com 1 px, «2 out.» e «Há 5 dias», só quando a coluna existe), e as datas das fixtures não mudaram (2 out. = 44 dias, 15 ago., 1 jul. deixam de ser «Há N meses» e passam a data curta). Baselines: só as 14 da lista (`list`, `list-selected`, `list-selecting`, `list-reversed`, mais `list--min` em claro e escuro). Acrescento do Bruno (cabeçalho a 36 px): `h-7` passou a `h-9` na linha de cabeçalhos e no `ColumnHeader`, `scroll-pt-7` a `scroll-pt-9` na `LibraryView`, mantendo o separador de 1 px; testes da altura ajustados e baselines da lista atualizadas de novo. Correções da review: o `Icon` ganhou o tamanho `xs` (10 px, `size-2.5`) para o visto, porque com `size="sm"` o lucide recebia 12 e o traço, com `absoluteStrokeWidth`, saía a ≈1,11 px em vez de 1,333 (teste: `width="10"` no svg); o ano em `formatShortDate` passou a vir do Intl (`year: 'numeric'`, só o « de » português vira espaço): «9 nov. 2025» e «Nov 9, 2025» (o teste inglês ganhou a vírgula, e a nota anterior sobre «Nov 20 2026» fica sem efeito); o fuso dos testes visuais já estava fixo em `Europe/Lisbon` no `newContext` do harness (`harness.ts`), por isso a config do Playwright não mudou; a mutação `pl-2.5`→`pl-2` sobrevivia e agora o teste da caixa fixa o `pl-2.5` (centro do disco a 18 px). Baselines da lista atualizadas de novo. Gate final: Vitest 790 passam e 1 ignorado, `npm run check` 0/0, build OK, `test:visual` 109/109.
 
 **Verificar no ecrã (Bruno):** a linha por baixo do cabeçalho; a caixa proporcional à capa; livros lidos há mais de um mês mostram a data.
+
+### Task 43: Ecrã 5 · Detalhe do livro
+**Decisões do Bruno a 2026-11-20** (DECISIONS, «Ecrãs · 5 · Detalhe»): destaques que chegam com a sincronização entram logo, com o scroll compensado; ⌘1–⌘3 ficam para a Fase 6; um livro sem destaques não tem desenho (só uma guarda no código).
+
+**Figma:** `71:10560` (Claro) e `71:10965` (Escuro), secção `71:10556`, cartão `71:11054`. Medidas lidas no levantamento:
+- coluna de 560 centrada, a 32 do topo, `gap` 32 entre cabeçalho e Segmentado;
+- cabeçalho do livro: Capa 96 × 144, 24 até ao texto; Title 1 `foreground`, autor Body `muted-foreground`, contagens Callout `tertiary-foreground` («26 destaques · 5 novos · 1 removido do Kobo»; sem removidos, sem a última parte), 8 entre eles;
+- Segmentado «Todos · Novos · Com notas» com contagens (292 × 28, segmentos 96 × 24), 48 até ao primeiro destaque;
+- destaques a 48 uns dos outros: linha de metadados Callout («Capítulo 2 · 10 nov.») com a Etiqueta «Novo» ou o `unlink` «Removido do Kobo» na mesma linha; texto Literata 16/24; nota com ícone de 12; hover com o fundo `accent` a −16 de cada lado; botão Copiar de 24 centrado na linha de metadados;
+- Barra: Voltar e Exportar (o Apagar fica para o ecrã 9; `canDelete` continua falso).
+
+**Já existe:** `ui/highlight` (Task 27, por usar), `ui/segmented`, `ui/cover`, `ui/badge`, `WindowBar` no ramo Detalhe (Voltar com tooltip ⌘[, Exportar), `formatShortDate` (`src/lib/utils/short-date.ts`), `openBook`/`viewingNewIds`/`markBookOpened` no store, e a reposição do foco com `initialActiveId`.
+
+**Implementador:** um Sonnet, em duas passagens (A: componente; B: ecrã e comportamento). Review adversarial (Opus) no fim, centrada no `viewingNewIds` contra o `isNew`, na compensação do scroll, no Esc em conflito com menus, tooltips e janelas modais, e no título da janela ao voltar.
+
+**Ficheiros:** `src/lib/components/ui/highlight/*`, `src/lib/components/ui/segmented/segmented.svelte` (só se a guarda do `$effect.pre` o pedir), `src/lib/components/BookDetailsView.svelte` e o seu teste, `src/routes/+page.svelte`, `src/lib/stores/library.svelte.ts` (só leitura, salvo bug), `src-tauri/capabilities/` da janela principal, `pt.json` e `en.json`, `tests/visual/scenarios.ts` e as baselines do Detalhe.
+
+**Comportamento:**
+1. **Destaque (A):** a Etiqueta «Novo» e o «Removido do Kobo» com `unlink` passam para a linha de metadados; ícone da nota a 12 (`Icon` `sm`); data com `formatShortDate`; Copiar centrado na linha de metadados. A API passa a receber `isNew` como prop vinda de fora (o ecrã dá-lhe o `viewingNewIds`), nunca do `highlight.isNew`. Um destaque novo e removido mostra só o removido.
+2. **Ecrã (B):** `BookDetailsView` reescrito com as medidas acima, sem toolbar própria, sem a caixa «Mostrar removidos» (sai `showRemoved` e a chave `screens.bookDetails.showRemoved` do `pt.json`/`en.json`), sem a janela modal de apagar. Os removidos aparecem no seu lugar, com a marca do Detalhe 2.
+3. **Contagens e filtro:** «N destaques» inclui os removidos; «N novos» conta os do `viewingNewIds` que não estão removidos; «N removidos do Kobo» só aparece com removidos. O filtro começa em Todos; «Novos» e «Com notas» com 0 ficam desativados (Q-C), e o Segmentado nunca fica num segmento desativado. Mudar de filtro leva a lista ao topo. Sem destaques: «0 destaques», sem Segmentado nem lista.
+4. **Sincronização com o Detalhe aberto:** os destaques novos do mesmo livro entram logo no seu lugar, sem marca «Novo»; as marcas à vista mantêm-se. Se entram acima da zona visível, o `scrollTop` sobe pela altura acrescentada, para o texto à vista não se mexer. Fechar e reabrir mostra como «Novo» só os que chegaram.
+5. **Teclado:** ⌘[ e Esc voltam à Biblioteca, sem animação, e o foco volta ao livro (`initialActiveId`). O Esc só volta se nenhum menu, tooltip ou janela modal o consumiu (`defaultPrevented`) e não atua dentro de campos de texto. Voltar pelo botão mantém o fade de 150 ms.
+6. **Título da janela:** ao abrir, `setTitle(livro.title)`; ao voltar, o título de antes. Acrescentar `core:window:allow-set-title` à capability da janela principal (e atualizar qualquer teste que fixe essa lista).
+
+**Passos:**
+- [ ] **Passo 1 (A):** testes que falham do `ui/highlight`: Etiqueta e removido na linha de metadados; novo e removido mostra só o removido; data curta; nota a 12. Implementar.
+- [ ] **Passo 2 (B):** testes que falham do Detalhe: `detail_keeps_new_marks_through_sync` (Fase 5); contagens do cabeçalho e do Segmentado; novo e removido fora de «Novos»; filtro desativado com 0; filtro leva ao topo; sem `show-removed`; ⌘[ e Esc voltam e devolvem o foco; Esc com um menu ou tooltip aberto não volta; `setTitle` ao abrir e ao voltar; compensação do `scrollTop` (com `scrollHeight` simulado, já que o jsdom não faz layout). Implementar.
+- [ ] **Passo 3:** cenário visual `detail` reescrito (o seletor `blockquote button` morre), em Claro e Escuro, comparado com o Figma; mais `detail-new-removed` (novo, removido e com nota à vista) e `detail--min` (800 × 600).
+- [ ] **Passo 4:** gate completo (Vitest, check, build, `test:visual`, `cargo check` pela capability).
+- [ ] **Passo 5:** review adversarial (Opus) e mutações minhas; commit `feat(detail): book detail screen with highlight filter and live sync`.
+
+**Verificar no ecrã (Bruno):** abrir um livro com novidades e ver as marcas; ⌘[ e Esc voltam ao mesmo livro; o título no menu Janela; ligar o Kobo com um livro aberto e ver que o texto não salta.
 
 ## Fase 6 · Fecho da v2 (tasks a escrever)
 - **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.
