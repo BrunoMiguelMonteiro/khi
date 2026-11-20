@@ -6,7 +6,8 @@
 
 	export type HighlightProps = Omit<HTMLAttributes<HTMLDivElement>, 'children' | 'oncopy'> & {
 		highlight: HighlightData;
-		state?: HighlightState;
+		/** Whether it arrived since the book was last opened: given by the screen (`viewingNewIds`), never read from `highlight.isNew`. */
+		isNew?: boolean;
 		/** Copies the quote and says whether it worked; the clipboard when omitted. */
 		oncopy?: (highlight: HighlightData) => boolean | void | Promise<boolean | void>;
 	};
@@ -24,11 +25,15 @@
 	import { onDestroy } from 'svelte';
 	import { _, locale } from '$lib/i18n';
 	import { cn } from '$lib/utils';
+	import { formatShortDate } from '$lib/utils/short-date';
+	import { Badge } from '../badge';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { Icon } from '../icon';
 
-	let { highlight, state: tone = 'normal', oncopy, class: className, ...restProps }: HighlightProps =
-		$props();
+	let { highlight, isNew = false, oncopy, class: className, ...restProps }: HighlightProps = $props();
+
+	// A highlight both new and removed shows only «Removido do Kobo».
+	const tone = $derived<HighlightState>(highlight.removedAt !== null ? 'removido' : isNew ? 'novo' : 'normal');
 
 	type CopyState = 'idle' | 'success' | 'error';
 	let copied = $state<CopyState>('idle');
@@ -44,13 +49,14 @@
 	// Kobo stores "" for highlights without a note.
 	const note = $derived(highlight.annotation?.trim() ?? '');
 	const chapter = $derived(highlight.chapterTitle?.trim() ?? '');
-	const date = $derived.by(() => {
-		const d = new Date(highlight.dateCreated);
-		return Number.isNaN(d.getTime())
-			? ''
-			: new Intl.DateTimeFormat($locale, { day: 'numeric', month: 'long' }).format(d);
-	});
-	const meta = $derived([chapter, date].filter(Boolean).join(' · '));
+	const created = $derived(new Date(highlight.dateCreated));
+	const validDate = $derived(!Number.isNaN(created.getTime()));
+	// VoiceOver reads the long date; the screen shows the short one.
+	const date = $derived(
+		validDate ? new Intl.DateTimeFormat($locale, { day: 'numeric', month: 'long' }).format(created) : ''
+	);
+	const shortDate = $derived(validDate ? formatShortDate(created, $locale ?? 'pt') : '');
+	const meta = $derived([chapter, shortDate].filter(Boolean).join(' · '));
 	// VoiceOver: «Capítulo 2, 10 de novembro, novo, com nota» and then the text.
 	const summary = $derived(
 		[
@@ -116,8 +122,23 @@
 		)}
 	></span>
 	<div class="flex flex-col gap-2 pr-8 pl-4">
-		{#if meta}
-			<p data-slot="highlight-meta" class="text-callout text-muted-foreground">{meta}</p>
+		{#if meta || tone !== 'normal'}
+			<div data-slot="highlight-meta-row" class="flex items-center gap-2">
+				{#if meta}
+					<p data-slot="highlight-meta" class="text-callout text-muted-foreground">{meta}</p>
+				{/if}
+				{#if tone === 'novo'}
+					<Badge>{$_('highlight.newBadge')}</Badge>
+				{:else if tone === 'removido'}
+					<p
+						data-slot="highlight-removed"
+						class="flex items-center gap-1 text-callout text-tertiary-foreground"
+					>
+						<Icon icon={Unlink} size="sm" />
+						<span>{$_('highlight.removedFromKobo')}</span>
+					</p>
+				{/if}
+			</div>
 		{/if}
 		<p data-slot="highlight-text" class="text-reading text-foreground">{highlight.text}</p>
 		{#if note}
@@ -125,17 +146,8 @@
 				data-slot="highlight-note"
 				class="flex items-start gap-2 text-body whitespace-pre-line text-muted-foreground"
 			>
-				<Icon icon={MessageSquare} size="md" label={$_('highlight.note')} />
+				<Icon icon={MessageSquare} size="sm" label={$_('highlight.note')} />
 				<span>{note}</span>
-			</p>
-		{/if}
-		{#if tone === 'removido'}
-			<p
-				data-slot="highlight-removed"
-				class="flex items-center gap-1 text-callout text-tertiary-foreground"
-			>
-				<Icon icon={Unlink} size="sm" />
-				<span>{$_('highlight.removedFromKobo')}</span>
 			</p>
 		{/if}
 	</div>
@@ -143,7 +155,7 @@
 		type="button"
 		data-slot="highlight-copy"
 		aria-label={copyLabel}
-		class="absolute top-4 right-4 flex size-6 items-center justify-center rounded-control text-muted-foreground opacity-0 transition-opacity duration-(--duration-hover) ease-hover outline-none group-[:hover]/highlight:opacity-100 group-focus-within/highlight:opacity-100 focus-visible:focus-ring"
+		class="absolute top-3 right-4 flex size-6 items-center justify-center rounded-control text-muted-foreground opacity-0 transition-opacity duration-(--duration-hover) ease-hover outline-none group-[:hover]/highlight:opacity-100 group-focus-within/highlight:opacity-100 focus-visible:focus-ring"
 		onclick={copy}
 	>
 		<Icon icon={copied === 'success' ? Check : Copy} size="md" />

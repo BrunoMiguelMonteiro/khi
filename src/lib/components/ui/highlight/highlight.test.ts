@@ -52,7 +52,7 @@ describe("Highlight", () => {
       novo: ["bg-highlight-line-new", "var(--highlight-line-new)"],
     } as const;
     for (const state of ["normal", "novo"] as const) {
-      const { line, unmount } = renderHighlight({}, { state });
+      const { line, unmount } = renderHighlight({}, { isNew: state === "novo" });
       const [utility, css] = expected[state];
       expect(line.classList.contains(utility), `${state} → ${utility}`).toBe(
         true,
@@ -67,7 +67,10 @@ describe("Highlight", () => {
   });
 
   it("removed_is_dashed_with_label", async () => {
-    const { root, line } = renderHighlight({}, { state: "removido" });
+    const { root, line } = renderHighlight(
+      { removedAt: "2026-11-01T10:00:00Z" },
+      {},
+    );
     // 4 px dash, 4 px gap, in the Normal line colour.
     const dashed = line.className
       .split(/\s+/)
@@ -103,6 +106,14 @@ describe("Highlight", () => {
   it("note_is_absent_when_blank", () => {
     const { root } = renderHighlight({ annotation: "  " });
     expect(slot(root, "highlight-note")).toBeNull();
+  });
+
+  it("meta_row_is_as_tall_as_its_content_and_the_copy_button_overhangs_it", () => {
+    const { root } = renderHighlight({}, { isNew: true });
+    const row = must(slot(root, "highlight-meta-row"), "meta row");
+    expect(row.classList.contains("min-h-6")).toBe(false);
+    const copy = must(slot(root, "highlight-copy"), "copy");
+    expect(copy.classList.contains("top-3")).toBe(true);
   });
 
   it("copy_button_appears_on_hover_and_focus_of_the_highlight", async () => {
@@ -161,7 +172,7 @@ describe("Highlight", () => {
   it("metadata_and_quote_use_their_type_styles", () => {
     const { root } = renderHighlight();
     const meta = must(slot(root, "highlight-meta"), "metadata");
-    expect(meta.textContent).toBe("Capítulo 2 · November 10");
+    expect(meta.textContent).toBe("Capítulo 2 · Nov 10");
     for (const c of ["text-callout", "text-muted-foreground"])
       expect(meta.classList.contains(c), c).toBe(true);
     const text = must(slot(root, "highlight-text"), "text");
@@ -175,7 +186,49 @@ describe("Highlight", () => {
     const bare = renderHighlight({ chapterTitle: null });
     expect(
       must(slot(bare.root, "highlight-meta"), "metadata").textContent,
-    ).toBe("November 10");
+    ).toBe("Nov 10");
+  });
+
+  it("new_badge_sits_in_the_metadata_row", () => {
+    const { root } = renderHighlight({}, { isNew: true });
+    const row = must(slot(root, "highlight-meta-row"), "metadata row");
+    const badge = must(slot(row, "badge"), "badge");
+    expect(badge.textContent?.trim()).toBe("New");
+    expect(row.contains(must(slot(root, "highlight-meta"), "meta"))).toBe(true);
+    expect(slot(root, "highlight-removed")).toBeNull();
+    // Not new: no badge
+    expect(slot(renderHighlight().root, "badge")).toBeNull();
+  });
+
+  it("isnew_comes_from_the_prop_never_from_the_highlight", () => {
+    const stale = renderHighlight({ isNew: true });
+    expect(slot(stale.root, "badge")).toBeNull();
+    expect(stale.root.getAttribute("data-state")).toBe("normal");
+  });
+
+  it("removed_label_sits_in_the_metadata_row", () => {
+    const { root } = renderHighlight({ removedAt: "2026-11-01T10:00:00Z" });
+    const row = must(slot(root, "highlight-meta-row"), "metadata row");
+    expect(row.contains(must(slot(root, "highlight-removed"), "label"))).toBe(
+      true,
+    );
+  });
+
+  it("new_and_removed_shows_only_removed", () => {
+    const { root } = renderHighlight(
+      { removedAt: "2026-11-01T10:00:00Z" },
+      { isNew: true },
+    );
+    expect(root.getAttribute("data-state")).toBe("removido");
+    expect(slot(root, "badge")).toBeNull();
+    expect(slot(root, "highlight-removed")).not.toBeNull();
+    expect(root.getAttribute("aria-label")).not.toContain("new");
+  });
+
+  it("note_icon_is_12", () => {
+    const { root } = renderHighlight({ annotation: "Nota" });
+    const icon = must(slot(root, "highlight-note"), "note").querySelector("svg");
+    expect(icon?.getAttribute("width")).toBe("12");
   });
 });
 
@@ -272,7 +325,7 @@ describe("Highlight name", () => {
   it("accessible_summary_reads_chapter_date_new_note", () => {
     const { root, unmount } = renderHighlight(
       { annotation: "Nota" },
-      { state: "novo" },
+      { isNew: true },
     );
     expect(root.getAttribute("role")).toBe("group");
     expect(root.getAttribute("aria-label")).toBe(

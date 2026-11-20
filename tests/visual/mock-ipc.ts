@@ -153,6 +153,8 @@ export function installTauriMock(config: MockConfig): void {
 				return null;
 			case 'plugin:window|is_fullscreen':
 				return false;
+			case 'plugin:window|title':
+				return 'Khi';
 			case 'plugin:menu|new':
 				return [nextRid++, args.options?.id ?? `mock-menu-${nextRid}`];
 			case 'plugin:menu|set_as_app_menu':

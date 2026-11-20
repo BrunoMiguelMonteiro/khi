@@ -11,6 +11,8 @@ const mainWindow = vi.hoisted(() => ({
 	label: 'main',
 	setTheme: vi.fn(() => Promise.resolve()),
 	setFocus: vi.fn(() => Promise.resolve()),
+	title: vi.fn(() => Promise.resolve('Khi')),
+	setTitle: vi.fn(() => Promise.resolve()),
 	isFullscreen: vi.fn(() => Promise.resolve(false)),
 	onResized: vi.fn((handler: (event: { payload: unknown }) => void) => {
 		windowEvents.set('resized', handler);
@@ -2226,5 +2228,177 @@ describe('+page · traffic lights', () => {
 		register(late);
 		await settle();
 		expect(late).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('+page · screen 5 · detail', () => {
+	beforeEach(() => {
+		vi.mocked(invoke).mockReset();
+		handlers.clear();
+		mainWindow.setTitle.mockClear();
+		resetLibrary();
+	});
+
+	const settle = async () => {
+		for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+		await tick();
+	};
+	const badges = () => document.querySelectorAll('[data-testid="book-details-view"] [data-slot="badge"]');
+	const shown = () => [...document.querySelectorAll('[data-slot="highlight-text"]')].map((el) => el.textContent);
+	const openAlpha = async (books = newBooks()) => {
+		await mockLibrary({ books });
+		render(Page);
+		await waitFor(() => expect(options()).toHaveLength(3));
+		await userEvent.setup().click(options()[0]);
+		await waitFor(() => expect(screen.getByTestId('book-details-view')).toBeInTheDocument());
+	};
+	const detailOpen = () => screen.queryByTestId('book-details-view') !== null;
+
+	it('detail_keeps_new_marks_through_sync', async () => {
+		const user = userEvent.setup();
+		const books = newBooks();
+		await openAlpha(books);
+		expect(shown()).toEqual(['a1', 'a2']);
+		expect(badges()).toHaveLength(2);
+
+		// The backend has cleared a1 and a2 by now (mark_book_opened); a Sync brings a3 for the same book while it is open
+		// Opening the book marked what was new at that moment (a1 and a2, up to seq 3), never a3
+		expect(invoke).toHaveBeenCalledWith('mark_book_opened', { readerId: 1, bookId: 1, seenSeq: 3 });
+		for (const h of books[0].highlights) h.isNew = false;
+		books[0].highlights.push(makeHighlight({ id: 'a3', text: 'a3', dateCreated: '2026-01-02', isNew: true, syncedSeq: 5 }));
+		handlers.get('sync-finished')!({ payload: { readerId: 1, report: { added: 1, updated: 0, removed: 0, restored: 0, books: 3 } } });
+		await waitFor(() => expect(shown()).toEqual(['a1', 'a2', 'a3']));
+		await settle();
+		// The marks in view stay, the newcomer has none
+		expect(badges()).toHaveLength(2);
+		expect(screen.getByTestId('book-details-counts')).toHaveTextContent('3 highlights · 2 new');
+
+		// Closed and opened again, only what arrived during the reading is new
+		await user.click(within(bar()!).getByRole('button', { name: 'Back' }));
+		await waitFor(() => expect(options()).toHaveLength(3));
+		await user.click(options()[0]);
+		await waitFor(() => expect(screen.getByTestId('book-details-view')).toBeInTheDocument());
+		expect(shown()).toEqual(['a1', 'a2', 'a3']);
+		expect(badges()).toHaveLength(1);
+		expect(screen.getByTestId('book-details-counts')).toHaveTextContent('3 highlights · 1 new');
+	});
+
+	it('cmd_bracket_goes_back_without_a_beat_and_returns_the_focus', async () => {
+		await openAlpha();
+		fireEvent.keyDown(window, { key: '[', code: 'BracketLeft', metaKey: true });
+		// No fade: the Library is back in the same tick
+		await tick();
+		expect(detailOpen()).toBe(false);
+		await waitFor(() => expect(options()).toHaveLength(3));
+		await waitFor(() => expect(document.activeElement).toBe(options()[0]));
+	});
+
+	it('cmd_bracket_needs_the_command_key_alone', async () => {
+		await openAlpha();
+		fireEvent.keyDown(window, { key: '[', code: 'BracketLeft' });
+		fireEvent.keyDown(window, { key: '[', code: 'BracketLeft', metaKey: true, shiftKey: true });
+		fireEvent.keyDown(window, { key: '[', code: 'BracketLeft', metaKey: true, altKey: true });
+		await tick();
+		expect(detailOpen()).toBe(true);
+	});
+
+	it('escape_goes_back_and_returns_the_focus', async () => {
+		await openAlpha();
+		fireEvent.keyDown(window, { key: 'Escape', code: 'Escape' });
+		await waitFor(() => expect(options()).toHaveLength(3));
+		expect(detailOpen()).toBe(false);
+		await waitFor(() => expect(document.activeElement).toBe(options()[0]));
+	});
+
+	it('escape_does_nothing_in_the_library', async () => {
+		await mockLibrary({ books: newBooks() });
+		render(Page);
+		await waitFor(() => expect(options()).toHaveLength(3));
+		fireEvent.keyDown(window, { key: 'Escape', code: 'Escape' });
+		await tick();
+		expect(options()).toHaveLength(3);
+	});
+
+	it('escape_consumed_by_a_menu_or_window_does_not_go_back', async () => {
+		await openAlpha();
+		const consume = (event: KeyboardEvent) => event.preventDefault();
+		document.addEventListener('keydown', consume);
+		fireEvent.keyDown(document.body, { key: 'Escape', code: 'Escape' });
+		document.removeEventListener('keydown', consume);
+		await tick();
+		expect(detailOpen()).toBe(true);
+	});
+
+	it('escape_closes_an_open_tooltip_and_stays', async () => {
+		const user = userEvent.setup();
+		await openAlpha();
+		await user.hover(within(bar()!).getByRole('button', { name: 'Back' }));
+		await waitFor(() => expect(screen.getAllByRole('tooltip').length).toBeGreaterThan(0));
+		await user.keyboard('{Escape}');
+		await settle();
+		expect(detailOpen()).toBe(true);
+	});
+
+	it('escape_in_a_text_field_does_not_go_back', async () => {
+		await openAlpha();
+		const input = document.body.appendChild(document.createElement('input'));
+		input.focus();
+		fireEvent.keyDown(input, { key: 'Escape', code: 'Escape' });
+		input.remove();
+		await tick();
+		expect(detailOpen()).toBe(true);
+	});
+
+	it('escape_waits_for_the_update_dialog', async () => {
+		const user = userEvent.setup();
+		const offer = () => {
+			updater.update = { version: '9.9.9', currentVersion: '1.3.0', rawJson: { releases: [] }, close: vi.fn().mockResolvedValue(undefined) } as never;
+			updater.state = 'available';
+		};
+		await openAlpha();
+		offer();
+		expect(await screen.findByTestId('update-dialog')).toBeInTheDocument();
+		// Esc goes to the dialog, which closes: the book stays open
+		await user.keyboard('{Escape}');
+		await waitFor(() => expect(screen.queryByTestId('update-dialog')).toBeNull());
+		expect(detailOpen()).toBe(true);
+		// With the dialog open again, ⌘[ is held too
+		offer();
+		expect(await screen.findByTestId('update-dialog')).toBeInTheDocument();
+		fireEvent.keyDown(window, { key: '[', code: 'BracketLeft', metaKey: true });
+		await tick();
+		expect(detailOpen()).toBe(true);
+		updater.state = 'idle';
+	});
+
+	it('window_title_is_the_books_while_open_and_comes_back', async () => {
+		const user = userEvent.setup();
+		await openAlpha();
+		await waitFor(() => expect(mainWindow.setTitle).toHaveBeenCalledWith('Alpha'));
+		mainWindow.setTitle.mockClear();
+		await user.click(within(bar()!).getByRole('button', { name: 'Back' }));
+		await waitFor(() => expect(mainWindow.setTitle).toHaveBeenCalledWith('Khi'));
+		expect(mainWindow.setTitle).toHaveBeenCalledTimes(1);
+	});
+
+	it('window_title_follows_a_second_book_and_returns_to_the_original', async () => {
+		const user = userEvent.setup();
+		await openAlpha();
+		await waitFor(() => expect(mainWindow.setTitle).toHaveBeenCalledWith('Alpha'));
+		await user.click(within(bar()!).getByRole('button', { name: 'Back' }));
+		await waitFor(() => expect(options()).toHaveLength(3));
+		await user.click(options()[1]);
+		await waitFor(() => expect(mainWindow.setTitle).toHaveBeenLastCalledWith('Beta'));
+		await user.click(within(bar()!).getByRole('button', { name: 'Back' }));
+		await waitFor(() => expect(mainWindow.setTitle).toHaveBeenLastCalledWith('Khi'));
+	});
+
+	it('detail_has_no_delete_and_exports_the_book', async () => {
+		const user = userEvent.setup();
+		await openAlpha();
+		expect(within(bar()!).queryByRole('button', { name: /delete/i })).toBeNull();
+		await user.click(within(bar()!).getByRole('button', { name: /export/i }));
+		await waitFor(() => expect(calls('export_library_books')).toHaveLength(1));
+		expect(calls('export_library_books')[0][1]).toEqual({ readerId: 1, bookIds: [1] });
 	});
 });

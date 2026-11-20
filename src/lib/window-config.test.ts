@@ -34,6 +34,11 @@ describe("window config", () => {
     expect(capability("default").permissions).toContain("core:window:allow-set-focus");
   });
 
+  it("default_capability_allows_set_title", () => {
+    // The book on screen names the window
+    expect(capability("default").permissions).toContain("core:window:allow-set-title");
+  });
+
   it("settings_capability_is_minimal", () => {
     const settings = capability("settings");
     expect(settings.windows).toEqual(["settings"]);

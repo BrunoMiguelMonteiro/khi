@@ -442,8 +442,46 @@
 		settings.persist({ libraryViewMode: mode }).catch((error) => console.error('Failed to save the view:', error));
 	}
 
+	/** The book names the window while it is open; the title from before comes back with the Library. */
+	let titleBeforeDetail: string | undefined;
+	$effect(() => {
+		const title = detailBook?.title;
+		if (title === undefined) return;
+		(async () => {
+			const win = getCurrentWindow();
+			titleBeforeDetail ??= await win.title();
+			// Closed while the title was being read: nothing to name
+			if (detailBook?.title === undefined) return;
+			await win.setTitle(title);
+		})().catch((error) => console.error('Failed to set the window title:', error));
+	});
+	$effect(() => {
+		if (detailBook || titleBeforeDetail === undefined) return;
+		const previous = titleBeforeDetail;
+		titleBeforeDetail = undefined;
+		getCurrentWindow()
+			.setTitle(previous)
+			.catch((error) => console.error('Failed to restore the window title:', error));
+	});
+
+	/** ⌘[ and Esc: back to the Library, without the Back button's fade (Movimento 1). Esc only when nothing consumed it. */
+	function handleBackKey(event: KeyboardEvent) {
+		if (!detailBook || event.repeat) return;
+		const target = event.target instanceof Element ? event.target : null;
+		if (target?.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]')) return;
+		if (unknownDevice || (updater.state !== 'idle' && updater.state !== 'restartPending')) return;
+		if (event.key === 'Escape') {
+			if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+		} else if (event.code !== 'BracketLeft' || !event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
+			return;
+		}
+		event.preventDefault();
+		handleCloseBookDetails();
+	}
+
 	/** ⌘R, ⌘E, ⌘1 and ⌘2, the shortcuts of the bar's tooltips: not in the native menu until Phase 6. */
 	function handleShortcut(event: KeyboardEvent) {
+		handleBackKey(event);
 		if (!event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
 		// The physical key: Caps Lock or another layout changes `key`, never `code`
 		const key = { KeyR: 'r', KeyE: 'e', Digit1: '1', Digit2: '2' }[event.code];
@@ -516,7 +554,7 @@
 				<!-- The first Sync: no header, no «Sem livros»; the centred state counts the books -->
 				<EmptyStateSyncing progress={library.syncProgress} />
 			{:else if library.uiState === 'book-details' && library.viewingBook}
-				<BookDetailsView book={library.viewingBook} onClose={handleCloseBookDetails} onNotification={showNotification} />
+				<BookDetailsView book={library.viewingBook} />
 			{:else if library.uiState === 'library'}
 				<LibraryView
 					books={sortedBooks}

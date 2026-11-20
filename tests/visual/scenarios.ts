@@ -175,6 +175,21 @@ async function library(page: Page, text: Strings) {
 	await expect(page.getByRole('option', { name: books[0].title })).toBeVisible();
 }
 
+/** The first book, opened: events, not mouse moves, since hover states are recorded separately. */
+async function openDetail(page: Page, text: Strings) {
+	await library(page, text);
+	await page.getByRole('option', { name: books[0].title }).dispatchEvent('click');
+	const view = page.getByTestId('book-details-view');
+	await expect(view).toBeVisible();
+	await expect(view.getByRole('heading', { name: books[0].title })).toBeVisible();
+	await expect(view.locator('[data-slot="highlight"]')).toHaveCount(books[0].highlights.length);
+	// Figma: 48 from the Segmented to where the first highlight's line starts
+	const group = await view.getByRole('radiogroup').boundingBox();
+	const line = await view.locator('[data-slot="highlight-line"]').first().boundingBox();
+	expect(line!.y - (group!.y + group!.height)).toBe(48);
+	await page.mouse.move(0, 0);
+}
+
 /** The Library of the last Reader with no Kobo connected: nothing emits `device-detected`. */
 async function libraryWithoutKobo(page: Page, text: Strings) {
 	await expect(page.getByTestId('books-grid')).toBeVisible();
@@ -475,32 +490,31 @@ export const SCENARIOS: Record<string, Scenario> = {
 	},
 	detail: {
 		name: 'detail',
-		description: "A book's highlights",
+		description: "A book's highlights, none new: the one with a note, the removed one in place",
 		withLibrary: true,
+		withoutNews: true,
 		states: [
-			// The row's background and its copy button (`group-hover:opacity-100`)
-			{ name: 'hover-highlight', kind: 'hover', target: (p) => p.getByTestId('highlight-item') },
-			{
-				name: 'hover-highlight-copy',
-				kind: 'hover',
-				target: (p) => p.getByTestId('highlight-item').locator('blockquote button'),
-				root: '[data-testid="highlight-item"]'
-			},
+			// The row's background (-16 on each side) and its copy button
+			{ name: 'hover-highlight', kind: 'hover', target: (p) => p.locator('[data-slot="highlight"]').first(), root: '[data-slot="highlight"]' },
 			{
 				name: 'focus-highlight-copy',
 				kind: 'focus',
-				target: (p) => p.getByTestId('highlight-item').locator('blockquote button'),
-				root: '[data-testid="highlight-item"]'
+				target: (p) => p.locator('[data-slot="highlight-copy"]').first(),
+				root: '[data-slot="highlight"]'
 			}
 		],
 		async reach(page, text) {
-			await library(page, text);
-			// Events, not mouse moves: hover states are recorded separately (`states`)
-			await page.getByRole('option', { name: books[0].title }).dispatchEvent('click');
-			const view = page.getByTestId('book-details-view');
-			await expect(view).toBeVisible();
-			await expect(view.getByText(books[0].title).first()).toBeVisible();
-			await expect(view.getByTestId('highlight-item').first()).toBeVisible();
+			await openDetail(page, text);
+		}
+	},
+	'detail-new-removed': {
+		name: 'detail-new-removed',
+		description: "A book with new highlights, the one with a note and one removed from the Kobo",
+		withLibrary: true,
+		async reach(page, text) {
+			await openDetail(page, text);
+			await expect(page.getByTestId('book-details-view').locator('[data-slot="badge"]')).toHaveCount(2);
+			await expect(page.locator('[data-slot="highlight-removed"]')).toHaveCount(1);
 		}
 	},
 	settings: {

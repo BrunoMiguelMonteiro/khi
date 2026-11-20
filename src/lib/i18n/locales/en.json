@@ -4,7 +4,6 @@
     "title": "Khi - Kobo Highlights Exporter",
     "menuEdit": "Edit",
     "menuWindow": "Window",
-    "close": "Close",
     "loading": "Loading...",
     "koboDevice": "Kobo e-reader device"
   },
@@ -103,7 +102,6 @@
       "excluded": "Excluded",
       "withNotes": "With notes",
       "noChapter": "No chapter",
-      "showRemoved": "Show removed",
       "deleteBook": "Delete book",
       "deleteBookTitle": "Delete this book?",
       "deleteBookBody": "Its highlights were all removed from the Kobo. The book and its highlights leave the Library for good.",
@@ -119,6 +117,9 @@
     "newCount": "{count} new",
     "newCount_one": "1 new",
     "newCount_other": "{count} new",
+    "removedCount": "{count} removed from Kobo",
+    "removedCount_one": "1 removed from Kobo",
+    "removedCount_other": "{count} removed from Kobo",
     "unknownAuthor": "Unknown author",
     "noHighlights": "No highlights",
     "select": "Select",
@@ -134,6 +135,7 @@
     "copyError": "Copy failed",
     "removedFromKobo": "Removed from Kobo",
     "new": "new",
+    "newBadge": "New",
     "withNote": "with note",
     "note": "Note"
   },

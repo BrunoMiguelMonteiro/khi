@@ -54,10 +54,10 @@ test('control: a lost focus ring on the export path input is detected', async ({
 
 test('control: a copy button that stays hidden on hover is detected', async ({ browser }) => {
 	const result = await captureOf(browser, 'detail--light', {
-		injectCss: '[data-testid="highlight-item"]:hover blockquote button { opacity: 0 !important; }'
+		injectCss: '[data-slot="highlight"]:hover [data-slot="highlight-copy"] { opacity: 0 !important; }'
 	});
 	const { blocked } = compareWithBaseline(result, { outputName: 'control--hover-copy' });
-	expect(has(blocked, /^state hover-highlight: .*button/, 'opacity'), 'hovered opacity reported').toBe(true);
+	expect(has(blocked, /^state hover-highlight: .*button\[aria-label=/, 'opacity'), 'hovered opacity reported').toBe(true);
 	expect(has(blocked, /^screenshot detail--light\.state-hover-highlight\.png$/, 'pixels'), 'hover pixels reported').toBe(true);
 });
 
