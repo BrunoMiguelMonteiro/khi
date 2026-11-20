@@ -10,7 +10,7 @@
   "screens": {
     "noKobo": {
       "title": "Connect your Kobo",
-      "subtitle": "Your highlights stay in the Library even with the Kobo unplugged, and you export to Markdown whenever you like."
+      "subtitle": "Your highlights stay in the Library even with the Kobo unplugged."
     },
     "syncingEmpty": {
       "title": "Syncing with the Kobo"

@@ -2120,7 +2120,7 @@ Fontes: [Apple HIG, Progress indicators](https://developer.apple.com/design/huma
   - a Barra da janela tem tudo à vista e desativado: Título-menu «Biblioteca», Grupo de vista, Ordenar, Sincronizar e Exportar;
   - o Estado vazio fica centrado, com 320 de largura e `gap` 24. Leva o Kobo tracejado de 96 (`highlight-line`, estático) e, por baixo, o Texto (`gap` 8);
   - o título é «Liga o teu Kobo», em Title 3 `foreground`;
-  - a explicação é «Os destaques ficam guardados na Biblioteca, mesmo com o Kobo desligado, e exportas para Markdown quando quiseres.», em Body `muted-foreground`, centrada.
+  - a explicação é «Os destaques ficam guardados na Biblioteca, mesmo com o Kobo desligado.», em Body `muted-foreground`, centrada.
 - **Kobo novo · Com leitores** (`58:6794`, 380 × 212) e **Novo leitor** (`62:2147`, 380 × 248):
   - o título é «De quem é este Kobo?» e o texto «Os destaques ficam na Biblioteca de quem escolheres.»;
   - os campos têm `pt-4 gap-2`, em linhas de 28 com um rótulo de 56 (Body), `gap` 8 e o controlo a 268;

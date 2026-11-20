@@ -10,7 +10,7 @@
   "screens": {
     "noKobo": {
       "title": "Liga o teu Kobo",
-      "subtitle": "Os destaques ficam guardados na Biblioteca, mesmo com o Kobo desligado, e exportas para Markdown quando quiseres."
+      "subtitle": "Os destaques ficam guardados na Biblioteca, mesmo com o Kobo desligado."
     },
     "syncingEmpty": {
       "title": "A sincronizar com o Kobo"

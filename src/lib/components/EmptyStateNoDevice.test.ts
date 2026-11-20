@@ -20,7 +20,7 @@ describe("EmptyStateNoDevice · screen 6 · first start", () => {
     ).toBeTruthy();
     expect(
       screen.getByText(
-        "Your highlights stay in the Library even with the Kobo unplugged, and you export to Markdown whenever you like.",
+        "Your highlights stay in the Library even with the Kobo unplugged.",
       ),
     ).toBeTruthy();
   });
@@ -29,7 +29,7 @@ describe("EmptyStateNoDevice · screen 6 · first start", () => {
     expect(locale("pt").screens.noKobo).toEqual({
       title: "Liga o teu Kobo",
       subtitle:
-        "Os destaques ficam guardados na Biblioteca, mesmo com o Kobo desligado, e exportas para Markdown quando quiseres.",
+        "Os destaques ficam guardados na Biblioteca, mesmo com o Kobo desligado.",
     });
   });
 
