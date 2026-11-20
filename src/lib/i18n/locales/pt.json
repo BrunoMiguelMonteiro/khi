@@ -82,6 +82,12 @@
         "recent": "Lidos recentemente",
         "count": "N.º de destaques"
       },
+      "columns": {
+        "title": "Título",
+        "author": "Autor",
+        "highlights": "Destaques",
+        "lastRead": "Última leitura"
+      },
       "booksListLabel": "Lista de livros"
     },
     "bookDetails": {

@@ -113,6 +113,7 @@ function createInitialState(): AppSettings {
       showOnboarding: true,
       libraryViewMode: "grid",
       librarySort: "title",
+      librarySortReversed: false,
       syncOnConnect: true,
       checkForUpdates: true,
     },
@@ -280,8 +281,14 @@ class SettingsStore {
     this.state.uiPreferences.libraryViewMode = mode;
   }
 
+  /** A new criterion starts in its natural direction. */
   setSortPreference(sort: SortPreference) {
     this.state.uiPreferences.librarySort = sort;
+    this.state.uiPreferences.librarySortReversed = false;
+  }
+
+  setSortReversed(reversed: boolean) {
+    this.state.uiPreferences.librarySortReversed = reversed;
   }
 
   setWindowSize(width: number, height: number) {

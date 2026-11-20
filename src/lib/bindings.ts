@@ -360,6 +360,8 @@ export type SettingsPatch_Deserialize = {
 	libraryViewMode?: ViewMode_Deserialize | null,
 	/**  `uiPreferences.librarySort` */
 	librarySort?: SortPreference_Deserialize | null,
+	/**  `uiPreferences.librarySortReversed` */
+	librarySortReversed?: boolean | null,
 	/**  `uiPreferences.syncOnConnect` */
 	syncOnConnect?: boolean | null,
 	/**  `uiPreferences.checkForUpdates` */
@@ -388,6 +390,8 @@ export type SettingsPatch_Serialize = {
 	libraryViewMode?: ViewMode_Serialize | null,
 	/**  `uiPreferences.librarySort` */
 	librarySort?: SortPreference_Serialize | null,
+	/**  `uiPreferences.librarySortReversed` */
+	librarySortReversed?: boolean | null,
 	/**  `uiPreferences.syncOnConnect` */
 	syncOnConnect?: boolean | null,
 	/**  `uiPreferences.checkForUpdates` */
@@ -486,6 +490,12 @@ export type UiPreferences_Deserialize = {
 	/**  Sort preference for library */
 	library_sort: SortPreference_Deserialize,
 }) extends infer T extends object ? { [K in keyof T]: { [P in keyof T as P extends K ? P : never]: T[P] } & { [P in keyof T as P extends K ? never : P]?: never } }[keyof T] & object : never)) & ({
+	/**  The sort runs against its natural direction (the column header was clicked on the active column) */
+	librarySortReversed?: boolean,
+} & {
+	/**  The sort runs against its natural direction (the column header was clicked on the active column) */
+	library_sort_reversed?: boolean,
+}) & ({
 	/**
 	 *  Whether to sync automatically when a known Kobo is connected (R23).
 	 *  Old files stored it as `autoImportOnConnect`.
@@ -527,6 +537,8 @@ export type UiPreferences_Serialize = {
 	libraryViewMode: ViewMode_Serialize,
 	/**  Sort preference for library */
 	librarySort: SortPreference_Serialize,
+	/**  The sort runs against its natural direction (the column header was clicked on the active column) */
+	librarySortReversed: boolean,
 	/**
 	 *  Whether to sync automatically when a known Kobo is connected (R23).
 	 *  Old files stored it as `autoImportOnConnect`.

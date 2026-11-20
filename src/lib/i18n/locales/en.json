@@ -82,6 +82,12 @@
         "recent": "Recently Read",
         "count": "Highlight Count"
       },
+      "columns": {
+        "title": "Title",
+        "author": "Author",
+        "highlights": "Highlights",
+        "lastRead": "Last read"
+      },
       "booksListLabel": "Book list"
     },
     "bookDetails": {

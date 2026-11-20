@@ -1863,6 +1863,144 @@ Fontes: [Apple HIG, Progress indicators](https://developer.apple.com/design/huma
 - se tiveres dois leitores: com o outro aberto e a sincronização ao ligar desligada, o tooltip diz de quem é o Kobo;
 - em Claro e Escuro.
 
+### Task 40: Ecrã 4 · Biblioteca, lista
+**Task aprovada pelo Bruno a 2026-11-20** («Aprovo a Task 40»).
+
+**Decisões do Bruno a 2026-11-20:**
+- **Seleção com o rato, Q-L:** a L1, que era a recomendada. Figma `124:31347`, página «Iteração · Componentes», com a nota `125:32255`.
+  - Há uma ranhura de 24 pt, sempre reservada, antes da miniatura, mais 8 pt de espaço. A caixa segue a regra B da grelha: aparece com o ponteiro na linha, com o foco e em todas as linhas enquanto houver seleção.
+  - Clicar na caixa seleciona; clicar no resto da linha abre o livro.
+  - A área de clique é a faixa inicial de 36 × 44: margem 8, ranhura 24 e mais 4.
+  - **O desenho da caixa é idêntico ao da grelha** (Bruno: «O desenho da checkbox deve ser idêntico à grelha»). Vazia é a E1 (`bg-selection-box`, `shadow-selection-box`, e com o ponteiro `bg-selection-box-hover`); selecionada é o visto `primary` com o anel `background`, também na linha `primary`.
+  - Rejeitadas: L2, a miniatura vira caixa, porque esconde a capa enquanto se escolhe e a capa seleciona na lista mas abre na grelha; L3, uma coluna sempre visível, porque são 14 círculos em repouso e contradiz a regra B. O modelo do Finder (clique seleciona, duplo clique abre) já tinha sido posto de lado.
+- **Direção da ordem:** fica guardada nas preferências, como o critério.
+  - Clicar no cabeçalho da coluna ativa inverte a direção.
+  - Clicar noutra coluna escolhe esse critério na direção natural.
+  - Escolher no menu Ordenar repõe a direção natural.
+  - Rejeitadas: só em memória; não inverter.
+
+**Figma:** secção `71:9736`, com a janela Claro `71:9740` e a Escuro `71:9755` (DECISIONS, «Ecrãs · 2 · lista»); Linha `66:4618`; Cabeçalho `66:4649`; a caixa na L1 de `124:31347`.
+- As linhas têm 44 px, separadores de 1 px e nenhum fundo alternado. As células ficam 8 px para dentro da margem de 24 px.
+- Colunas:
+  - Título ocupa o resto: ranhura da caixa, miniatura 24 × 36, título Medium e a etiqueta «N novos» 8 px depois;
+  - Autor 200;
+  - Destaques 88, à direita e com algarismos tabulares;
+  - Última leitura 120.
+- O cabeçalho das colunas tem 28 px e o rótulo «Título» fica alinhado com a miniatura. A lista começa a 128 px do topo, como a grelha, e cabem 12 linhas a 1000 × 700.
+- Por defeito ordena por Última leitura, descendente. Um livro sem data mostra «—» e fica no fim.
+
+**Já existe:**
+- `BookRow` e `ColumnHeader`, em `src/lib/components/ui/table/` (Task 26). A linha tem `role=row`, `aria-selected` e os estados idle e selecionada; o cabeçalho tem `aria-sort` e devolve o clique.
+- `LibraryGrid`, que serve de modelo do teclado, da seleção, do `hideNew` com o fade da etiqueta e do `initialActiveId`.
+- O cabeçalho da Biblioteca, que já se desenha por cima das duas vistas.
+
+**Implementador:** um Sonnet para tudo, com a `LibraryGrid` como molde. A lógica da seleção copia regras que já existem e não inventa nenhuma nova. A review adversarial (Opus) concentra-se nela.
+
+**Ficheiros:**
+- `src-tauri/src/settings/mod.rs` e `src/lib/bindings.ts`, este gerado;
+- `src/lib/stores/settings.svelte.ts`;
+- `src/routes/+page.svelte` e `src/routes/page.svelte.test.ts`;
+- novos: `src/lib/components/ui/library-list/{library-list.svelte,index.ts,library-list.test.ts}`;
+- `src/lib/components/ui/table/book-row.svelte`, `column-header.svelte` e `table.test.ts`;
+- `src/lib/components/LibraryView.svelte`;
+- uma função de data relativa em `src/lib/utils/`, com o seu teste;
+- `src/lib/i18n/locales/{pt,en}.json`;
+- `tests/visual/scenarios.ts` e as baselines;
+- a apagar: `BookListItem.svelte` e o `BookListItem.svelte.test.ts`.
+
+**Comportamento:**
+1. **A definição, no Rust:**
+   - `UiPreferences.library_sort_reversed: bool`, por defeito `false`, com `#[serde(default)]`, para que um ficheiro antigo sem o campo continue a abrir;
+   - o mesmo campo, opcional, no `SettingsPatch` e no `apply_to`;
+   - os bindings regenerados.
+   O store ganha `setSortReversed`. O `setSortPreference` (o menu) passa a repor `reversed=false`.
+2. **A ordem, em `sortedBooks`:**
+   - a direção natural fica como hoje: Título e Autor ascendentes, Última leitura e Destaques descendentes. `reversed` inverte-a;
+   - um livro sem data, ou sem autor quando se ordena por Autor, fica **sempre no fim**, nas duas direções;
+   - a mesma ordem serve a grelha e a lista.
+3. **O cabeçalho das colunas** (`ColumnHeader` × 4, pela ordem Título, Autor, Destaques, Última leitura):
+   - a coluna ativa mostra a seta da direção real: `asc` ou `desc` no `aria-sort`;
+   - clicar na ativa inverte e grava `reversed`;
+   - clicar noutra grava o critério com `reversed=false`;
+   - o cabeçalho fica preso ao topo da área que rola (`sticky top-0`, fundo `background`), como no Finder;
+   - o rótulo «Título» começa 32 pt para dentro, alinhado com a miniatura.
+4. **`LibraryList`**, uma tabela com `role="grid"`, `aria-multiselectable="true"` e `aria-label` igual ao da grelha:
+   - cada `BookRow` é uma linha focável com tabindex itinerante (um só ponto de Tab) e o `aria-label` do Cartão (título, autor, destaques, novos);
+   - o teclado é o da grelha: ↑ e ↓ movem o foco sem selecionar, Home e End vão às pontas, Enter abre, Espaço marca ou desmarca, e Esc limpa a seleção (se não houver seleção, não consome a tecla);
+   - o rato também é o da grelha: o clique abre; a caixa, ⌘ e ⇧ selecionam; o ⇧ seleciona um intervalo a partir da âncora, guardada como id;
+   - `initialActiveId` dá o foco à linha ao voltar do Detalhe;
+   - `hideNew` esconde as etiquetas durante a sincronização e fá-las entrar com fade no fim, como na grelha.
+5. **`BookRow`:**
+   - a ranhura com a caixa, como no Comportamento da Q-L. A caixa é `aria-hidden`, não é `<button>` e não tem `tabindex`, e quem lê o clique é a lista. Aparece com o ponteiro na linha, com `:focus-visible` e com `data-selecting`, com fade de 150 ms e respeitando o Reduzir movimento;
+   - o foco numa linha que não está selecionada mostra o `focus-ring`; numa linha selecionada, nenhum anel (Componentes 4);
+   - a Última leitura em data relativa: «Hoje», «Ontem», «Há N dias» até 6, «Há N semanas» até 4, «Há N meses» até 11, e depois «Há N anos». Usa `Intl.RelativeTimeFormat` na língua da interface, com a primeira letra em maiúscula, e conta dias de calendário locais. Sem data, mostra «—».
+6. **`LibraryView`:** o ramo da lista passa a ser a `LibraryList`. Saem o `BookListItem`, o `handleBookClick`, o `lastSelectedIndex` e a prop `onBookClick`. A página deixa de passar o `handleBookClick` se ele ficar sem uso.
+
+- [x] **Passo 1: testes que falham.**
+  - Rust:
+    - `library_sort_reversed_defaults_false`;
+    - `old_settings_without_reversed_load`;
+    - `patch_sets_reversed`.
+  - `library-list.test.ts`:
+    - `click_opens`;
+    - `box_click_selects_without_opening`;
+    - `cmd_click_toggles`;
+    - `shift_click_selects_range_from_anchor`;
+    - `arrows_move_focus_without_selecting`;
+    - `home_end`;
+    - `space_toggles_enter_opens`;
+    - `escape_clears_only_with_selection`;
+    - `single_tab_stop`;
+    - `initial_active_row_gets_focus`;
+    - `hide_new_hides_badges`;
+    - `box_shows_while_selecting`.
+  - `page.svelte.test.ts`:
+    - `header_click_reverses_active_sort`;
+    - `header_click_other_column_resets_direction`;
+    - `menu_sort_resets_direction`;
+    - `missing_date_stays_last_both_directions`;
+    - `missing_author_stays_last_both_directions`;
+    - `reversed_applies_to_grid_too`.
+  - A data relativa: hoje, ontem, 6 dias, 1 semana, meses, anos, sem data, e pt e en.
+- [x] **Passo 2:** os testes novos falham pela razão certa.
+- [x] **Passo 3 (Sonnet):** os Comportamentos 1 a 6.
+- [x] **Passo 4: harness visual,** em Claro, Escuro e Escuro do sistema:
+  - o `selectBooks` da lista passa a clicar na caixa da linha;
+  - `list` (os estados passam a ser hover na linha, hover na caixa e foco numa linha) e `list-selected` são revistos contra o `71:9740` e a L1;
+  - novo `list-selecting`, com uma linha selecionada e as caixas à vista;
+  - novo `list-reversed`, com o cabeçalho clicado duas vezes e a seta para cima;
+  - as baselines que mudam são revistas uma a uma.
+- [x] **Passo 5:** o gate completo:
+  - `cargo test`;
+  - clippy com os mesmos 7 avisos;
+  - Vitest duas vezes e com `--sequence.shuffle`;
+  - `npm run check` com 0/0;
+  - `npm run build`;
+  - `npm run test:visual`, contando a linha «N failed».
+- [x] **Passo 6:** a review adversarial (Opus), centrada na seleção e no teclado, no sticky e no foco, na ordem com nulos e inversão e na compatibilidade da definição. Depois, o commit `feat(library): list view with selection box and reversible sort`.
+
+**Feito (2026-11-20).** Implementado pelo Sonnet. Antes do código, os testes de Rust falharam por compilação (o campo `library_sort_reversed` não existia) e os da lista e da página falharam por não haver linhas nem o módulo `library-list`; o `relative-date` falhou por não existir. Desvios: o menu Ordenar passa a gravar também `librarySortReversed: false` (o `main_sort_change_persists` mudou em conformidade); a lista usa um `<table>` próprio em vez do `Table` (o invólucro com scroll quebraria o cabeçalho sticky) com `display: block` no corpo e no cabeçalho, e o `ColumnHeader` ganhou a prop `flush`; a lógica do teclado e da seleção foi duplicada da grelha, não extraída; o invólucro da `LibraryView` passou a `p-6` nas duas vistas; o `table.test.ts` ganhou um `afterEach` que remove as tabelas soltas (o shuffle dependia da ordem). A caixa em hover no harness é aberta primeiro na linha e depois na caixa, porque é transparente ao clique em repouso. Gate: Vitest 771 passam e 1 ignorado (duas corridas e shuffle), `npm run check` 0/0, build OK, `cargo test` verde, clippy com os mesmos 7 avisos, `test:visual` 109/109 (baselines novas `list-selecting` e `list-reversed`; mudaram `list` e `list-selected`).
+
+**Review adversarial (Opus): aprovada, sem bloqueadores nem majors.** Dois menores corrigidos antes do commit: (1) o `numeric: 'auto'` dava «Semana passada», «Mês passado» e «Ano passado» para contagens de 7, 30 e 365 dias que não são a semana, o mês ou o ano de calendário anteriores; agora só os dias usam `auto` («Hoje», «Ontem») e o resto diz «Há 1 semana», «Há 1 mês», «Há 1 ano»; (2) roles explícitos em toda a tabela (`rowgroup`, `row` no cabeçalho, `columnheader`, `gridcell`), como as linhas já tinham, porque o `display: block/flex` pode apagar os implícitos no WebKit e com eles o `aria-sort`. As baselines da lista foram regeneradas (só muda o texto das datas). **Mutações (9, todas apanhadas):** ignorar `reversed`; livros sem valor a subir na inversão; o menu não repõe a direção; outra coluna herda `reversed`; a caixa abre o livro; Espaço abre; Esc consumido sem seleção; valor errado gravado; `serde(default)` removido (4 testes de Rust). Gate final: Vitest 771/1, check 0/0, `test:visual` 109/109.
+
+**Mutações do coordenador:**
+- ignorar o `reversed` em `sortedBooks`;
+- inverter também os livros sem data, que passam para o topo;
+- o menu Ordenar não repor a direção;
+- clicar noutra coluna manter o `reversed`;
+- o clique na caixa abrir o livro;
+- o Espaço abrir em vez de marcar;
+- o Esc consumir a tecla sem seleção;
+- tirar o `#[serde(default)]` do campo novo.
+
+**Verificar no ecrã (Bruno, com `npm run dev:app`):**
+- a lista com a caixa: aparece com o ponteiro, seleciona e o resto da linha abre o livro;
+- o ⇧-clique e o ⌘-clique;
+- o teclado;
+- clicar duas vezes num cabeçalho inverte a ordem, a ordem fica ao reabrir a app e o menu Ordenar repõe-na;
+- voltar do Detalhe devolve o foco à linha;
+- em Claro e Escuro.
+
 ## Fase 6 · Fecho da v2 (tasks a escrever)
 - **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.
   

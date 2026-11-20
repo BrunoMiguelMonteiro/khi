@@ -233,7 +233,7 @@ async function startSync(page: Page, text: Strings) {
 	await emitWhenListening(page, 'sync-progress', { done: 12, total: 42 });
 }
 
-/** Selects `SELECTED`: ⌘-click on a grid card (events, not mouse moves), the checkbox of a list row. The bar's Export then counts them. */
+/** Selects `SELECTED`: ⌘-click on a grid card (events, not mouse moves), the selection box of a list row. The bar's Export then counts them. */
 async function selectBooks(page: Page, text: Strings, view: 'grid' | 'list') {
 	for (const index of SELECTED) {
 		if (view === 'grid') {
@@ -241,9 +241,9 @@ async function selectBooks(page: Page, text: Strings, view: 'grid' | 'list') {
 			await card.dispatchEvent('click', { metaKey: true });
 			await expect(card).toHaveAttribute('aria-selected', 'true');
 		} else {
-			const box = page.getByTestId('books-list').locator('[role="button"]').nth(index).locator('[role="checkbox"]');
-			await box.dispatchEvent('click');
-			await expect(box).toHaveAttribute('aria-checked', 'true');
+			const row = page.getByTestId('book-row').nth(index);
+			await row.locator('[data-slot="selection-box"]').dispatchEvent('click');
+			await expect(row).toHaveAttribute('aria-selected', 'true');
 		}
 	}
 	await expect(bar(page).getByRole('button', { name: text.export2, exact: true })).toBeVisible();
@@ -347,20 +347,19 @@ export const SCENARIOS: Record<string, Scenario> = {
 		withLibrary: true,
 		viewMode: 'list',
 		states: [
-			{ name: 'hover-list-row', kind: 'hover', target: (p) => p.getByTestId('books-list').locator('[role="button"]') },
+			{ name: 'hover-list-row', kind: 'hover', target: (p) => p.getByTestId('book-row') },
 			{
-				name: 'hover-checkbox',
+				name: 'hover-box',
 				kind: 'hover',
-				target: (p) => p.getByTestId('books-list').locator('[role="checkbox"]'),
-				root: '[role="button"]'
+				target: (p) => p.getByTestId('book-row'),
+				// The box is click-through until the row is hovered: the row first, then the box itself
+				ready: async (p) => {
+					const box = p.getByTestId('book-row').first().locator('[data-slot="selection-box"]');
+					await box.hover();
+					await expect.poll(() => box.evaluate((el) => el.matches(':hover'))).toBe(true);
+				}
 			},
-			{ name: 'focus-list-row', kind: 'focus', target: (p) => p.getByTestId('books-list').locator('[role="button"]') },
-			{
-				name: 'focus-checkbox',
-				kind: 'focus',
-				target: (p) => p.getByTestId('books-list').locator('[role="checkbox"]'),
-				root: '[role="button"]'
-			}
+			{ name: 'focus-list-row', kind: 'focus', target: (p) => p.getByTestId('book-row'), root: '[data-testid="book-row"]' }
 		],
 		reach: listView
 	},
@@ -418,12 +417,43 @@ export const SCENARIOS: Record<string, Scenario> = {
 			{
 				name: 'hover-selected-row',
 				kind: 'hover',
-				target: (p) => p.getByTestId('books-list').locator('[role="button"]').nth(SELECTED[0])
+				target: (p) => p.getByTestId('book-row').nth(SELECTED[0])
 			}
 		],
 		async reach(page, text) {
 			await listView(page, text);
 			await selectBooks(page, text, 'list');
+		}
+	},
+	'list-selecting': {
+		name: 'list-selecting',
+		description: 'One book selected through its selection box: every row shows its box',
+		withLibrary: true,
+		viewMode: 'list',
+		async reach(page, text) {
+			await listView(page, text);
+			const row = page.getByTestId('book-row').nth(SELECTED[0]);
+			await row.locator('[data-slot="selection-box"]').dispatchEvent('click');
+			await expect(row).toHaveAttribute('aria-selected', 'true');
+			await expect(page.getByTestId('books-list')).toBeVisible();
+			await expect(page.getByTestId('book-row').nth(0)).toHaveAttribute('data-selecting', '');
+			await expect(page.getByTestId('book-row').nth(0).locator('[data-slot="selection-box"]')).toHaveCSS('opacity', '1');
+			await page.mouse.move(0, 0);
+		}
+	},
+	'list-reversed': {
+		name: 'list-reversed',
+		description: 'The active column header clicked twice: the order flips and the arrow points up',
+		withLibrary: true,
+		viewMode: 'list',
+		async reach(page, text) {
+			await listView(page, text);
+			// The last column: the first click makes it the sort, the second reverses it
+			const header = page.locator('[data-slot="column-header"]').last();
+			await header.getByRole('button').dispatchEvent('click');
+			await header.getByRole('button').dispatchEvent('click');
+			await expect(header).toHaveAttribute('aria-sort', 'ascending');
+			await page.mouse.move(0, 0);
 		}
 	},
 	detail: {

@@ -261,6 +261,7 @@ mod tests {
             theme: Some(crate::settings::ThemePreference::Light),
             library_view_mode: Some(crate::settings::ViewMode::List),
             library_sort: Some(crate::settings::SortPreference::HighlightCount),
+            library_sort_reversed: Some(true),
             sync_on_connect: Some(false),
             check_for_updates: Some(false),
         }
@@ -272,6 +273,7 @@ mod tests {
         assert_eq!(settings.language, crate::models::Language::Pt);
         assert_eq!(settings.ui_preferences.theme, crate::settings::ThemePreference::Light);
         assert_eq!(settings.ui_preferences.library_view_mode, crate::settings::ViewMode::List);
+        assert!(settings.ui_preferences.library_sort_reversed);
         assert_eq!(
             settings.ui_preferences.library_sort,
             crate::settings::SortPreference::HighlightCount

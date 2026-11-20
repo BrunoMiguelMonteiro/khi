@@ -1,9 +1,14 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
 import { compileAppCss, selectorFor } from "$lib/test/css";
 import { BookRow, ColumnHeader, type BookRowBook } from "./index";
 import RowsFixture from "./book-rows.fixture.svelte";
+
+// The tables built around the rendered rows are not in testing-library's container: shuffled runs would see each other's rows.
+afterEach(() => {
+  document.body.querySelectorAll("table").forEach((table) => table.remove());
+});
 
 type Binding = { binding: string; utility: string; css: string };
 
@@ -154,10 +159,10 @@ describe("BookRow", () => {
         { binding: "fixed", utility: "shrink-0", css: "flex-shrink: 0;" },
       ]);
     }
-    // Title: Miniatura, the title on one line, then the badge 8 px after it.
+    // Title: the 24 pt selection slot, Miniatura, the title on one line, then the badge 8 px after it.
     const title = cell("title");
-    expect(must(slot(title, "thumbnail"), "thumbnail")).toBe(
-      title.firstElementChild,
+    expect(must(slot(title, "thumbnail"), "thumbnail").previousElementSibling).toBe(
+      slot(title, "selection-box"),
     );
     const text = must(slot(title, "book-row-title-text"), "title text");
     expect(text.textContent?.trim()).toBe("Os Maias");

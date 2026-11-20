@@ -52,6 +52,9 @@ pub struct UiPreferences {
     /// Sort preference for library
     #[serde(alias = "library_sort")]
     pub library_sort: SortPreference,
+    /// The sort runs against its natural direction (the column header was clicked on the active column)
+    #[serde(default, alias = "library_sort_reversed")]
+    pub library_sort_reversed: bool,
     /// Whether to sync automatically when a known Kobo is connected (R23).
     /// Old files stored it as `autoImportOnConnect`.
     #[serde(
@@ -137,6 +140,9 @@ pub struct SettingsPatch {
     /// `uiPreferences.librarySort`
     #[specta(optional)]
     pub library_sort: Option<SortPreference>,
+    /// `uiPreferences.librarySortReversed`
+    #[specta(optional)]
+    pub library_sort_reversed: Option<bool>,
     /// `uiPreferences.syncOnConnect`
     #[specta(optional)]
     pub sync_on_connect: Option<bool>,
@@ -171,6 +177,9 @@ impl SettingsPatch {
         if let Some(sort) = self.library_sort {
             ui.library_sort = sort;
         }
+        if let Some(reversed) = self.library_sort_reversed {
+            ui.library_sort_reversed = reversed;
+        }
         if let Some(enabled) = self.sync_on_connect {
             ui.sync_on_connect = enabled;
         }
@@ -201,6 +210,7 @@ impl Default for UiPreferences {
             show_onboarding: true,
             library_view_mode: ViewMode::Grid,
             library_sort: SortPreference::DateLastRead,
+            library_sort_reversed: false,
             sync_on_connect: true,
             check_for_updates: true,
         }
@@ -705,6 +715,7 @@ mod tests {
             show_onboarding: false,
             library_view_mode: ViewMode::List,
             library_sort: SortPreference::Author,
+            library_sort_reversed: false,
             sync_on_connect: false,
             check_for_updates: false,
         };
@@ -822,6 +833,40 @@ mod tests {
         assert!(config.export_path.contains("Kobo Highlights"));
         assert!(config.metadata.author);
         assert_eq!(config.date_format, DateFormat::DdMonthYyyy);
+    }
+
+    #[test]
+    fn library_sort_reversed_defaults_false() {
+        assert!(!UiPreferences::default().library_sort_reversed);
+    }
+
+    #[test]
+    fn old_settings_without_reversed_load() {
+        let json = r#"{
+            "theme": "system",
+            "windowWidth": 1200,
+            "windowHeight": 800,
+            "isMaximized": false,
+            "showOnboarding": true,
+            "libraryViewMode": "grid",
+            "librarySort": "date_last_read"
+        }"#;
+
+        let prefs: UiPreferences = serde_json::from_str(json).unwrap();
+
+        assert!(!prefs.library_sort_reversed);
+    }
+
+    #[test]
+    fn patch_sets_reversed() {
+        let mut settings = AppSettings::default();
+        let patch: SettingsPatch = serde_json::from_str(r#"{"librarySortReversed": true}"#).unwrap();
+
+        patch.apply_to(&mut settings);
+        assert!(settings.ui_preferences.library_sort_reversed);
+
+        SettingsPatch::default().apply_to(&mut settings);
+        assert!(settings.ui_preferences.library_sort_reversed);
     }
 
     #[test]

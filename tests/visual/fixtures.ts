@@ -144,6 +144,7 @@ export function makeSettings({ theme, language, viewMode = 'grid' }: SettingsInp
 			showOnboarding: false,
 			libraryViewMode: viewMode,
 			librarySort: 'title',
+			librarySortReversed: false,
 			// Off, so connecting the Kobo shows the Library without a Sync
 			syncOnConnect: false,
 			checkForUpdates: true

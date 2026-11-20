@@ -84,6 +84,7 @@ const onDisk = {
 		showOnboarding: true,
 		libraryViewMode: 'grid',
 		librarySort: 'title',
+		librarySortReversed: false,
 		// Off, so a connected Kobo shows the Library without a Sync
 		syncOnConnect: false,
 		checkForUpdates: true
@@ -110,12 +111,14 @@ type Options = {
 	device?: typeof kobo | null;
 	lastReader?: number | null;
 	syncOnConnect?: boolean;
+	/** What the file says of the view and the sort. */
+	ui?: Partial<typeof onDisk.uiPreferences>;
 	/** A thrown error is a rejected command. */
 	overrides?: Record<string, (args: unknown) => unknown>;
 };
 
 /** Reader 1 open; `update_settings` answers the store's settings. */
-async function mockLibrary({ list = readers, books = [], summary, device = null, lastReader = 1, syncOnConnect = false, overrides = {} }: Options = {}) {
+async function mockLibrary({ list = readers, books = [], summary, device = null, lastReader = 1, syncOnConnect = false, ui = {}, overrides = {} }: Options = {}) {
 	vi.mocked(invoke).mockImplementation((cmd: string, args?: unknown) => {
 		if (cmd in overrides) return Promise.resolve().then(() => overrides[cmd](args));
 		if (cmd === 'list_readers') return Promise.resolve(structuredClone(list));
@@ -130,6 +133,7 @@ async function mockLibrary({ list = readers, books = [], summary, device = null,
 		if (cmd === 'load_settings') {
 			const saved = structuredClone(onDisk);
 			saved.uiPreferences.syncOnConnect = syncOnConnect;
+			Object.assign(saved.uiPreferences, ui);
 			return Promise.resolve(saved);
 		}
 		if (cmd === 'update_settings') return Promise.resolve($state.snapshot(settings.state));
@@ -217,7 +221,7 @@ describe('+page', () => {
 		await user.click(await menuItem('Author (A-Z)'));
 
 		// Only the sort: the rest of the file is not this window's to write
-		expect(invoke).toHaveBeenCalledWith('update_settings', { patch: { librarySort: 'author' } });
+		expect(invoke).toHaveBeenCalledWith('update_settings', { patch: { librarySort: 'author', librarySortReversed: false } });
 		expect(settings.uiPreferences.librarySort).toBe('author');
 	});
 
@@ -1965,6 +1969,105 @@ describe('+page · screen 3 · no Kobo', () => {
 		handlers.get('device-detected')!({ payload: { device: kobo } });
 		await syncReady();
 		expect(calls('sync_kobo')).toHaveLength(0);
+	});
+});
+
+describe('+page · screen 4 · list', () => {
+	beforeEach(() => {
+		vi.mocked(invoke).mockReset();
+		handlers.clear();
+		resetLibrary();
+	});
+
+	const sortBooks = () => [
+		makeBook({ id: 1, title: 'Beta', author: 'Zed', dateLastRead: '2026-03-01T10:00:00Z', highlights: [hl('a')] }),
+		makeBook({ id: 2, title: 'Alpha', author: null as unknown as string, dateLastRead: null, highlights: [hl('b'), hl('c')] }),
+		makeBook({ id: 3, title: 'Gamma', author: 'Ana', dateLastRead: '2026-05-01T10:00:00Z', highlights: [] }),
+		makeBook({ id: 4, title: 'Delta', author: '', dateLastRead: '2026-01-01T10:00:00Z', highlights: [hl('d'), hl('e'), hl('f')] })
+	];
+	const titles = () => [...document.querySelectorAll('[data-slot="book-row-title-text"]')].map((el) => el.textContent?.trim());
+	const cardTitles = () => options().map((o) => o.getAttribute('aria-label')!.split(',')[0]);
+	const openList = async (ui: Partial<typeof onDisk.uiPreferences>) => {
+		await mockLibrary({ books: sortBooks(), ui: { libraryViewMode: 'list', ...ui } });
+		render(Page);
+		await waitFor(() => expect(titles()).toHaveLength(4));
+	};
+	const columnButton = (name: string) => screen.getByRole('button', { name });
+
+	it('header_click_reverses_active_sort', async () => {
+		await openList({ librarySort: 'title' });
+		expect(titles()).toEqual(['Alpha', 'Beta', 'Delta', 'Gamma']);
+		expect(screen.getByRole('columnheader', { name: 'Title' })).toHaveAttribute('aria-sort', 'ascending');
+
+		await fireEvent.click(columnButton('Title'));
+
+		expect(titles()).toEqual(['Gamma', 'Delta', 'Beta', 'Alpha']);
+		expect(screen.getByRole('columnheader', { name: 'Title' })).toHaveAttribute('aria-sort', 'descending');
+		expect(invoke).toHaveBeenCalledWith('update_settings', { patch: { librarySortReversed: true } });
+		expect(settings.uiPreferences.librarySortReversed).toBe(true);
+
+		await fireEvent.click(columnButton('Title'));
+		expect(titles()).toEqual(['Alpha', 'Beta', 'Delta', 'Gamma']);
+		expect(invoke).toHaveBeenLastCalledWith('update_settings', { patch: { librarySortReversed: false } });
+	});
+
+	it('header_click_other_column_resets_direction', async () => {
+		await openList({ librarySort: 'title', librarySortReversed: true });
+
+		await fireEvent.click(columnButton('Highlights'));
+
+		expect(invoke).toHaveBeenCalledWith('update_settings', { patch: { librarySort: 'highlight_count', librarySortReversed: false } });
+		expect(settings.uiPreferences.librarySort).toBe('highlight_count');
+		expect(settings.uiPreferences.librarySortReversed).toBe(false);
+		expect(titles()).toEqual(['Delta', 'Alpha', 'Beta', 'Gamma']);
+	});
+
+	it('menu_sort_resets_direction', async () => {
+		await openList({ librarySort: 'title', librarySortReversed: true });
+		const user = userEvent.setup();
+
+		await user.click(await screen.findByRole('button', { name: 'Sort by' }));
+		await user.click(await menuItem('Title (A-Z)'));
+
+		expect(settings.uiPreferences.librarySortReversed).toBe(false);
+		expect(titles()).toEqual(['Alpha', 'Beta', 'Delta', 'Gamma']);
+		expect(invoke).toHaveBeenCalledWith('update_settings', { patch: { librarySort: 'title', librarySortReversed: false } });
+	});
+
+	it('missing_date_stays_last_both_directions', async () => {
+		await openList({ librarySort: 'date_last_read' });
+		expect(titles()).toEqual(['Gamma', 'Beta', 'Delta', 'Alpha']);
+
+		await fireEvent.click(columnButton('Last read'));
+
+		expect(titles()).toEqual(['Delta', 'Beta', 'Gamma', 'Alpha']);
+	});
+
+	it('missing_author_stays_last_both_directions', async () => {
+		await openList({ librarySort: 'author' });
+		// Ana, Zed, then the two without an author, in a stable order
+		expect(titles().slice(0, 2)).toEqual(['Gamma', 'Beta']);
+
+		await fireEvent.click(columnButton('Author'));
+
+		expect(titles().slice(0, 2)).toEqual(['Beta', 'Gamma']);
+		expect(new Set(titles().slice(2))).toEqual(new Set(['Alpha', 'Delta']));
+	});
+
+	it('reversed_applies_to_grid_too', async () => {
+		await mockLibrary({ books: sortBooks(), ui: { libraryViewMode: 'grid', librarySort: 'title', librarySortReversed: true } });
+		render(Page);
+		await waitFor(() => expect(options()).toHaveLength(4));
+
+		expect(cardTitles()).toEqual(['Gamma', 'Delta', 'Beta', 'Alpha']);
+	});
+
+	it('list_click_on_a_row_opens_the_book', async () => {
+		await openList({ librarySort: 'title' });
+
+		await fireEvent.click(document.querySelectorAll('[data-slot="book-row"]')[0]);
+
+		await waitFor(() => expect(screen.getByTestId('book-details-view')).toBeInTheDocument());
 	});
 });
 

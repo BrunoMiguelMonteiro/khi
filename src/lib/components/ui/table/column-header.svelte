@@ -5,6 +5,8 @@
 		label: string;
 		sort?: ColumnSort;
 		align?: 'start' | 'end';
+		/** No inner padding: the label starts at the column's edge, as the row's cell text does. */
+		flush?: boolean;
 		onclick?: (event: MouseEvent) => void;
 		class?: string;
 	};
@@ -26,7 +28,7 @@
 	import { Icon } from '../icon';
 	import Head from './table-head.svelte';
 
-	let { label, sort = 'none', align = 'start', onclick, class: className }: ColumnHeaderProps =
+	let { label, sort = 'none', align = 'start', flush = false, onclick, class: className }: ColumnHeaderProps =
 		$props();
 </script>
 
@@ -38,6 +40,7 @@
 
 <!-- The caller sorts: a click only reports it. aria-sort tells VoiceOver the column's order. -->
 <Head
+	role="columnheader"
 	aria-sort={ARIA_SORT[sort]}
 	data-slot="column-header"
 	class={cn('h-7 p-0', className)}
@@ -45,7 +48,8 @@
 	<button
 		type="button"
 		class={cn(
-			'flex h-7 w-full items-center gap-1 rounded-control px-2 text-callout-medium outline-none focus-visible:focus-ring',
+			'flex h-7 w-full items-center gap-1 rounded-control text-callout-medium outline-none focus-visible:focus-ring',
+			flush ? 'px-0' : 'px-2',
 			ALIGN[align],
 			TONE[sort]
 		)}

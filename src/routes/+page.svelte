@@ -24,6 +24,7 @@
 	// Sync with store
 	let viewMode = $derived(settings.uiPreferences.libraryViewMode);
 	let sortBy = $derived(settings.uiPreferences.librarySort);
+	let reversed = $derived(settings.uiPreferences.librarySortReversed);
 
 	// Local state
 	/** A connected Kobo with no Reader yet: asked before any Sync (R7). */
@@ -141,23 +142,27 @@
 		}
 	}
 
-	// Sort books based on selected option
-	let sortedBooks = $derived(
-		[...library.books].sort((a, b) => {
+	/** The natural direction of each criterion; `reversed` runs against it. A missing value stays last either way. */
+	let sortedBooks = $derived.by(() => {
+		const sign = reversed ? -1 : 1;
+		const missing = (book: Book) => (sortBy === 'date_last_read' ? !book.dateLastRead : sortBy === 'author' ? !book.author?.trim() : false);
+		return [...library.books].sort((a, b) => {
+			const gap = Number(missing(a)) - Number(missing(b));
+			if (gap !== 0) return gap;
 			switch (sortBy) {
 				case 'title':
-					return (a.title || '').localeCompare(b.title || '');
+					return sign * (a.title || '').localeCompare(b.title || '');
 				case 'author':
-					return (a.author || '').localeCompare(b.author || '');
+					return sign * (a.author || '').localeCompare(b.author || '');
 				case 'date_last_read':
-					return (b.dateLastRead || '').localeCompare(a.dateLastRead || '');
+					return sign * (b.dateLastRead || '').localeCompare(a.dateLastRead || '');
 				case 'highlight_count':
-					return (b.highlights?.length || 0) - (a.highlights?.length || 0);
+					return sign * ((b.highlights?.length || 0) - (a.highlights?.length || 0));
 				default:
 					return 0;
 			}
-		})
-	);
+		});
+	});
 
 	// The native menu speaks the interface's language: rebuilt when it changes
 	$effect(() => {
@@ -404,19 +409,12 @@
 		library.setSelectedBookIds(newSelection);
 	}
 
-	/** The only way into a book: a click and Enter in the grid, and a click in the list. */
+	/** The only way into a book: a click or Enter, in the grid and in the list. */
 	function openBook(book: Book) {
 		exported = false;
 		openedBookId = book.id;
 		library.openBook(book.id);
 		library.setUiState('book-details');
-	}
-
-	function handleBookClick(book: Book, event: MouseEvent) {
-		const isCtrlOrCmd = event.ctrlKey || event.metaKey;
-		const isShift = event.shiftKey;
-
-		if (!isCtrlOrCmd && !isShift) openBook(book);
 	}
 
 	function handleCloseBookDetails() {
@@ -429,7 +427,14 @@
 	 * changes the state, and the effect would save again. */
 	function handleSortChange(sort: SortPreference) {
 		settings.setSortPreference(sort);
-		settings.persist({ librarySort: sort }).catch((error) => console.error('Failed to save the sort:', error));
+		settings.persist({ librarySort: sort, librarySortReversed: false }).catch((error) => console.error('Failed to save the sort:', error));
+	}
+
+	/** A column header: the active column flips the direction, another one sorts by it, in its natural direction. */
+	function handleColumnSort(sort: SortPreference) {
+		if (sort !== sortBy) return handleSortChange(sort);
+		settings.setSortReversed(!reversed);
+		settings.persist({ librarySortReversed: reversed }).catch((error) => console.error('Failed to save the sort:', error));
 	}
 
 	function handleViewModeChange(mode: ViewMode) {
@@ -518,7 +523,9 @@
 					selectedBookIds={library.selectedBookIds}
 					{viewMode}
 					onSelectionChange={handleSelectionChange}
-					onBookClick={handleBookClick}
+					sort={sortBy}
+					{reversed}
+					onSortChange={handleColumnSort}
 					onBookOpen={openBook}
 					initialActiveId={openedBookId}
 					hideNew={library.isImporting}

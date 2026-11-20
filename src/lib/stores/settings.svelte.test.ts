@@ -46,6 +46,7 @@ const MOCK_DEFAULTS: AppSettings = {
     showOnboarding: true,
     libraryViewMode: 'grid',
     librarySort: 'title',
+    librarySortReversed: false,
     syncOnConnect: true,
     checkForUpdates: true
   },
@@ -132,6 +133,14 @@ describe('Settings Store - UI Preferences Actions', () => {
 		expect(settings.uiPreferences.librarySort).toBe('highlight_count');
 	});
 
+	it('should reset the sort direction when the criterion is chosen', () => {
+		settings.setSortReversed(true);
+		expect(settings.uiPreferences.librarySortReversed).toBe(true);
+
+		settings.setSortPreference('author');
+		expect(settings.uiPreferences.librarySortReversed).toBe(false);
+	});
+
 	it('should update window size', () => {
 		settings.setWindowSize(1920, 1080);
 
@@ -195,6 +204,7 @@ describe('Settings Store - Settings Management', () => {
 				showOnboarding: false,
 				libraryViewMode: 'list' as ViewMode,
 				librarySort: 'author' as SortPreference,
+				librarySortReversed: false,
 				syncOnConnect: true,
 				checkForUpdates: true
 			},
@@ -303,6 +313,7 @@ describe('Settings Store - Tauri Integration', () => {
 				showOnboarding: false,
 				libraryViewMode: 'list',
 				librarySort: 'author',
+				librarySortReversed: false,
 				syncOnConnect: false,
 				checkForUpdates: true
 			},

@@ -39,6 +39,7 @@ function onDisk(): AppSettings {
 			showOnboarding: true,
 			libraryViewMode: 'grid',
 			librarySort: 'title',
+			librarySortReversed: false,
 			syncOnConnect: true,
 			checkForUpdates: true
 		},
