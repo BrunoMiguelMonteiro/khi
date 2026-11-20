@@ -1800,6 +1800,8 @@ Fontes: [Apple HIG, Progress indicators](https://developer.apple.com/design/huma
 - abrir um livro a meio: no fim, continua aberto;
 - em Claro e Escuro.
 
+**Ecrã 2 aprovado a 2026-11-20** (Bruno: «Aprovo o ecrã 2»), depois de o verificar no ecrã com a sua Biblioteca. A W2 (Biblioteca vazia na primeira sincronização) não se vê com uma Biblioteca já feita; foi aprovada pelas capturas do harness (`library-empty-syncing`, Claro e Escuro).
+
 ## Fase 6 · Fecho da v2 (tasks a escrever)
 - **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.
   
