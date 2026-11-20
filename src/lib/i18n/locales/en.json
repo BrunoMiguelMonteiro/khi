@@ -13,6 +13,9 @@
       "title": "No Kobo connected",
       "subtitle": "Connect your Kobo to view your highlights"
     },
+    "syncingEmpty": {
+      "title": "Syncing with the Kobo"
+    },
     "importing": {
       "title": "Syncing highlights...",
       "progress": "{done} of {total} books"
@@ -68,6 +71,7 @@
       "koboDisconnected": "Kobo disconnected",
       "sync": "Sync",
       "syncDisabledReason": "Connect your Kobo to sync",
+      "exportDisabledReason": "Wait for the sync to finish",
       "viewMode": "View mode",
       "gridViewLabel": "Grid view",
       "listViewLabel": "List view",
@@ -337,6 +341,10 @@
   "ui": {
     "windowBar": {
       "sync": "Sync with the Kobo",
+      "syncing": "Syncing",
+      "syncingProgress": "Syncing · {done} of {count} books",
+      "syncingProgress_one": "Syncing · {done} of 1 book",
+      "syncingProgress_other": "Syncing · {done} of {count} books",
       "export": "Export {count} books",
       "export_one": "Export 1 book",
       "export_other": "Export {count} books",

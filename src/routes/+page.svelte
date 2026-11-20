@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 	import { getCurrentWindow } from '@tauri-apps/api/window';
 	import { commands, events } from '$lib/bindings';
 	import LibraryView from '$lib/components/LibraryView.svelte';
 	import BookDetailsView from '$lib/components/BookDetailsView.svelte';
 	import EmptyStateNoDevice from '$lib/components/EmptyStateNoDevice.svelte';
-	import ImportingState from '$lib/components/ImportingState.svelte';
+	import EmptyStateSyncing from '$lib/components/EmptyStateSyncing.svelte';
 	import UnknownKoboDialog from '$lib/components/UnknownKoboDialog.svelte';
 	import { LibraryHeader, type LibraryHeaderState } from '$lib/components/ui/library-header';
 	import { notify, Toaster } from '$lib/components/ui/toast';
@@ -28,8 +28,6 @@
 	// Local state
 	/** A connected Kobo with no Reader yet: asked before any Sync (R7). */
 	let unknownDevice = $state<KoboDevice | null>(null);
-	/** A failed Sync, until the next one: the Library header's `erro` state. */
-	let syncFailed = $state(false);
 	/** The header's own export finished well: its button reads «✓ Exportado». Cleared when the Library is left or a Sync starts. */
 	let exported = $state(false);
 	/** The book last opened: its option takes focus when the detail closes. */
@@ -44,7 +42,11 @@
 	const newBookIds = $derived(library.books.filter((book) => newHighlightCount(book) > 0).map((book) => book.id));
 	const newHighlights = $derived(library.books.reduce((total, book) => total + newHighlightCount(book), 0));
 	const headerState = $derived.by<LibraryHeaderState | null>(() => {
-		if (syncFailed) return { kind: 'erro', message: '' };
+		// First: it wins over an error the store has not cleared yet, and the first Sync has no books yet
+		if (library.isImporting) {
+			return { kind: 'aSincronizar', done: library.syncProgress?.done ?? 0, total: library.syncProgress?.total ?? 0 };
+		}
+		if (library.lastSyncFailed) return { kind: 'erro', message: '' };
 		if (library.books.length === 0) return null;
 		if (newHighlights > 0) {
 			return { kind: 'novos', highlights: newHighlights, books: newBookIds.length, since: library.summary?.newSince };
@@ -52,8 +54,36 @@
 		// Nothing new: no header at all (Plano 0002, «Sem novidades, sem cabeçalho»)
 		return null;
 	});
-	/** The book on screen in the detail, never while a Sync replaces the content. */
-	const detailBook = $derived(!library.isImporting && library.uiState === 'book-details' ? library.viewingBook : undefined);
+	/** The start and the end of a Sync, for a screen reader: a region that mounts with its text is not reliably announced, so this one is always mounted. */
+	let syncAnnouncement = $state('');
+	let wasImporting = false;
+	$effect(() => {
+		const importing = library.isImporting;
+		if (importing === wasImporting) return;
+		wasImporting = importing;
+		untrack(() => {
+			if (importing) syncAnnouncement = $_('screens.library.header.syncing');
+			// A failure is the header's alert, not repeated here
+			else if (library.lastSyncFailed) syncAnnouncement = '';
+			else if (headerState?.kind === 'novos') {
+				syncAnnouncement = `${$_('screens.library.header.newHighlights', { count: headerState.highlights })} ${$_('screens.library.header.inBooks', { count: headerState.books })}`;
+			} else syncAnnouncement = $_('screens.library.header.noNews');
+		});
+	});
+
+	// The book opened in another Reader's Library is not this one's: a Reader switch, by the menu or by a connecting Kobo, forgets it
+	let lastReaderId = library.activeReaderId;
+	$effect.pre(() => {
+		const readerId = library.activeReaderId;
+		if (readerId === lastReaderId) return;
+		lastReaderId = readerId;
+		openedBookId = null;
+	});
+
+	/** Export waits for the end of a Sync, in the Library and in a book. */
+	const exportDisabledReason = $derived(library.isImporting ? $_('screens.library.exportDisabledReason') : undefined);
+	/** The book on screen in the detail; it stays open while a Sync runs (Task 38). */
+	const detailBook = $derived(library.uiState === 'book-details' ? library.viewingBook : undefined);
 
 	// Event unlisten functions for cleanup
 	let unlistenDeviceDetected: UnlistenFn | undefined;
@@ -126,6 +156,11 @@
 		return () => clearTimeout(timer);
 	});
 
+	// Any Sync, from the button or on connect, ends the header's «✓ Exportado» as it starts, not when it ends
+	$effect.pre(() => {
+		if (library.isImporting) exported = false;
+	});
+
 	/** An installed update waits for exports and Syncs before restarting. */
 	const isBusy = () => library.isImporting || library.isExporting;
 
@@ -193,14 +228,15 @@
 			// Reload the Library the Sync wrote to, if it is on screen
 			unlistenSyncFinished = await events.syncFinished.listen((event) => {
 				if (event.payload.readerId === library.activeReaderId) {
-					library.openReader(event.payload.readerId).catch((e) => console.error(e));
+					// Rust says so before `sync_kobo` answers: the selection made during the Sync stays here too
+					library.openReader(event.payload.readerId, { keepSelection: true }).catch((e) => console.error(e));
 				}
 			});
 
 			// The Library stays on screen without the Kobo (R17)
 			unlistenDeviceDisconnected = await events.deviceDisconnected.listen(() => {
 				console.log('Device disconnected');
-				syncFailed = false;
+				library.lastSyncFailed = false;
 				library.deviceDisconnected();
 			});
 		} catch (error) {
@@ -208,8 +244,13 @@
 		}
 	}
 
-	/** Shows the Library when a Reader is open, the empty state otherwise. */
+	/** Shows the Library when a Reader is open, the empty state otherwise. An open
+	 * book stays open (a Sync ends without a jump), unless it is gone from the Library. */
 	function showLibraryOrEmpty() {
+		if (library.uiState === 'book-details') {
+			if (library.viewingBook) return;
+			library.closeBook();
+		}
 		library.setUiState(library.activeReaderId !== null ? 'library' : 'no-device');
 	}
 
@@ -219,26 +260,26 @@
 		try {
 			const outcome = await library.deviceConnected(device, settings.uiPreferences.syncOnConnect ?? true);
 			if (outcome === 'unknown' && device.serialNumber) unknownDevice = device;
-			if (outcome === 'synced') {
-				syncFailed = false;
-				exported = false;
-			}
 		} catch (error) {
 			console.error('Sync on connect failed:', error);
-			syncFailed = true;
+			// The store set it if the Sync itself failed; a connect that failed before it is shown the same
+			library.lastSyncFailed = true;
 		}
 		showLibraryOrEmpty();
 	}
 
 	/** «Sincronizar» in the toolbar (R6). */
 	async function handleSync() {
-		syncFailed = false;
+		// Sync stays enabled while it turns: a click then is not a second Sync, and changes nothing
+		if (library.isImporting) return;
+		// The store clears the error as the Sync starts
 		exported = false;
 		try {
 			await library.sync();
 		} catch (error) {
 			console.error('Sync failed:', error);
-			syncFailed = true;
+			// Also a Sync that could not start (no known Kobo)
+			library.lastSyncFailed = true;
 		}
 		showLibraryOrEmpty();
 	}
@@ -273,8 +314,19 @@
 			showLibraryOrEmpty();
 			return;
 		}
+		// Mid-Sync, the Library would be undone by the Sync's end: the Sync on connect
+		// shows it once that one ends; without it, it opens after the end
+		if (library.isImporting) {
+			if (settings.uiPreferences.syncOnConnect ?? true) {
+				await handleDeviceConnected(device);
+				return;
+			}
+			await library.syncEnded();
+		}
 		try {
 			await library.openReader(readerId);
+			// The Library is on screen while it syncs, not the empty state (Task 38, I1)
+			showLibraryOrEmpty();
 			await handleDeviceConnected(device);
 		} catch (error) {
 			console.error('Failed to open the reader:', error);
@@ -294,9 +346,10 @@
 	}
 
 	async function handleSelectReader(readerId: number) {
-		syncFailed = false;
+		// The Sync ends by opening its Kobo's Reader: a menu left open must not switch now
+		if (library.isImporting) return;
+		library.lastSyncFailed = false;
 		exported = false;
-		openedBookId = null;
 		try {
 			await library.openReader(readerId);
 		} catch (error) {
@@ -386,17 +439,17 @@
 		// A text field keeps its keys; a modal window owns the keyboard
 		if (target?.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]')) return;
 		if (unknownDevice || (updater.state !== 'idle' && updater.state !== 'restartPending')) return;
-		if (library.isImporting) return;
 
 		const inLibrary = library.uiState === 'library';
 		// In a book only ⌘E works: it exports that book
 		if (!inLibrary && !(detailBook && key === 'e')) return;
 		event.preventDefault();
 
+		// While a Sync runs only the views switch: Sync and Export wait for its end
 		if (key === 'r') {
-			if (library.canSync) handleSync();
+			if (library.canSync && !library.isImporting) handleSync();
 		} else if (key === 'e') {
-			handleBarExport();
+			if (!library.isImporting) handleBarExport();
 		} else {
 			const mode: ViewMode = key === '1' ? 'grid' : 'list';
 			if (mode !== viewMode) handleViewModeChange(mode);
@@ -415,6 +468,7 @@
 				{trafficLightsWidth}
 				onback={handleCloseBookDetails}
 				exportCount={1}
+				{exportDisabledReason}
 				onexport={handleBarExport}
 				canDelete={false}
 			/>
@@ -425,23 +479,27 @@
 				readers={library.readers}
 				activeReaderId={library.activeReaderId}
 				onselectReader={(id) => handleSelectReader(Number(id))}
+				titleMenuDisabled={library.isImporting}
 				view={viewMode}
 				onview={handleViewModeChange}
 				sort={sortBy}
 				onsort={handleSortChange}
 				syncing={library.isImporting}
+				syncProgress={library.syncProgress}
 				syncDisabledReason={library.canSync || library.isImporting ? undefined : $_('screens.library.syncDisabledReason')}
 				onsync={handleSync}
 				exportCount={library.selectedBookIds.length || library.books.length}
+				{exportDisabledReason}
 				onexport={handleBarExport}
 			/>
 		{/if}
 
 		<main class="flex-1 relative overflow-hidden flex flex-col">
-			{#if library.isImporting}
-				<ImportingState progress={library.syncProgress} />
-			{:else if library.uiState === 'no-device'}
+			{#if library.uiState === 'no-device'}
 				<EmptyStateNoDevice />
+			{:else if library.uiState === 'library' && library.isImporting && library.books.length === 0}
+				<!-- The first Sync: no header, no «Sem livros»; the centred state counts the books -->
+				<EmptyStateSyncing progress={library.syncProgress} />
 			{:else if library.uiState === 'book-details' && library.viewingBook}
 				<BookDetailsView book={library.viewingBook} onClose={handleCloseBookDetails} onNotification={showNotification} />
 			{:else if library.uiState === 'library'}
@@ -453,6 +511,7 @@
 					onBookClick={handleBookClick}
 					onBookOpen={openBook}
 					initialActiveId={openedBookId}
+					hideNew={library.isImporting}
 					onBooksImport={library.canSync ? handleSync : undefined}
 				>
 					{#snippet header()}
@@ -484,3 +543,5 @@
 {/if}
 
 <UpdateDialog {isBusy} />
+
+<div aria-live="polite" class="sr-only" data-testid="sync-announcer">{syncAnnouncement}</div>

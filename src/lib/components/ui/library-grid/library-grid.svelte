@@ -9,19 +9,44 @@
 		onOpen: (book: Book) => void;
 		/** The book that holds the tab stop and the focus when the grid appears: the one the user came back from. */
 		initialActiveId?: number | null;
+		/** A Sync is running: no card shows its «N novos» badge until it ends. */
+		hideNew?: boolean;
 		class?: string;
 	};
 </script>
 
 <script lang="ts">
 	import { convertFileSrc } from '@tauri-apps/api/core';
-	import { onMount, untrack } from 'svelte';
+	import { onDestroy, onMount, untrack } from 'svelte';
 	import { _ } from '$lib/i18n';
 	import { newHighlightCount } from '$lib/stores/library.svelte';
 	import { cn } from '$lib/utils';
 	import { BookCard } from '../book-card';
 
-	let { books, selectedBookIds, onSelectionChange, onOpen, initialActiveId = null, class: className }: LibraryGridProps = $props();
+	let { books, selectedBookIds, onSelectionChange, onOpen, initialActiveId = null, hideNew = false, class: className }: LibraryGridProps = $props();
+
+	// The badges come in with a fade only when a Sync ends (hideNew true → false), together with the header:
+	// never when the grid is merely shown again. The books a Sync brings in fade too: the store loads them before the Sync ends, while `hideNew` is still true.
+	let badgeEnter = $state(false);
+	let wasHidden = untrack(() => hideNew);
+	let enterTimer: ReturnType<typeof setTimeout> | undefined;
+	// Only the books that were in the grid while the badges were hidden fade: another reader's books, shown within the window, do not.
+	let hiddenIds = new Set<number>(untrack(() => (hideNew ? books.map((book) => book.id) : [])));
+	let enterIds = $state.raw(new Set<number>());
+	$effect.pre(() => {
+		const hidden = hideNew;
+		if (hidden) hiddenIds = new Set(books.map((book) => book.id));
+		untrack(() => {
+			if (wasHidden && !hidden) {
+				enterIds = hiddenIds;
+				badgeEnter = true;
+				clearTimeout(enterTimer);
+				enterTimer = setTimeout(() => (badgeEnter = false), 1000);
+			}
+			wasHidden = hidden;
+		});
+	});
+	onDestroy(() => clearTimeout(enterTimer));
 
 	let list: HTMLDivElement;
 	/** The book that holds the single tab stop; follows the focus (roving tabindex). */
@@ -165,13 +190,14 @@
 			tabindex={index === activeIndex ? 0 : -1}
 			selected={isSelected(book.id)}
 			{selecting}
+			badgeEnter={badgeEnter && enterIds.has(book.id)}
 			book={{
 				id: book.id,
 				title: book.title,
 				author: book.author,
 				coverSrc: book.coverPath ? convertFileSrc(book.coverPath) : undefined,
 				highlightCount: book.highlights.length,
-				newCount: newHighlightCount(book)
+				newCount: hideNew ? 0 : newHighlightCount(book)
 			}}
 			onclick={(event) => handleClick(book, event)}
 		/>

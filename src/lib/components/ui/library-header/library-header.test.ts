@@ -16,6 +16,7 @@ const reduceMotion = vi.hoisted(() => {
 });
 import { render, screen, waitFor } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
+import { tick } from "svelte";
 import Fixture from "./library-header-fixture.svelte";
 import ToggleFixture from "./library-header-toggle.fixture.svelte";
 import PropsFixture from "./library-header-props.fixture.svelte";
@@ -28,9 +29,6 @@ const NOVOS: LibraryHeaderState = {
   books: 3,
   since: new Date(2026, 10, 9, 10, 0),
 };
-
-const live = () =>
-  must(document.querySelector<HTMLElement>("[aria-live]"), "live region");
 
 function must<T>(el: T | null, what: string): T {
   if (!el) throw new Error(`no ${what} rendered`);
@@ -128,6 +126,19 @@ describe("LibraryHeader text", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 
+  it("header_hides_count_before_total_known", () => {
+    const { container } = renderHeader({ kind: "aSincronizar", done: 0, total: 0 });
+    expect(
+      container
+        .querySelector('[data-slot="library-header-message"]')
+        ?.textContent?.trim(),
+    ).toBe("Syncing with the Kobo");
+    // No «· 0 of 0 books»: the Kobo has not said how many there are
+    expect(
+      container.querySelector('[data-slot="library-header-detail"]'),
+    ).toBeNull();
+  });
+
   it("no_news_shows_sync_time", () => {
     const { container } = renderHeader({
       kind: "semNovidades",
@@ -159,40 +170,14 @@ describe("LibraryHeader text", () => {
 });
 
 describe("LibraryHeader announcements", () => {
-  it("announces_start_and_end_only", async () => {
+  it("has_no_polite_region_of_its_own", async () => {
     const { rerender } = renderHeader(NOVOS);
-    expect(live().getAttribute("aria-live")).toBe("polite");
-    const header = document.querySelector('[data-slot="library-header"]');
-    expect(header?.contains(live())).toBe(false);
-
-    await rerender({ state: { kind: "aSincronizar", done: 0, total: 11 } });
-    expect(live().textContent?.trim()).toBe("Syncing with the Kobo");
-    // Each book changes the screen, not the region.
-    const seen: string[] = [];
-    const observer = new MutationObserver(() =>
-      seen.push(live().textContent ?? ""),
-    );
-    observer.observe(live(), {
-      childList: true,
-      characterData: true,
-      subtree: true,
-    });
-    for (const done of [1, 2, 3, 10]) {
-      await rerender({ state: { kind: "aSincronizar", done, total: 11 } });
-    }
-    await Promise.resolve();
-    expect(seen).toEqual([]);
-    expect(live().textContent?.trim()).toBe("Syncing with the Kobo");
-    expect(screen.getByText("· 10 of 11 books")).toBeTruthy();
-
-    await rerender({ state: NOVOS });
-    expect(live().textContent?.trim()).toBe("12 new highlights in 3 books");
-    observer.disconnect();
-
-    await rerender({
-      state: { kind: "semNovidades", syncedAt: new Date(2026, 10, 19, 10, 42) },
-    });
-    expect(live().textContent?.trim()).toBe("No new highlights");
+    expect(document.querySelector("[aria-live]")).toBeNull();
+    await rerender({ state: { kind: "aSincronizar", done: 1, total: 11 } });
+    expect(document.querySelector("[aria-live]")).toBeNull();
+    // The error alert stays: it is the header's
+    await rerender({ state: { kind: "erro", message: "" } });
+    expect(document.querySelector('[role="alert"]')).not.toBeNull();
   });
 });
 
@@ -367,5 +352,47 @@ describe("LibraryHeader outro", () => {
     expect(
       document.querySelector('[data-slot="library-header"]'),
     ).toBeNull();
+  });
+
+  const headers = () =>
+    document.querySelectorAll('[data-slot="library-header"]');
+  const strips = () =>
+    document.querySelectorAll('[data-slot="library-header-strip"]');
+
+  it("kind_change_enters_anew_without_the_outro", async () => {
+    const { rerender } = renderHeader({ kind: "aSincronizar", done: 3, total: 11 });
+    const before = strips()[0];
+
+    // The end of a Sync: «novos» comes in again (a new strip, so the animate-in plays again), and the
+    // old one goes at once: there are never two for the 150 ms of a fade
+    await rerender({ state: NOVOS });
+    await tick();
+    expect(headers()).toHaveLength(1);
+    expect(strips()).toHaveLength(1);
+    expect(strips()[0]).not.toBe(before);
+    expect(before.isConnected).toBe(false);
+    expect(headers()[0].getAttribute("data-state")).toBe("novos");
+    expect(durations()).not.toContain(150);
+  });
+
+  it("same_kind_keeps_the_same_strip", async () => {
+    const { rerender } = renderHeader({ kind: "aSincronizar", done: 3, total: 11 });
+    const before = strips()[0];
+    await rerender({ state: { kind: "aSincronizar", done: 4, total: 11 } });
+    expect(strips()[0]).toBe(before);
+  });
+
+  it("leaving_after_a_kind_change_still_fades_in_150ms", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(ToggleFixture, {
+      props: { state: { kind: "aSincronizar", done: 3, total: 11 } },
+    });
+    await rerender({ state: NOVOS });
+    await tick();
+    expect(durations()).not.toContain(150);
+
+    await user.click(screen.getByRole("button", { name: "Hide" }));
+    await waitFor(() => expect(headers()).toHaveLength(0));
+    expect(durations()).toContain(150);
   });
 });

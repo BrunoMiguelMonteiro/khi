@@ -9,17 +9,23 @@
 		readers?: TitleMenuReader[];
 		activeReaderId?: number | string | null;
 		onselectReader?: (id: number | string) => void;
+		/** The title menu cannot open, e.g. while a Sync runs. */
+		titleMenuDisabled?: boolean;
 		view?: ViewMode;
 		onview?: (view: ViewMode) => void;
 		sort?: SortPreference_Serialize;
 		onsort?: (sort: SortPreference_Serialize) => void;
 		/** Sync turns while true; it stops at the end of the lap. */
 		syncing?: boolean;
+		/** While syncing: «A sincronizar · N de M livros» replaces the tooltip, without the shortcut. */
+		syncProgress?: { done: number; total: number } | null;
 		/** When set, Sync is disabled and explains why. */
 		syncDisabledReason?: string;
 		onsync?: () => void;
 		/** The N in «Exportar N livros». */
 		exportCount?: number;
+		/** When set, Export is disabled and explains why (library and detail). */
+		exportDisabledReason?: string;
 		onexport?: () => void;
 		/** Detail: show Apagar. */
 		canDelete?: boolean;
@@ -49,14 +55,17 @@
 		readers = [],
 		activeReaderId,
 		onselectReader,
+		titleMenuDisabled = false,
 		view = $bindable<ViewMode>('grid'),
 		onview,
 		sort = 'date_last_read',
 		onsort,
 		syncing = false,
+		syncProgress = null,
 		syncDisabledReason,
 		onsync,
 		exportCount = 0,
+		exportDisabledReason,
 		onexport,
 		canDelete = false,
 		ondelete,
@@ -88,10 +97,25 @@
 		{ value: 'highlight_count', label: $_('screens.library.sort.count') }
 	]);
 	const exportLabel = $derived($_('ui.windowBar.export', { count: exportCount }));
+	// Without the total (Rust has not counted the books yet) the tooltip only says «A sincronizar»
+	const syncTooltip = $derived(
+		!syncing
+			? undefined
+			: syncProgress && syncProgress.total > 0
+				? $_('ui.windowBar.syncingProgress', { done: syncProgress.done, count: syncProgress.total })
+				: $_('ui.windowBar.syncing')
+	);
 </script>
 
 {#snippet exportButton()}
-	<ToolbarButton icon={Download} label={exportLabel} shortcut="⌘E" onclick={onexport} />
+	<ToolbarButton
+		icon={Download}
+		label={exportLabel}
+		shortcut="⌘E"
+		disabled={Boolean(exportDisabledReason)}
+		disabledReason={exportDisabledReason}
+		onclick={onexport}
+	/>
 {/snippet}
 
 <!--
@@ -113,7 +137,7 @@
 	{/if}
 	{#if screen === 'library'}
 		<div class="flex items-center gap-1 mr-auto">
-			<TitleMenu {readers} {activeReaderId} onselect={onselectReader} />
+			<TitleMenu {readers} {activeReaderId} onselect={onselectReader} disabled={titleMenuDisabled} />
 		</div>
 		<div class="flex items-center gap-4">
 			<div class="flex items-center gap-1">
@@ -144,7 +168,8 @@
 				<ToolbarButton
 					icon={RefreshCw}
 					label={$_('ui.windowBar.sync')}
-					shortcut="⌘R"
+					tooltip={syncTooltip}
+					shortcut={syncing ? undefined : '⌘R'}
 					disabled={Boolean(syncDisabledReason)}
 					disabledReason={syncDisabledReason}
 					onclick={onsync}

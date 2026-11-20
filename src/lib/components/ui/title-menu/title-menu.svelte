@@ -6,6 +6,9 @@
 		readers: TitleMenuReader[];
 		activeReaderId: number | string | null | undefined;
 		onselect?: (id: number | string) => void;
+		/** With several readers, the menu cannot open, and an open one closes; it looks the same at rest.
+		 * aria-disabled, as the ToolbarButton: the title keeps its place in the Tab order. */
+		disabled?: boolean;
 		class?: string;
 	};
 </script>
@@ -17,9 +20,15 @@
 	import * as DropdownMenu from '../dropdown-menu';
 	import { Icon } from '../icon';
 
-	let { readers, activeReaderId, onselect, class: className }: TitleMenuProps = $props();
+	let { readers, activeReaderId, onselect, disabled = false, class: className }: TitleMenuProps = $props();
 
 	const active = $derived(readers.find((reader) => reader.id === activeReaderId));
+
+	// Controlled, so a disabled menu refuses to open (click, Enter, Space, ArrowDown alike)
+	let open = $state(false);
+	$effect.pre(() => {
+		if (disabled) open = false;
+	});
 </script>
 
 <!--
@@ -27,14 +36,15 @@
 	several it is a menu button, and the menu (200 wide, 4 px below) lists only the readers.
 -->
 {#if readers.length > 1}
-	<DropdownMenu.Root>
+	<DropdownMenu.Root bind:open={() => open, (value) => (open = value && !disabled)}>
 		<DropdownMenu.Trigger
 			data-slot="title-menu-trigger"
+			aria-disabled={disabled || undefined}
 			class={cn(
 				'inline-flex h-toolbar-button items-center gap-1 rounded-control px-2 text-title-3 text-foreground',
 				'outline-none select-none focus-visible:focus-ring',
 				'transition-[background-color] duration-(--duration-hover) ease-hover',
-				'hover:bg-accent active:bg-accent-pressed active:transition-none data-open:bg-accent-pressed',
+				'not-aria-disabled:hover:bg-accent not-aria-disabled:active:bg-accent-pressed active:transition-none data-open:bg-accent-pressed',
 				className
 			)}
 		>

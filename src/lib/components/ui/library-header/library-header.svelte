@@ -80,17 +80,17 @@
 				? $_('screens.library.header.since', { date: shortDate(current.since) })
 				: ''
 			: current.kind === 'aSincronizar'
-				? `· ${$_('screens.library.header.syncProgress', { done: current.done, count: current.total })}`
+				? current.total > 0
+					? `· ${$_('screens.library.header.syncProgress', { done: current.done, count: current.total })}`
+					: ''
 				: current.kind === 'semNovidades'
 					? current.syncedAt
 						? $_('screens.library.header.syncedAt', { time: time(current.syncedAt) })
 						: ''
 					: current.message
 	);
-	// The alert region always exists, so the change to an error is announced; the Retry button stays outside it.
+	// The start and the end of a Sync are announced by the page; only the error is here. The alert region always exists, so the change to an error is announced; the Retry button stays outside it.
 	const alertText = $derived(current.kind === 'erro' ? `${message} ${detail}`.trim() : '');
-	// Only the start and the end are announced: the progress changes on screen, not here.
-	const announcement = $derived(current.kind === 'erro' ? '' : message);
 
 	const exportLabel = $derived(
 		exporting
@@ -107,17 +107,23 @@
 	Componentes (D7) · 21 · Cabeçalho da Biblioteca (67:5835); Movimento 2 e 3: the strip enters over
 	duration/reveal with ease/out and leaves in a 150 ms fade;
 	with Reduzir movimento the strip enters with the fade alone (no slide) and leaves at once.
+	The outro belongs to the root, which stays; the strip inside is keyed on the kind, so the end of a Sync
+	(«a sincronizar» then «novos») enters again without a second fade-out: the old strip goes at once.
 -->
 <div
 	data-slot="library-header"
 	data-state={current.kind}
 	out:fade={{ duration: prefersReducedMotion.current ? 0 : 150 }}
+	class={className}
+	{...restProps}
+>
+{#key current.kind}
+<div
+	data-slot="library-header-strip"
 	class={cn(
 		'flex min-h-control flex-wrap items-center justify-between gap-x-4 gap-y-2',
-		'animate-in fade-in-0 slide-in-from-top-(length:--distance-enter) duration-(--duration-reveal) ease-out motion-reduce:slide-in-from-top-0',
-		className
+		'animate-in fade-in-0 slide-in-from-top-(length:--distance-enter) duration-(--duration-reveal) ease-out motion-reduce:slide-in-from-top-0'
 	)}
-	{...restProps}
 >
 	<div class="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
 		<p data-slot="library-header-message" class="text-title-3 text-foreground">
@@ -156,6 +162,7 @@
 		</Button>
 	{/if}
 </div>
+{/key}
+</div>
 
-<div aria-live="polite" class="sr-only">{announcement}</div>
 <div role="alert" class="sr-only">{alertText}</div>

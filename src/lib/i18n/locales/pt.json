@@ -13,6 +13,9 @@
       "title": "Nenhum Kobo ligado",
       "subtitle": "Liga o teu Kobo para ver os teus destaques"
     },
+    "syncingEmpty": {
+      "title": "A sincronizar com o Kobo"
+    },
     "importing": {
       "title": "A sincronizar destaques...",
       "progress": "{done} de {total} livros"
@@ -68,6 +71,7 @@
       "selectAllTitle": "Selecionar todos (Ctrl+A)",
       "sync": "Sincronizar",
       "syncDisabledReason": "Liga o Kobo para sincronizar",
+      "exportDisabledReason": "Espera pelo fim da sincronização",
       "viewMode": "Modo de vista",
       "gridViewLabel": "Vista em grelha",
       "listViewLabel": "Vista em lista",
@@ -337,6 +341,10 @@
   "ui": {
     "windowBar": {
       "sync": "Sincronizar com o Kobo",
+      "syncing": "A sincronizar",
+      "syncingProgress": "A sincronizar · {done} de {count} livros",
+      "syncingProgress_one": "A sincronizar · {done} de 1 livro",
+      "syncingProgress_other": "A sincronizar · {done} de {count} livros",
       "export": "Exportar {count} livros",
       "export_one": "Exportar 1 livro",
       "export_other": "Exportar {count} livros",

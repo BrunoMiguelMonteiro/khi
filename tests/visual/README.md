@@ -21,7 +21,7 @@ The report is written to `output/report.md`, grouped by capture, then element, t
 
 Only update the baseline on a tree whose visuals you have verified. Run `test:visual` twice afterwards to check that the baseline is stable. Commit `baseline/` together with the change that justifies it.
 
-## Matrix (69 captures + 10 controls)
+## Matrix (83 captures + 11 controls)
 
 Scenarios (`scenarios.ts`):
 
@@ -38,7 +38,11 @@ Scenarios (`scenarios.ts`):
 - `select-by-box`: one book selected by hovering its card and clicking the selection box with the real pointer (`hover()` then `click()`, not `dispatchEvent`, so `pointer-events` is tested): it selects without opening, and the other covers show their box.
 - `settings-updates`: the Updates tab, with the automatic-check switch (hover, keyboard focus) and «Check now».
 - `update`: the update dialog.
-- `importing`: a sync in progress. `sync_kobo` is held pending (`__KHI_MOCK__.hold`), so the importing state with the pulsing Kobo icon stays on screen. Asserts `animation-name` is not `none`, or is `none` under reduced motion.
+- `library-syncing`: a Sync in progress with the Library on screen. `sync_kobo` is held pending (`__KHI_MOCK__.hold`) and `sync-progress` says 12 of 42: the header counts the books, no card has its «N novos» badge, Sync turns (`animation-name` is `spin`, or `none` under reduced motion) and Export is disabled.
+- `library-syncing-tooltip`: the same, with the pointer on Sync and its tooltip open («A sincronizar · 12 de 42 livros», no shortcut).
+- `library-syncing-export-disabled`: the same, with the pointer on Export and the tooltip that says why it waits.
+- `library-empty-syncing`: the first Sync, with no books yet: the centred state with the solid Kobo whose 7 text lines fill with the progress (12 of 42: 2 lines). No header, no «Sem livros».
+- `sync-finished-enters`: the held `sync_kobo` is released (`__KHI_MOCK__.release`): the «novos» header and the badges are on screen, Sync has stopped and Export is back.
 - `update-checking`: an update check in progress (held `plugin:updater|check`), with the pulsing progress bar.
 - `settings-saving`: settings changed and Save pressed, with `update_settings` held, so the spinner shows.
 
@@ -51,7 +55,7 @@ Themes:
 All scenarios × all themes, plus:
 
 - `grid` and `settings` with `prefers-contrast: more` and with `prefers-reduced-motion: reduce`, each in light and dark-app;
-- `importing`, `update-checking` and `settings-saving` with `prefers-reduced-motion: reduce`, in light and dark-app;
+- `library-syncing`, `library-empty-syncing`, `update-checking` and `settings-saving` with `prefers-reduced-motion: reduce`, in light and dark-app;
 - `grid`, `list`, `detail` and `settings` at the **minimum window size** (suffix `--min`), in light and dark-app;
 - `grid` in English (light).
 
@@ -70,7 +74,7 @@ Requests to any origin other than the local server are aborted.
   - It answers all commands in `src/lib/bindings.ts`, plus the plugin calls the app makes: event, app, window, menu, path, image, resources, updater and process. Each answer has its real return shape.
   - **Unknown commands are recorded and fail the test**, even when the app catches the rejection.
   - `window.__KHI_MOCK__.emit()` emits events. Scenarios wait until a listener for the event is registered before emitting.
-  - `window.__KHI_MOCK__.hold(cmd)` makes the next call of `cmd` never resolve (it is listed in `held`, not counted as pending), to capture loading states. A held `sync_kobo` also emits two `sync-progress` events.
+  - `window.__KHI_MOCK__.hold(cmd)` makes the next call of `cmd` never resolve (it is listed in `held`, not counted as pending), to capture loading states. A held `sync_kobo` also emits two `sync-progress` events. `window.__KHI_MOCK__.release(cmd)` answers it as an unheld call would be answered (a Sync then emits its progress and `sync-finished`).
 - **`fixtures.ts`**: deterministic data: 5 books, 1 reader, 1 device, and the settings for each theme.
 - **`harness.ts`**: one capture:
   1. Waits for `app-ready` (in the Settings window, which never emits it: for `load_settings`).
@@ -93,13 +97,14 @@ Requests to any origin other than the local server are aborted.
   - a 1-unit colour change (a card title, rgb(29, 29, 31) → rgb(30, 29, 31)) and a 1px padding on the grid on `grid--light`: the colour, the padding, the box shift and the pixels;
   - `#export-path:focus { box-shadow: none }` on `settings--light`: the box-shadow in state `focus-text-input`, and its pixels;
   - the hovered highlight's copy button forced to `opacity: 0` on `detail--light`: the opacity in state `hover-highlight`, and its pixels;
-  - `.kobo-icon { animation: none }` on `importing--light`: `animation-name`;
+  - the Sync icon's `animation: none` on `library-syncing--light`: `animation-name`;
+  - every line of the syncing Kobo forced to the filled colour on `library-empty-syncing--light`: `stroke` and pixels;
   - a deleted baseline PNG, a deleted baseline JSON and a state missing from the capture: `structure` failures that a permissive allowlist cannot approve;
   - a reviewed change approved by exact entries passes alone. A style entry with another `after` approves nothing. With an unrelated change on top, the screenshot entry no longer matches and the pixels are reported.
 
   - two selected books with the selection frame and check forced to `opacity: 0` on `grid-selected--light`: opacity and pixels;
   - the automatic-update switch hidden on `settings-updates--light`: visibility, the hover state, the focus state reported missing, and pixels;
-  - `@keyframes pulse` with its midpoint at 0.05 instead of 0.5 on `importing--light`: opacity at 25/50/75% only (the first frame is unchanged);
+  - `@keyframes spin` with a midpoint at 10deg on `library-syncing--light`: transform at 25/50/75% only (the first frame is unchanged);
   - a `max-width: 899px` gap change: reported on `grid--light--min`, while `grid--light` shows no difference.
 
   If a control fails, the harness has gone blind.

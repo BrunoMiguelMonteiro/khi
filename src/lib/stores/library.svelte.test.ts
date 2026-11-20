@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
 	library,
 	getDefaultExportPath,
@@ -110,6 +110,70 @@ describe('Library Store', () => {
 			expect(invoke).toHaveBeenCalledWith('get_library', { readerId: 4 });
 			expect(library.activeReaderId).toBe(4);
 			expect(library.books).toEqual(mockBooks);
+		});
+
+		it('openReader clears the selection by default', async () => {
+			library.activeReaderId = 4;
+			library.setBooks(mockBooks);
+			library.setSelectedBookIds([1, 2]);
+			answer({ get_library: mockBooks });
+
+			await library.openReader(4);
+
+			expect(library.selectedBookIds).toEqual([]);
+		});
+
+		it('keep_selection_keeps_the_ids_still_in_the_library', async () => {
+			library.activeReaderId = 4;
+			library.setBooks(mockBooks);
+			library.setSelectedBookIds([1, 2]);
+			// Book 2 is gone from the reload
+			answer({ get_library: [mockBooks[0]] });
+
+			await library.openReader(4, { keepSelection: true });
+
+			expect(library.selectedBookIds).toEqual([1]);
+		});
+
+		it('keep_selection_keeps_a_selection_made_while_loading', async () => {
+			library.activeReaderId = 4;
+			library.setBooks(mockBooks);
+			let resolve!: (books: Book[]) => void;
+			vi.mocked(invoke).mockImplementation((cmd: string) =>
+				cmd === 'get_library' ? new Promise((r) => (resolve = r)) : Promise.reject(new Error(`unexpected ${cmd}`))
+			);
+
+			const opening = library.openReader(4, { keepSelection: true });
+			// Selected while Rust reads the Library
+			library.setSelectedBookIds([2]);
+			resolve(mockBooks);
+			await opening;
+
+			expect(library.selectedBookIds).toEqual([2]);
+		});
+
+		it('keep_selection_never_keeps_another_readers_ids', async () => {
+			library.activeReaderId = 4;
+			library.setBooks(mockBooks);
+			library.setSelectedBookIds([1, 2]);
+			// Reader 9 happens to have books with the same ids
+			answer({ get_library: mockBooks });
+
+			await library.openReader(9, { keepSelection: true });
+
+			expect(library.activeReaderId).toBe(9);
+			expect(library.selectedBookIds).toEqual([]);
+		});
+
+		it('sync_keeps_the_selection_present_after_it', async () => {
+			library.activeReaderId = 5;
+			library.setBooks(mockBooks);
+			library.setSelectedBookIds([1, 2]);
+			answer({ reader_for_kobo: 5, sync_kobo: { added: 0 }, get_library: [mockBooks[1]] });
+
+			await library.deviceConnected(kobo, true);
+
+			expect(library.selectedBookIds).toEqual([2]);
 		});
 
 		it('loadReaders fills readers', async () => {
@@ -239,6 +303,307 @@ describe('Library Store', () => {
 			expect(library.activeReaderId).toBe(1);
 			expect(library.books).toEqual(mockBooks);
 			expect(library.canSync).toBe(true);
+		});
+
+		it('last_sync_failed_follows_the_last_sync', async () => {
+			const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+			library.setConnectedDevice(kobo);
+			library.connectedReaderId = 5;
+			library.activeReaderId = 5;
+			let fail = true;
+			vi.mocked(invoke).mockImplementation((cmd: string) => {
+				if (cmd === 'sync_kobo') return fail ? Promise.reject('disk is full') : Promise.resolve({ added: 0 });
+				if (cmd === 'get_library') return Promise.resolve(mockBooks);
+				return Promise.resolve(null);
+			});
+
+			// It fails: the store remembers it (the order against isImporting is the page's test)
+			const failing = library.sync();
+			expect(library.lastSyncFailed).toBe(false);
+			await expect(failing).rejects.toBe('disk is full');
+			expect(library.isImporting).toBe(false);
+			expect(library.lastSyncFailed).toBe(true);
+
+			// The next one clears it as soon as it starts, not when it ends
+			fail = false;
+			const next = library.sync();
+			expect(library.isImporting).toBe(true);
+			expect(library.lastSyncFailed).toBe(false);
+			await next;
+			expect(library.lastSyncFailed).toBe(false);
+			log.mockRestore();
+		});
+
+		it('first_kobo_shows_its_library_while_syncing', async () => {
+			library.setUiState('no-device');
+			let screenDuringSync: string | undefined;
+			vi.mocked(invoke).mockImplementation((cmd: string) => {
+				if (cmd === 'reader_for_kobo') return Promise.resolve(null);
+				if (cmd === 'list_readers') return Promise.resolve([]);
+				if (cmd === 'create_reader') return Promise.resolve({ id: 1, name: 'Kobo Libra', exportPath: null });
+				if (cmd === 'sync_kobo') {
+					screenDuringSync = library.uiState;
+					return Promise.resolve({ added: 3 });
+				}
+				if (cmd === 'get_library') return Promise.resolve(mockBooks);
+				return Promise.resolve(null);
+			});
+
+			await library.deviceConnected(kobo, true);
+
+			// No ImportingState any more: the new Reader's Library is what the Sync fills
+			expect(screenDuringSync).toBe('library');
+		});
+
+		it('another_readers_kobo_switches_the_library_before_syncing', async () => {
+			// Reader 7's Library on screen, a book open and one selected
+			library.activeReaderId = 7;
+			library.setBooks(mockBooks);
+			library.setSelectedBookIds([2]);
+			const theirs = [makeBook({ id: 9, title: 'Ana Book', author: 'Ana' })];
+			let during: Record<string, unknown> = {};
+			vi.mocked(invoke).mockImplementation((cmd: string, args?: unknown) => {
+				if (cmd === 'reader_for_kobo') return Promise.resolve(5);
+				if (cmd === 'sync_kobo') {
+					during = {
+						activeReaderId: library.activeReaderId,
+						uiState: library.uiState,
+						selected: [...library.selectedBookIds],
+						viewing: library.viewingBookId,
+						books: library.books.map((b) => b.id)
+					};
+					return Promise.resolve({ added: 1 });
+				}
+				if (cmd === 'get_library') return Promise.resolve((args as { readerId: number }).readerId === 5 ? theirs : mockBooks);
+				return Promise.resolve(null);
+			});
+			await library.openBook(1);
+			library.setUiState('book-details');
+
+			expect(await library.deviceConnected(kobo, true)).toBe('synced');
+
+			// Reader 5's Library is what the Sync fills; nothing of reader 7's stays
+			expect(during).toEqual({ activeReaderId: 5, uiState: 'library', selected: [], viewing: null, books: [9] });
+			expect(library.activeReaderId).toBe(5);
+			expect(library.books).toEqual(theirs);
+			expect(library.canSync).toBe(true);
+		});
+
+		it('another_readers_kobo_with_sync_on_connect_off_leaves_the_library', async () => {
+			library.activeReaderId = 7;
+			library.setBooks(mockBooks);
+			answer({ reader_for_kobo: 5, library_summary: null });
+
+			expect(await library.deviceConnected(kobo, false)).toBe('idle');
+
+			expect(library.activeReaderId).toBe(7);
+			expect(library.books).toEqual(mockBooks);
+			expect(invoke).not.toHaveBeenCalledWith('get_library', expect.anything());
+		});
+
+		it('another_readers_kobo_mid_sync_waits_then_switches_and_syncs', async () => {
+			library.setConnectedDevice(kobo);
+			library.connectedReaderId = 7;
+			library.activeReaderId = 7;
+			const other = makeDevice({ ...kobo, serialNumber: 'OTHER' });
+			const theirs = [makeBook({ id: 9, title: 'Ana Book', author: 'Ana' })];
+			const syncs: Array<{ device: KoboDevice; finish: (r: unknown) => void }> = [];
+			const order: string[] = [];
+			vi.mocked(invoke).mockImplementation((cmd: string, args?: unknown) => {
+				if (cmd === 'reader_for_kobo') return Promise.resolve(5);
+				if (cmd === 'sync_kobo') {
+					const { device } = args as { device: KoboDevice };
+					order.push(`sync ${device.serialNumber}`);
+					return new Promise((finish) => syncs.push({ device, finish }));
+				}
+				if (cmd === 'get_library') {
+					const { readerId } = args as { readerId: number };
+					order.push(`library ${readerId}`);
+					return Promise.resolve(readerId === 5 ? theirs : mockBooks);
+				}
+				return Promise.resolve(null);
+			});
+			const running = library.sync();
+			await vi.waitFor(() => expect(syncs).toHaveLength(1));
+
+			let outcome: string | undefined;
+			const connecting = library.deviceConnected(other, true).then((o) => (outcome = o));
+			try {
+				// Reader 7's Sync is not reader 5's: the connect waits for it, on reader 7's Library
+				await new Promise((r) => setTimeout(r, 0));
+				expect(library.activeReaderId).toBe(7);
+				expect(syncs).toHaveLength(1);
+
+				// Its end lands first, then reader 5's Library shows and syncs
+				syncs[0].finish({ added: 0 });
+				await running;
+				await vi.waitFor(() => expect(syncs).toHaveLength(2));
+				expect(order).toEqual(['sync N4181B5025147', 'library 7', 'library 5', 'sync OTHER']);
+				expect(syncs[1].device).toEqual(other);
+				expect(library.activeReaderId).toBe(5);
+				expect(library.books).toEqual(theirs);
+				expect(outcome).toBeUndefined();
+
+				syncs[1].finish({ added: 1 });
+				await connecting;
+				expect(outcome).toBe('synced');
+				expect(library.canSync).toBe(true);
+			} finally {
+				// A Sync left running would reach the next tests
+				for (const sync of syncs) sync.finish({ added: 0 });
+				await running.catch(() => {});
+				await connecting;
+			}
+		});
+
+		it.each([
+			['unplugged', () => library.deviceDisconnected()],
+			['replaced by another kobo', () => library.deviceConnected(makeDevice({ ...kobo, serialNumber: 'THIRD' }), false)]
+		])('a_kobo_waiting_for_a_sync_and_%s_is_never_synced', async (_, meanwhile) => {
+			library.setConnectedDevice(kobo);
+			library.connectedReaderId = 7;
+			library.activeReaderId = 7;
+			const other = makeDevice({ ...kobo, serialNumber: 'OTHER' });
+			const synced: Array<string | null> = [];
+			let finish!: (r: unknown) => void;
+			vi.mocked(invoke).mockImplementation((cmd: string, args?: unknown) => {
+				if (cmd === 'reader_for_kobo') return Promise.resolve((args as { serial: string }).serial === 'OTHER' ? 5 : 3);
+				if (cmd === 'sync_kobo') {
+					synced.push((args as { device: KoboDevice }).device.serialNumber);
+					return synced.length === 1 ? new Promise((resolve) => (finish = resolve)) : Promise.resolve({ added: 0 });
+				}
+				if (cmd === 'get_library') return Promise.resolve(mockBooks);
+				return Promise.resolve(null);
+			});
+			const running = library.sync();
+			await vi.waitFor(() => expect(finish).toBeTypeOf('function'));
+			const connecting = library.deviceConnected(other, true);
+			try {
+				await new Promise((r) => setTimeout(r, 0));
+				// Reader 5's Kobo goes while it waits for reader 7's Sync
+				await meanwhile();
+			} finally {
+				finish({ added: 0 });
+				await running;
+			}
+
+			expect(await connecting).toBe('idle');
+			expect(synced).toEqual(['N4181B5025147']);
+			expect(library.activeReaderId).toBe(7);
+		});
+
+		it('a_switch_whose_library_cannot_be_read_fails_on_that_library', async () => {
+			const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+			// Reader 7's book open; reader 5's Library cannot be read
+			library.activeReaderId = 7;
+			library.setBooks(mockBooks);
+			vi.mocked(invoke).mockImplementation((cmd: string, args?: unknown) => {
+				if (cmd === 'reader_for_kobo') return Promise.resolve(5);
+				if (cmd === 'get_library' && (args as { readerId: number }).readerId === 5) return Promise.reject('disk is full');
+				if (cmd === 'get_library') return Promise.resolve(mockBooks);
+				return Promise.resolve(null);
+			});
+			await library.openBook(1);
+			library.setUiState('book-details');
+
+			await expect(library.deviceConnected(kobo, true)).rejects.toBe('disk is full');
+
+			// The error is reader 5's, on reader 5's Library, where Sync works again
+			expect(library.activeReaderId).toBe(5);
+			expect(library.uiState).toBe('library');
+			expect(library.viewingBookId).toBeNull();
+			expect(library.books).toEqual([]);
+			expect(library.summary).toBeNull();
+			expect(library.lastSyncFailed).toBe(true);
+			expect(library.canSync).toBe(true);
+			expect(invoke).not.toHaveBeenCalledWith('sync_kobo', expect.anything());
+			log.mockRestore();
+		});
+
+		it('same_readers_other_kobo_mid_sync_joins_the_running_sync', async () => {
+			library.setConnectedDevice(kobo);
+			library.connectedReaderId = 7;
+			library.activeReaderId = 7;
+			let finish!: (r: unknown) => void;
+			vi.mocked(invoke).mockImplementation((cmd: string) => {
+				if (cmd === 'reader_for_kobo') return Promise.resolve(7);
+				if (cmd === 'sync_kobo') return new Promise((resolve) => (finish = resolve));
+				if (cmd === 'get_library') return Promise.resolve(mockBooks);
+				return Promise.resolve(null);
+			});
+			const running = library.sync();
+			await vi.waitFor(() => expect(finish).toBeTypeOf('function'));
+
+			const connecting = library.deviceConnected(makeDevice({ ...kobo, serialNumber: 'OTHER' }), true);
+			await new Promise((r) => setTimeout(r, 0));
+			finish({ added: 0 });
+
+			expect(await connecting).toBe('synced');
+			await running;
+			expect(vi.mocked(invoke).mock.calls.filter(([cmd]) => cmd === 'sync_kobo')).toHaveLength(1);
+		});
+
+		it('switch_shows_the_new_library_in_one_step', async () => {
+			// Reader 7's book open; reader 5's Library takes a while to read
+			library.activeReaderId = 7;
+			library.setBooks(mockBooks);
+			const theirs = [makeBook({ id: 9, title: 'Ana Book', author: 'Ana' })];
+			let readTheirs: ((books: Book[]) => void) | undefined;
+			vi.mocked(invoke).mockImplementation((cmd: string, args?: unknown) => {
+				if (cmd === 'reader_for_kobo') return Promise.resolve(5);
+				if (cmd === 'sync_kobo') return Promise.resolve({ added: 0 });
+				// Only the first read is slow: the Sync's own reload answers at once
+				if (cmd === 'get_library' && (args as { readerId: number }).readerId === 5)
+					return readTheirs ? Promise.resolve(theirs) : new Promise((resolve) => (readTheirs = resolve));
+				if (cmd === 'get_library') return Promise.resolve(mockBooks);
+				return Promise.resolve(null);
+			});
+			await library.openBook(1);
+			library.setUiState('book-details');
+
+			const connecting = library.deviceConnected(kobo, true);
+			await vi.waitFor(() => expect(readTheirs).toBeTypeOf('function'));
+			// Until it arrives the book stays, and the Sync has begun: nothing of reader 7 can be acted on
+			expect(library.uiState).toBe('book-details');
+			expect(library.viewingBook).toEqual(mockBooks[0]);
+			expect(library.isImporting).toBe(true);
+
+			readTheirs!(theirs);
+			await vi.waitFor(() => expect(library.activeReaderId).toBe(5));
+			expect(library.uiState).toBe('library');
+			expect(library.viewingBookId).toBeNull();
+			expect(library.books).toEqual(theirs);
+			expect(await connecting).toBe('synced');
+		});
+
+		it('a_reader_opened_before_the_switch_does_not_land_over_it', async () => {
+			library.activeReaderId = 7;
+			let readThird!: (books: Book[]) => void;
+			let finish!: (r: unknown) => void;
+			vi.mocked(invoke).mockImplementation((cmd: string, args?: unknown) => {
+				if (cmd === 'reader_for_kobo') return Promise.resolve(5);
+				if (cmd === 'sync_kobo') return new Promise((resolve) => (finish = resolve));
+				if (cmd === 'get_library' && (args as { readerId: number }).readerId === 3)
+					return new Promise((resolve) => (readThird = resolve));
+				if (cmd === 'get_library') return Promise.resolve([]);
+				return Promise.resolve(null);
+			});
+			// Reader 3 picked in the title menu just before the Kobo of reader 5 arrives
+			const picked = library.openReader(3);
+			await vi.waitFor(() => expect(readThird).toBeTypeOf('function'));
+			const connecting = library.deviceConnected(kobo, true);
+			try {
+				await vi.waitFor(() => expect(finish).toBeTypeOf('function'));
+
+				// Reader 3's Library arrives while reader 5's syncs: the Sync's Library stays
+				readThird(mockBooks);
+				await picked;
+				expect(library.activeReaderId).toBe(5);
+				expect(library.books).toEqual([]);
+			} finally {
+				finish({ added: 0 });
+				await connecting;
+			}
 		});
 
 		it('an unknown kobo is reported and never synced', async () => {
@@ -679,6 +1044,120 @@ describe('Library Store', () => {
 				'mark_book_opened',
 				{ readerId: 9, bookId: 1, seenSeq: 5 }
 			]);
+		});
+
+		describe('while a Sync runs (Task 38)', () => {
+			/** The store keeps a Sync in flight: one a failed test left held would reach the next test. */
+			let pending: (() => void) | null = null;
+			let inFlight: Promise<unknown> | null = null;
+			afterEach(async () => {
+				pending?.();
+				await inFlight?.catch(() => {});
+				pending = inFlight = null;
+			});
+
+			/** The Kobo of `koboReader` (reader 9's unless said) syncs until `release`; the database is busy meanwhile, as with Rust's IMMEDIATE transaction. */
+			function syncing(afterSync: Book[], koboReader = 9) {
+				let busy = true;
+				let release!: () => void;
+				const held = new Promise((resolve) => (release = pending = () => ((busy = false), resolve({ added: 1 }))));
+				vi.mocked(invoke).mockImplementation((cmd: string) => {
+					if (cmd === 'sync_kobo') return held;
+					if (cmd === 'mark_book_opened') return busy ? Promise.reject('database is locked') : Promise.resolve(null);
+					if (cmd === 'get_library') return Promise.resolve(structuredClone(afterSync));
+					return Promise.resolve(null);
+				});
+				library.setConnectedDevice(kobo);
+				library.connectedReaderId = koboReader;
+				const sync = library.sync();
+				inFlight = sync;
+				return { release, sync };
+			}
+			const marks = () => vi.mocked(invoke).mock.calls.filter(([cmd]) => cmd === 'mark_book_opened');
+
+			it('book_opened_mid_sync_is_marked_after_it', async () => {
+				library.setBooks([bookWith(hl('a', true, 2), hl('b', false, 1))]);
+				// The Sync brings `z` to the open book: it stays new
+				const { release, sync } = syncing([bookWith(hl('a', true, 2), hl('b', false, 1), hl('z', true, 5))]);
+
+				const opening = library.openBook(1);
+				await new Promise((r) => setTimeout(r, 0));
+				// Not while the database is busy: the mark would fail and the book stay new
+				expect(marks()).toHaveLength(0);
+				release();
+				await sync;
+				await opening;
+
+				expect(marks()).toEqual([['mark_book_opened', { readerId: 9, bookId: 1, seenSeq: 2 }]]);
+				expect(isNewOf('a')).toBe(false);
+				expect(isNewOf('z')).toBe(true);
+				expect(library.viewingNewIds).toEqual(new Set(['a']));
+			});
+
+			it('book_closed_before_the_sync_ends_is_still_marked', async () => {
+				const book2 = makeBook({ id: 2, title: 'C', author: 'A', highlights: [hl('x', true, 4)] });
+				library.setBooks([bookWith(hl('a', true, 2)), book2]);
+				const { release, sync } = syncing([bookWith(hl('a', true, 2)), book2]);
+
+				const first = library.openBook(1);
+				library.closeBook();
+				const second = library.openBook(2);
+				release();
+				await sync;
+				await Promise.all([first, second]);
+
+				// Each mark is the book that was opened, with what was new then
+				expect(marks()).toHaveLength(2);
+				expect(invoke).toHaveBeenCalledWith('mark_book_opened', { readerId: 9, bookId: 1, seenSeq: 2 });
+				expect(invoke).toHaveBeenCalledWith('mark_book_opened', { readerId: 9, bookId: 2, seenSeq: 4 });
+				// ...and each one worked, after the Sync let go of the database
+				expect(isNewOf('a')).toBe(false);
+				expect(library.books.find((b) => b.id === 2)!.highlights[0].isNew).toBe(false);
+				expect(library.viewingBookId).toBe(2);
+				expect(library.viewingNewIds).toEqual(new Set(['x']));
+			});
+
+			it('deferred_mark_never_clears_another_readers_book', async () => {
+				// Reader 9's Alpha is open; the Kobo connected is reader 5's, whose Library opens at the end
+				library.setBooks([bookWith(hl('a', true, 2))]);
+				const { release, sync } = syncing([bookWith(hl('a', true, 2))], 5);
+
+				const opening = library.openBook(1);
+				release();
+				await sync.catch(() => {});
+				await opening;
+
+				// The mark is reader 9's; reader 5's book 1 on screen keeps its news
+				expect(invoke).toHaveBeenCalledWith('mark_book_opened', { readerId: 9, bookId: 1, seenSeq: 2 });
+				expect(library.activeReaderId).toBe(5);
+				expect(isNewOf('a')).toBe(true);
+			});
+
+			it('a_failed_sync_still_lets_the_mark_through', async () => {
+				library.setBooks([bookWith(hl('a', true, 2))]);
+				const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+				let busy = true;
+				let fail!: () => void;
+				const held = new Promise((_, reject) => (fail = pending = () => ((busy = false), reject('disk is full'))));
+				vi.mocked(invoke).mockImplementation((cmd: string) => {
+					if (cmd === 'sync_kobo') return held;
+					if (cmd === 'mark_book_opened') return busy ? Promise.reject('database is locked') : Promise.resolve(null);
+					return Promise.resolve(null);
+				});
+				library.setConnectedDevice(kobo);
+				library.connectedReaderId = 9;
+				const sync = library.sync().catch(() => {});
+				inFlight = sync;
+
+				const opening = library.openBook(1);
+				fail();
+				await sync;
+				await opening;
+
+				expect(marks()).toHaveLength(1);
+				expect(isNewOf('a')).toBe(false);
+				log.mockRestore();
+			});
 		});
 
 		it('open_without_active_reader_skips_mark', async () => {

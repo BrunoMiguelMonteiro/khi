@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { flushSync, tick } from 'svelte';
@@ -37,7 +37,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { settings } from '$lib/stores/settings.svelte';
 import { library } from '$lib/stores/library.svelte';
-import { makeBook, makeDevice } from '$lib/test-fixtures';
+import { makeBook, makeDevice, makeHighlight } from '$lib/test-fixtures';
 import { updater } from '$lib/stores/updater.svelte';
 import Page from './+page.svelte';
 
@@ -145,6 +145,7 @@ function resetLibrary() {
 	library.activeReaderId = null;
 	library.readers = [];
 	library.isImporting = false;
+	library.lastSyncFailed = false;
 	library.isExporting = false;
 	library.summary = null;
 	library.setUiState('no-device');
@@ -306,8 +307,9 @@ describe('+page · screen 1', () => {
 		// importing: the bar stays, with the library controls
 		library.isImporting = true;
 		await tick();
-		// The Library gives way to the importing state
-		expect(options()).toHaveLength(0);
+		// The Library stays on screen while it syncs (Task 38): no importing state in its place
+		expect(options()).toHaveLength(3);
+		expect(screen.queryByTestId('sync-progress')).toBeNull();
 		expect(bar()).not.toBeNull();
 		expect(within(bar()!).getByRole('radiogroup', { name: 'View' })).toBeInTheDocument();
 		library.isImporting = false;
@@ -737,6 +739,1018 @@ describe('+page · sync on connect', () => {
 		expect(screen.getAllByRole('alert').some((a) => a.textContent?.includes('Could not sync the Kobo'))).toBe(true);
 		expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
 		vi.mocked(console.error).mockRestore();
+	});
+});
+
+describe('+page · screen 2 · syncing', () => {
+	const report = { added: 0, updated: 0, removed: 0, restored: 0, books: 3 };
+	/** Ends the Sync a test left running: the store keeps it in flight, so it would reach the next test. */
+	let pending: (() => void) | null = null;
+	/** A `sync_kobo` that waits until `release`, as Rust does while it reads the Kobo. */
+	function heldSync() {
+		let release!: () => void;
+		const held = new Promise((resolve) => (release = () => resolve(report)));
+		pending = release;
+		return { sync_kobo: () => held, release };
+	}
+	const settle = async () => {
+		for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+		await tick();
+	};
+	const syncButton = () => within(bar()!).getByRole('button', { name: 'Sync with the Kobo' });
+	const press = (key: string) => fireEvent.keyDown(window, { key, code: `Key${key.toUpperCase()}`, metaKey: true });
+	const message = () => header()!.querySelector('[data-slot="library-header-message"]')!.textContent!.trim();
+	const detail = () => header()!.querySelector('[data-slot="library-header-detail"]')?.textContent?.trim();
+	/**
+	 * Every state the header holds, in order, even for a microtask: each change is a mutation record
+	 * with the value it replaced, and a header that leaves keeps its last one through its fade.
+	 * Also whether «✓ Exported» was ever on screen in it.
+	 */
+	function recordHeader() {
+		const states: string[] = [];
+		let exportedShown = false;
+		const push = (state: string | null | undefined) => {
+			if (state && states.at(-1) !== state) states.push(state);
+		};
+		const isHeader = (node: Node): node is HTMLElement => node instanceof HTMLElement && node.dataset.slot === 'library-header';
+		push(header()?.dataset.state);
+		const observer = new MutationObserver((records) => {
+			for (const record of records) {
+				if (record.type === 'attributes' && isHeader(record.target)) push(record.oldValue);
+				for (const node of record.removedNodes) if (isHeader(node)) push(node.dataset.state);
+			}
+			if (header()?.textContent?.includes('✓ Exported')) exportedShown = true;
+		});
+		observer.observe(document.body, {
+			subtree: true,
+			childList: true,
+			characterData: true,
+			attributes: true,
+			attributeFilter: ['data-state'],
+			attributeOldValue: true
+		});
+		return {
+			stop: () => {
+				for (const record of observer.takeRecords()) {
+					if (record.type === 'attributes' && isHeader(record.target)) push(record.oldValue);
+					for (const node of record.removedNodes) if (isHeader(node)) push(node.dataset.state);
+				}
+				observer.disconnect();
+				push(header()?.dataset.state);
+				return { states, exportedShown };
+			}
+		};
+	}
+
+	beforeEach(() => {
+		vi.mocked(invoke).mockReset();
+		handlers.clear();
+		resetLibrary();
+	});
+
+	afterEach(async () => {
+		pending?.();
+		pending = null;
+		await waitFor(() => expect(library.isImporting).toBe(false));
+		await settle();
+	});
+
+	it('library_stays_on_screen_while_syncing', async () => {
+		const user = userEvent.setup();
+		const { sync_kobo } = heldSync();
+		await mockLibrary({ books: newBooks(), device: kobo, overrides: { sync_kobo } });
+		render(Page);
+		await syncReady();
+
+		await user.click(syncButton());
+		await waitFor(() => expect(library.isImporting).toBe(true));
+
+		// The grid stays, with no ImportingState in its place
+		expect(options()).toHaveLength(3);
+		expect(screen.queryByTestId('sync-progress')).toBeNull();
+		expect(library.uiState).toBe('library');
+	});
+
+	it('header_shows_sync_progress', async () => {
+		const user = userEvent.setup();
+		const { sync_kobo } = heldSync();
+		await mockLibrary({ books: newBooks(), device: kobo, overrides: { sync_kobo } });
+		render(Page);
+		await syncReady();
+
+		await user.click(syncButton());
+		await waitFor(() => expect(library.isImporting).toBe(true));
+		handlers.get('sync-progress')!({ payload: { done: 12, total: 42 } });
+
+		// The books have news, but the Sync wins: no «novos» header with its buttons
+		await waitFor(() => expect(header()?.dataset.state).toBe('aSincronizar'));
+		expect(message()).toBe('Syncing with the Kobo');
+		expect(detail()).toBe('· 12 of 42 books');
+		expect(within(header()!).queryByRole('button')).toBeNull();
+	});
+
+	it('syncing_wins_over_previous_error', async () => {
+		const user = userEvent.setup();
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		await mockLibrary({
+			books: newBooks(),
+			device: kobo,
+			overrides: {
+				sync_kobo: () => {
+					throw 'disk is full';
+				}
+			}
+		});
+		render(Page);
+		await syncReady();
+		await user.click(syncButton());
+		await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
+
+		// A Sync that does not clear the error before it ends, like the one on connect
+		library.syncProgress = { done: 1, total: 3 };
+		library.isImporting = true;
+		await tick();
+
+		try {
+			expect(header()?.dataset.state).toBe('aSincronizar');
+			expect(detail()).toBe('· 1 of 3 books');
+		} finally {
+			// Set by hand, so no Sync in flight ends it: a failure here must not reach the next test
+			library.isImporting = false;
+			library.syncProgress = null;
+			vi.mocked(console.error).mockRestore();
+		}
+	});
+
+	it('detail_stays_open_through_sync', async () => {
+		const user = userEvent.setup();
+		const books = newBooks();
+		let sync = heldSync();
+		await mockLibrary({ books, device: kobo, overrides: { sync_kobo: () => sync.sync_kobo() } });
+		render(Page);
+		await syncReady();
+
+		// A book opened while the Sync runs stays open when it ends
+		await user.click(syncButton());
+		await waitFor(() => expect(library.isImporting).toBe(true));
+		await user.click(options()[1]);
+		await waitFor(() => expect(screen.getByTestId('book-details-view')).toBeInTheDocument());
+		expect(within(bar()!).getByRole('button', { name: 'Back' })).toBeInTheDocument();
+		sync.release();
+		await waitFor(() => expect(library.isImporting).toBe(false));
+		await settle();
+		expect(library.uiState).toBe('book-details');
+		expect(screen.getByTestId('book-details-view')).toBeInTheDocument();
+		expect(library.viewingBookId).toBe(2);
+
+		// The open book is gone from the Library the Sync wrote: back to the grid
+		await user.click(within(bar()!).getByRole('button', { name: 'Back' }));
+		await waitFor(() => expect(options()).toHaveLength(3));
+		sync = heldSync();
+		await user.click(syncButton());
+		await waitFor(() => expect(library.isImporting).toBe(true));
+		await user.click(options()[1]);
+		await waitFor(() => expect(screen.getByTestId('book-details-view')).toBeInTheDocument());
+		books.splice(1, 1);
+		sync.release();
+		await waitFor(() => expect(library.isImporting).toBe(false));
+		await waitFor(() => expect(library.uiState).toBe('library'));
+		expect(options()).toHaveLength(2);
+	});
+
+	it('detail_stays_open_when_the_kobo_syncs_on_connect', async () => {
+		const user = userEvent.setup();
+		const { sync_kobo, release } = heldSync();
+		// No Kobo at start: it is connected while a book is open
+		await mockLibrary({ books: newBooks(), syncOnConnect: true, overrides: { sync_kobo, reader_for_kobo: () => 1 } });
+		render(Page);
+		await waitFor(() => expect(options()).toHaveLength(3));
+		await waitFor(() => expect(handlers.has('device-detected')).toBe(true));
+		await user.click(options()[0]);
+		await waitFor(() => expect(screen.getByTestId('book-details-view')).toBeInTheDocument());
+
+		handlers.get('device-detected')!({ payload: { device: kobo } });
+		await waitFor(() => expect(library.isImporting).toBe(true));
+		// The detail does not give way to the Sync
+		expect(screen.getByTestId('book-details-view')).toBeInTheDocument();
+
+		release();
+		await waitFor(() => expect(library.isImporting).toBe(false));
+		await settle();
+		expect(library.uiState).toBe('book-details');
+		expect(screen.getByTestId('book-details-view')).toBeInTheDocument();
+	});
+
+	it('switch_on_connect_never_leaves_main_empty', async () => {
+		const user = userEvent.setup();
+		const { sync_kobo } = heldSync();
+		const anas = [makeBook({ id: 7, title: 'Delta', author: 'D', highlights: [hl('d1')] })];
+		let readAnas: (() => void) | undefined;
+		await mockLibrary({
+			books: newBooks(),
+			syncOnConnect: true,
+			overrides: {
+				sync_kobo,
+				reader_for_kobo: () => 2,
+				get_library: (args) =>
+					(args as { readerId: number }).readerId !== 2
+						? newBooks()
+						: readAnas
+							? structuredClone(anas)
+							: new Promise((resolve) => (readAnas = () => resolve(structuredClone(anas))))
+			}
+		});
+		render(Page);
+		await waitFor(() => expect(options()).toHaveLength(3));
+		await waitFor(() => expect(handlers.has('device-detected')).toBe(true));
+		await user.click(options()[0]);
+		await waitFor(() => expect(screen.getByTestId('book-details-view')).toBeInTheDocument());
+
+		// Every state <main> passes through, even for a microtask
+		const main = document.querySelector('main')!;
+		let emptied = false;
+		const observer = new MutationObserver(() => {
+			if (main.children.length === 0) emptied = true;
+		});
+		observer.observe(main, { childList: true, subtree: true });
+		try {
+			handlers.get('device-detected')!({ payload: { device: kobo } });
+			// Ana's Library takes a while: Bruno's book stays, and nothing of his can be acted on
+			await waitFor(() => expect(readAnas).toBeTypeOf('function'));
+			await settle();
+			expect(screen.getByTestId('book-details-view')).toBeInTheDocument();
+			expect(within(bar()!).getByRole('button', { name: 'Export 1 book' })).toHaveAttribute('aria-disabled', 'true');
+
+			readAnas!();
+			await waitFor(() => expect(library.activeReaderId).toBe(2));
+			await settle();
+			expect(screen.queryByTestId('book-details-view')).toBeNull();
+			expect(options().map((o) => o.textContent)).toEqual([expect.stringContaining('Delta')]);
+			expect(emptied).toBe(false);
+		} finally {
+			observer.disconnect();
+		}
+	});
+
+	it('another_readers_kobo_switches_the_library_on_connect', async () => {
+		const user = userEvent.setup();
+		const { sync_kobo, release } = heldSync();
+		const anas = [makeBook({ id: 7, title: 'Delta', author: 'D', highlights: [hl('d1')] })];
+		// Bruno's Library on screen, no Kobo yet: Ana's is connected, «Sincronizar ao ligar» on
+		await mockLibrary({
+			books: newBooks(),
+			syncOnConnect: true,
+			overrides: {
+				sync_kobo,
+				reader_for_kobo: () => 2,
+				get_library: (args) => ((args as { readerId: number }).readerId === 2 ? structuredClone(anas) : newBooks())
+			}
+		});
+		render(Page);
+		await waitFor(() => expect(options()).toHaveLength(3));
+		await waitFor(() => expect(handlers.has('device-detected')).toBe(true));
+		await user.keyboard('{Meta>}');
+		await user.click(options()[2]);
+		await user.keyboard('{/Meta}');
+		await user.click(options()[0]);
+		await waitFor(() => expect(screen.getByTestId('book-details-view')).toBeInTheDocument());
+		expect(library.selectedBookIds).not.toEqual([]);
+
+		handlers.get('device-detected')!({ payload: { device: kobo } });
+		await waitFor(() => expect(library.isImporting).toBe(true));
+
+		// Ana's Library is on screen while it syncs: Bruno's book and selection do not come along
+		expect(library.activeReaderId).toBe(2);
+		expect(library.uiState).toBe('library');
+		expect(screen.queryByTestId('book-details-view')).toBeNull();
+		expect(library.viewingBookId).toBeNull();
+		expect(library.selectedBookIds).toEqual([]);
+		expect(await screen.findByRole('button', { name: "Ana's Library" })).toBeInTheDocument();
+		await waitFor(() => expect(header()?.dataset.state).toBe('aSincronizar'));
+		expect(options().map((o) => o.textContent)).toEqual([expect.stringContaining('Delta')]);
+
+		// The Sync fills her Library, the one on screen
+		anas.push(makeBook({ id: 8, title: 'Epsilon', author: 'E', highlights: [hl('e1', { isNew: true, syncedSeq: 1 })] }));
+		handlers.get('sync-finished')!({ payload: { readerId: 2, report } });
+		release();
+		await waitFor(() => expect(library.isImporting).toBe(false));
+		await settle();
+
+		expect(library.activeReaderId).toBe(2);
+		expect(library.uiState).toBe('library');
+		expect(options()).toHaveLength(2);
+		expect(library.selectedBookIds).toEqual([]);
+		expect(library.canSync).toBe(true);
+	});
+
+	it('another_readers_kobo_connecting_forgets_the_opened_book_of_the_previous_reader', async () => {
+		const user = userEvent.setup();
+		const { sync_kobo, release } = heldSync();
+		// Ana's Library has a book with the id of the one opened in Bruno's
+		const anas = [makeBook({ id: 1, title: 'Delta', author: 'D', highlights: [hl('d1')] })];
+		await mockLibrary({
+			books: newBooks(),
+			syncOnConnect: true,
+			overrides: {
+				sync_kobo,
+				reader_for_kobo: () => 2,
+				get_library: (args) => ((args as { readerId: number }).readerId === 2 ? structuredClone(anas) : newBooks())
+			}
+		});
+		render(Page);
+		await waitFor(() => expect(options()).toHaveLength(3));
+		await waitFor(() => expect(handlers.has('device-detected')).toBe(true));
+		await user.click(options()[0]);
+		await waitFor(() => expect(screen.getByTestId('book-details-view')).toBeInTheDocument());
+
+		handlers.get('device-detected')!({ payload: { device: kobo } });
+		await waitFor(() => expect(library.activeReaderId).toBe(2));
+		await waitFor(() => expect(options()).toHaveLength(1));
+		await settle();
+
+		// Ana's grid does not take the focus «back» to a book of Bruno's
+		expect(document.activeElement).not.toBe(options()[0]);
+		release();
+		await waitFor(() => expect(library.isImporting).toBe(false));
+	});
+
+	it('selection_survives_sync', async () => {
+		const user = userEvent.setup();
+		const books = newBooks();
+		const { sync_kobo, release } = heldSync();
+		await mockLibrary({ books, device: kobo, overrides: { sync_kobo } });
+		render(Page);
+		await syncReady();
+
+		await user.click(syncButton());
+		await waitFor(() => expect(library.isImporting).toBe(true));
+		// Selected in the Library on screen, mid-Sync: Alpha and Gamma
+		await user.keyboard('{Meta>}');
+		await user.click(options()[0]);
+		await user.click(options()[2]);
+		await user.keyboard('{/Meta}');
+		expect(library.selectedBookIds).toEqual([1, 3]);
+
+		// Gamma is gone from the Kobo. Rust says the Sync finished before `sync_kobo` answers
+		books.splice(2, 1);
+		handlers.get('sync-finished')!({ payload: { readerId: 1, report } });
+		release();
+		await waitFor(() => expect(library.isImporting).toBe(false));
+		await settle();
+
+		expect(library.selectedBookIds).toEqual([1]);
+		expect(options()).toHaveLength(2);
+		expect(options()[0]).toHaveAttribute('aria-selected', 'true');
+	});
+
+	it('switching_reader_still_clears_selection', async () => {
+		const user = userEvent.setup();
+		await mockLibrary({ books: newBooks() });
+		render(Page);
+		await waitFor(() => expect(options()).toHaveLength(3));
+		await user.keyboard('{Meta>}');
+		await user.click(options()[0]);
+		await user.keyboard('{/Meta}');
+		expect(library.selectedBookIds).toEqual([1]);
+
+		// Ana's books happen to have the same ids: the selection is still not hers
+		await user.click(await screen.findByRole('button', { name: "Bruno's Library" }));
+		await user.click(await menuItem('Ana'));
+
+		await waitFor(() => expect(library.activeReaderId).toBe(2));
+		expect(library.selectedBookIds).toEqual([]);
+	});
+
+	it.each([true, false])('reader_chosen_for_an_unknown_kobo_mid_sync_waits_for_it (sync on connect %s)', async (syncOnConnect) => {
+		const user = userEvent.setup();
+		const unknown = makeDevice({ name: 'Kobo Clara', path: '/Volumes/KOBO2', isValid: true, serialNumber: 'C123' });
+		const anas = [makeBook({ id: 7, title: 'Delta', author: 'D', highlights: [hl('d1')] })];
+		const syncs: Array<{ serial: string; release: () => void }> = [];
+		pending = () => syncs.forEach((s) => s.release());
+		let owner: number | null = null;
+		await mockLibrary({
+			books: newBooks(),
+			device: kobo,
+			syncOnConnect,
+			overrides: {
+				sync_kobo: (args) =>
+					new Promise((resolve) =>
+						syncs.push({ serial: (args as { device: typeof kobo }).device.serialNumber!, release: () => resolve(report) })
+					),
+				reader_for_kobo: (args) => ((args as { serial: string }).serial === 'N418' ? 1 : owner),
+				associate_kobo: (args) => {
+					owner = (args as { readerId: number }).readerId;
+					return null;
+				},
+				get_library: (args) => ((args as { readerId: number }).readerId === 2 ? structuredClone(anas) : newBooks())
+			}
+		});
+		render(Page);
+		await syncReady();
+		await user.click(syncButton());
+		await waitFor(() => expect(syncs).toHaveLength(1));
+		// A book of Bruno's open mid-Sync
+		await user.click(options()[0]);
+		await waitFor(() => expect(screen.getByTestId('book-details-view')).toBeInTheDocument());
+		const main = document.querySelector('main')!;
+		let emptied = false;
+		const observer = new MutationObserver(() => {
+			if (main.children.length === 0) emptied = true;
+		});
+		observer.observe(main, { childList: true, subtree: true });
+
+		// Another Kobo, unknown, while Bruno's syncs: it is Ana's
+		handlers.get('device-detected')!({ payload: { device: unknown } });
+		const dialog = await screen.findByTestId('unknown-kobo-dialog');
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Ana' }));
+		await settle();
+
+		// Bruno's Sync is not interrupted by her Library
+		expect(library.activeReaderId).toBe(1);
+		expect(calls('get_library').some(([, args]) => (args as { readerId: number }).readerId === 2)).toBe(false);
+
+		// It ends on Bruno's Library; only then Ana's shows, and syncs if the setting says so
+		syncs[0].release();
+		await waitFor(() => expect(library.activeReaderId).toBe(2));
+		if (syncOnConnect) {
+			await waitFor(() => expect(syncs).toHaveLength(2));
+			expect(syncs[1].serial).toBe('C123');
+			// The Sync on connect shows her Library in one step: Bruno's book until it arrives
+			expect(emptied).toBe(false);
+		} else {
+			await settle();
+			expect(syncs).toHaveLength(1);
+		}
+		observer.disconnect();
+		expect(library.uiState).toBe('library');
+		expect(options().map((o) => o.textContent)).toEqual([expect.stringContaining('Delta')]);
+		const readers = calls('get_library').map(([, args]) => (args as { readerId: number }).readerId);
+		expect(readers.slice(readers.indexOf(2))).not.toContain(1);
+	});
+
+	it('first_sync_shows_library_not_no_device', async () => {
+		const { sync_kobo } = heldSync();
+		let owner: number | null = null;
+		await mockLibrary({
+			books: newBooks(),
+			device: kobo,
+			lastReader: null,
+			syncOnConnect: true,
+			overrides: {
+				sync_kobo,
+				reader_for_kobo: () => owner,
+				associate_kobo: (args) => {
+					owner = (args as { readerId: number }).readerId;
+					return null;
+				}
+			}
+		});
+		render(Page);
+
+		// Whose Kobo is it? Ana's: her Library is on screen while it syncs
+		const dialog = await screen.findByTestId('unknown-kobo-dialog');
+		expect(library.uiState).toBe('no-device');
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Ana' }));
+		await waitFor(() => expect(library.isImporting).toBe(true));
+
+		expect(library.uiState).toBe('library');
+		expect(library.activeReaderId).toBe(2);
+		expect(screen.queryByText('No Kobo connected')).toBeNull();
+	});
+
+	it('first_kobo_ever_shows_library_not_no_device', async () => {
+		const { sync_kobo } = heldSync();
+		let list: typeof readers = [];
+		await mockLibrary({
+			list: [],
+			books: newBooks(),
+			device: kobo,
+			lastReader: null,
+			syncOnConnect: true,
+			overrides: {
+				sync_kobo,
+				list_readers: () => structuredClone(list),
+				reader_for_kobo: () => null,
+				create_reader: () => {
+					list = [{ id: 1, name: 'Kobo Libra', exportPath: null }];
+					return list[0];
+				}
+			}
+		});
+		render(Page);
+
+		// No Reader yet: one is made for the Kobo, and its Library is what the Sync fills
+		await waitFor(() => expect(library.isImporting).toBe(true));
+		expect(library.uiState).toBe('library');
+		expect(screen.queryByText('No Kobo connected')).toBeNull();
+	});
+
+	it('sync_click_while_syncing_does_nothing', async () => {
+		const user = userEvent.setup();
+		const { sync_kobo } = heldSync();
+		await mockLibrary({ books: newBooks(), device: kobo, overrides: { sync_kobo } });
+		const sync = vi.spyOn(library, 'sync');
+		render(Page);
+		await syncReady();
+
+		await user.click(syncButton());
+		await waitFor(() => expect(library.isImporting).toBe(true));
+		// Sync stays enabled while it turns; a second click is not a second Sync
+		expect(syncButton()).not.toHaveAttribute('aria-disabled', 'true');
+		const stateBefore = header()!.dataset.state;
+		const headerBefore = header()!.textContent;
+		await user.click(syncButton());
+		await press('r');
+
+		expect(sync).toHaveBeenCalledTimes(1);
+		expect(calls('sync_kobo')).toHaveLength(1);
+		// Nothing else moved: no «Exported», no failed Sync, the header still syncing
+		expect(library.lastSyncFailed).toBe(false);
+		expect(document.querySelector('[role="alert"]')!.textContent!.trim()).toBe('');
+		expect(header()!.dataset.state).toBe(stateBefore);
+		expect(header()!.textContent).toBe(headerBefore);
+		expect(header()!.textContent).not.toContain('Exported');
+		expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+		sync.mockRestore();
+	});
+
+	const announcer = () => screen.getByTestId('sync-announcer');
+	/** Every text the page's announcer takes, in order. */
+	function recordAnnouncer() {
+		const el = announcer();
+		const seen: string[] = [];
+		const observer = new MutationObserver(() => seen.push(el.textContent ?? ''));
+		observer.observe(el, { childList: true, characterData: true, subtree: true });
+		return { seen, stop: () => observer.disconnect() };
+	}
+
+	it('page_announcer_is_always_mounted_polite_and_announces_start_and_end', async () => {
+		const user = userEvent.setup();
+		const { sync_kobo, release } = heldSync();
+		await mockLibrary({ books: newBooks(), device: kobo, overrides: { sync_kobo } });
+		render(Page);
+		await syncReady();
+		// Mounted before any Sync, empty, and outside the header
+		expect(announcer()).toHaveAttribute('aria-live', 'polite');
+		expect(announcer()).toHaveClass('sr-only');
+		expect(announcer().textContent!.trim()).toBe('');
+		const rec = recordAnnouncer();
+
+		await user.click(syncButton());
+		await waitFor(() => expect(library.isImporting).toBe(true));
+		await settle();
+		expect(announcer().textContent!.trim()).toBe('Syncing with the Kobo');
+		// The header keeps no polite region of its own: one source of truth
+		expect(document.querySelector('main')!.querySelectorAll('[aria-live], [role="status"]')).toHaveLength(0);
+		for (const done of [1, 2, 3]) await progress(done, 3);
+		await settle();
+		expect(rec.seen).toEqual(['Syncing with the Kobo']);
+
+		release();
+		await waitFor(() => expect(library.isImporting).toBe(false));
+		await settle();
+		expect(announcer().textContent!.trim()).toBe('3 new highlights in 2 books');
+		expect(rec.seen).toEqual(['Syncing with the Kobo', '3 new highlights in 2 books']);
+		rec.stop();
+	});
+
+	it('page_announcer_announces_the_first_sync_of_an_empty_library_and_its_end', async () => {
+		const user = userEvent.setup();
+		const { sync_kobo, release } = heldSync();
+		await mockLibrary({ books: [], device: kobo, overrides: { sync_kobo } });
+		render(Page);
+		await syncReady();
+		const el = announcer();
+
+		await user.click(syncButton());
+		await waitFor(() => expect(syncingState()).not.toBeNull());
+		await settle();
+		// The same node, mounted before: the W2 state brings no region of its own
+		expect(announcer()).toBe(el);
+		expect(el.textContent!.trim()).toBe('Syncing with the Kobo');
+		expect(document.querySelector('main')!.querySelectorAll('[aria-live], [role="status"]')).toHaveLength(0);
+		await progress(12, 42);
+		expect(el.textContent!.trim()).toBe('Syncing with the Kobo');
+
+		release();
+		await waitFor(() => expect(library.isImporting).toBe(false));
+		await settle();
+		expect(el.textContent!.trim()).toBe('No new highlights');
+	});
+
+	it('page_announcer_stays_silent_on_a_failed_sync', async () => {
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		const user = userEvent.setup();
+		await mockLibrary({
+			books: newBooks(),
+			device: kobo,
+			overrides: { sync_kobo: () => Promise.reject(new Error('boom')) }
+		});
+		render(Page);
+		await syncReady();
+
+		await user.click(syncButton());
+		await waitFor(() => expect(library.lastSyncFailed).toBe(true));
+		await settle();
+		// The error is the alert's; the polite region does not repeat it or announce an outcome
+		expect(announcer().textContent!.trim()).toBe('');
+		expect(document.querySelector('[role="alert"]')!.textContent).toContain('Could not sync the Kobo');
+		vi.mocked(console.error).mockRestore();
+	});
+
+	it('title_menu_disabled_while_syncing', async () => {
+		const user = userEvent.setup();
+		const { sync_kobo, release } = heldSync();
+		await mockLibrary({ books: newBooks(), device: kobo, overrides: { sync_kobo } });
+		render(Page);
+		await syncReady();
+		const title = () => within(bar()!).getByRole('button', { name: "Bruno's Library" });
+		expect(title()).not.toHaveAttribute('aria-disabled', 'true');
+
+		await user.click(syncButton());
+		await waitFor(() => expect(library.isImporting).toBe(true));
+
+		// The Sync ends by opening the Kobo's Reader: another one chosen now would be undone
+		expect(title()).toHaveAttribute('aria-disabled', 'true');
+		// aria-disabled, like the bar's buttons: it keeps its place in the Tab order
+		expect(title()).not.toBeDisabled();
+		await user.click(title());
+		title().focus();
+		expect(document.activeElement).toBe(title());
+		await user.keyboard('{Enter}');
+		await user.keyboard(' ');
+		await user.keyboard('{ArrowDown}');
+		expect(menuItems()).toHaveLength(0);
+		expect(library.activeReaderId).toBe(1);
+
+		release();
+		await waitFor(() => expect(library.isImporting).toBe(false));
+		await waitFor(() => expect(title()).not.toHaveAttribute('aria-disabled', 'true'));
+	});
+
+	const progress = async (done: number, total: number) => {
+		handlers.get('sync-progress')!({ payload: { done, total } });
+		await tick();
+	};
+	const syncingState = () => document.querySelector<HTMLElement>('[data-testid="syncing-state"]');
+	const filledLines = () => syncingState()!.querySelectorAll('svg line[data-filled]').length;
+	const badges = () => document.querySelectorAll('[data-slot="badge"]');
+	const exportButton = () => within(bar()!).getByRole('button', { name: /^Export \d+ books?$/ });
+
+	it('header_hides_count_before_total_known', async () => {
+		const user = userEvent.setup();
+		const { sync_kobo } = heldSync();
+		await mockLibrary({ books: newBooks(), device: kobo, overrides: { sync_kobo } });
+		render(Page);
+		await syncReady();
+
+		// The first state of a Sync is { done: 0, total: 0 }: Rust has not counted the books yet
+		await user.click(syncButton());
+		await waitFor(() => expect(header()?.dataset.state).toBe('aSincronizar'));
+
+		expect(message()).toBe('Syncing with the Kobo');
+		expect(detail()).toBeUndefined();
+		expect(header()!.textContent).not.toContain('0 of 0');
+	});
+
+	it('empty_library_while_syncing_shows_centered_state', async () => {
+		const user = userEvent.setup();
+		const { sync_kobo, release } = heldSync();
+		await mockLibrary({ books: [], device: kobo, overrides: { sync_kobo } });
+		render(Page);
+		await syncReady();
+		// Before the Sync: the Library's own empty state, with its header and no centered state
+		expect(screen.getByTestId('empty-state')).toBeInTheDocument();
+		expect(syncingState()).toBeNull();
+
+		await user.click(syncButton());
+		await waitFor(() => expect(library.isImporting).toBe(true));
+		await progress(12, 42);
+
+		// No header and no «No books found»: only the centered state
+		expect(header()).toBeNull();
+		expect(screen.queryByTestId('empty-state')).toBeNull();
+		const state = syncingState()!;
+		// Announced by the page's own always-mounted region, not by a region that mounts with its text
+		expect(state).not.toHaveAttribute('role');
+		expect(state.closest('[aria-live]')).toBeNull();
+		expect(within(state).getByRole('heading', { name: 'Syncing with the Kobo' })).toBeInTheDocument();
+		const count = screen.getByText('12 of 42 books');
+		expect(count.tagName).toBe('P');
+		expect(state.contains(count)).toBe(true);
+		expect(count.closest('[aria-live], [role="status"]')).toBeNull();
+		expect(count).toHaveClass('text-body', 'text-muted-foreground');
+		expect(state.textContent).not.toContain('appear here');
+		// The illustration is decoration, and a solid Kobo, not the dashed one of the first start
+		expect(state.querySelector('.kobo-icon')).toHaveAttribute('aria-hidden', 'true');
+		expect(state.querySelector('.kobo-icon')).not.toHaveAttribute('role');
+		expect(state.querySelectorAll('[stroke-dasharray]')).toHaveLength(0);
+		// The Figma's L1: token background, a 96 wide Kobo, a 320 wide text block of Title 3 and Body
+		expect(state).toHaveClass('bg-background', 'gap-6');
+		expect(state.querySelector('.kobo-icon')).toHaveStyle('width: 96px');
+		expect(within(state).getByRole('heading')).toHaveClass('text-title-3', 'text-foreground');
+		expect(state.querySelector('.w-\\[320px\\]')).not.toBeNull();
+
+		release();
+		await waitFor(() => expect(library.isImporting).toBe(false));
+		await settle();
+		expect(syncingState()).toBeNull();
+		expect(screen.getByTestId('empty-state')).toBeInTheDocument();
+	});
+
+	it('empty_library_syncing_shows_only_the_title_before_the_total', async () => {
+		const user = userEvent.setup();
+		const { sync_kobo } = heldSync();
+		await mockLibrary({ books: [], device: kobo, overrides: { sync_kobo } });
+		render(Page);
+		await syncReady();
+
+		await user.click(syncButton());
+		await waitFor(() => expect(syncingState()).not.toBeNull());
+
+		// No paragraph at all, and the old sentence never comes back
+		expect(within(syncingState()!).getByRole('heading', { name: 'Syncing with the Kobo' })).toBeInTheDocument();
+		expect(syncingState()!.querySelector('p')).toBeNull();
+		expect(syncingState()!.textContent).not.toContain('appear here');
+		expect(syncingState()!.textContent).not.toMatch(/\d+ of \d+ book/);
+		expect(filledLines()).toBe(0);
+	});
+
+	it('sync_illustration_fills_lines_with_progress', async () => {
+		const user = userEvent.setup();
+		const { sync_kobo } = heldSync();
+		await mockLibrary({ books: [], device: kobo, overrides: { sync_kobo } });
+		render(Page);
+		await syncReady();
+		await user.click(syncButton());
+		await waitFor(() => expect(syncingState()).not.toBeNull());
+		expect(syncingState()!.querySelectorAll('svg line')).toHaveLength(7);
+
+		// floor(7 × done / total): 1/42 and 41/42 tell floor from ceil and round
+		for (const [done, total, lines] of [
+			[0, 42, 0],
+			[1, 42, 0],
+			[12, 42, 2],
+			[30, 42, 5],
+			[41, 42, 6],
+			[42, 42, 7],
+			[0, 0, 0]
+		]) {
+			await progress(done, total);
+			expect(filledLines(), `${done}/${total}`).toBe(lines);
+		}
+	});
+
+	it('view_shortcuts_work_while_syncing', async () => {
+		const { sync_kobo } = heldSync();
+		await mockLibrary({ books: newBooks(), device: kobo, overrides: { sync_kobo } });
+		render(Page);
+		await syncReady();
+		await press('r');
+		await waitFor(() => expect(library.isImporting).toBe(true));
+		vi.mocked(invoke).mockClear();
+
+		await fireEvent.keyDown(window, { key: '2', code: 'Digit2', metaKey: true });
+		expect(invoke).toHaveBeenCalledWith('update_settings', { patch: { libraryViewMode: 'list' } });
+		expect(settings.uiPreferences.libraryViewMode).toBe('list');
+		await fireEvent.keyDown(window, { key: '1', code: 'Digit1', metaKey: true });
+		expect(invoke).toHaveBeenCalledWith('update_settings', { patch: { libraryViewMode: 'grid' } });
+		expect(settings.uiPreferences.libraryViewMode).toBe('grid');
+	});
+
+	it('export_and_sync_shortcuts_blocked_while_syncing', async () => {
+		const { sync_kobo } = heldSync();
+		await mockLibrary({ books: newBooks(), device: kobo, overrides: { sync_kobo } });
+		render(Page);
+		await syncReady();
+		await press('r');
+		await waitFor(() => expect(library.isImporting).toBe(true));
+		vi.mocked(invoke).mockClear();
+
+		await press('r');
+		await press('e');
+
+		expect(calls('sync_kobo')).toHaveLength(0);
+		expect(calls('export_library_books')).toHaveLength(0);
+	});
+
+	it('export_is_disabled_with_a_reason_while_syncing', async () => {
+		const user = userEvent.setup();
+		const { sync_kobo, release } = heldSync();
+		await mockLibrary({ books: newBooks(), device: kobo, overrides: { sync_kobo } });
+		render(Page);
+		await syncReady();
+		expect(exportButton()).not.toHaveAttribute('aria-disabled', 'true');
+
+		await user.click(syncButton());
+		await waitFor(() => expect(library.isImporting).toBe(true));
+
+		// In the Library, Sync turns and Export waits for the end
+		expect(exportButton()).toHaveAttribute('aria-disabled', 'true');
+		await user.click(exportButton());
+		expect(calls('export_library_books')).toHaveLength(0);
+
+		// ...and in a book too
+		await user.click(options()[1]);
+		await waitFor(() => expect(screen.getByTestId('book-details-view')).toBeInTheDocument());
+		const detailExport = within(bar()!).getByRole('button', { name: 'Export 1 book' });
+		expect(detailExport).toHaveAttribute('aria-disabled', 'true');
+		await user.click(detailExport);
+		expect(calls('export_library_books')).toHaveLength(0);
+
+		release();
+		await waitFor(() => expect(library.isImporting).toBe(false));
+		await settle();
+		expect(within(bar()!).getByRole('button', { name: 'Export 1 book' })).not.toHaveAttribute('aria-disabled', 'true');
+	});
+
+	it('new_badges_are_hidden_while_syncing_and_come_back_after', async () => {
+		const user = userEvent.setup();
+		const { sync_kobo, release } = heldSync();
+		await mockLibrary({ books: newBooks(), device: kobo, overrides: { sync_kobo } });
+		render(Page);
+		await syncReady();
+		expect(badges()).toHaveLength(2);
+
+		await user.click(syncButton());
+		await waitFor(() => expect(library.isImporting).toBe(true));
+		// The badge fades out for 150 ms, then it is gone
+		await waitFor(() => expect(badges()).toHaveLength(0));
+
+		release();
+		await waitFor(() => expect(library.isImporting).toBe(false));
+		await waitFor(() => expect(badges()).toHaveLength(2));
+		expect(header()?.dataset.state).toBe('novos');
+	});
+
+	it('reader_menu_open_when_the_sync_starts_closes', async () => {
+		const user = userEvent.setup();
+		const { sync_kobo, release } = heldSync();
+		await mockLibrary({ books: newBooks(), device: kobo, overrides: { sync_kobo } });
+		render(Page);
+		await syncReady();
+		const title = () => within(bar()!).getByRole('button', { name: "Bruno's Library" });
+
+		// The menu was open when the Sync on connect began: it closes, so no reader can be chosen in it
+		await user.click(title());
+		await menuItem('Ana');
+		void library.sync();
+		await waitFor(() => expect(library.isImporting).toBe(true));
+		await waitFor(() => expect(menuItems()).toHaveLength(0));
+		// The focus goes back to the title, not to the page
+		await waitFor(() => expect(document.activeElement).toBe(title()));
+
+		expect(calls('get_library').filter(([, args]) => (args as { readerId: number }).readerId === 2)).toHaveLength(0);
+		release();
+		await waitFor(() => expect(library.isImporting).toBe(false));
+		expect(library.activeReaderId).toBe(1);
+		// It opens again after the Sync, and only then
+		await user.click(title());
+		expect(await menuItem('Ana')).toBeInTheDocument();
+	});
+
+	it('book_opened_mid_sync_is_marked_after_it', async () => {
+		const user = userEvent.setup();
+		const books = newBooks();
+		let busy = true;
+		const { sync_kobo, release } = heldSync();
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		await mockLibrary({
+			books,
+			device: kobo,
+			overrides: {
+				sync_kobo,
+				// Rust's Sync holds an IMMEDIATE transaction, and the mark does not wait for it
+				mark_book_opened: () => {
+					if (busy) throw 'database is locked';
+					return null;
+				}
+			}
+		});
+		render(Page);
+		await syncReady();
+		await user.click(syncButton());
+		await waitFor(() => expect(library.isImporting).toBe(true));
+
+		// Alpha opened mid-Sync: a1 and a2 are new, and the detail marks them so
+		await user.click(options()[0]);
+		await waitFor(() => expect(screen.getByTestId('book-details-view')).toBeInTheDocument());
+		await settle();
+		expect(library.viewingNewIds).toEqual(new Set(['a1', 'a2']));
+
+		// The Sync brings a3 to Alpha
+		books[0].highlights.push(makeHighlight(hl('a3', { isNew: true, syncedSeq: 5 })));
+		busy = false;
+		release();
+		await waitFor(() => expect(library.isImporting).toBe(false));
+		await waitFor(() => expect(invoke).toHaveBeenCalledWith('mark_book_opened', { readerId: 1, bookId: 1, seenSeq: 3 }));
+		await settle();
+
+		// What was new when it was opened is seen; what the Sync brought stays new (D1)
+		const alpha = () => library.books.find((b) => b.id === 1)!;
+		expect(alpha().highlights.filter((h) => h.isNew).map((h) => h.id)).toEqual(['a3']);
+		expect(library.viewingNewIds).toEqual(new Set(['a1', 'a2']));
+		vi.mocked(console.error).mockRestore();
+	});
+
+	it('sync_after_a_failure_never_shows_the_error', async () => {
+		const user = userEvent.setup();
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		const read = newBooks().map((b) => ({ ...b, highlights: b.highlights.map((h) => ({ ...h, isNew: false })) }));
+		let fail = true;
+		let release!: () => void;
+		await mockLibrary({
+			books: read,
+			device: kobo,
+			overrides: {
+				sync_kobo: () => {
+					if (fail) throw 'disk is full';
+					return new Promise((resolve) => (release = pending = () => resolve(report)));
+				}
+			}
+		});
+		render(Page);
+		await syncReady();
+		await user.click(syncButton());
+		await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
+
+		// The Kobo is reported again (the monitor), and syncs on connect: it works this time
+		fail = false;
+		settings.uiPreferences.syncOnConnect = true;
+		library.connectedReaderId = null;
+		const recording = recordHeader();
+		handlers.get('device-detected')!({ payload: { device: kobo } });
+		await waitFor(() => expect(library.isImporting).toBe(true));
+		release();
+		await waitFor(() => expect(library.isImporting).toBe(false));
+		// Past the header's 150 ms fade
+		await new Promise((resolve) => setTimeout(resolve, 200));
+		await settle();
+		const { states } = recording.stop();
+
+		expect(states[0]).toBe('erro');
+		expect(states.slice(1)).toEqual(['aSincronizar']);
+		expect(header()).toBeNull();
+		expect(screen.queryAllByRole('alert').some((a) => a.textContent?.includes('Could not sync the Kobo'))).toBe(false);
+		vi.mocked(console.error).mockRestore();
+	});
+
+	it('failed_sync_never_shows_the_news', async () => {
+		const user = userEvent.setup();
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		let fail!: () => void;
+		await mockLibrary({
+			books: newBooks(),
+			device: kobo,
+			overrides: { sync_kobo: () => new Promise((_, reject) => (fail = pending = () => reject('disk is full'))) }
+		});
+		render(Page);
+		await syncReady();
+		await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+		const recording = recordHeader();
+
+		await user.click(syncButton());
+		await waitFor(() => expect(library.isImporting).toBe(true));
+		fail();
+		await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
+		await settle();
+
+		// Straight from syncing to the error: «3 new highlights» is never shown nor announced in between
+		expect(recording.stop().states).toEqual(['novos', 'aSincronizar', 'erro']);
+		vi.mocked(console.error).mockRestore();
+	});
+
+	it('exported_mark_is_cleared_when_a_sync_on_connect_starts', async () => {
+		const user = userEvent.setup();
+		const books = newBooks();
+		const { sync_kobo, release } = heldSync();
+		// No Kobo at start: it is connected right after the header's export
+		await mockLibrary({
+			books,
+			syncOnConnect: true,
+			summary: { newSince: '2026-11-09T10:00:00Z', lastSyncAt: null },
+			overrides: { sync_kobo, reader_for_kobo: () => 1, export_library_books: () => ['/x/Alpha.md', '/x/Gamma.md'] }
+		});
+		render(Page);
+		await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+		await waitFor(() => expect(handlers.has('device-detected')).toBe(true));
+		await user.click(within(header()!).getByRole('button', { name: 'Export 2 books' }));
+		await waitFor(() => expect(calls('mark_book_opened')).toHaveLength(2));
+
+		const recording = recordHeader();
+		handlers.get('device-detected')!({ payload: { device: kobo } });
+		await waitFor(() => expect(library.isImporting).toBe(true));
+		// The export marked Alpha and Gamma seen; the Sync brings news to Beta
+		for (const book of books) for (const h of book.highlights) h.isNew = false;
+		books[1].highlights.push(makeHighlight(hl('b2', { isNew: true, syncedSeq: 6 })));
+		release();
+		await waitFor(() => expect(library.isImporting).toBe(false));
+		await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+		await settle();
+
+		// The header of the new news offers their export, never «✓ Exported» of the old one
+		expect(recording.stop().exportedShown).toBe(false);
+		expect(within(header()!).getByRole('button', { name: 'Export 1 book' })).toBeInTheDocument();
 	});
 });
 

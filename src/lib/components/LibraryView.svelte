@@ -19,6 +19,8 @@
 		initialActiveId?: number | null;
 		/** The Library header, at the top of the scrolling area. */
 		header?: Snippet;
+		/** A Sync is running: the cards hide their «N novos» badges. */
+		hideNew?: boolean;
 		onBooksImport?: () => void;
 		isImporting?: boolean;
 		importProgress?: { currentBook: string; percentage: number };
@@ -33,6 +35,7 @@
 		onBookOpen,
 		initialActiveId = null,
 		header,
+		hideNew = false,
 		onBooksImport,
 		isImporting = false,
 		importProgress
@@ -160,6 +163,7 @@
 			{selectedBookIds}
 			{onSelectionChange}
 			{initialActiveId}
+			{hideNew}
 			onOpen={(book) => onBookOpen?.(book)}
 		/>
 	{:else}

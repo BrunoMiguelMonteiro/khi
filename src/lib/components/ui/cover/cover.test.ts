@@ -352,6 +352,44 @@ describe("Cover", () => {
   });
 });
 
+describe("Cover badge entrance (Task 38)", () => {
+  const entrance = [
+    "animate-in",
+    "fade-in-0",
+    "duration-(--duration-reveal)",
+    "ease-out",
+  ];
+
+  it("badges_do_not_fade_when_the_cover_is_merely_shown", () => {
+    const { container } = render(Cover, { props: { ...BOOK, newCount: 2 } });
+    const badge = must(slot(container, "badge"), "badge");
+    for (const c of entrance) expect(badge.classList.contains(c), c).toBe(false);
+  });
+
+  it("badge_fades_in_over_250ms_with_ease_out_when_told_to", async () => {
+    const { container, rerender } = render(Cover, {
+      props: { ...BOOK, newCount: 0 },
+    });
+    await rerender({ ...BOOK, newCount: 2, badgeEnter: true });
+    const badge = must(slot(container, "badge"), "badge");
+    await expectBindings(badge, [
+      { binding: "enters", utility: "animate-in", css: "animation: enter " },
+      { binding: "from transparent", utility: "fade-in-0", css: "--tw-enter-opacity: calc(0/100);" },
+      { binding: "250 ms", utility: "duration-(--duration-reveal)", css: "--tw-duration: var(--duration-reveal);" },
+      { binding: "ease out", utility: "ease-out", css: "--tw-ease: var(--ease-out);" },
+    ]);
+    // A fade only, so Reduzir movimento keeps it as is (Movimento 6)
+    expect(
+      [...badge.classList].filter((c) =>
+        /slide|zoom|spin|translate|scale/.test(c),
+      ),
+    ).toEqual([]);
+    // It keeps the entrance after the window closes: no class change mid-animation
+    await rerender({ ...BOOK, newCount: 2, badgeEnter: false });
+    expect(must(slot(container, "badge"), "badge").classList.contains("animate-in")).toBe(true);
+  });
+});
+
 describe("Cover badge exit", () => {
   afterEach(() => vi.useRealTimers());
 

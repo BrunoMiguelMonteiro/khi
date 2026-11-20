@@ -16,6 +16,9 @@ class LibraryStore {
 	readers = $state<Reader[]>([]);
 	/** A Sync is running. */
 	isImporting = $state(false);
+	/** The last Sync failed: the Library header's `erro`. Cleared when a Sync starts, set before
+	 * `isImporting` turns false, so the header never shows a stale state in between (Task 38). */
+	lastSyncFailed = $state(false);
 	isExporting = $state(false);
 	/** Books processed so far in the running Sync (R16). */
 	syncProgress = $state<{ done: number; total: number } | null>(null);
@@ -116,14 +119,20 @@ class LibraryStore {
 	/** The only way to open a book. The snapshot of its new highlights is
 	 * taken before the book is marked as seen, and only those ids are cleared
 	 * afterwards: a reload while the mark is in flight may bring others, which
-	 * stay new. A failed mark is logged and leaves everything as it was. */
+	 * stay new. A failed mark is logged and leaves everything as it was.
+	 * While a Sync runs, Rust's database is busy and the mark would fail: it
+	 * waits for the end, with the snapshot of now, even if the book is closed
+	 * meanwhile (Task 38). */
 	async openBook(bookId: number): Promise<void> {
 		const { snapshot, seenSeq } = this.#newSnapshot(bookId);
 		this.#viewingNewIds = snapshot;
 		this.#viewingBookId = bookId;
 		if (this.activeReaderId === null) return;
+		// The book's own Reader: a Sync on connect may show another one before it ends
+		const readerId = this.activeReaderId;
+		if (this.running) await this.running.catch(() => {});
 
-		if (await this.#markSeen(this.activeReaderId, bookId, snapshot, seenSeq)) await this.loadSummary();
+		if (await this.#markSeen(readerId, bookId, snapshot, seenSeq)) await this.loadSummary();
 	}
 
 	/** The ids of the book's new highlights now, and the highest `syncedSeq` loaded. */
@@ -145,7 +154,8 @@ class LibraryStore {
 			console.error('Failed to mark the book as opened:', error);
 			return false;
 		}
-		this.#clearNew(new Map([[bookId, snapshot]]));
+		// A mark that waited for a Sync may find another Reader's Library on screen: its books are not this one
+		if (this.activeReaderId === readerId) this.#clearNew(new Map([[bookId, snapshot]]));
 		return true;
 	}
 
@@ -170,15 +180,34 @@ class LibraryStore {
 		return this.readers;
 	}
 
-	/** Shows the Reader's Library, read from Rust; no Kobo needed (R17). */
-	async openReader(readerId: number): Promise<void> {
+	/** Shows the Reader's Library, read from Rust; no Kobo needed (R17).
+	 * `keepSelection` (a reload after a Sync) keeps the selected ids still in
+	 * the Library; another Reader's never stay. */
+	async openReader(readerId: number, { keepSelection = false }: { keepSelection?: boolean } = {}): Promise<void> {
+		const request = ++this.#openRequest;
 		const books = await commands.getLibrary(readerId);
+		// A Library shown since (another Reader, or a Kobo's on connect) wins
+		if (request !== this.#openRequest) return;
+		this.#showLibrary(readerId, books, keepSelection);
+		await this.loadSummary();
+	}
+
+	#openRequest = 0;
+
+	/** Puts the Library on screen in one synchronous step. */
+	#showLibrary(readerId: number, books: Book[], keepSelection: boolean) {
+		// Read after the wait: a selection made while Rust read the Library stays
+		const keep = keepSelection && readerId === this.activeReaderId;
 		// Another Reader's dates are not this one's: nothing until its summary arrives
 		if (readerId !== this.activeReaderId) this.summary = null;
 		this.activeReaderId = readerId;
 		this.books = books;
-		this.selectedBookIds = [];
-		await this.loadSummary();
+		if (keep) {
+			const present = new Set(books.map((book) => book.id));
+			this.selectedBookIds = this.selectedBookIds.filter((id) => present.has(id));
+		} else {
+			this.selectedBookIds = [];
+		}
 	}
 
 	async readerForKobo(serial: string): Promise<number | null> {
@@ -273,43 +302,82 @@ class LibraryStore {
 		}
 		if (this.connectedReaderId === null) return 'unknown';
 
-		// Show the Reader's Library first, so a Sync that fails lands on it (as in handleChooseReader)
-		if (this.activeReaderId === null) await this.openReader(this.connectedReaderId);
-		else if (!syncOnConnect) await this.loadSummary();
+		const readerId = this.connectedReaderId;
+		// Another Reader's Sync ends by reopening its own Library: this one waits for it (M3)
+		while (syncOnConnect && this.running && this.#runningReaderId !== readerId) await this.running.catch(() => {});
+		// Unplugged, or another Kobo connected, while it waited
+		if (this.connectedReaderId !== readerId) return 'idle';
+
+		// Show the Reader's Library first, so a Sync that fails lands on it (as in handleChooseReader),
+		// and the Sync fills the Library on screen, not the empty state (Task 38)
+		if (this.activeReaderId === null) {
+			await this.openReader(readerId);
+			this.setUiState('library');
+		} else if (!syncOnConnect) await this.loadSummary();
 		if (syncOnConnect) {
-			await this.sync();
+			// Another Reader's Kobo: the Sync shows its Library first, with no book or selection of the other (M3)
+			await this.sync({ show: this.activeReaderId !== readerId });
 			return 'synced';
 		}
 		return 'idle';
 	}
 
+	/** Resolves once no Sync runs, whether it worked or not. */
+	async syncEnded(): Promise<void> {
+		while (this.running) await this.running.catch(() => {});
+	}
+
 	/** The Sync in flight, shared by every caller until it ends. */
 	private running: Promise<SyncReport> | null = null;
+	#runningReaderId: number | null = null;
 
 	/** Syncs the connected Kobo into its Reader's Library and shows it (R16).
 	 * A call while a Sync runs gets that Sync: at startup the scan and the
-	 * monitor's first device-detected both arrive for the same Kobo. */
-	sync(): Promise<SyncReport> {
+	 * monitor's first device-detected both arrive for the same Kobo.
+	 * `show` puts the Kobo's Reader on screen first, as part of the Sync. */
+	sync({ show = false }: { show?: boolean } = {}): Promise<SyncReport> {
 		if (this.running) return this.running;
 		const device = this.connectedDevice;
 		const readerId = this.connectedReaderId;
 		if (!device || readerId === null) return Promise.reject(new Error('No known Kobo connected'));
 
-		this.running = this.runSync(device, readerId).finally(() => {
+		this.#runningReaderId = readerId;
+		this.running = this.runSync(device, readerId, show).finally(() => {
 			this.running = null;
+			this.#runningReaderId = null;
 		});
 		return this.running;
 	}
 
-	private async runSync(device: KoboDevice, readerId: number): Promise<SyncReport> {
+	private async runSync(device: KoboDevice, readerId: number, show: boolean): Promise<SyncReport> {
 		this.isImporting = true;
+		this.lastSyncFailed = false;
 		this.syncProgress = { done: 0, total: 0 };
 		try {
+			if (show) {
+				// The other Reader's book stays until this Library arrives; the Sync has begun, so it cannot be acted on
+				let books: Book[] = [];
+				let readFailure: { error: unknown } | null = null;
+				try {
+					books = await commands.getLibrary(readerId);
+				} catch (error) {
+					// Shown anyway, empty: the failure is this Reader's and lands on its Library
+					readFailure = { error };
+				}
+				++this.#openRequest;
+				this.closeBook();
+				this.#showLibrary(readerId, books, false);
+				this.setUiState('library');
+				if (readFailure) throw readFailure.error;
+				await this.loadSummary();
+			}
 			const report = await commands.syncKobo(device);
-			await this.openReader(readerId);
+			// The Library was on screen all along: what was selected in it stays (Task 38)
+			await this.openReader(readerId, { keepSelection: true });
 			return report;
 		} catch (error) {
 			console.error('Failed to sync the Kobo:', error);
+			this.lastSyncFailed = true;
 			throw error;
 		} finally {
 			this.isImporting = false;

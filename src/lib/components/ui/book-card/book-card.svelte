@@ -16,6 +16,8 @@
 		selected?: boolean;
 		/** Some book of the grid is selected: every card shows its selection box, not only the hovered one. */
 		selecting?: boolean;
+		/** The «N novos» badge comes in with a fade: the grid says so only when a Sync ends. */
+		badgeEnter?: boolean;
 	};
 </script>
 
@@ -31,6 +33,7 @@
 		book,
 		selected = false,
 		selecting = false,
+		badgeEnter = false,
 		tabindex = 0,
 		class: className,
 		...restProps
@@ -72,6 +75,7 @@
 			author={book.author?.trim() || undefined}
 			bookId={book.id}
 			{newCount}
+			{badgeEnter}
 			class={selected ? undefined : 'group-focus-visible/card:focus-ring'}
 		/>
 		{#if selected}

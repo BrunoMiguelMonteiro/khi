@@ -61,10 +61,22 @@ test('control: a copy button that stays hidden on hover is detected', async ({ b
 	expect(has(blocked, /^screenshot detail--light\.state-hover-highlight\.png$/, 'pixels'), 'hover pixels reported').toBe(true);
 });
 
-test('control: a Kobo icon that no longer pulses while importing is detected', async ({ browser }) => {
-	const result = await captureOf(browser, 'importing--light', { injectCss: '.kobo-icon { animation: none !important; }' });
-	const { blocked } = compareWithBaseline(result, { outputName: 'control--no-pulse' });
-	expect(has(blocked, /div\[role="img"\]/, 'animation-name'), 'animation-name reported').toBe(true);
+test('control: a Sync icon that no longer turns while syncing is detected', async ({ browser }) => {
+	const result = await captureOf(browser, 'library-syncing--light', {
+		injectCss: '[data-slot="window-bar"] button svg { animation: none !important; }'
+	});
+	const { blocked } = compareWithBaseline(result, { outputName: 'control--no-spin' });
+	expect(has(blocked, /Sincronizar com o Kobo.*svg/, 'animation-name'), 'animation-name reported').toBe(true);
+});
+
+test('control: Kobo lines that no longer fill with the progress are detected', async ({ browser }) => {
+	// Every line in the filled colour, as if the count were 7: the 5 empty ones change
+	const result = await captureOf(browser, 'library-empty-syncing--light', {
+		injectCss: '.kobo-icon svg line { stroke: var(--highlight-line-new) !important; }'
+	});
+	const { blocked } = compareWithBaseline(result, { outputName: 'control--lines-filled' });
+	expect(has(blocked, /svg > line/, 'stroke'), 'stroke reported').toBe(true);
+	expect(has(blocked, /^screenshot library-empty-syncing--light\.png$/, 'pixels'), 'pixels reported').toBe(true);
 });
 
 test('control: missing baseline files and missing captures always fail', async ({ browser }) => {
@@ -170,13 +182,13 @@ test('control: a hidden automatic-update switch is detected', async ({ browser }
 });
 
 test('control: a changed keyframe midpoint is detected', async ({ browser }) => {
-	// Same name, same first and last frames: only the middle of the pulse differs (0.5 → 0.05)
-	const result = await captureOf(browser, 'importing--light', {
-		injectCss: '@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.05; } }'
+	// Same name, same first and last frames: only the middle of the turn differs
+	const result = await captureOf(browser, 'library-syncing--light', {
+		injectCss: '@keyframes spin { 50% { transform: rotate(10deg); } to { transform: rotate(360deg); } }'
 	});
 	const { blocked } = compareWithBaseline(result, { outputName: 'control--keyframes' });
-	expect(has(blocked, /^animation .* @pulse 50%$/, 'opacity'), 'midpoint opacity reported').toBe(true);
-	expect(has(blocked, /^animation .* @pulse 25%$/, 'opacity'), 'quarter opacity reported').toBe(true);
+	expect(has(blocked, /^animation .* @spin 50%$/, 'transform'), 'midpoint transform reported').toBe(true);
+	expect(has(blocked, /^animation .* @spin 25%$/, 'transform'), 'quarter transform reported').toBe(true);
 	expect(blocked.every((d) => d.element.startsWith('animation ')), 'nothing else (first frame unchanged)').toBe(true);
 });
 

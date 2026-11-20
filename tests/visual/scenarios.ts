@@ -47,6 +47,8 @@ export interface Scenario {
 	withoutNews?: boolean;
 	/** The Kobo's Reader and its Library exist (all but `empty`). */
 	withLibrary: boolean;
+	/** The Reader exists with no books yet: the first Sync. */
+	emptyLibrary?: boolean;
 	/** `settings`: the Settings window, its own route (`/definicoes`) and size. Default: the main window. */
 	window?: 'settings';
 	update?: boolean;
@@ -70,6 +72,15 @@ export interface Strings {
 	export2: string;
 	/** The header's button with news in two books. */
 	exportNews: string;
+	/** The bar's Export with nothing selected: every book. */
+	exportAll: string;
+	/** The Sync button's tooltip while it syncs, at 12 of 42 books. */
+	syncTooltip: string;
+	/** Why the Export waits. */
+	exportDisabledReason: string;
+	/** The title of the first Sync's centred state, and its text at 12 of 42 books. */
+	syncingTitle: string;
+	syncingText: string;
 	closeSettings: string;
 	browseFolder: string;
 	install: string;
@@ -87,6 +98,11 @@ const STRINGS: Record<Language, Strings> = {
 		sortBy: 'Ordenar por',
 		export2: 'Exportar 2 livros',
 		exportNews: 'Exportar 2 livros',
+		exportAll: 'Exportar 5 livros',
+		syncTooltip: 'A sincronizar · 12 de 42 livros',
+		exportDisabledReason: 'Espera pelo fim da sincronização',
+		syncingTitle: 'A sincronizar com o Kobo',
+		syncingText: '12 de 42 livros',
 		closeSettings: 'Fechar definições',
 		browseFolder: 'Escolher a pasta de exportação',
 		install: 'Instalar e reiniciar',
@@ -102,6 +118,11 @@ const STRINGS: Record<Language, Strings> = {
 		sortBy: 'Sort by',
 		export2: 'Export 2 books',
 		exportNews: 'Export 2 books',
+		exportAll: 'Export 5 books',
+		syncTooltip: 'Syncing · 12 of 42 books',
+		exportDisabledReason: 'Wait for the sync to finish',
+		syncingTitle: 'Syncing with the Kobo',
+		syncingText: '12 of 42 books',
 		closeSettings: 'Close settings',
 		browseFolder: 'Browse for export folder',
 		install: 'Install and Restart',
@@ -171,6 +192,27 @@ const tooltipOpen = async (page: Page) => {
 };
 
 const bar = (page: Page) => page.locator('[data-slot="window-bar"]');
+
+/** The bar's Sync button, whose icon turns while a Sync runs (`motion-reduce:` stops it). */
+const syncIcon = (page: Page, text: Strings) => bar(page).getByRole('button', { name: text.sync, exact: true }).locator('svg');
+
+/** Asserts the Sync icon turns (`spin`), or does not. */
+async function expectSpin(page: Page, text: Strings, turning: boolean) {
+	const name = () => syncIcon(page, text).evaluate((el) => getComputedStyle(el).animationName);
+	if (turning) await expect.poll(name).toBe('spin');
+	else await expect.poll(name).toBe('none');
+}
+
+/**
+ * A Sync that stays running: `sync_kobo` is held until the scenario releases it, and Rust has counted
+ * 42 books and read 12 (the Figma's «12 de 42 livros»).
+ */
+async function startSync(page: Page, text: Strings) {
+	await page.evaluate(() => window.__KHI_MOCK__.hold('sync_kobo'));
+	await page.getByRole('button', { name: text.sync, exact: true }).dispatchEvent('click');
+	await page.waitForFunction(() => window.__KHI_MOCK__.held.includes('sync_kobo'));
+	await emitWhenListening(page, 'sync-progress', { done: 12, total: 42 });
+}
 
 /** Selects `SELECTED`: ⌘-click on a grid card (events, not mouse moves), the checkbox of a list row. The bar's Export then counts them. */
 async function selectBooks(page: Page, text: Strings, view: 'grid' | 'list') {
@@ -425,18 +467,94 @@ export const SCENARIOS: Record<string, Scenario> = {
 			await expect(page.getByTestId('release-notes')).toBeVisible();
 		}
 	},
-	importing: {
-		name: 'importing',
-		description: 'A Sync in progress: the pulsing Kobo icon (`motion-reduce:animate-none`)',
+	'library-syncing': {
+		name: 'library-syncing',
+		description: 'A Sync in progress, the Library on screen: the header counts the books, no card has its «N novos» badge, Sync turns and Export waits',
 		withLibrary: true,
 		async reach(page, text, variant) {
 			await library(page, text);
-			await page.evaluate(() => window.__KHI_MOCK__.hold('sync_kobo'));
-			await page.getByRole('button', { name: text.sync, exact: true }).dispatchEvent('click');
-			await page.waitForFunction(() => window.__KHI_MOCK__.held.includes('sync_kobo'));
-			await expect(page.getByTestId('sync-progress')).toContainText('2');
-			await expect(page.locator('.kobo-icon')).toBeVisible();
-			await expectAnimation(page, '.kobo-icon', variant.reducedMotion !== 'reduce');
+			await startSync(page, text);
+			const header = page.locator('[data-slot="library-header"]');
+			await expect(header).toHaveAttribute('data-state', 'aSincronizar');
+			await expect(header).toContainText('12 de 42 livros');
+			await expect(page.getByTestId('book-card')).toHaveCount(books.length);
+			// The badges fade out in 150 ms and leave the DOM
+			await expect(page.locator('[data-slot="badge"]')).toHaveCount(0);
+			await expect(bar(page).getByRole('button', { name: text.exportAll, exact: true })).toHaveAttribute('aria-disabled', 'true');
+			await expectSpin(page, text, variant.reducedMotion !== 'reduce');
+		}
+	},
+	'library-syncing-tooltip': {
+		name: 'library-syncing-tooltip',
+		description: "Hover on Sync while it syncs: the tooltip says «A sincronizar · 12 de 42 livros», without the shortcut",
+		withLibrary: true,
+		async reach(page, text) {
+			await library(page, text);
+			await startSync(page, text);
+			const sync = bar(page).getByRole('button', { name: text.sync, exact: true });
+			// Sync stays enabled while it turns
+			await expect(sync).not.toHaveAttribute('aria-disabled', 'true');
+			await sync.hover();
+			await tooltipOpen(page);
+			await expect(page.locator('[data-slot="tooltip-content"]:not([data-state="closed"])')).toHaveText(text.syncTooltip);
+		}
+	},
+	'library-syncing-export-disabled': {
+		name: 'library-syncing-export-disabled',
+		description: 'Hover on Export while it syncs: it is disabled and the tooltip says why',
+		withLibrary: true,
+		async reach(page, text) {
+			await library(page, text);
+			await startSync(page, text);
+			const exportButton = bar(page).getByRole('button', { name: text.exportAll, exact: true });
+			await expect(exportButton).toHaveAttribute('aria-disabled', 'true');
+			await exportButton.hover();
+			await tooltipOpen(page);
+			await expect(page.locator('[data-slot="tooltip-content"]:not([data-state="closed"])')).toHaveText(text.exportDisabledReason);
+		}
+	},
+	'library-empty-syncing': {
+		name: 'library-empty-syncing',
+		description: 'The first Sync, with no books yet: the centred state, with the solid Kobo whose 7 lines fill with the progress (12 of 42: 2 lines)',
+		withLibrary: true,
+		emptyLibrary: true,
+		async reach(page, text, variant) {
+			await expect(page.getByTestId('empty-state')).toBeVisible();
+			await page.waitForFunction(() => (window.__KHI_MOCK__.listeners['device-disconnected'] ?? []).length > 0);
+			await emitWhenListening(page, 'device-detected', { device });
+			await expect(page.getByRole('button', { name: text.sync, exact: true })).not.toHaveAttribute('aria-disabled', 'true');
+			await startSync(page, text);
+			const state = page.getByTestId('syncing-state');
+			await expect(state).toBeVisible();
+			await expect(state.getByRole('heading', { name: text.syncingTitle })).toBeVisible();
+			await expect(state).toContainText(text.syncingText);
+			// No header and no «Sem livros»: only the centred state
+			await expect(page.locator('[data-slot="library-header"]')).toHaveCount(0);
+			await expect(page.getByTestId('empty-state')).toHaveCount(0);
+			// floor(7 × 12 / 42) = 2 lines, the same with reduced motion (the change is colour only)
+			await expect(state.locator('svg line')).toHaveCount(7);
+			await expect(state.locator('svg line[data-filled]')).toHaveCount(2);
+			await expectSpin(page, text, variant.reducedMotion !== 'reduce');
+		}
+	},
+	'sync-finished-enters': {
+		name: 'sync-finished-enters',
+		description: 'The end of a Sync: the «novos» header and the badges came in together, Sync stopped and Export is back',
+		withLibrary: true,
+		async reach(page, text) {
+			await library(page, text);
+			await startSync(page, text);
+			await expect(page.locator('[data-slot="library-header"]')).toHaveAttribute('data-state', 'aSincronizar');
+			await expect(page.locator('[data-slot="badge"]')).toHaveCount(0);
+
+			await page.evaluate(() => window.__KHI_MOCK__.release('sync_kobo'));
+			const header = page.locator('[data-slot="library-header"]');
+			await expect(header).toHaveAttribute('data-state', 'novos');
+			await expect(header).toHaveCount(1);
+			await expect(page.locator('[data-slot="badge"]')).toHaveCount(2);
+			await expect(bar(page).getByRole('button', { name: text.exportAll, exact: true })).not.toHaveAttribute('aria-disabled', 'true');
+			// The icon finishes its lap and stops
+			await expectSpin(page, text, false);
 		}
 	},
 	'update-checking': {
@@ -507,7 +625,7 @@ export function captures(): Capture[] {
 		add(scenario, { theme: 'light', language: 'en' });
 	}
 	// Every animated state, with and without reduced motion
-	for (const scenario of ['importing', 'update-checking', 'settings-saving']) {
+	for (const scenario of ['library-syncing', 'library-empty-syncing', 'update-checking', 'settings-saving']) {
 		for (const theme of ['light', 'dark-app'] as const) add(scenario, { theme, language: 'pt', reducedMotion: 'reduce' });
 	}
 	// The smallest window the app allows
@@ -518,7 +636,7 @@ export function captures(): Capture[] {
 }
 
 export function mockConfigFor(scenario: Scenario, variant: Variant): MockConfig {
-	const library = scenario.withoutNews ? booksWithoutNews : books;
+	const library = scenario.emptyLibrary ? [] : scenario.withoutNews ? booksWithoutNews : books;
 	return {
 		settings: makeSettings({ theme: THEMES[variant.theme].app, language: variant.language, viewMode: scenario.viewMode }),
 		defaultSettings: defaultSettings(variant.language),

@@ -152,6 +152,57 @@ describe("TitleMenu", () => {
     expect(item("Ana").getAttribute("aria-checked")).toBe("false");
   });
 
+  it("disabled_menu_never_opens_and_keeps_its_tab_stop", async () => {
+    const user = userEvent.setup();
+    const onselect = vi.fn();
+    const { rerender } = render(TitleMenu, {
+      props: { readers: [ANA, RUI], activeReaderId: "ana", onselect, disabled: true },
+    });
+    const button = trigger();
+    // aria-disabled, as the bar's ToolbarButton: not native disabled, so it keeps its place in the Tab order
+    expect(button).not.toBeDisabled();
+    expect(button.getAttribute("aria-disabled")).toBe("true");
+    await user.tab();
+    expect(document.activeElement).toBe(button);
+    // Hover and press give no feedback on a menu that cannot open
+    expect(button.classList.contains("not-aria-disabled:hover:bg-accent")).toBe(true);
+    expect(button.classList.contains("hover:bg-accent")).toBe(false);
+    expect(await ruleOf("not-aria-disabled:hover:bg-accent")).toContain('aria-disabled="true"');
+
+    await user.click(button);
+    await user.keyboard("{Enter}");
+    await user.keyboard(" ");
+    await user.keyboard("{ArrowDown}");
+    expect(menu()).toBeNull();
+    expect(button.getAttribute("aria-expanded")).toBe("false");
+    expect(onselect).not.toHaveBeenCalled();
+
+    // Enabled again, it opens as before
+    await rerender({ readers: [ANA, RUI], activeReaderId: "ana", onselect, disabled: false });
+    expect(trigger().hasAttribute("aria-disabled")).toBe(false);
+    await user.click(trigger());
+    await waitFor(() => expect(menu()).not.toBeNull());
+  });
+
+  it("open_menu_closes_when_disabled", async () => {
+    const user = userEvent.setup();
+    const onselect = vi.fn();
+    const { rerender } = render(TitleMenu, {
+      props: { readers: [ANA, RUI], activeReaderId: "ana", onselect },
+    });
+    await user.click(trigger());
+    await waitFor(() => expect(menu()).not.toBeNull());
+
+    await rerender({ readers: [ANA, RUI], activeReaderId: "ana", onselect, disabled: true });
+
+    await waitFor(() => expect(menu()).toBeNull());
+    expect(onselect).not.toHaveBeenCalled();
+    // Still closed once enabled again: it does not come back by itself
+    await rerender({ readers: [ANA, RUI], activeReaderId: "ana", onselect, disabled: false });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(menu()).toBeNull();
+  });
+
   it("stale_active_reader_falls_back_to_the_plain_title_and_keeps_the_menu", async () => {
     const user = userEvent.setup();
     renderMenu([ANA, RUI], "gone");

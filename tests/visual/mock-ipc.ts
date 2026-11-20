@@ -50,6 +50,8 @@ export interface KhiMock {
 	emit(event: string, payload?: unknown): void;
 	/** The next call of `cmd` is held: it is logged but never answers, and does not count as pending. */
 	hold(cmd: string): void;
+	/** Answers the held call of `cmd` as it would have been answered unheld (a Sync then reports its progress and its end). */
+	release(cmd: string): void;
 }
 
 declare global {
@@ -98,9 +100,17 @@ export function installTauriMock(config: MockConfig): void {
 		},
 		hold(cmd) {
 			toHold.add(cmd);
+		},
+		release(cmd) {
+			const answer = releasers.get(cmd);
+			if (!answer) throw new Error(`[visual mock] no held call of ${cmd} to release`);
+			releasers.delete(cmd);
+			mock.held = mock.held.filter((held) => held !== cmd);
+			answer();
 		}
 	};
 	const toHold = new Set<string>();
+	const releasers = new Map<string, () => void>();
 	const syncListenerView = () => {
 		mock.listeners = Object.fromEntries([...listeners].map(([event, list]) => [event, list.map(([id]) => id)]));
 	};
@@ -248,7 +258,13 @@ export function installTauriMock(config: MockConfig): void {
 			mock.lastCallAt = performance.now();
 			mock.held.push(cmd);
 			startHeld(cmd, args);
-			return new Promise(() => {});
+			// Never answers until a scenario releases it
+			return new Promise((resolve) => {
+				releasers.set(cmd, () => {
+					mock.lastCallAt = performance.now();
+					resolve(clone(handle(cmd, args)));
+				});
+			});
 		}
 		const result = handle(cmd, args);
 		const call: IpcCall = { cmd, args: sent, known: result !== UNKNOWN };

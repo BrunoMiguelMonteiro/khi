@@ -486,3 +486,102 @@ describe("WindowBar sync", () => {
     expect(onsync).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("WindowBar while syncing (Task 38)", () => {
+  const REASON = "Wait for the sync to finish";
+
+  const tooltipOf = async (name: string) => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const el = screen.getByRole("button", { name });
+    await user.hover(el);
+    await vi.advanceTimersByTimeAsync(500);
+    await tick();
+    return tooltip()?.textContent;
+  };
+
+  it("export_disabled_with_reason", async () => {
+    // The Library
+    const onexport = vi.fn();
+    const first = renderBar({ onexport, exportDisabledReason: REASON });
+    const button = screen.getByRole("button", { name: "Export 3 books" });
+    await expectDisabledInert({
+      control: button,
+      read: () => button.getAttribute("aria-disabled"),
+      callback: onexport,
+      reason: REASON,
+    });
+    first.unmount();
+
+    // The detail
+    const onexportDetail = vi.fn();
+    renderBar({
+      screen: "detail",
+      exportCount: 1,
+      onexport: onexportDetail,
+      exportDisabledReason: REASON,
+    });
+    const detailButton = screen.getByRole("button", { name: "Export 1 book" });
+    await expectDisabledInert({
+      control: detailButton,
+      read: () => detailButton.getAttribute("aria-disabled"),
+      callback: onexportDetail,
+      reason: REASON,
+    });
+  });
+
+  it("export_is_enabled_without_a_reason", async () => {
+    const onexport = vi.fn();
+    renderBar({ onexport });
+    await userEvent.setup().click(
+      screen.getByRole("button", { name: "Export 3 books" }),
+    );
+    expect(onexport).toHaveBeenCalledTimes(1);
+  });
+
+  it("sync_tooltip_shows_progress_without_shortcut", async () => {
+    vi.useFakeTimers();
+    renderBar({ syncing: true, syncProgress: { done: 12, total: 42 } });
+    const sync = screen.getByRole("button", { name: "Sync with the Kobo" });
+    // Sync stays enabled while it turns
+    expect(sync.getAttribute("aria-disabled")).toBeNull();
+    expect(await tooltipOf("Sync with the Kobo")).toBe(
+      "Syncing · 12 of 42 books",
+    );
+    document.body.innerHTML = "";
+  });
+
+  it("sync_tooltip_without_total_says_only_syncing", async () => {
+    vi.useFakeTimers();
+    renderBar({ syncing: true, syncProgress: { done: 0, total: 0 } });
+    expect(await tooltipOf("Sync with the Kobo")).toBe("Syncing");
+    document.body.innerHTML = "";
+  });
+
+  it("sync_tooltip_is_back_to_the_name_and_shortcut_after_the_sync", async () => {
+    vi.useFakeTimers();
+    renderBar({ syncing: false, syncProgress: { done: 12, total: 42 } });
+    expect(await tooltipOf("Sync with the Kobo")).toBe(
+      "Sync with the Kobo ⌘R",
+    );
+    document.body.innerHTML = "";
+  });
+
+  it("syncing_strings_are_in_both_locales", () => {
+    expect(locale("pt").ui.windowBar).toMatchObject({
+      syncing: "A sincronizar",
+      syncingProgress_one: "A sincronizar · {done} de 1 livro",
+      syncingProgress_other: "A sincronizar · {done} de {count} livros",
+    });
+    expect(locale("pt").screens.library.exportDisabledReason).toBe(
+      "Espera pelo fim da sincronização",
+    );
+    expect(locale("en").ui.windowBar).toMatchObject({
+      syncing: "Syncing",
+      syncingProgress_one: "Syncing · {done} of 1 book",
+      syncingProgress_other: "Syncing · {done} of {count} books",
+    });
+    expect(locale("en").screens.library.exportDisabledReason).toBe(
+      "Wait for the sync to finish",
+    );
+  });
+});

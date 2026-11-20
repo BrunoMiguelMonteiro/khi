@@ -271,3 +271,56 @@ describe("LibraryGrid", () => {
     });
   });
 });
+
+describe("LibraryGrid · hideNew (Task 38)", () => {
+  const badges = () => document.querySelectorAll('[data-slot="badge"]');
+
+  it("hide_new_hides_badges", async () => {
+    const { rerender } = renderGrid({ hideNew: true });
+    // The Os Maias card has news, but a Sync is running: no badge, none in the card's name either
+    expect(badges()).toHaveLength(0);
+    expect(options()[0].getAttribute("aria-label")).not.toMatch(/new/i);
+
+    await rerender({ hideNew: false });
+    expect(badges()).toHaveLength(1);
+    expect(options()[0].getAttribute("aria-label")).toMatch(/2 new/);
+  });
+
+  it("badges_show_by_default", () => {
+    renderGrid();
+    expect(badges()).toHaveLength(1);
+  });
+
+  it("badges_do_not_fade_when_the_grid_remounts", () => {
+    renderGrid();
+    expect(badges()).toHaveLength(1);
+    expect(badges()[0].classList.contains("animate-in")).toBe(false);
+  });
+
+  it("badges_do_not_fade_when_the_grid_mounts_after_a_hidden_one", async () => {
+    const first = renderGrid({ hideNew: true });
+    first.unmount();
+    renderGrid();
+    expect(badges()[0].classList.contains("animate-in")).toBe(false);
+  });
+
+  it("badges_fade_in_when_the_sync_ends", async () => {
+    const { rerender } = renderGrid({ hideNew: true });
+    expect(badges()).toHaveLength(0);
+    await rerender({ hideNew: false });
+    const badge = badges()[0];
+    expect(badge).toBeTruthy();
+    for (const c of ["animate-in", "fade-in-0", "duration-(--duration-reveal)", "ease-out"]) {
+      expect(badge.classList.contains(c), c).toBe(true);
+    }
+  });
+
+  it("badges_do_not_fade_for_books_that_were_not_in_the_grid_while_syncing", async () => {
+    const { rerender } = renderGrid({ hideNew: true });
+    // The sync ends and, within the window, another reader's books come in
+    const other = [makeBook({ id: 90, title: "Outro", author: "X", highlights: [hl("z", { isNew: true })] })];
+    await rerender({ hideNew: false, books: other });
+    expect(badges()).toHaveLength(1);
+    expect(badges()[0].classList.contains("animate-in")).toBe(false);
+  });
+});
