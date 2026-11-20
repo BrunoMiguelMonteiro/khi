@@ -2211,6 +2211,8 @@ Fontes: [Apple HIG, Progress indicators](https://developer.apple.com/design/huma
 - Cancelar deixa a Biblioteca e o Sincronizar volta a perguntar;
 - desligar fecha a janela.
 
+**Ecrã 6 aprovado a 2026-11-20** (Bruno: «Aprovo o ecrã 6»), pelas capturas e pela build dev. Frase do primeiro arranque encurtada pelo Bruno no Figma (`a16bfe3`).
+
 ## Fase 6 · Fecho da v2 (tasks a escrever)
 - **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.
   
