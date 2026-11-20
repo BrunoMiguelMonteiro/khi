@@ -2213,6 +2213,135 @@ Fontes: [Apple HIG, Progress indicators](https://developer.apple.com/design/huma
 
 **Ecrã 6 aprovado a 2026-11-20** (Bruno: «Aprovo o ecrã 6»), pelas capturas e pela build dev. Frase do primeiro arranque encurtada pelo Bruno no Figma (`a16bfe3`).
 
+### Task 45: Ecrã 7 · Definições (janela, Exportação, Aparência e Kobo)
+**Decisões** (ver DECISIONS):
+- **Janela 3 · P3 (2026-11-16):**
+  - as opções aplicam-se no momento, sem Guardar, Cancelar nem aviso;
+  - sai «Vista da Biblioteca»;
+  - a altura acompanha o painel;
+  - o título é o nome do painel;
+  - minimizar e ampliar ficam esbatidos;
+  - a janela reabre no último painel;
+- **Q-M (M2):** com dois ou mais leitores, o painel Kobo tem pop-up «Leitor» e campo «Nome»;
+- **Q1 (Bruno, 2026-11-20):** Repor padrões sai;
+- **divisão:** a Atualizações (V2) e a janela de atualização ficam para a Task 46. Nesta task, o separador Atualizações já existe, com o conteúdo de hoje, sem redesenho.
+
+**Figma** (só leitura, medido a 2026-11-20):
+- Exportação `73:12025` / `73:12283`, 540 × 382;
+- Aparência `73:12147` / `73:12405`, 540 × 287;
+- Kobo com um leitor `73:12219` / `73:12477`, 540 × 243;
+- Kobo com dois leitores `74:18916` / `74:18931`, 540 × 320;
+- separadores com Atualizações em `78:25710`.
+
+As alturas incluem o contorno de 1 px; o conteúdo manda.
+- **Barra** (89 de altura, `py-2 gap-2`, filete `border` em baixo):
+  - na 1.ª linha, o título do painel em Body Semibold, centrado, e os semáforos a x 20, y 10 (fechar a cor, minimizar e ampliar esbatidos);
+  - na 2.ª linha, os Separadores (componente 12, `ui/tabs`), centrados, `gap-1`: Exportação, Aparência, Kobo e Atualizações. O ativo fica em Selecionado.
+- **Conteúdo:** `p-6 gap-6`. Os grupos são `FormGroup`, com cabeçalho Body Semibold a `px-4` e cartão; as linhas são `FormRow`, `px-4 py-2 gap-4`.
+  - **Exportação:**
+    - grupo «Ficheiros»:
+      - «Pasta de exportação», com a ajuda «{caminho} · os livros de {leitor} vão para aqui.» e o Botão «Escolher…»;
+      - «Formato da data», com o Pop-up dos formatos de hoje;
+    - grupo «Metadados a incluir»: uma linha `columns` com 3 colunas de Caixas (Autor e Data de leitura; ISBN e Idioma; Editora e Descrição).
+  - **Aparência** (grupo sem cabeçalho):
+    - «Tema», Pop-up Sistema / Claro / Escuro;
+    - «Cor de destaque», com a ajuda «Sistema usa a cor escolhida no macOS.» e o `SwatchGroup` (Sistema e as sete);
+    - «Idioma», com a ajuda «Também usado no Markdown exportado.» e o Pop-up «English» / «Português», cada um no seu idioma.
+  - **Kobo, um leitor** (grupo sem cabeçalho):
+    - «Nome do leitor», com a ajuda «Aparece no título com dois ou mais leitores.» e o Campo de texto;
+    - «Sincronizar ao ligar», com a ajuda «Sincroniza quando ligas um Kobo conhecido.» e o Switch.
+  - **Kobo, dois ou mais leitores (M2):**
+    - 1.º grupo:
+      - «Leitor», com a ajuda «O leitor cujo nome queres mudar.» e o Pop-up;
+      - «Nome», com a ajuda «Aparece no título da Biblioteca.» e o Campo;
+    - 2.º grupo: «Sincronizar ao ligar», com a ajuda «Vale para todos os leitores: sincroniza quando ligas um Kobo conhecido.».
+  - **Kobo, sem leitores (proposta minha, sem Figma):** só o grupo do «Sincronizar ao ligar», com a ajuda de um leitor.
+
+**Ficheiros:**
+- `src/lib/components/SettingsPanel.svelte`, reescrito; podem nascer `settings/ExportPane.svelte`, `AppearancePane.svelte` e `KoboPane.svelte`, com os seus testes;
+- `src/routes/definicoes/+page.svelte` e o seu teste;
+- `src/lib/stores/settings.svelte.ts`;
+- `src-tauri/src/window.rs` (`settings_window_spec` e o seu teste), `src-tauri/capabilities/settings.json` (+ `core:window:allow-set-size`) e o teste da capability;
+- o campo do último painel em `UiPreferences` (Rust e bindings);
+- `pt.json` e `en.json`;
+- `tests/visual/scenarios.ts`, o README e as baselines `settings*`.
+
+**Comportamento:**
+1. **Janela** (`settings_window_spec`):
+   - 540 de largura, não redimensionável, `minimizable(false)` e `maximizable(false)`;
+   - barra `Overlay`, com o título nativo à vista (sem `hiddenTitle`) e `trafficLightPosition` a 20 × 10, para o título e os semáforos ficarem na 1.ª linha da barra desenhada pela página.
+   - **Altura:** a página mede o painel ativo e faz `setSize(540, altura)` ao abrir e ao mudar de separador, sem animação. Com isto, a janela abre já no tamanho certo (continua criada escondida).
+   - **Título:** `setTitle` com o nome do painel, também quando o idioma muda.
+   - **Último painel:** gravado em `uiPreferences` e reaberto. Sem valor, abre em Exportação.
+2. **Aplicar no momento:**
+   - cada controlo grava logo com `settings.persist(patch)` (o `update_settings` com lock), e a principal recebe o `settings-changed`;
+   - saem o rascunho, `hasChanges`, `save()`, `handleSave`, `handleCancel`, `handleReset`, a confirmação de alterações por guardar, `revertUnsavedLanguage` e `resetAndSave`, se ficarem sem uso;
+   - o idioma muda nas duas janelas ao mesmo tempo;
+   - Esc, ⌘W e o botão vermelho só fecham;
+   - **pasta:** «Escolher…» grava logo a pasta do leitor aberto (`setReaderExportPath`, R21) ou, sem leitor, a `exportPath`;
+   - dois cliques rápidos (Caixas) e uma escrita da principal ao mesmo tempo (vista, ordenar) não se perdem.
+3. **Nome do leitor:**
+   - grava com Return ou ao sair do campo;
+   - vazio (depois do `trim`) volta ao nome guardado;
+   - Esc dentro do campo repõe o nome guardado e não fecha a janela;
+   - mudar o pop-up «Leitor» com um nome por gravar grava-o primeiro, se não for vazio;
+   - o pop-up abre no leitor da principal (`settings_reader`);
+   - renomear atualiza o título da principal e a lista do pop-up (`readers-changed`);
+   - um leitor criado com as Definições abertas (R1, Kobo novo) troca o painel ao vivo, de um leitor para o M2.
+4. **Sai das Definições:** Vista da Biblioteca e Repor padrões, com as suas chaves `pt.json` e `en.json`, se ficarem sem uso.
+5. **Textos novos** em pt e en:
+   - os títulos dos grupos;
+   - as ajudas acima;
+   - «Escolher…»;
+   - o separador Kobo;
+   - «Nome do leitor».
+
+**Passos:**
+- [ ] **Passo 1:** testes que falham da janela.
+  - Rust:
+    - `settings_window_spec` (540, `Overlay`, título visível, posição dos semáforos, não minimizável nem ampliável);
+    - o teste da capability (`allow-set-size`);
+    - o campo do último painel com valor por omissão.
+  - Vitest:
+    - altura medida e `setSize` ao mudar de separador;
+    - `setTitle` com o nome do painel e ao mudar de idioma;
+    - reabrir no último painel.
+
+  Implementar.
+- [ ] **Passo 2:** testes que falham da Exportação e da Aparência:
+  - grava no momento, sem botões;
+  - «Escolher…» com e sem leitor;
+  - Caixas em 3 colunas;
+  - tema, cor e idioma gravados logo, e o idioma muda a principal;
+  - sem Vista da Biblioteca nem Repor padrões;
+  - dois cliques rápidos não se perdem.
+
+  Implementar.
+- [ ] **Passo 3:** testes que falham do Kobo:
+  - um leitor;
+  - M2 com dois;
+  - sem leitores;
+  - Return e sair do campo gravam;
+  - vazio volta atrás;
+  - Esc no campo repõe e não fecha;
+  - mudar o pop-up grava o nome pendente;
+  - pré-escolha do `settings_reader`;
+  - `readers-changed` troca para o M2 ao vivo.
+
+  Implementar.
+- [ ] **Passo 4:** cenários visuais `settings-export`, `settings-appearance`, `settings-kobo`, `settings-kobo-readers` e `settings-kobo-none`, em Claro e Escuro, cada um com a altura do seu painel, comparados com o Figma.
+  - Os cenários `settings*` de hoje são revistos ou substituídos.
+  - O separador Atualizações fica com o cenário de hoje, só com a moldura nova.
+- [ ] **Passo 5:** gate completo (Vitest, check, build, `test:visual`, `cargo test`, `cargo clippy --all-targets`).
+- [ ] **Passo 6:** review adversarial (Opus), mutações minhas e comparação com o Figma. Commit `feat(settings): live settings window with export, appearance and Kobo panes`.
+
+**Verificar no ecrã (Bruno), com a build dev:**
+- a janela muda de altura entre separadores e reabre no último;
+- mudar o tema, a cor ou o idioma muda as duas janelas logo;
+- ⌘, repetido abre sempre uma só janela;
+- renomear o leitor muda o título da principal;
+- ligar um Kobo e ver o leitor nas Definições, o que fecha as duas verificações adiadas da Fase 4.
+
 ## Fase 6 · Fecho da v2 (tasks a escrever)
 - **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.
   
