@@ -1689,6 +1689,110 @@ Fontes: [W3C APG, Listbox Pattern](https://w3.org/WAI/ARIA/apg/patterns/listbox)
 - clicar no visto desmarca sem abrir; clicar na capa abre;
 - em capas claras e escuras, nos dois temas.
 
+### Task 38: Ecrã 2 · A sincronizar
+**Estado:** escrita a 2026-11-20, por aprovar.
+**Decisões do Bruno a 2026-11-20** (AskUserQuestion): a seleção mantém-se no fim, o Detalhe fica aberto e o Título-menu fica desativado (as três na opção recomendada). A Biblioteca vazia a sincronizar foi decidida na ronda Q-W do Figma (secção `121:29779`): **W2, centrado como o primeiro arranque** («Sim, a W2», a recomendada). A animação da ilustração foi decidida na ronda Q-X (`121:30902`): **X2, as linhas enchem com o progresso** (a recomendada).
+
+**Figma:** secção `71:8571`: janela Claro `71:8575`, Escuro `71:8590`, nota `71:9084` (DECISIONS, «Ecrãs · 4 · Biblioteca a sincronizar», aprovado a 2026-11-18). Medido a 2026-11-20, só em leitura:
+- é a moldura do ecrã 1 sem mudar nenhuma medida: Barra 52, Cabeçalho da Biblioteca 952 × 28 a 24 da Barra (y 76) e grelha a 128;
+- o Cabeçalho fica em `Estado=A sincronizar`, «A sincronizar com o Kobo · 12 de 42 livros», sem botões;
+- os cartões ficam em `Estado=Normal`, sem a etiqueta «N novos»;
+- Sincronizar fica em `Estado=Hover`, o que quer dizer ativo e não desativado. O tooltip é `Conteúdo=Só texto`, «A sincronizar · 12 de 42 livros», sem atalho. Fica 4 abaixo do botão, preso a 8 da margem direita (a borda está em 992). O `sideOffset` 4 já é o valor por omissão de `tooltip-content.svelte:8`;
+- Exportar fica em `Estado=Desativado`. Grelha, lista e Ordenar continuam ativos.
+
+**Pesquisa (2026-11-20).** O desenho já está decidido (D5, Movimento 2, Movimento 6, «Ecrãs · 4»). Ficam por decidir as arestas que o Figma não mostra:
+
+| Problema | Opções | Proposta | Razão |
+|---|---|---|---|
+| Seleção no fim da sincronização | limpar, como hoje (`openReader` faz `selectedBookIds = []`); manter os ids que continuam na Biblioteca | **Manter os ids presentes** | Com a Biblioteca à vista, pode-se selecionar a meio. Perder a seleção quando a sincronização acaba é a queixa mais repetida nas grelhas que se atualizam sozinhas. A solução habitual é guardar a seleção por id e voltar a aplicá-la depois de carregar. O critério é o mesmo da Task 37 (contam só os ids presentes) |
+| Detalhe aberto quando a sincronização começa ou acaba | fecha e volta à grelha (o `showLibraryOrEmpty` força `'library'`); fica aberto, sem salto | **Fica aberto, sem salto** | O teste obrigatório do ecrã 5, `detail_keeps_new_marks_through_sync`, já pressupõe o Detalhe aberto durante a sincronização. Ligar o Kobo enquanto se lê não deve tirar o livro da frente. HIG: um indicador de progresso deixa as pessoas decidirem se fazem outra coisa enquanto esperam |
+| Biblioteca vazia na primeira sincronização | só o cabeçalho «A sincronizar…»; o cabeçalho e o estado vazio «Sem livros»; o `ImportingState` só neste caso | **Só o cabeçalho** | «Sem livros» com um botão Sincronizar, por baixo de «A sincronizar», contradiz-se. Manter o `ImportingState` para um caso contraria a D5. O texto do primeiro arranque fica para o ecrã 6 |
+| Título-menu durante a sincronização (com dois ou mais leitores) | ativo; desativado até ao fim | **Desativado até ao fim** | O `runSync` acaba com `openReader(readerId)` do leitor do Kobo. Trocar de leitor a meio seria desfeito sem aviso no fim. Só acontece com dois ou mais leitores (ecrã 10) |
+
+Fontes: [Apple HIG, Progress indicators](https://developer.apple.com/design/human-interface-guidelines/progress-indicators); [Mendix, seleção perdida no refresh](https://community.mendix.com/link/space/microflows/questions/112667); [Syncfusion, persistência da seleção](https://www.syncfusion.com/forums/179907/selection-persistence-after-grid-refresh) (relatos de utilizadores e respostas de fornecedores, não guias de design).
+
+**Implementador (proposta):**
+- **Sonnet:** a Barra, o Cabeçalho, as etiquetas, os atalhos, o i18n e o harness.
+- **Opus (subagente):** o fim da sincronização, porque é lógica de estado delicada: a seleção, o Detalhe sem salto, a ordem do `headerState` e a guarda do Título-menu (Comportamento 1 a 5).
+
+**O que sai e para onde vai** (intencional; a review não o marca como regressão):
+
+| Sai | Vai para |
+|---|---|
+| `ImportingState` em `<main>` | sai; a Biblioteca ou o Detalhe ficam à vista. O ficheiro fica, como código morto listado (precedente da Task 36) |
+| a guarda `!library.isImporting` em `detailBook` (`+page.svelte:56`) | sai: o Detalhe fica aberto durante a sincronização |
+| o `return` geral do `isImporting` em `handleShortcut` | fica só para ⌘R e ⌘E; ⌘1 e ⌘2 continuam |
+
+**Ficheiros:**
+- `src/routes/+page.svelte` e `src/routes/page.svelte.test.ts` (os testes das linhas ≈307 e ≈599 mudam);
+- `src/lib/stores/library.svelte.ts` e `library.svelte.test.ts`;
+- `src/lib/components/ui/window-bar/window-bar.svelte` e `window-bar.test.ts`;
+- `src/lib/components/ui/library-header/library-header.svelte` e o teste;
+- `src/lib/components/ui/library-grid/library-grid.svelte` e o teste;
+- `src/lib/components/ui/title-menu/` (só se faltar a prop `disabled`);
+- `src/lib/i18n/locales/{pt,en}.json`;
+- `tests/visual/{scenarios,mock-ipc}.ts` e as baselines novas.
+
+**Comportamento:**
+1. **`headerState`:** com `library.isImporting`, devolve `{ kind: 'aSincronizar', done, total }` **antes** do `syncFailed` e antes do `books.length === 0`. A sincronização ao ligar só limpa o `syncFailed` depois de `'synced'`, e a primeira sincronização tem a Biblioteca vazia.
+2. **Sem salto no fim:** o `showLibraryOrEmpty()` no fim do `handleSync` e do `handleDeviceConnected` não tira o ecrã de `'book-details'`. Só põe `'library'` ou `'no-device'` quando o ecrã não é o Detalhe, ou quando o livro aberto deixou de existir.
+3. **Primeira sincronização (I1):** o `handleChooseReader` põe a Biblioteca no ecrã (`showLibraryOrEmpty()`) logo depois do `openReader` e antes do `handleDeviceConnected`. Assim, durante a sincronização vê-se a Biblioteca vazia com o cabeçalho, e não o `EmptyStateNoDevice`.
+4. **Seleção (Bruno):** o `openReader` chamado pelo `runSync` mantém os ids de `selectedBookIds` que continuam em `books`. A troca de leitor (`handleSelectReader`) continua a limpar. O `openReader` ganha uma opção, por exemplo `{ keepSelection: true }`, e a troca de leitor não a usa.
+5. **Título-menu (Bruno):** desativado enquanto `isImporting`, com dois ou mais leitores.
+6. **Biblioteca vazia a sincronizar (Bruno, W2):** com `books.length === 0` e `isImporting`, não há cabeçalho nem `empty-state`. Ao centro fica o estado vazio do primeiro arranque (o L1 do ecrã 6, `72:11428`), com o Kobo sem tracejado, o título «A sincronizar com o Kobo» e o texto «N de M livros. Os livros aparecem aqui quando a sincronização acabar.» Com `total === 0`, só a segunda frase. Tem `role=status` e anuncia só o início e o fim. Figma: `121:29854` (Claro) e `121:30434` (Escuro).
+   - **Ilustração (Bruno, X2):** as 7 linhas do ecrã do Kobo mostram o progresso. As primeiras `floor(7 × done / total)` usam `highlight-line-new` e as outras `highlight-line`. Cada troca de cor dura 250 ms, com `ease-out` (`--duration-reveal`), e é igual com Reduzir movimento, porque é só cor (Movimento 6). Com `total === 0`, ficam todas vazias. O corpo do Kobo usa traço contínuo, sem tracejado. A ilustração é `aria-hidden`. Contraste entre a linha cheia e a vazia: 5,42:1 no Claro e 3,56:1 no Escuro. Figma: `121:30902`, linha X2.
+7. **Barra, Biblioteca:**
+   - Sincronizar fica ativo e roda (Movimento 2, já feito). O tooltip passa a `tooltip`, «A sincronizar · N de M livros», sem `shortcut`. O clique sai logo, sem mexer no `syncFailed`, no `exported` nem no ecrã. Com Reduzir movimento, o ícone fica parado e o tooltip é o mesmo;
+   - Exportar fica desativado com a prop nova `exportDisabledReason`, «Espera pelo fim da sincronização» (en: «Wait for the sync to finish»).
+8. **Barra, Detalhe:** o Exportar também fica desativado, com o mesmo texto.
+9. **Contagem por saber:** com `total === 0` (o `{ done: 0, total: 0 }` inicial), o cabeçalho diz só «A sincronizar com o Kobo» e o tooltip só «A sincronizar», sem «· 0 de 0 livros», como o `ImportingState` fazia.
+10. **Etiquetas «N novos»:** a `LibraryGrid` ganha `hideNew?: boolean`; durante a sincronização, nenhum cartão mostra a etiqueta. No fim, a faixa e as etiquetas entram **juntas**, em 250 ms com `ease-out` (Movimento 2); com Reduzir movimento, só fade (Movimento 6). A passagem de `aSincronizar` a `novos` acontece no mesmo `{#if}`, e o `animate-in` não se repete. A entrada é forçada com um `{#key}` sobre o `kind` **sem** o `out:fade` nessa troca, para não ficarem dois cabeçalhos durante 150 ms. O `out:fade` só se aplica quando o cabeçalho sai de vez (depois de exportar).
+11. **Atalhos:** com `isImporting`, ⌘R e ⌘E não fazem nada; ⌘1 e ⌘2 trocam a vista.
+12. **Leitor de ecrã:** o cabeçalho já anuncia só o início e o fim (`announcement`). Não se anuncia o progresso.
+13. **Lista:** a lista é refeita no ecrã 4. Aqui só tem de funcionar durante a sincronização (cabeçalho, sem etiquetas se for simples); se não for, fica registado para o ecrã 4.
+
+- [ ] **Passo 1: testes que falham:**
+  - `page.svelte.test.ts`:
+    - `library_stays_on_screen_while_syncing`: com `isImporting`, a grelha está à vista e não há `ImportingState`;
+    - `header_shows_sync_progress`: «A sincronizar com o Kobo · 12 de 42 livros»;
+    - `header_hides_count_before_total_known`: com `total 0`, sem «0 de 0»;
+    - `syncing_wins_over_previous_error`: com `syncFailed` de antes e uma sincronização ao ligar a correr, o cabeçalho é `aSincronizar`;
+    - `detail_stays_open_through_sync`: com um livro aberto, uma sincronização que começa e acaba deixa o Detalhe no ecrã;
+    - `selection_survives_sync`: os ids selecionados que continuam na Biblioteca ficam selecionados no fim; um que desapareceu sai;
+    - `switching_reader_still_clears_selection`;
+    - `first_sync_shows_library_not_no_device`: no `handleChooseReader` de um primeiro leitor, durante a sincronização o `uiState` é `'library'`;
+    - `empty_library_while_syncing_shows_centered_state`: sem `empty-state` e sem cabeçalho; o estado centrado mostra «A sincronizar com o Kobo» e a contagem;
+    - `sync_illustration_fills_lines_with_progress`: com 0/42, 1/42, 12/42, 30/42, 41/42 e 42/42, ficam cheias 0, 0, 2, 5, 6 e 7 linhas; com total 0, nenhuma (o 1/42 e o 41/42 separam o `floor` do `ceil` e do `round`);
+    - `view_shortcuts_work_while_syncing` e `export_and_sync_shortcuts_blocked_while_syncing`;
+    - `sync_click_while_syncing_does_nothing`: não chama o `syncKobo` outra vez e não mexe no `exported`;
+  - `window-bar.test.ts`: `export_disabled_with_reason` (Biblioteca e Detalhe); `sync_tooltip_shows_progress_without_shortcut`;
+  - `library-grid.test.ts`: `hide_new_hides_badges`;
+  - `title-menu` (ou `window-bar`): `title_menu_disabled_while_syncing` com dois leitores.
+- [ ] **Passo 2:** os testes falham pela razão certa.
+- [ ] **Passo 3 (Opus):** Comportamento 1 a 5.
+- [ ] **Passo 4 (Sonnet):** Comportamento 6 a 13.
+- [ ] **Passo 5: o harness visual:**
+  - `mock-ipc.ts`: o `sync_kobo` fica preso até o cenário o libertar; o `sync-progress` é emitido com o `emitWhenListening` ({ done: 12, total: 42 });
+  - cenários novos, em Claro e Escuro: `library-syncing` (cabeçalho e sem etiquetas), `library-syncing-tooltip` (hover no Sincronizar, tooltip aberto, comparado com o `71:8575`), `library-syncing-export-disabled` (tooltip do Exportar) e `sync-finished-enters` (no fim, o cabeçalho `novos` e as etiquetas à vista);
+  - as baselines que mudam revistas uma a uma.
+- [ ] **Passo 6:** o gate completo (`cargo test`; clippy com os mesmos 7 avisos; Vitest duas vezes e com `--sequence.shuffle`, ignorando as falhas antigas conhecidas; `npm run check` 0/0; `npm run build`; `npm run test:visual`).
+- [ ] **Passo 7:** review adversarial (Opus) com o foco no fim da sincronização. Depois, o commit `feat(library): keep the library on screen while syncing`.
+
+**Mutações do coordenador:**
+- pôr o `aSincronizar` depois do `syncFailed` (o cabeçalho mostra o erro antigo a meio da sincronização);
+- repor o `setUiState('library')` incondicional no fim (o Detalhe salta para a grelha);
+- tirar o `hideNew` (as etiquetas ficam à vista durante a sincronização);
+- repor o `return` geral do `isImporting` em `handleShortcut` (⌘1 e ⌘2 deixam de funcionar);
+- tirar o `keepSelection` (a seleção perde-se no fim);
+- trocar o `floor` por `ceil` nas linhas cheias (com 1/42 encheria uma linha antes de haver um sétimo).
+
+**Verificar no ecrã (Bruno, com `npm run dev:app` e um Kobo):**
+- ligar o Kobo: a Biblioteca fica à vista, o cabeçalho conta os livros e as etiquetas desaparecem;
+- passar o ponteiro no Sincronizar mostra o progresso; Exportar está desativado e diz porquê;
+- selecionar um livro e mudar para a lista a meio; no fim, a seleção fica e o cabeçalho e as etiquetas entram juntos;
+- abrir um livro a meio: no fim, continua aberto;
+- em Claro e Escuro.
+
 ## Fase 6 · Fecho da v2 (tasks a escrever)
 - **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.
   
