@@ -5,7 +5,7 @@ import { render, screen, waitFor } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
 import { tick } from "svelte";
 import { compileAppCss } from "$lib/test/css";
-import { expectDisabledInert } from "$lib/test/disabled";
+import { expectDisabledInert, settle } from "$lib/test/disabled";
 import Fixture from "./window-bar.fixture.svelte";
 
 // jsdom has no pointer capture, which Bits UI's triggers release on pointerdown.
@@ -583,5 +583,73 @@ describe("WindowBar while syncing (Task 38)", () => {
     expect(locale("en").screens.library.exportDisabledReason).toBe(
       "Wait for the sync to finish",
     );
+  });
+});
+
+describe("WindowBar with no Reader open (Task 44 · first start)", () => {
+  it("disabled_greys_the_five_controls_and_keeps_them_in_view", () => {
+    renderBar({ readers: [], activeReaderId: null, disabled: true });
+    // All in view: the title (plain text with no Readers), the view group, Sort, Sync and Export
+    expect(screen.getByRole("heading", { name: "Library" })).toBeTruthy();
+    const view = screen.getByRole("radiogroup", { name: "View" });
+    expect(view.hasAttribute("data-disabled")).toBe(true);
+    for (const radio of screen.getAllByRole("radio")) {
+      expect(radio.hasAttribute("data-disabled")).toBe(true);
+    }
+    for (const name of ["Sort by", "Sync with the Kobo", /^Export \d+ books?$/]) {
+      const button = screen.getByRole("button", { name });
+      expect(button.getAttribute("aria-disabled")).toBe("true");
+    }
+  });
+
+  it("disabled_keeps_the_title_menu_usable_when_there_are_readers", async () => {
+    // With Readers and none open the menu is the way out
+    const user = userEvent.setup();
+    renderBar({ disabled: true, activeReaderId: null });
+    const title = screen.getByRole("button", { name: "Library" });
+    expect(title.getAttribute("aria-disabled")).toBeNull();
+    await user.click(title);
+    await waitFor(() =>
+      expect(
+        document.querySelectorAll('[data-slot="dropdown-menu-item"]').length,
+      ).toBe(2),
+    );
+  });
+
+  it("sync_exempt_keeps_sync_up_to_its_own_reason_while_disabled", () => {
+    renderBar({ disabled: true, syncExempt: true });
+    const sync = screen.getByRole("button", { name: "Sync with the Kobo" });
+    expect(sync.getAttribute("aria-disabled")).toBeNull();
+    for (const name of ["Sort by", "Export 3 books"]) {
+      expect(screen.getByRole("button", { name }).getAttribute("aria-disabled")).toBe("true");
+    }
+  });
+
+  it("sync_exempt_still_obeys_its_reason", () => {
+    renderBar({ disabled: true, syncExempt: true, syncDisabledReason: "Connect the Kobo to sync" });
+    expect(screen.getByRole("button", { name: "Sync with the Kobo" }).getAttribute("aria-disabled")).toBe("true");
+  });
+
+  it("disabled_sort_and_actions_do_nothing", async () => {
+    const user = userEvent.setup();
+    const onsync = vi.fn();
+    const onexport = vi.fn();
+    renderBar({ disabled: true, onsync, onexport });
+    await user.click(screen.getByRole("button", { name: "Sort by" }));
+    await user.click(screen.getByRole("button", { name: "Sync with the Kobo" }));
+    await user.click(screen.getByRole("button", { name: "Export 3 books" }));
+    await settle();
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(onsync).not.toHaveBeenCalled();
+    expect(onexport).not.toHaveBeenCalled();
+  });
+
+  it("enabled_by_default", () => {
+    renderBar();
+    for (const name of ["Sort by", "Sync with the Kobo", "Export 3 books"]) {
+      expect(
+        screen.getByRole("button", { name }).getAttribute("aria-disabled"),
+      ).toBeNull();
+    }
   });
 });

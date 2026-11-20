@@ -2163,8 +2163,8 @@ Fontes: [Apple HIG, Progress indicators](https://developer.apple.com/design/huma
    - saem `existing`, `newReader` e `newReaderName`, se ficarem sem uso.
 
 **Passos:**
-- [ ] **Passo 1:** testes que falham do `EmptyStateNoDevice` (textos, Kobo de 96, `role="status"`) e da Barra sem leitores (os cinco controlos desativados; ⌘E, ⌘R e afins não fazem nada). Implementar.
-- [ ] **Passo 2:** testes que falham do `UnknownKoboDialog`:
+- [x] **Passo 1:** testes que falham do `EmptyStateNoDevice` (textos, Kobo de 96, `role="status"`) e da Barra sem leitores (os cinco controlos desativados; ⌘E, ⌘R e afins não fazem nada). Implementar.
+- [x] **Passo 2:** testes que falham do `UnknownKoboDialog`:
   - `role` e nome;
   - pré-escolha da Q3, com os três casos;
   - Return escolhe, e Return e Esc com o pop-up aberto não fecham a janela;
@@ -2174,7 +2174,7 @@ Fontes: [Apple HIG, Progress indicators](https://developer.apple.com/design/huma
   - Cancelar, Esc e ⌘. chamam `onCancel`.
   
   Implementar.
-- [ ] **Passo 3:** testes que falham da página e da store:
+- [x] **Passo 3:** testes que falham da página e da store:
   - `cancel_keeps_library_and_does_not_sync`;
   - `repeated_device_detected_after_cancel_does_not_reopen`;
   - `sync_after_cancel_asks_again`;
@@ -2183,9 +2183,28 @@ Fontes: [Apple HIG, Progress indicators](https://developer.apple.com/design/huma
   - `first_kobo_without_readers_does_not_ask` (o R1, se ainda não existir com este alcance).
   
   Implementar.
-- [ ] **Passo 4:** cenários visuais, em Claro e Escuro, comparados com o Figma: `first-launch` (com a Barra desativada), `unknown-kobo` (Com leitores) e `unknown-kobo-new-reader` (com um nome escrito), mais `first-launch--min` (800 × 600).
-- [ ] **Passo 5:** gate completo (Vitest, check, build, `test:visual`, `cargo check` se mexer em Rust).
-- [ ] **Passo 6:** review adversarial (Opus) e mutações minhas; commit `feat(readers): first start and whose-Kobo dialog from the redesign`.
+- [x] **Passo 4:** cenários visuais, em Claro e Escuro, comparados com o Figma: `first-launch` (com a Barra desativada), `unknown-kobo` (Com leitores) e `unknown-kobo-new-reader` (com um nome escrito), mais `first-launch--min` (800 × 600).
+- [x] **Passo 5:** gate completo (Vitest, check, build, `test:visual`, `cargo check` se mexer em Rust).
+- [x] **Passo 6:** review adversarial (Opus) e mutações minhas; commit `feat(readers): first start and whose-Kobo dialog from the redesign`.
+
+**Feito (2026-11-20).** Aprovada pelo Bruno («Aprovo a Task 44»). Implementada pelo Sonnet com TDD; revista pelo Opus (review adversarial independente); mutações minhas.
+- **1.ª ronda:** `EmptyStateNoDevice` no esqueleto do `EmptyStateSyncing` (Kobo tracejado de 96, «Liga o teu Kobo» e a frase da L1); `WindowBar` e `ViewGroup` com `disabled`; `UnknownKoboDialog` reescrito sobre `Dialog`, `Select` (ganhou `separatorBefore`) e `FormRow`; recusa por número de série na store (`declineKobo`, `declinedKobo`, limpa ao desligar ou com outro Kobo); `canSync` também com o Kobo recusado, e o Sincronizar volta a perguntar; desligar fecha a janela. O cenário `empty` passou a `first-launch`.
+- **Review:** 0 blockers, 1 major e 7 minors. Corrigidos:
+  - **major:** Return depois de usar o pop-up reabria a lista; agora o foco volta à janela;
+  - Cancelar durante um `device-detected` em curso reabria a janela;
+  - sem Biblioteca aberta, a Q2 falhava e o Título-menu ficava desativado com leitores. Agora o menu só se desativa sem leitores, o Sincronizar fica isento (`syncExempt`) com o Kobo recusado e o ⌘R funciona em `no-device`;
+  - Cancelar ou Esc durante o `create_reader` deixava um leitor órfão, e o duplo clique criava dois (estado `busy`);
+  - com «Sincronizar ao ligar» desligado, Sincronizar → Escolher não sincronizava;
+  - três guardas sem teste;
+  - «New reader…».
+- **Comparação com o Figma (minha):** rótulos «Leitor» e «Nome» alinhados à direita (`textAlignHorizontal: RIGHT`); o Grupo de vista desativado sem o fundo de selecionado (`Estado=Desativado`).
+- **Mutações:** 11. Nove morreram sozinhas. Duas sobreviveram por haver uma segunda guarda: o `if (busy)` (também trava o `disabled` do botão) e o retorno antecipado da store (também trava a página). Tiradas com a outra guarda, morrem. Mortas: guarda depois do `await`, `askedBySync`, ⌘R em `no-device`, `syncExempt`, foco na janela, Esc com `busy`, ordem da Q3, limpeza ao desligar, `trim`.
+- **Gate final:** Vitest 837 passam e 1 ignorado; `npm run check` 0/0; build OK; `test:visual` 120/120; `cargo check` não necessário (sem Rust).
+- **Fica por fazer (registado, não corrigido):**
+  - a corrida antiga de «Escolher» durante um `device-detected` em curso (pede um pedido sequenciado em `deviceConnected`);
+  - o `disabled` nativo do Grupo de vista contra o `aria-disabled` dos outros controlos;
+  - a altura da janela, 214 contra 212 (borda de 1 px do `Dialog` da Task 23);
+  - «Liga o teu Kobo» à vista com um Kobo recusado em `no-device`.
 
 **Verificar no ecrã (Bruno):** o Bruno já tem leitores, por isso o primeiro arranque aprova-se pelas capturas. No ecrã, com a build dev:
 - um Kobo sem dono abre a janela no leitor aberto;

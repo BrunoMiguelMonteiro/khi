@@ -15,6 +15,10 @@
 		onview?: (view: ViewMode) => void;
 		sort?: SortPreference_Serialize;
 		onsort?: (sort: SortPreference_Serialize) => void;
+		/** No Reader open (the first start): the five controls stay in view and greyed, Sync and Export included. */
+		disabled?: boolean;
+		/** With `disabled`, Sync is still up to its own `syncDisabledReason`: a Kobo to be asked about (Q2). */
+		syncExempt?: boolean;
 		/** Sync turns while true; it stops at the end of the lap. */
 		syncing?: boolean;
 		/** While syncing: «A sincronizar · N de M livros» replaces the tooltip, without the shortcut. */
@@ -56,6 +60,8 @@
 		activeReaderId,
 		onselectReader,
 		titleMenuDisabled = false,
+		disabled = false,
+		syncExempt = false,
 		view = $bindable<ViewMode>('grid'),
 		onview,
 		sort = 'date_last_read',
@@ -96,6 +102,11 @@
 		{ value: 'date_last_read', label: $_('screens.library.sort.recent') },
 		{ value: 'highlight_count', label: $_('screens.library.sort.count') }
 	]);
+	// Controlled, so a disabled Sort refuses to open (pointer, Enter, Space and arrows alike), as the title menu
+	let sortOpen = $state(false);
+	$effect.pre(() => {
+		if (disabled) sortOpen = false;
+	});
 	const exportLabel = $derived($_('ui.windowBar.export', { count: exportCount }));
 	// Without the total (Rust has not counted the books yet) the tooltip only says «A sincronizar»
 	const syncTooltip = $derived(
@@ -112,7 +123,7 @@
 		icon={Download}
 		label={exportLabel}
 		shortcut="⌘E"
-		disabled={Boolean(exportDisabledReason)}
+		disabled={disabled || Boolean(exportDisabledReason)}
 		disabledReason={exportDisabledReason}
 		onclick={onexport}
 	/>
@@ -141,14 +152,15 @@
 		</div>
 		<div class="flex items-center gap-4">
 			<div class="flex items-center gap-1">
-				<ViewGroup bind:value={view} onValueChange={onview} />
-				<DropdownMenu.Root>
+				<ViewGroup bind:value={view} onValueChange={onview} {disabled} />
+				<DropdownMenu.Root bind:open={() => sortOpen, (value) => (sortOpen = value && !disabled)}>
 					<DropdownMenu.Trigger>
 						{#snippet child({ props })}
 							<ToolbarButton
 								{...props}
 								icon={ArrowUpDown}
 								label={$_('ui.windowBar.sort')}
+								{disabled}
 							/>
 						{/snippet}
 					</DropdownMenu.Trigger>
@@ -170,7 +182,7 @@
 					label={$_('ui.windowBar.sync')}
 					tooltip={syncTooltip}
 					shortcut={syncing ? undefined : '⌘R'}
-					disabled={Boolean(syncDisabledReason)}
+					disabled={(disabled && !syncExempt) || Boolean(syncDisabledReason)}
 					disabledReason={syncDisabledReason}
 					onclick={onsync}
 					onanimationiteration={() => {

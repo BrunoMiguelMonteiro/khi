@@ -170,6 +170,23 @@ const syncReady = () =>
 	waitFor(() =>
 		expect(within(bar()!).getByRole('button', { name: 'Sync with the Kobo' })).not.toHaveAttribute('aria-disabled', 'true')
 	);
+/** An option of the open pop-up, by its text. The Library's grid is a listbox too, so the pop-up is found by its own slot. */
+async function pickOption(user: ReturnType<typeof userEvent.setup>, name: string) {
+	await waitFor(() => expect(document.querySelector('[data-slot="select-item"]')).not.toBeNull());
+	const items = [...document.querySelectorAll<HTMLElement>('[data-slot="select-item"]')];
+	await user.click(items.find((item) => item.textContent?.trim() === name)!);
+	await waitFor(() => expect(document.querySelector('[data-slot="select-content"]')).toBeNull());
+}
+
+/** «Whose Kobo is this?»: picks a Reader in the pop-up, then presses Choose. The floating list is visibility:hidden in jsdom, so it is queried with `hidden`. */
+async function chooseReader(name: string) {
+	const user = userEvent.setup();
+	const dialog = await screen.findByTestId('unknown-kobo-dialog');
+	within(dialog).getByRole('combobox').focus();
+	await user.keyboard(' ');
+	await pickOption(user, name);
+	await user.click(within(dialog).getByRole('button', { name: 'Choose' }));
+}
 const calls = (cmd: string) => vi.mocked(invoke).mock.calls.filter(([c]) => c === cmd);
 
 describe('+page', () => {
@@ -292,12 +309,35 @@ describe('+page · screen 1', () => {
 		resetLibrary();
 	});
 
+	it('first_start_disables_the_five_controls_and_no_shortcut_fires', async () => {
+		await mockLibrary({ list: [], lastReader: null });
+		render(Page);
+		await screen.findByText('Connect your Kobo');
+		const inBar = within(bar()!);
+
+		// The Title menu is plain text with no Reader; the other four are greyed, none hidden
+		expect(inBar.getByRole('heading', { name: 'Library' })).toBeInTheDocument();
+		for (const radio of inBar.getAllByRole('radio')) expect(radio).toBeDisabled();
+		for (const name of ['Sort by', 'Sync with the Kobo', /^Export \d+ books?$/]) {
+			expect(inBar.getByRole('button', { name })).toHaveAttribute('aria-disabled', 'true');
+		}
+
+		vi.mocked(invoke).mockClear();
+		for (const key of ['r', 'e', '1', '2']) {
+			fireEvent.keyDown(window, { key, code: /\d/.test(key) ? `Digit${key}` : `Key${key.toUpperCase()}`, metaKey: true });
+		}
+		await tick();
+		expect(calls('sync_kobo')).toHaveLength(0);
+		expect(calls('export_library_books')).toHaveLength(0);
+		expect(calls('update_settings')).toHaveLength(0);
+	});
+
 	it('window_bar_is_mounted_in_every_state', async () => {
 		const user = userEvent.setup();
 		// no-device: no Reader at all
 		await mockLibrary({ list: [], lastReader: null });
 		const empty = render(Page);
-		await screen.findByText('No Kobo connected');
+		await screen.findByText('Connect your Kobo');
 		expect(bar()).not.toBeNull();
 		expect(bar()!.querySelector('h1')).not.toBeNull();
 		empty.unmount();
@@ -1167,8 +1207,7 @@ describe('+page · screen 2 · syncing', () => {
 
 		// Another Kobo, unknown, while Bruno's syncs: it is Ana's
 		handlers.get('device-detected')!({ payload: { device: unknown } });
-		const dialog = await screen.findByTestId('unknown-kobo-dialog');
-		await fireEvent.click(within(dialog).getByRole('button', { name: 'Ana' }));
+		await chooseReader('Ana');
 		await settle();
 
 		// Bruno's Sync is not interrupted by her Library
@@ -1214,14 +1253,14 @@ describe('+page · screen 2 · syncing', () => {
 		render(Page);
 
 		// Whose Kobo is it? Ana's: her Library is on screen while it syncs
-		const dialog = await screen.findByTestId('unknown-kobo-dialog');
+		await screen.findByTestId('unknown-kobo-dialog');
 		expect(library.uiState).toBe('no-device');
-		await fireEvent.click(within(dialog).getByRole('button', { name: 'Ana' }));
+		await chooseReader('Ana');
 		await waitFor(() => expect(library.isImporting).toBe(true));
 
 		expect(library.uiState).toBe('library');
 		expect(library.activeReaderId).toBe(2);
-		expect(screen.queryByText('No Kobo connected')).toBeNull();
+		expect(screen.queryByText('Connect your Kobo')).toBeNull();
 	});
 
 	it('first_kobo_ever_shows_library_not_no_device', async () => {
@@ -1248,7 +1287,7 @@ describe('+page · screen 2 · syncing', () => {
 		// No Reader yet: one is made for the Kobo, and its Library is what the Sync fills
 		await waitFor(() => expect(library.isImporting).toBe(true));
 		expect(library.uiState).toBe('library');
-		expect(screen.queryByText('No Kobo connected')).toBeNull();
+		expect(screen.queryByText('Connect your Kobo')).toBeNull();
 	});
 
 	it('sync_click_while_syncing_does_nothing', async () => {
@@ -2400,5 +2439,300 @@ describe('+page · screen 5 · detail', () => {
 		await user.click(within(bar()!).getByRole('button', { name: /export/i }));
 		await waitFor(() => expect(calls('export_library_books')).toHaveLength(1));
 		expect(calls('export_library_books')[0][1]).toEqual({ readerId: 1, bookIds: [1] });
+	});
+});
+
+describe('+page · screen 6 · whose Kobo is this', () => {
+	beforeEach(() => {
+		vi.mocked(invoke).mockReset();
+		handlers.clear();
+		resetLibrary();
+	});
+
+	const settle = async () => {
+		for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+		await tick();
+	};
+	const dialog = () => screen.queryByTestId('unknown-kobo-dialog');
+	const syncButton = () => within(bar()!).getByRole('button', { name: 'Sync with the Kobo' });
+	const cancel = async () => {
+		await userEvent.setup().click(within(await screen.findByTestId('unknown-kobo-dialog')).getByRole('button', { name: 'Cancel' }));
+		await waitFor(() => expect(dialog()).toBeNull());
+	};
+	/** A Kobo nobody owns, with Bruno's Library open. */
+	const unknownKobo = (overrides: Record<string, (args: unknown) => unknown> = {}) =>
+		mockLibrary({ books: newBooks(), device: kobo, overrides: { reader_for_kobo: () => null, ...overrides } });
+
+	it('cancel_keeps_library_and_does_not_sync', async () => {
+		await unknownKobo();
+		render(Page);
+		await screen.findByTestId('unknown-kobo-dialog');
+
+		await cancel();
+		await settle();
+
+		// The Library that was open stays in view, and nothing was synced or associated
+		expect(options()).toHaveLength(3);
+		expect(library.activeReaderId).toBe(1);
+		expect(library.uiState).toBe('library');
+		expect(calls('sync_kobo')).toHaveLength(0);
+		expect(calls('associate_kobo')).toHaveLength(0);
+		expect(calls('create_reader')).toHaveLength(0);
+	});
+
+	it('repeated_device_detected_after_cancel_does_not_reopen', async () => {
+		await unknownKobo();
+		render(Page);
+		await screen.findByTestId('unknown-kobo-dialog');
+		await cancel();
+
+		// The monitor says so again, every few seconds
+		handlers.get('device-detected')!({ payload: { device: kobo } });
+		await settle();
+		handlers.get('device-detected')!({ payload: { device: kobo } });
+		await settle();
+
+		expect(dialog()).toBeNull();
+		expect(calls('sync_kobo')).toHaveLength(0);
+	});
+
+	it('sync_after_cancel_asks_again', async () => {
+		const user = userEvent.setup();
+		await unknownKobo();
+		render(Page);
+		await screen.findByTestId('unknown-kobo-dialog');
+		await cancel();
+
+		// Sync is on while a Kobo without an owner is connected (Q2)
+		expect(syncButton()).not.toHaveAttribute('aria-disabled', 'true');
+		await user.click(syncButton());
+
+		// It asks, instead of syncing the open Library
+		await screen.findByTestId('unknown-kobo-dialog');
+		expect(calls('sync_kobo')).toHaveLength(0);
+		// And the second Cancel is respected as the first
+		await cancel();
+		handlers.get('device-detected')!({ payload: { device: kobo } });
+		await settle();
+		expect(dialog()).toBeNull();
+	});
+
+	it('shortcut_sync_after_cancel_asks_again', async () => {
+		await unknownKobo();
+		render(Page);
+		await screen.findByTestId('unknown-kobo-dialog');
+		await cancel();
+
+		fireEvent.keyDown(window, { key: 'r', code: 'KeyR', metaKey: true });
+
+		await screen.findByTestId('unknown-kobo-dialog');
+		expect(calls('sync_kobo')).toHaveLength(0);
+	});
+
+	it('reconnect_after_cancel_asks_again', async () => {
+		await unknownKobo();
+		render(Page);
+		await screen.findByTestId('unknown-kobo-dialog');
+		await cancel();
+		// Without the Kobo the Sync is off again
+		handlers.get('device-disconnected')!({ payload: null });
+		await waitFor(() => expect(syncButton()).toHaveAttribute('aria-disabled', 'true'));
+
+		handlers.get('device-detected')!({ payload: { device: kobo } });
+
+		await screen.findByTestId('unknown-kobo-dialog');
+		expect(calls('sync_kobo')).toHaveLength(0);
+	});
+
+	it('another_kobo_after_cancel_asks_about_it', async () => {
+		await unknownKobo();
+		render(Page);
+		await screen.findByTestId('unknown-kobo-dialog');
+		await cancel();
+
+		// The refusal is of that Kobo, by its serial number
+		handlers.get('device-detected')!({ payload: { device: makeDevice({ name: 'Kobo Clara', path: '/Volumes/KOBO2', isValid: true, serialNumber: 'C123' }) } });
+
+		await screen.findByTestId('unknown-kobo-dialog');
+	});
+
+	it('disconnect_closes_unknown_kobo_dialog', async () => {
+		await unknownKobo();
+		render(Page);
+		await screen.findByTestId('unknown-kobo-dialog');
+
+		handlers.get('device-disconnected')!({ payload: null });
+
+		await waitFor(() => expect(dialog()).toBeNull());
+		await settle();
+		// Neither chosen nor created
+		expect(calls('associate_kobo')).toHaveLength(0);
+		expect(calls('create_reader')).toHaveLength(0);
+		expect(calls('sync_kobo')).toHaveLength(0);
+		expect(options()).toHaveLength(3);
+	});
+
+	it('pop_up_starts_on_the_open_library', async () => {
+		await unknownKobo();
+		render(Page);
+		const found = await screen.findByTestId('unknown-kobo-dialog');
+		expect(within(found).getByRole('combobox')).toHaveTextContent('Bruno');
+	});
+
+	it('first_kobo_without_readers_does_not_ask', async () => {
+		let list: typeof readers = [];
+		await mockLibrary({
+			list: [],
+			books: newBooks(),
+			device: kobo,
+			lastReader: null,
+			syncOnConnect: true,
+			overrides: {
+				sync_kobo: () => ({ added: 0, updated: 0, removed: 0, restored: 0, books: 3 }),
+				list_readers: () => structuredClone(list),
+				reader_for_kobo: () => null,
+				create_reader: () => {
+					list = [{ id: 1, name: 'Kobo Libra', exportPath: null }];
+					return list[0];
+				}
+			}
+		});
+		render(Page);
+
+		// R1: with no Reader at all there is one answer, so the Kobo is not asked about
+		await waitFor(() => expect(calls('sync_kobo')).toHaveLength(1));
+		expect(dialog()).toBeNull();
+		expect(calls('create_reader')[0][1]).toEqual({ name: 'Kobo Libra' });
+		expect(calls('associate_kobo')[0][1]).toEqual({ serial: 'N418', readerId: 1 });
+	});
+
+	/** Readers exist and no Library is open: the first call of `last_reader` (the startup's) says none, the later ones say Ana. */
+	const unknownKoboNoLibrary = (overrides: Record<string, (args: unknown) => unknown> = {}) => {
+		let lastReaderCalls = 0;
+		return mockLibrary({
+			books: newBooks(),
+			device: kobo,
+			overrides: { reader_for_kobo: () => null, last_reader: () => (lastReaderCalls++ === 0 ? null : 2), ...overrides }
+		});
+	};
+
+	it('cancel_during_a_device_detected_in_flight_does_not_reopen', async () => {
+		let hold = false;
+		let release!: () => void;
+		await unknownKobo({ last_reader: () => (hold ? new Promise((resolve) => (release = () => resolve(1))) : 1) });
+		render(Page);
+		await screen.findByTestId('unknown-kobo-dialog');
+
+		// The monitor says so again, and reading the last Reader is slow
+		hold = true;
+		handlers.get('device-detected')!({ payload: { device: { ...kobo } } });
+		await settle();
+		await cancel();
+		release();
+		await settle();
+
+		expect(dialog()).toBeNull();
+	});
+
+	it('disconnect_while_reading_the_last_reader_does_not_open_the_window', async () => {
+		let release!: () => void;
+		// The startup's own read answers; the one for the pop-up's first choice is held
+		let reads = 0;
+		await unknownKobo({ last_reader: () => (reads++ === 0 ? 1 : new Promise((resolve) => (release = () => resolve(1)))) });
+		render(Page);
+		await waitFor(() => expect(handlers.has('device-disconnected')).toBe(true));
+		await waitFor(() => expect(typeof release).toBe('function'));
+
+		handlers.get('device-disconnected')!({ payload: null });
+		await settle();
+		release();
+		await settle();
+
+		expect(dialog()).toBeNull();
+	});
+
+	it('pop_up_starts_on_the_last_reader_without_an_open_library', async () => {
+		await unknownKoboNoLibrary();
+		render(Page);
+		const found = await screen.findByTestId('unknown-kobo-dialog');
+		expect(library.activeReaderId).toBeNull();
+		expect(within(found).getByRole('combobox')).toHaveTextContent('Ana');
+	});
+
+	it('cancel_without_a_library_open_keeps_sync_on_and_asks_again', async () => {
+		const user = userEvent.setup();
+		await unknownKoboNoLibrary();
+		render(Page);
+		await screen.findByTestId('unknown-kobo-dialog');
+		await cancel();
+
+		// The Title menu is the way out with Readers; Sync asks again (Q2)
+		expect(within(bar()!).getByRole('button', { name: 'Library' })).not.toHaveAttribute('aria-disabled', 'true');
+		expect(syncButton()).not.toHaveAttribute('aria-disabled', 'true');
+		expect(within(bar()!).getByRole('button', { name: 'Sort by' })).toHaveAttribute('aria-disabled', 'true');
+		await user.click(syncButton());
+		await screen.findByTestId('unknown-kobo-dialog');
+		expect(calls('sync_kobo')).toHaveLength(0);
+	});
+
+	it('shortcut_sync_without_a_library_open_asks_again', async () => {
+		await unknownKoboNoLibrary();
+		render(Page);
+		await screen.findByTestId('unknown-kobo-dialog');
+		await cancel();
+		expect(library.uiState).toBe('no-device');
+
+		fireEvent.keyDown(window, { key: 'r', code: 'KeyR', metaKey: true });
+
+		await screen.findByTestId('unknown-kobo-dialog');
+	});
+
+	it('escape_while_the_reader_is_being_created_keeps_the_window_and_does_not_decline', async () => {
+		const user = userEvent.setup();
+		await unknownKobo({ create_reader: () => new Promise(() => {}) });
+		render(Page);
+		const found = await screen.findByTestId('unknown-kobo-dialog');
+		within(found).getByRole('combobox').focus();
+		await user.keyboard(' ');
+		await pickOption(user, 'New reader…');
+		await user.type(within(found).getByRole('textbox', { name: 'Name' }), 'Marta{Enter}');
+		await waitFor(() => expect(calls('create_reader')).toHaveLength(1));
+
+		await user.keyboard('{Escape}');
+		await settle();
+
+		expect(dialog()).not.toBeNull();
+		expect(library.declinedKobo).toBe(false);
+		expect(calls('create_reader')).toHaveLength(1);
+	});
+
+	it.each([true, false])('sync_after_cancel_then_choose_syncs (sync on connect %s)', async (syncOnConnect) => {
+		const user = userEvent.setup();
+		let owner: number | null = null;
+		await mockLibrary({
+			books: newBooks(),
+			device: kobo,
+			syncOnConnect,
+			overrides: {
+				sync_kobo: () => ({ added: 0, updated: 0, removed: 0, restored: 0, books: 3 }),
+				reader_for_kobo: () => owner,
+				associate_kobo: (args) => {
+					owner = (args as { readerId: number }).readerId;
+					return null;
+				}
+			}
+		});
+		render(Page);
+		await screen.findByTestId('unknown-kobo-dialog');
+		await cancel();
+		await settle();
+		expect(calls('sync_kobo')).toHaveLength(0);
+
+		// An explicit request: the Sync button asked, so choosing syncs, whatever «Sincronizar ao ligar» says
+		await user.click(syncButton());
+		await chooseReader('Ana');
+
+		await waitFor(() => expect(calls('sync_kobo')).toHaveLength(1));
+		expect(library.activeReaderId).toBe(2);
 	});
 });

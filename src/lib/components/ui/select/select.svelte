@@ -1,7 +1,13 @@
 <script lang="ts" module>
 	import type { HTMLButtonAttributes } from 'svelte/elements';
 
-	export type SelectItem = { value: string; label: string; disabled?: boolean };
+	export type SelectItem = {
+		value: string;
+		label: string;
+		disabled?: boolean;
+		/** A Separador de menu (55:3159) above this item, e.g. before «Novo leitor…». */
+		separatorBefore?: boolean;
+	};
 
 	export type SelectProps = Omit<
 		HTMLButtonAttributes,
@@ -38,6 +44,7 @@
 	import ChevronsUpDown from 'lucide-svelte/icons/chevrons-up-down';
 	import { cn } from '$lib/utils.js';
 	import { guardClick, withTrigger } from '../button';
+	import { menuSeparator } from '../menu/menu-classes';
 	import { Tooltip } from '../tooltip';
 	import SelectContent from './select-content.svelte';
 	import SelectItemView from './select-item.svelte';
@@ -182,6 +189,9 @@
 	{/if}
 	<SelectContent>
 		{#each items as item (item.value)}
+			{#if item.separatorBefore}
+				<div data-slot="select-separator" aria-hidden="true" class={menuSeparator}></div>
+			{/if}
 			<SelectItemView value={item.value} label={item.label} disabled={item.disabled} />
 		{/each}
 	</SelectContent>

@@ -31,17 +31,26 @@ class LibraryStore {
 	 * Library header says. Null until read, and when it cannot be. */
 	summary = $state<LibrarySummary_Serialize | null>(null);
 	#summaryRequest = 0;
+	/** The serial of the connected Kobo whose owner the user declined to say (Task 44): not asked about again
+	 * until it is unplugged. A serial, not a flag, so another Kobo is asked about. */
+	#declinedSerial = $state<string | null>(null);
 	#viewingBookId = $state<number | null>(null);
 	#viewingNewIds = $state<ReadonlySet<string>>(new Set());
 
 	// Derived state
 	selectedBooks = $derived(this.books.filter((book) => this.selectedBookIds.includes(book.id)));
-	/** «Sincronizar» works only with the active Reader's Kobo connected. */
+	/** The connected Kobo has no Reader and the user said not now: Sync asks again instead of syncing. */
+	declinedKobo = $derived(
+		this.connectedDevice !== undefined &&
+			this.connectedReaderId === null &&
+			this.#declinedSerial !== null &&
+			this.connectedDevice.serialNumber === this.#declinedSerial
+	);
+	/** «Sincronizar» works with the active Reader's Kobo connected, or with a Kobo that is still to be asked about. */
 	canSync = $derived(
 		this.connectedDevice !== undefined &&
-			this.connectedReaderId !== null &&
-			this.connectedReaderId === this.activeReaderId &&
-			!this.isImporting
+			!this.isImporting &&
+			((this.connectedReaderId !== null && this.connectedReaderId === this.activeReaderId) || this.declinedKobo)
 	);
 	viewingBook = $derived(this.#viewingBookId ? this.books.find((b) => b.id === this.#viewingBookId) : undefined);
 
@@ -81,9 +90,30 @@ class LibraryStore {
 	deviceDisconnected() {
 		this.connectedDevice = undefined;
 		this.connectedReaderId = null;
+		this.#declinedSerial = null;
 		// The sync time is only shown with the Kobo connected: drop it before the reload answers
 		if (this.summary) this.summary = { ...this.summary, lastSyncAt: null };
 		void this.loadSummary();
+	}
+
+	/** «Cancelar» in «De quem é este Kobo?»: this connection of the Kobo is not asked about again (Q2). */
+	declineKobo(serial: string) {
+		this.#declinedSerial = serial;
+	}
+
+	/** The question is open again (Sync, or the Kobo reconnected): the refusal no longer holds. */
+	forgetDeclinedKobo() {
+		this.#declinedSerial = null;
+	}
+
+	/** The Reader of the last session, for the pop-up's first choice (Q3); null when there is none or it cannot be read. */
+	async lastReaderId(): Promise<number | null> {
+		try {
+			return await commands.lastReader();
+		} catch (error) {
+			console.error('Failed to read the last reader:', error);
+			return null;
+		}
 	}
 
 	/** Reads the header's summary for the active Reader and the connected Kobo.
@@ -279,6 +309,12 @@ class LibraryStore {
 		// monitor's first device-detected (2 s later) report the same Kobo.
 		// Keyed on connectedReaderId, which only a handled connect sets and
 		// deviceDisconnected clears; the scan sets connectedDevice alone.
+		if (device.serialNumber === null || device.serialNumber !== this.#declinedSerial) this.#declinedSerial = null;
+		// Declined: the same Kobo, still unowned, reported again by the monitor
+		if (this.#declinedSerial !== null && this.connectedReaderId === null) {
+			this.connectedDevice = device;
+			return 'idle';
+		}
 		const handled =
 			this.connectedReaderId !== null &&
 			device.serialNumber !== null &&

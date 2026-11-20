@@ -29,6 +29,10 @@
 	// Local state
 	/** A connected Kobo with no Reader yet: asked before any Sync (R7). */
 	let unknownDevice = $state<KoboDevice | null>(null);
+	/** The Reader of the last session: the pop-up's choice when no Library is open (Q3). */
+	let askedLastReaderId = $state<number | null>(null);
+	/** The window was opened by Sync (a request), not by the Kobo connecting: choosing then syncs, whatever «Sincronizar ao ligar» says. */
+	let askedBySync = false;
 	/** The header's own export finished well: its button reads «✓ Exportado». Cleared when the Library is left or a Sync starts. */
 	let exported = $state(false);
 	/** The book last opened: its option takes focus when the detail closes. */
@@ -252,6 +256,8 @@
 			unlistenDeviceDisconnected = await events.deviceDisconnected.listen(() => {
 				console.log('Device disconnected');
 				library.lastSyncFailed = false;
+				// «De quem é este Kobo?» is moot with the Kobo gone: closed, nothing chosen or created
+				unknownDevice = null;
 				library.deviceDisconnected();
 			});
 		} catch (error) {
@@ -274,7 +280,7 @@
 	async function handleDeviceConnected(device: KoboDevice) {
 		try {
 			const outcome = await library.deviceConnected(device, settings.uiPreferences.syncOnConnect ?? true);
-			if (outcome === 'unknown' && device.serialNumber) unknownDevice = device;
+			if (outcome === 'unknown' && device.serialNumber) await askWhoseKobo(device);
 		} catch (error) {
 			console.error('Sync on connect failed:', error);
 			// The store set it if the Sync itself failed; a connect that failed before it is shown the same
@@ -283,10 +289,37 @@
 		showLibraryOrEmpty();
 	}
 
+	/** Opens «De quem é este Kobo?» for a Kobo that is still connected. */
+	async function askWhoseKobo(device: KoboDevice) {
+		const last = await library.lastReaderId();
+		// Unplugged while the last Reader was read: there is no Kobo to ask about
+		if (library.connectedDevice?.serialNumber !== device.serialNumber) return;
+		// Cancelled, or answered, while the last Reader was read: not asked again
+		if (library.declinedKobo || library.connectedReaderId !== null) return;
+		askedLastReaderId = last;
+		unknownDevice = device;
+	}
+
+	/** Esc, ⌘. or Cancelar: the Library stays as it is, and this connection of the Kobo is not asked about again (Q2). */
+	function handleCancelUnknownKobo() {
+		askedBySync = false;
+		const serial = unknownDevice?.serialNumber;
+		unknownDevice = null;
+		if (serial) library.declineKobo(serial);
+	}
+
 	/** «Sincronizar» in the toolbar (R6). */
 	async function handleSync() {
 		// Sync stays enabled while it turns: a click then is not a second Sync, and changes nothing
 		if (library.isImporting) return;
+		// A Kobo without an owner that was declined: Sync asks again, it does not sync the open Library
+		const declined = library.declinedKobo ? library.connectedDevice : undefined;
+		if (declined) {
+			library.forgetDeclinedKobo();
+			askedBySync = true;
+			await askWhoseKobo(declined);
+			return;
+		}
 		// The store clears the error as the Sync starts
 		exported = false;
 		try {
@@ -320,6 +353,8 @@
 	async function handleChooseReader(readerId: number) {
 		const device = unknownDevice;
 		if (!device?.serialNumber) return;
+		const requested = askedBySync;
+		askedBySync = false;
 		unknownDevice = null;
 		try {
 			await library.associateKobo(device.serialNumber, readerId);
@@ -343,6 +378,8 @@
 			// The Library is on screen while it syncs, not the empty state (Task 38, I1)
 			showLibraryOrEmpty();
 			await handleDeviceConnected(device);
+			// Sync asked: it syncs even with «Sincronizar ao ligar» off (with it on, the connect did)
+			if (requested && !(settings.uiPreferences.syncOnConnect ?? true) && library.canSync) await handleSync();
 		} catch (error) {
 			console.error('Failed to open the reader:', error);
 			notify($_('notifications.openReaderError'));
@@ -495,7 +532,9 @@
 
 		const inLibrary = library.uiState === 'library';
 		// In a book only ⌘E works: it exports that book
-		if (!inLibrary && !(detailBook && key === 'e')) return;
+		// With no Library open, ⌘R still asks about a Kobo that was declined
+		const asksAgain = key === 'r' && library.uiState === 'no-device' && library.declinedKobo;
+		if (!inLibrary && !(detailBook && key === 'e') && !asksAgain) return;
 		event.preventDefault();
 
 		// While a Sync runs only the views switch: Sync and Export wait for its end
@@ -533,6 +572,8 @@
 				activeReaderId={library.activeReaderId}
 				onselectReader={(id) => handleSelectReader(Number(id))}
 				titleMenuDisabled={library.isImporting}
+				disabled={library.activeReaderId === null}
+				syncExempt={library.declinedKobo}
 				view={viewMode}
 				onview={handleViewModeChange}
 				sort={sortBy}
@@ -590,10 +631,12 @@
 
 {#if unknownDevice}
 	<UnknownKoboDialog
-		device={unknownDevice}
 		readers={library.readers}
+		activeReaderId={library.activeReaderId}
+		lastReaderId={askedLastReaderId}
 		onChoose={handleChooseReader}
 		onCreate={handleCreateReader}
+		onCancel={handleCancelUnknownKobo}
 	/>
 {/if}
 

@@ -3,7 +3,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
 import { compileAppCss, selectorFor } from "$lib/test/css";
 import { expectDisabledInert } from "$lib/test/disabled";
-import { menuContent, menuItem } from "../menu/menu-classes";
+import { menuContent, menuItem, menuSeparator } from "../menu/menu-classes";
 import { Select } from "./index";
 import Fixture from "./select.fixture.svelte";
 
@@ -372,6 +372,24 @@ describe("Select", () => {
       await expectBindings(option, ITEM_BINDINGS);
       for (const c of menuItem.split(/\s+/)) expect(option.classList.contains(c), c).toBe(true);
     }
+  });
+
+  it("separator_before_an_item_draws_the_menu_separator", async () => {
+    const user = userEvent.setup();
+    const { trigger } = renderBound("md", {
+      items: [...ITEMS, { value: "novo", label: "Novo…", separatorBefore: true }],
+    });
+    await open(user, trigger);
+    const separators = [...document.querySelectorAll<HTMLElement>('[data-slot="select-separator"]')];
+    expect(separators).toHaveLength(1);
+    const [separator] = separators;
+    // Separador de menu (55:3159), out of the screen readers' listbox: it is no option
+    expect(separator.getAttribute("aria-hidden")).toBe("true");
+    for (const c of menuSeparator.split(/\s+/)) expect(separator.classList.contains(c), c).toBe(true);
+    expect(options()).toHaveLength(4);
+    // Right before «Novo…», after the others
+    expect(separator.nextElementSibling?.textContent).toContain("Novo…");
+    expect(separator.previousElementSibling?.getAttribute("role")).toBe("option");
   });
 
   it("without_reason_needs_no_tooltip_provider", () => {

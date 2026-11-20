@@ -9,6 +9,8 @@
 	> & {
 		value?: ViewMode;
 		onValueChange?: (value: ViewMode) => void;
+		/** Greyed and out of reach (no Reader open): the buttons are natively disabled, so they leave the Tab order. */
+		disabled?: boolean;
 		/** The group's accessible name; «Vista» when omitted. */
 		'aria-label'?: string;
 	};
@@ -31,6 +33,7 @@
 		ref = $bindable(null),
 		value = $bindable<ViewMode>('grid'),
 		onValueChange,
+		disabled = false,
 		'aria-label': ariaLabel,
 		class: className,
 		...restProps
@@ -59,6 +62,7 @@
 		}
 	}
 	{...restProps}
+	{disabled}
 	orientation="horizontal"
 	loop
 	data-slot="view-group"
@@ -78,12 +82,13 @@
 							data-slot="view-group-item"
 							class={cn(
 								buttonVariants({ shape: 'toolbar' }),
-								toolbarButtonVariants({ pressed: checked })
+								toolbarButtonVariants({ pressed: checked && !disabled })
 							)}
 							type="button"
 							role="radio"
 							aria-label={item.label}
 							data-state={props['data-state']}
+							data-disabled={disabled ? '' : undefined}
 						>
 							<Icon icon={item.icon} size="md" />
 						</button>

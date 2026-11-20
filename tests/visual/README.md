@@ -25,7 +25,9 @@ Only update the baseline on a tree whose visuals you have verified. Run `test:vi
 
 Scenarios (`scenarios.ts`):
 
-- `empty`: no Kobo connected.
+- `first-launch`: the first start (Ecrã 6): no Reader and no Kobo, «Liga o teu Kobo» and the bar with every control greyed.
+- `unknown-kobo`: a Kobo nobody owns connects with Bruno's Library open: «De quem é este Kobo?», the pop-up on Bruno (380 × 212).
+- `unknown-kobo-new-reader`: the same with «Novo leitor…» chosen, the name field focused with «Marta» written (380 × 248).
 - `grid`: Kobo connected, library grid: the window bar, the header with news («N destaques novos em M livros») and the grid (a listbox of cards, one tab stop).
 - `grid-no-news`: the same Library with nothing new: no header, the grid starts 24 px below the bar.
 - `list`: library list view.
@@ -56,7 +58,7 @@ All scenarios × all themes, plus:
 
 - `grid` and `settings` with `prefers-contrast: more` and with `prefers-reduced-motion: reduce`, each in light and dark-app;
 - `library-syncing`, `library-empty-syncing`, `update-checking` and `settings-saving` with `prefers-reduced-motion: reduce`, in light and dark-app;
-- `grid`, `list`, `detail` and `settings` at the **minimum window size** (suffix `--min`), in light and dark-app;
+- `grid`, `list`, `detail`, `settings` and `first-launch` at the **minimum window size** (suffix `--min`), in light and dark-app;
 - `grid` in English (light).
 
 Fixed for every capture:

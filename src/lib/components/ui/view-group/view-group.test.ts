@@ -212,4 +212,22 @@ describe("ViewGroup", () => {
     const en = locale("en").ui.viewGroup;
     expect([en.gridTooltip, en.listTooltip]).toEqual(["Grid", "List"]);
   });
+
+  it("disabled_draws_the_selected_button_as_disabled_without_the_selected_fill", () => {
+    render(Fixture, { props: { value: "grid", disabled: true } });
+    const grid = screen.getByRole("radio", { name: "View as grid" });
+    const list = screen.getByRole("radio", { name: "View as list" });
+    // Estado=Desativado (Figma 72:11425): neither button has the Selecionado tint
+    for (const radio of [grid, list]) {
+      expect(radio.classList.contains("bg-primary-tint"), radio.ariaLabel!).toBe(false);
+      expect(radio.classList.contains("text-primary-tint-foreground"), radio.ariaLabel!).toBe(false);
+      expect(radio.hasAttribute("data-disabled")).toBe(true);
+    }
+    expect(grid.getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("enabled_still_draws_the_selected_fill", () => {
+    render(Fixture, { props: { value: "grid" } });
+    expect(screen.getByRole("radio", { name: "View as grid" }).classList.contains("bg-primary-tint")).toBe(true);
+  });
 });

@@ -9,8 +9,8 @@
   },
   "screens": {
     "noKobo": {
-      "title": "Nenhum Kobo ligado",
-      "subtitle": "Liga o teu Kobo para ver os teus destaques"
+      "title": "Liga o teu Kobo",
+      "subtitle": "Os destaques ficam guardados na Biblioteca, mesmo com o Kobo desligado, e exportas para Markdown quando quiseres."
     },
     "syncingEmpty": {
       "title": "A sincronizar com o Kobo"
@@ -284,11 +284,12 @@
   },
   "readers": {
     "label": "Leitor",
-    "unknownKoboTitle": "Kobo novo",
-    "unknownKoboSubtitle": "De quem é este Kobo? Os destaques ficam na Biblioteca desse leitor.",
-    "existing": "Leitores existentes",
-    "newReader": "Novo leitor",
-    "newReaderName": "Nome do leitor",
+    "unknownKoboTitle": "De quem é este Kobo?",
+    "unknownKoboSubtitle": "Os destaques ficam na Biblioteca de quem escolheres.",
+    "choose": "Escolher",
+    "newReaderOption": "Novo leitor…",
+    "name": "Nome",
+    "cancel": "Cancelar",
     "create": "Criar leitor"
   },
   "updates": {

@@ -52,6 +52,8 @@ export interface Scenario {
 	withLibrary: boolean;
 	/** The Kobo that connects belongs to a second Reader, Ana, while Bruno's Library is open (Sync on connect off). */
 	otherReaderKobo?: boolean;
+	/** A Kobo nobody owns connects while Bruno's Library is open, and Ana is the other Reader: «De quem é este Kobo?». */
+	unownedKobo?: boolean;
 	/** The Reader exists with no books yet: the first Sync. */
 	emptyLibrary?: boolean;
 	/** `settings`: the Settings window, its own route (`/definicoes`) and size. Default: the main window. */
@@ -66,7 +68,17 @@ export interface Scenario {
 }
 
 export interface Strings {
+	/** The first start's title (Ecrã 6). */
 	noKoboTitle: string;
+	/** «De quem é este Kobo?» and its controls. */
+	whoseKoboTitle: string;
+	choose: string;
+	cancel: string;
+	newReaderOption: string;
+	readerName: string;
+	/** The pop-up's row label. */
+	readerLabel: string;
+	createReader: string;
 	/** The bar's Sync button, which is disabled until the Reader's Kobo is connected. */
 	sync: string;
 	viewList: string;
@@ -98,7 +110,14 @@ export interface Strings {
 
 const STRINGS: Record<Language, Strings> = {
 	pt: {
-		noKoboTitle: 'Nenhum Kobo ligado',
+		noKoboTitle: 'Liga o teu Kobo',
+		whoseKoboTitle: 'De quem é este Kobo?',
+		choose: 'Escolher',
+		cancel: 'Cancelar',
+		newReaderOption: 'Novo leitor…',
+		readerName: 'Nome',
+		readerLabel: 'Leitor',
+		createReader: 'Criar leitor',
 		sync: 'Sincronizar com o Kobo',
 		viewList: 'Ver em lista',
 		viewGrid: 'Ver em grelha',
@@ -120,7 +139,14 @@ const STRINGS: Record<Language, Strings> = {
 		checkNow: 'Procurar agora'
 	},
 	en: {
-		noKoboTitle: 'No Kobo connected',
+		noKoboTitle: 'Connect your Kobo',
+		whoseKoboTitle: 'Whose Kobo is this?',
+		choose: 'Choose',
+		cancel: 'Cancel',
+		newReaderOption: 'New reader…',
+		readerName: 'Name',
+		readerLabel: 'Reader',
+		createReader: 'Create reader',
 		sync: 'Sync with the Kobo',
 		viewList: 'View as list',
 		viewGrid: 'View as grid',
@@ -279,13 +305,68 @@ async function listView(page: Page, text: Strings) {
 }
 
 export const SCENARIOS: Record<string, Scenario> = {
-	empty: {
-		name: 'empty',
-		description: 'No Reader and no Kobo: the empty state',
+	'first-launch': {
+		name: 'first-launch',
+		description: 'The first start, no Reader and no Kobo (Ecrã 6, Figma 72:11425): «Liga o teu Kobo», and the bar with every control greyed',
 		withLibrary: false,
 		async reach(page, text) {
 			await expect(page.getByText(text.noKoboTitle, { exact: true })).toBeVisible();
 			await expect(page.getByTestId('books-grid')).toHaveCount(0);
+			// Everything in view and nothing within reach: the view group, Sort, Sync and Export
+			const controls = bar(page);
+			for (const radio of await controls.getByRole('radio').all()) {
+				await expect(radio).toBeDisabled();
+				// Estado=Desativado for both: the selected one has no fill either (Figma 72:11425)
+				await expect(radio).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+			}
+			for (const name of [text.sortBy, text.sync, /^(Exportar|Export) \d+ /]) {
+				await expect(controls.getByRole('button', { name })).toHaveAttribute('aria-disabled', 'true');
+			}
+		}
+	},
+	'unknown-kobo': {
+		name: 'unknown-kobo',
+		description: 'A Kobo nobody owns connects with Bruno\'s Library open: «De quem é este Kobo?» with the pop-up on Bruno (Ecrã 6, Figma 58:6794)',
+		withLibrary: true,
+		withoutNews: true,
+		unownedKobo: true,
+		async reach(page, text) {
+			await libraryWithoutKobo(page, text);
+			await emitWhenListening(page, 'device-detected', { device });
+			const dialog = page.getByRole('dialog', { name: text.whoseKoboTitle });
+			await expect(dialog).toBeVisible();
+			await expect(dialog.getByRole('combobox')).toHaveText(reader.name);
+			// The 56 px label hugs the pop-up: right-aligned, 8 from it
+			await expect(dialog.getByText(text.readerLabel, { exact: true })).toHaveCSS('text-align', 'right');
+			await expect(dialog.getByRole('button', { name: text.choose, exact: true })).toBeVisible();
+			await expect(dialog.getByRole('button', { name: text.cancel, exact: true })).toBeVisible();
+			// 380 × 212, the Figma's Kobo novo · Com leitores
+			// Layout size (the opening scale is still running); the height without the 1 px borders, which the Figma draws inside the frame
+			expect(await dialog.evaluate((el) => [(el as HTMLElement).offsetWidth, (el as HTMLElement).clientHeight])).toEqual([380, 212]);
+		}
+	},
+	'unknown-kobo-new-reader': {
+		name: 'unknown-kobo-new-reader',
+		description: 'The same, with «Novo leitor…» chosen and a name written (Ecrã 6, Figma 62:2147)',
+		withLibrary: true,
+		withoutNews: true,
+		unownedKobo: true,
+		async reach(page, text) {
+			await libraryWithoutKobo(page, text);
+			await emitWhenListening(page, 'device-detected', { device });
+			const dialog = page.getByRole('dialog', { name: text.whoseKoboTitle });
+			await expect(dialog).toBeVisible();
+			await dialog.getByRole('combobox').click();
+			await page.getByRole('option', { name: text.newReaderOption, exact: true }).click();
+			const name = dialog.getByRole('textbox', { name: text.readerName, exact: true });
+			await expect(name).toBeVisible();
+			// Empty, and with the focus, as the pop-up gives it back
+			await expect(name).toHaveValue('');
+			await expect(name).toBeFocused();
+			await name.fill('Marta');
+			await expect(dialog.getByRole('button', { name: text.createReader, exact: true })).not.toHaveAttribute('aria-disabled', 'true');
+			// Layout size (the opening scale is still running); the height without the 1 px borders, which the Figma draws inside the frame
+			expect(await dialog.evaluate((el) => [(el as HTMLElement).offsetWidth, (el as HTMLElement).clientHeight])).toEqual([380, 248]);
 		}
 	},
 	grid: {
@@ -751,7 +832,7 @@ export function captures(): Capture[] {
 		for (const theme of ['light', 'dark-app'] as const) add(scenario, { theme, language: 'pt', reducedMotion: 'reduce' });
 	}
 	// The smallest window the app allows
-	for (const scenario of ['grid', 'list', 'detail', 'settings']) {
+	for (const scenario of ['grid', 'list', 'detail', 'settings', 'first-launch']) {
 		for (const theme of ['light', 'dark-app'] as const) add(scenario, { theme, language: 'pt', size: 'min' });
 	}
 	return out;
@@ -764,11 +845,11 @@ export function mockConfigFor(scenario: Scenario, variant: Variant): MockConfig 
 		defaultSettings: defaultSettings(variant.language),
 		defaultExportPath: `${HOME}/Documents/Kobo Highlights`,
 		appVersion: APP_VERSION,
-		readers: scenario.withLibrary ? (scenario.otherReaderKobo ? [reader, otherReader] : [reader]) : [],
+		readers: scenario.withLibrary ? (scenario.otherReaderKobo || scenario.unownedKobo ? [reader, otherReader] : [reader]) : [],
 		lastReader: scenario.withLibrary ? reader.id : null,
 		deviceAtStartup: null,
-		koboOwners: scenario.withLibrary ? { [device.serialNumber!]: scenario.otherReaderKobo ? otherReader.id : reader.id } : {},
-		library: scenario.withLibrary ? { [reader.id]: library, ...(scenario.otherReaderKobo ? { [otherReader.id]: [] } : {}) } : {},
+		koboOwners: scenario.withLibrary && !scenario.unownedKobo ? { [device.serialNumber!]: scenario.otherReaderKobo ? otherReader.id : reader.id } : {},
+		library: scenario.withLibrary ? { [reader.id]: library, ...(scenario.otherReaderKobo || scenario.unownedKobo ? { [otherReader.id]: [] } : {}) } : {},
 		summary,
 		update: scenario.update ? availableUpdate : null,
 		windowLabel: scenario.window ?? 'main'

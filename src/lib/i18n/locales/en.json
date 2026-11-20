@@ -9,8 +9,8 @@
   },
   "screens": {
     "noKobo": {
-      "title": "No Kobo connected",
-      "subtitle": "Connect your Kobo to view your highlights"
+      "title": "Connect your Kobo",
+      "subtitle": "Your highlights stay in the Library even with the Kobo unplugged, and you export to Markdown whenever you like."
     },
     "syncingEmpty": {
       "title": "Syncing with the Kobo"
@@ -284,11 +284,12 @@
   },
   "readers": {
     "label": "Reader",
-    "unknownKoboTitle": "New Kobo",
-    "unknownKoboSubtitle": "Whose Kobo is this? Its highlights go to that reader's Library.",
-    "existing": "Existing readers",
-    "newReader": "New reader",
-    "newReaderName": "Reader name",
+    "unknownKoboTitle": "Whose Kobo is this?",
+    "unknownKoboSubtitle": "Highlights go to the Library of whoever you choose.",
+    "choose": "Choose",
+    "newReaderOption": "New reader…",
+    "name": "Name",
+    "cancel": "Cancel",
     "create": "Create reader"
   },
   "updates": {
