@@ -2106,6 +2106,8 @@ Fontes: [Apple HIG, Progress indicators](https://developer.apple.com/design/huma
 
 **Verificar no ecrã (Bruno):** abrir um livro com novidades e ver as marcas; ⌘[ e Esc voltam ao mesmo livro; o título no menu Janela; ligar o Kobo com um livro aberto e ver que o texto não salta.
 
+**Ecrã 5 aprovado a 2026-11-20** (Bruno: «Aprovo o ecrã 5»).
+
 ## Fase 6 · Fecho da v2 (tasks a escrever)
 - **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.
   
