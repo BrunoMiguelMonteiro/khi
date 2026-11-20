@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/svelte";
 import userEvent from "@testing-library/user-event";
-import { compileAppCss } from "$lib/test/css";
+import { compileAppCss, selectorFor } from "$lib/test/css";
 import type { Highlight as HighlightData } from "$lib/types";
 import { Highlight } from "./index";
 
@@ -105,6 +105,27 @@ describe("Highlight", () => {
     expect(slot(root, "highlight-note")).toBeNull();
   });
 
+  it("copy_button_appears_on_hover_and_focus_of_the_highlight", async () => {
+    renderHighlight({}, { oncopy: vi.fn() });
+    const button = copyButton();
+    // Every class that reveals the button must compile to a rule with the real app.css: a variant
+    // that does not exist emits nothing, and the button would stay hidden.
+    const reveals = [...button.classList].filter((c) =>
+      c.endsWith(":opacity-100"),
+    );
+    for (const cls of reveals)
+      expect(await ruleOf(cls), cls).toContain("opacity: 100%");
+    for (const cls of [
+      "group-[:hover]/highlight:opacity-100",
+      "group-focus-within/highlight:opacity-100",
+    ])
+      expect(reveals, cls).toContain(cls);
+    // It follows the named group on the root, not a bare `.group` (the root has none).
+    expect(await selectorFor("group-[:hover]/highlight:opacity-100")).toContain(
+      "group\\/highlight",
+    );
+  });
+
   it("copy_button_appears_on_focus_and_is_next_tab_stop", async () => {
     const user = userEvent.setup();
     const { root } = renderHighlight(
@@ -125,7 +146,6 @@ describe("Highlight", () => {
     const button = copyButton();
     for (const c of [
       "opacity-0",
-      "group-hover/highlight:opacity-100",
       "group-focus-within/highlight:opacity-100",
       "size-6",
     ])

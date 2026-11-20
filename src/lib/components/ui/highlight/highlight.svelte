@@ -92,6 +92,7 @@
 	Componentes (D7) · 20 · Destaque (67:5072). Q-I: hover and focus share one 120 ms fade of the
 	background (p-4 -m-4 grows it past the text), which Reduzir movimento keeps. The gap of 48
 	between highlights belongs to the list (Q-H).
+	`group-[:hover]/highlight`, not `group-hover/highlight`: app.css redefines group-hover as a v3 variant that ignores the group name.
 -->
 <div
 	role="group"
@@ -142,7 +143,7 @@
 		type="button"
 		data-slot="highlight-copy"
 		aria-label={copyLabel}
-		class="absolute top-4 right-4 flex size-6 items-center justify-center rounded-control text-muted-foreground opacity-0 transition-opacity duration-(--duration-hover) ease-hover outline-none group-hover/highlight:opacity-100 group-focus-within/highlight:opacity-100 focus-visible:focus-ring"
+		class="absolute top-4 right-4 flex size-6 items-center justify-center rounded-control text-muted-foreground opacity-0 transition-opacity duration-(--duration-hover) ease-hover outline-none group-[:hover]/highlight:opacity-100 group-focus-within/highlight:opacity-100 focus-visible:focus-ring"
 		onclick={copy}
 	>
 		<Icon icon={copied === 'success' ? Check : Copy} size="md" />
