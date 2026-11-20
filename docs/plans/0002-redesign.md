@@ -1674,7 +1674,8 @@ Fontes: [W3C APG, Listbox Pattern](https://w3.org/WAI/ARIA/apg/patterns/listbox)
 - **Desvio aceite:** `group-[:hover]/card:` em vez de `group-hover/card:`, porque `src/app.css:15` redefine o `group-hover` e a forma normal não gera CSS. Os valores da E1 são tokens em `app.css` (`--color-selection-box`, `--color-selection-box-hover`, `--shadow-selection-box`), porque `ui/` não aceita cores literais.
 - **Review adversarial (Opus): aprovar com correções.** Corrigidos pelo coordenador: o controlo `control.spec.ts` ainda escondia o `selection-check`; o `select-by-box` verifica também o `pointer-events` das outras capas; o teste de opacidade espera `100%`.
 - **Aceite por desenho (Menor 3):** o `pointer-events` passa a `auto` logo com o hover, enquanto a opacidade sobe em 150 ms; um clique nos primeiros ~50 ms seleciona por uma caixa quase invisível.
-- **Visto à margem (fora da task):** `highlight.svelte:145` usa `group-hover/highlight:opacity-100`, que não gera CSS: o botão de copiar do destaque só aparece com o foco, nunca com o hover. As falhas com `--sequence.shuffle` em `library.svelte.test.ts` e `table.test.ts` são anteriores (confirmadas em HEAD com as mesmas seeds).
+- **Aprovada pelo Bruno a 2026-11-20** («Sim, aprovo»), depois de a ver na app: «A caixa de selecção parece estar a funcionar bem».
+- **Visto à margem (fora da task), já corrigido em `e819b75`:** `highlight.svelte:145` usa `group-hover/highlight:opacity-100`, que não gera CSS: o botão de copiar do destaque só aparece com o foco, nunca com o hover. As falhas com `--sequence.shuffle` em `library.svelte.test.ts` e `table.test.ts` são anteriores (confirmadas em HEAD com as mesmas seeds).
 
 **Mutações do coordenador:**
 - tirar a deteção da caixa em `handleClick` (o clique na caixa abre o livro);
