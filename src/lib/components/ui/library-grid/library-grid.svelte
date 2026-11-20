@@ -43,6 +43,8 @@
 	});
 
 	const isSelected = (bookId: number) => selectedBookIds.includes(bookId);
+	/** Some book of this grid is selected (a stale id does not count): every card then shows its selection box. */
+	const selecting = $derived(books.some((book) => selectedBookIds.includes(book.id)));
 
 	function toggle(book: Book) {
 		onSelectionChange(
@@ -55,8 +57,9 @@
 		event.preventDefault();
 		const cmd = event.ctrlKey || event.metaKey;
 
-		// ⇧ and ⌘ never open a book
-		if (event.shiftKey || cmd) {
+		// The selection box counts as a modifier click; ⇧ and ⌘ never open a book
+		const onBox = event.target instanceof Element && event.target.closest('[data-slot="selection-box"]') !== null;
+		if (event.shiftKey || cmd || onBox) {
 			const anchor = books.findIndex((b) => b.id === anchorId);
 			if (event.shiftKey && anchor !== -1) {
 				const index = books.indexOf(book);
@@ -161,6 +164,7 @@
 			class="w-full"
 			tabindex={index === activeIndex ? 0 : -1}
 			selected={isSelected(book.id)}
+			{selecting}
 			book={{
 				id: book.id,
 				title: book.title,

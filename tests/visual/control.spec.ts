@@ -150,7 +150,7 @@ test('control: an approved change approves nothing else', async ({ browser }) =>
 
 test('control: a hidden selected-book indicator is detected', async ({ browser }) => {
 	const result = await captureOf(browser, 'grid-selected--light', {
-		injectCss: '[data-testid="book-card"] [data-slot="selection-frame"], [data-testid="book-card"] [data-slot="selection-check"] { opacity: 0 !important; }'
+		injectCss: '[data-testid="book-card"] [data-slot="selection-frame"], [data-testid="book-card"] [data-slot="selection-box"][data-state="checked"] { opacity: 0 !important; }'
 	});
 	const { blocked } = compareWithBaseline(result, { outputName: 'control--selected-hidden' });
 	expect(has(blocked, /\[data-testid="book-card"\].*\bspan\b/, 'opacity'), 'indicator opacity reported').toBe(true);

@@ -14,6 +14,8 @@
 	export type BookCardProps = Omit<HTMLAttributes<HTMLDivElement>, 'children'> & {
 		book: BookCardBook;
 		selected?: boolean;
+		/** Some book of the grid is selected: every card shows its selection box, not only the hovered one. */
+		selecting?: boolean;
 	};
 </script>
 
@@ -28,6 +30,7 @@
 	let {
 		book,
 		selected = false,
+		selecting = false,
 		tabindex = 0,
 		class: className,
 		...restProps
@@ -58,6 +61,7 @@
 	aria-label={label}
 	{tabindex}
 	data-slot="book-card"
+	data-selecting={selecting ? '' : undefined}
 	class={cn('group/card flex w-42.75 flex-col gap-2 outline-none', className)}
 	{...restProps}
 >
@@ -77,14 +81,33 @@
 				data-slot="selection-frame"
 				class="pointer-events-none absolute -inset-0.5 rounded-control ring-(length:--stroke-ring) ring-primary group-focus-visible/card:focus-ring group-focus-visible/card:outline-offset-(length:--stroke-ring)"
 			></span>
-			<span
-				aria-hidden="true"
-				data-slot="selection-check"
-				class="absolute right-2 bottom-2 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground ring-2 ring-background"
-			>
-				<Icon icon={Check} size="sm" />
-			</span>
 		{/if}
+		<!--
+			Task 37: one 24 × 24 hit area (6 px in from the corner) draws the 20 disc at its centre: the check when selected,
+			the E1 box otherwise. Not a button: the card is an option, so the grid reads the click (library-grid.svelte).
+			Unchecked it is hidden, and click-through (the click lands on the cover), until hover, focus or a selection shows it.
+			`group-[:hover]/card`, not `group-hover/card`: app.css redefines group-hover as a v3 variant that ignores the group name.
+		-->
+		<span
+			aria-hidden="true"
+			data-slot="selection-box"
+			data-state={selected ? 'checked' : 'unchecked'}
+			class={cn(
+				'absolute right-1.5 bottom-1.5 flex size-6 items-center justify-center',
+				!selected &&
+					'pointer-events-none opacity-0 transition-opacity duration-(--duration-out) ease-out group-[:hover]/card:pointer-events-auto group-[:hover]/card:opacity-100 group-focus-visible/card:pointer-events-auto group-focus-visible/card:opacity-100 group-data-[selecting]/card:pointer-events-auto group-data-[selecting]/card:opacity-100 motion-reduce:transition-none'
+			)}
+		>
+			{#if selected}
+				<span class="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground ring-2 ring-background">
+					<Icon icon={Check} size="sm" />
+				</span>
+			{:else}
+				<span
+					class="size-5 rounded-full bg-selection-box shadow-selection-box group-[:hover]/card:bg-selection-box-hover"
+				></span>
+			{/if}
+		</span>
 	</div>
 	<div aria-hidden="true" class="flex min-w-0 flex-col gap-1">
 		<p data-slot="book-card-title" class="line-clamp-2 text-body-medium text-foreground">

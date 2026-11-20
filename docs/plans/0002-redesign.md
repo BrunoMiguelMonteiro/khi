@@ -1647,8 +1647,8 @@ Fontes: [W3C APG, Listbox Pattern](https://w3.org/WAI/ARIA/apg/patterns/listbox)
 6. No teclado nada muda: o Espaço alterna, o Enter abre, o Esc limpa. O VoiceOver continua a ler o rótulo do cartão e «selecionado» pelo `aria-selected`.
 7. O ⌘-clique e o ⇧-clique continuam a funcionar como hoje.
 
-- [ ] **Passo 0 (Opus, Figma):** as variantes `Estado=Ponteiro` e `Estado=Em seleção` no `65:4268`, com a caixa E1.
-- [ ] **Passo 1: testes que falham:**
+- [x] **Passo 0 (Opus, Figma):** as variantes `Estado=Ponteiro` (`116:29747`) e `Estado=Em seleção` (`116:29757`) no `65:4268`, com a caixa E1.
+- [x] **Passo 1: testes que falham:**
   - `book-card.test.ts`:
     - `selection_box_is_hidden_from_assistive_tech`: a caixa tem `aria-hidden="true"`, não tem `tabindex` e não é um `button`;
     - `selection_box_shows_check_when_selected`: com `selected`, a caixa tem `data-state="checked"`; sem ela, `unchecked`. Há um só `selection-box` e nenhum outro visto;
@@ -1662,13 +1662,19 @@ Fontes: [W3C APG, Listbox Pattern](https://w3.org/WAI/ARIA/apg/patterns/listbox)
     - `click_on_cover_opens_while_selecting`: com um livro selecionado, o clique na capa de outro abre-o e não mexe na seleção;
     - `cards_are_selecting_when_any_book_is_selected`: sem seleção, nenhum cartão tem `data-selecting`; com um selecionado, todos têm;
     - `stale_selected_id_does_not_mark_selecting`: um id em `selectedBookIds` que não está em `books` não acende as caixas.
-- [ ] **Passo 2:** os testes falham pela razão certa.
-- [ ] **Passo 3:** o Cartão e a grelha.
-- [ ] **Passo 4:** o harness visual:
+- [x] **Passo 2:** os testes falham pela razão certa.
+- [x] **Passo 3:** o Cartão e a grelha.
+- [x] **Passo 4:** o harness visual:
   - cenário novo `select-by-box`, com o ponteiro real (`hover()` e depois `click()` na caixa; **não** o `dispatchEvent` do `selectBooks`, para o `pointer-events` ser testado): seleciona sem abrir, e as outras capas mostram a caixa;
   - as baselines que mudam revistas uma a uma, em Claro e Escuro.
-- [ ] **Passo 5:** o gate completo (`cargo test`, clippy com os mesmos 7 avisos, Vitest duas vezes e com `--sequence.shuffle`, `npm run check` 0/0, `npm run build`, `npm run test:visual`).
-- [ ] **Passo 6:** commit `feat(library): selection box on book cards`.
+- [x] **Passo 5:** o gate completo (`cargo test`, clippy com os mesmos 7 avisos, Vitest duas vezes e com `--sequence.shuffle`, `npm run check` 0/0, `npm run build`, `npm run test:visual`).
+- [x] **Passo 6:** commit `feat(library): selection box on book cards`.
+
+**Feito (2026-11-20).** Implementado pelo Sonnet; gate: Vitest 664 passam e 1 ignorado (duas corridas), `npm run check` 0/0, build OK, `cargo test` verde, `test:visual` 79/79 duas vezes sobre a árvore final. Mutações do coordenador apanhadas (as três; a do `pointer-events` só pelo `select-by-box`).
+- **Desvio aceite:** `group-[:hover]/card:` em vez de `group-hover/card:`, porque `src/app.css:15` redefine o `group-hover` e a forma normal não gera CSS. Os valores da E1 são tokens em `app.css` (`--color-selection-box`, `--color-selection-box-hover`, `--shadow-selection-box`), porque `ui/` não aceita cores literais.
+- **Review adversarial (Opus): aprovar com correções.** Corrigidos pelo coordenador: o controlo `control.spec.ts` ainda escondia o `selection-check`; o `select-by-box` verifica também o `pointer-events` das outras capas; o teste de opacidade espera `100%`.
+- **Aceite por desenho (Menor 3):** o `pointer-events` passa a `auto` logo com o hover, enquanto a opacidade sobe em 150 ms; um clique nos primeiros ~50 ms seleciona por uma caixa quase invisível.
+- **Visto à margem (fora da task):** `highlight.svelte:145` usa `group-hover/highlight:opacity-100`, que não gera CSS: o botão de copiar do destaque só aparece com o foco, nunca com o hover. As falhas com `--sequence.shuffle` em `library.svelte.test.ts` e `table.test.ts` são anteriores (confirmadas em HEAD com as mesmas seeds).
 
 **Mutações do coordenador:**
 - tirar a deteção da caixa em `handleClick` (o clique na caixa abre o livro);

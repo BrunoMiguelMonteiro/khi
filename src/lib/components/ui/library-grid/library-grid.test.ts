@@ -195,4 +195,79 @@ describe("LibraryGrid", () => {
     expect(options()[3].getAttribute("tabindex")).toBe("0");
     expect(options()[0].getAttribute("tabindex")).toBe("-1");
   });
+
+  describe("selection box", () => {
+    const box = (index: number) =>
+      options()[index].querySelector<HTMLElement>('[data-slot="selection-box"]')!;
+
+    it("click_on_selection_box_selects_without_opening", async () => {
+      const user = userEvent.setup();
+      const { onSelectionChange, onOpen } = renderGrid();
+
+      await user.click(box(1));
+
+      expect(onOpen).not.toHaveBeenCalled();
+      expect(onSelectionChange).toHaveBeenLastCalledWith([2]);
+    });
+
+    it("click_on_checked_box_deselects_without_opening", async () => {
+      const user = userEvent.setup();
+      const { onSelectionChange, onOpen } = renderGrid({ selectedBookIds: [1, 2] });
+
+      await user.click(box(0));
+
+      expect(onOpen).not.toHaveBeenCalled();
+      expect(onSelectionChange).toHaveBeenLastCalledWith([2]);
+    });
+
+    it("shift_click_on_selection_box_selects_range", async () => {
+      const user = userEvent.setup();
+      const { onSelectionChange, onOpen, rerender } = renderGrid();
+
+      await user.click(box(0));
+      await rerender({ selectedBookIds: [1] });
+      await user.keyboard("{Shift>}");
+      await user.click(box(2));
+      await user.keyboard("{/Shift}");
+
+      expect(onSelectionChange).toHaveBeenLastCalledWith([1, 2, 3]);
+      expect(onOpen).not.toHaveBeenCalled();
+    });
+
+    it("click_on_cover_still_opens", async () => {
+      const user = userEvent.setup();
+      const { onSelectionChange, onOpen } = renderGrid();
+
+      await user.click(options()[1].querySelector<HTMLElement>('[data-slot="cover"]')!);
+
+      expect(onOpen).toHaveBeenCalledWith(BOOKS[1]);
+      expect(onSelectionChange).not.toHaveBeenCalled();
+    });
+
+    it("click_on_cover_opens_while_selecting", async () => {
+      const user = userEvent.setup();
+      const { onSelectionChange, onOpen } = renderGrid({ selectedBookIds: [1] });
+
+      await user.click(options()[2].querySelector<HTMLElement>('[data-slot="cover"]')!);
+
+      expect(onOpen).toHaveBeenCalledWith(BOOKS[2]);
+      expect(onSelectionChange).not.toHaveBeenCalled();
+    });
+
+    it("cards_are_selecting_when_any_book_is_selected", async () => {
+      const { rerender } = renderGrid();
+      expect(options().filter((o) => o.hasAttribute("data-selecting"))).toHaveLength(0);
+
+      await rerender({ selectedBookIds: [3] });
+
+      expect(options().filter((o) => o.hasAttribute("data-selecting"))).toHaveLength(
+        BOOKS.length,
+      );
+    });
+
+    it("stale_selected_id_does_not_mark_selecting", () => {
+      renderGrid({ selectedBookIds: [999] });
+      expect(options().filter((o) => o.hasAttribute("data-selecting"))).toHaveLength(0);
+    });
+  });
 });

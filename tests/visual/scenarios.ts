@@ -278,6 +278,34 @@ export const SCENARIOS: Record<string, Scenario> = {
 			await selectBooks(page, text, 'grid');
 		}
 	},
+	'select-by-box': {
+		name: 'select-by-box',
+		description: 'One book selected through its selection box with the real pointer: it selects without opening, and the other covers show their box',
+		withLibrary: true,
+		async reach(page, text) {
+			await library(page, text);
+			const card = page.getByTestId('book-card').nth(SELECTED[0]);
+			const box = card.locator('[data-slot="selection-box"]');
+			// Hidden and click-through at rest: the hover shows it, and the click then lands on the box, not on the cover
+			await expect(box).toHaveCSS('pointer-events', 'none');
+			await card.hover();
+			await expect(box).toHaveCSS('pointer-events', 'auto');
+			await expect(box).toHaveCSS('opacity', '1');
+			await box.click();
+			await expect(card).toHaveAttribute('aria-selected', 'true');
+			// Selecting, not opening: still the grid, and the bar counts the book
+			await expect(page.getByTestId('books-grid')).toBeVisible();
+			const others = page.getByTestId('book-card').filter({ hasNot: page.locator('[data-state="checked"]') });
+			await expect(others).toHaveCount(books.length - 1);
+			for (const other of await others.all()) {
+				await expect(other).toHaveAttribute('data-selecting', '');
+				await expect(other.locator('[data-slot="selection-box"]')).toHaveCSS('opacity', '1');
+				await expect(other.locator('[data-slot="selection-box"]')).toHaveCSS('pointer-events', 'auto');
+			}
+			// Park the pointer off the cards, so the capture shows the selecting state, not a hover
+			await page.mouse.move(0, 0);
+		}
+	},
 	'list-selected': {
 		name: 'list-selected',
 		description: 'The list with two books selected: the bar counts them',

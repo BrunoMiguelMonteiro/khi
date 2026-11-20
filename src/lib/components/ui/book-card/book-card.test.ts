@@ -49,9 +49,13 @@ const MAIAS: BookCardBook = {
   newCount: 11,
 };
 
-function renderCard(book: Partial<BookCardBook> = {}, selected?: boolean) {
+function renderCard(
+  book: Partial<BookCardBook> = {},
+  selected?: boolean,
+  selecting?: boolean,
+) {
   const result = render(BookCard, {
-    props: { book: { ...MAIAS, ...book }, selected },
+    props: { book: { ...MAIAS, ...book }, selected, selecting },
   });
   const card = screen.getByRole("gridcell");
   const cover = must(slot(card, "cover"), "cover");
@@ -60,7 +64,7 @@ function renderCard(book: Partial<BookCardBook> = {}, selected?: boolean) {
     card,
     cover,
     frame: slot(card, "selection-frame"),
-    check: slot(card, "selection-check"),
+    box: slot(card, "selection-box"),
   };
 }
 
@@ -132,10 +136,9 @@ describe("BookCard", () => {
     const off = renderCard({}, false);
     expect(off.card.getAttribute("aria-selected")).toBe("false");
     expect(off.frame).toBeNull();
-    expect(off.check).toBeNull();
     off.unmount();
 
-    const { card, cover, frame, check } = renderCard({}, true);
+    const { card, cover, frame, box } = renderCard({}, true);
     expect(card.getAttribute("aria-selected")).toBe("true");
     // Componentes (D7) · 18 · Cartão do livro (65:4268), Seleção: 2 px out from the cover, 3 px primary stroke outside.
     const selection = must(frame, "selection frame");
@@ -165,9 +168,13 @@ describe("BookCard", () => {
     // Around the cover, not the whole card.
     expect(selection.parentElement).toBe(cover.parentElement);
     expect(selection.parentElement).not.toBe(card);
-    // Visto: 20, primary, 8 px in from the cover's bottom-right corner, 2 px background stroke outside.
-    const visto = must(check, "check");
-    expect(visto.parentElement).toBe(cover.parentElement);
+    // Visto: the 20 disc at the centre of the 24 selection box (6 px in = 8 px from the corner), 2 px background stroke outside.
+    const hit = must(box, "selection box");
+    expect(hit.parentElement).toBe(cover.parentElement);
+    const visto = must(
+      hit.firstElementChild as HTMLElement | null,
+      "check disc",
+    );
     await expectBindings(visto, [
       {
         binding: "20 × 20",
@@ -183,16 +190,6 @@ describe("BookCard", () => {
         binding: "primary",
         utility: "bg-primary",
         css: "background-color: var(--primary);",
-      },
-      {
-        binding: "8 from the right",
-        utility: "right-2",
-        css: "right: calc(var(--spacing) * 2);",
-      },
-      {
-        binding: "8 from the bottom",
-        utility: "bottom-2",
-        css: "bottom: calc(var(--spacing) * 2);",
       },
       {
         binding: "2 px stroke outside",
@@ -215,12 +212,106 @@ describe("BookCard", () => {
     expect(icon.classList).toContain("lucide-check");
     expect(icon.classList).toContain("size-icon-sm");
     // Q-B: no animation on selection.
-    for (const el of [card, selection, visto]) {
+    for (const el of [card, selection, hit, visto]) {
       expect(
         [...el.classList].filter((c) => /transition|animate|duration/.test(c)),
         el.className,
       ).toEqual([]);
     }
+  });
+
+  it("selection_box_is_hidden_from_assistive_tech", () => {
+    const { box } = renderCard();
+    const el = must(box, "selection box");
+    // The card is an option: no interactive child, and the box is not announced.
+    expect(el.getAttribute("aria-hidden")).toBe("true");
+    expect(el.hasAttribute("tabindex")).toBe(false);
+    expect(el.tagName).not.toBe("BUTTON");
+    expect(el.getAttribute("role")).toBeNull();
+    expect(el.querySelector("button, [tabindex], [role]")).toBeNull();
+  });
+
+  it("selection_box_shows_check_when_selected", () => {
+    const off = renderCard({}, false);
+    expect(
+      off.card.querySelectorAll('[data-slot="selection-box"]'),
+    ).toHaveLength(1);
+    expect(must(off.box, "box").getAttribute("data-state")).toBe("unchecked");
+    expect(off.card.querySelector("svg.lucide-check")).toBeNull();
+    off.unmount();
+
+    const on = renderCard({}, true);
+    expect(
+      on.card.querySelectorAll('[data-slot="selection-box"]'),
+    ).toHaveLength(1);
+    expect(must(on.box, "box").getAttribute("data-state")).toBe("checked");
+    // One check only: the old selection-check is gone.
+    expect(on.card.querySelectorAll("svg.lucide-check")).toHaveLength(1);
+    expect(slot(on.card, "selection-check")).toBeNull();
+  });
+
+  it("selection_box_is_24_in_both_states", async () => {
+    const geometry = (el: HTMLElement) =>
+      [...el.classList].filter((c) =>
+        /^(size|right|bottom|top|left|absolute)/.test(c),
+      );
+    const off = renderCard({}, false);
+    const unchecked = geometry(must(off.box, "box"));
+    off.unmount();
+    const on = renderCard({}, true);
+    const checked = geometry(must(on.box, "box"));
+
+    expect(unchecked).toEqual(checked);
+    await expectBindings(must(on.box, "box"), [
+      { binding: "24 × 24", utility: "size-6", css: "width: calc(var(--spacing) * 6);" },
+      { binding: "6 from the right", utility: "right-1.5", css: "right: calc(var(--spacing) * 1.5);" },
+      { binding: "6 from the bottom", utility: "bottom-1.5", css: "bottom: calc(var(--spacing) * 1.5);" },
+    ]);
+  });
+
+  it("unchecked_box_is_revealed_by_hover_focus_and_selecting", async () => {
+    const { box } = renderCard({}, false);
+    const el = must(box, "selection box");
+    // Hidden and click-through at rest, so the click lands on the cover.
+    expect(el.classList).toContain("opacity-0");
+    expect(el.classList).toContain("pointer-events-none");
+    // Each trigger must show it AND make it clickable; every class has to compile to a rule (a variant
+    // that does not exist emits nothing, and the box would stay click-through).
+    for (const trigger of [
+      "group-[:hover]/card",
+      "group-focus-visible/card",
+      "group-data-[selecting]/card",
+    ]) {
+      for (const utility of ["opacity-100", "pointer-events-auto"]) {
+        const cls = `${trigger}:${utility}`;
+        expect(el.classList, cls).toContain(cls);
+        expect(await ruleOf(cls), cls).toContain(
+          utility === "opacity-100" ? "opacity: 100%" : "pointer-events: auto",
+        );
+      }
+    }
+    // The interior darkens to 30 % on hover.
+    const disc = must(el.firstElementChild as HTMLElement | null, "disc");
+    expect(disc.classList).toContain("group-[:hover]/card:bg-selection-box-hover");
+    expect(await ruleOf("group-[:hover]/card:bg-selection-box-hover")).toContain(
+      "var(--color-selection-box-hover)",
+    );
+    // 150 ms ease-out fade, none with reduced motion.
+    for (const cls of [
+      "transition-opacity",
+      "duration-(--duration-out)",
+      "ease-out",
+      "motion-reduce:transition-none",
+    ])
+      expect(el.classList, cls).toContain(cls);
+  });
+
+  it("selecting_marks_card", () => {
+    const off = renderCard({}, false, false);
+    expect(off.card.hasAttribute("data-selecting")).toBe(false);
+    off.unmount();
+    const on = renderCard({}, false, true);
+    expect(on.card.hasAttribute("data-selecting")).toBe(true);
   });
 
   it("title_uses_line_clamp_2", async () => {

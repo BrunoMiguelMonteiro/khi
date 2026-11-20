@@ -21,7 +21,7 @@ The report is written to `output/report.md`, grouped by capture, then element, t
 
 Only update the baseline on a tree whose visuals you have verified. Run `test:visual` twice afterwards to check that the baseline is stable. Commit `baseline/` together with the change that justifies it.
 
-## Matrix (66 captures + 10 controls)
+## Matrix (69 captures + 10 controls)
 
 Scenarios (`scenarios.ts`):
 
@@ -35,6 +35,7 @@ Scenarios (`scenarios.ts`):
   The `settings*` scenarios run in the Settings window: they open `/definicoes` directly, the mock reports window label `settings` (so no `app-ready`, no updater check, no menu), and the viewport is that window's fixed size, 700×540 (`settings_window_spec` in `src-tauri/src/window.rs`). The window is not resizable, so `settings--*--min` equals `settings--*`.
 - `settings-appearance`: the appearance section of settings.
 - `grid-selected` / `list-selected`: two books selected (⌘-click on the cards, the checkboxes in the list); the bar's Export counts them.
+- `select-by-box`: one book selected by hovering its card and clicking the selection box with the real pointer (`hover()` then `click()`, not `dispatchEvent`, so `pointer-events` is tested): it selects without opening, and the other covers show their box.
 - `settings-updates`: the Updates tab, with the automatic-check switch (hover, keyboard focus) and «Check now».
 - `update`: the update dialog.
 - `importing`: a sync in progress. `sync_kobo` is held pending (`__KHI_MOCK__.hold`), so the importing state with the pulsing Kobo icon stays on screen. Asserts `animation-name` is not `none`, or is `none` under reduced motion.

@@ -67,6 +67,13 @@
   --radius-full: 9999px;
 }
 
+/* Task 37: the selection box on a cover (Figma E1). Over the cover, so the same in both themes. */
+@theme static {
+  --color-selection-box: rgb(0 0 0 / 0.1);
+  --color-selection-box-hover: rgb(0 0 0 / 0.3);
+  --shadow-selection-box: inset 0 0 0 2px #fff, 0 0 4px rgb(0 0 0 / 0.35), 0 1px 2px rgb(0 0 0 / 0.2);
+}
+
 @theme inline {
   --drop-shadow-md: 0 4px 3px rgb(0 0 0 / 0.07), 0 2px 2px rgb(0 0 0 / 0.06);
 }
