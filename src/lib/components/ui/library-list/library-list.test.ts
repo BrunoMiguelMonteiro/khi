@@ -312,3 +312,41 @@ describe("LibraryList", () => {
     });
   });
 });
+
+describe("LibraryList shift+arrows", () => {
+  it("shift_ArrowDown_extends_and_shift_ArrowUp_shrinks_from_the_focused_book", async () => {
+    const user = userEvent.setup();
+    const { onSelectionChange } = renderList();
+    rows()[0].focus();
+
+    await user.keyboard("{Shift>}{ArrowDown}{/Shift}");
+    expect(onSelectionChange).toHaveBeenLastCalledWith([1, 2]);
+    await user.keyboard("{Shift>}{ArrowDown}{/Shift}");
+    expect(onSelectionChange).toHaveBeenLastCalledWith([1, 2, 3]);
+    expect(document.activeElement).toBe(rows()[2]);
+    await user.keyboard("{Shift>}{ArrowUp}{/Shift}");
+    expect(onSelectionChange).toHaveBeenLastCalledWith([1, 2]);
+  });
+
+  it("shift_arrow_extends_from_the_anchor_set_by_space", async () => {
+    const user = userEvent.setup();
+    const { onSelectionChange } = renderList();
+    rows()[1].focus();
+
+    await user.keyboard(" ");
+    await user.keyboard("{ArrowDown}");
+    expect(onSelectionChange).toHaveBeenCalledTimes(1);
+    await user.keyboard("{Shift>}{ArrowDown}{/Shift}");
+    expect(onSelectionChange).toHaveBeenLastCalledWith([2, 3, 4]);
+  });
+
+  it("shift_arrow_at_the_last_item_changes_nothing", async () => {
+    const user = userEvent.setup();
+    const { onSelectionChange } = renderList();
+    rows()[4].focus();
+
+    await user.keyboard("{Shift>}{ArrowDown}{/Shift}");
+    expect(onSelectionChange).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(rows()[4]);
+  });
+});

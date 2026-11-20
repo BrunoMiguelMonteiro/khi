@@ -108,9 +108,17 @@
 		return Math.max(1, wrapped === -1 ? items.length : wrapped);
 	}
 
-	function focusAt(index: number) {
+	/** Moves the focus; with ⇧ the selection becomes the range from the anchor (the book focused before, if none) to the new one. */
+	function focusAt(index: number, from: number, extend = false) {
 		if (index < 0 || index >= books.length) return;
 		cards()[index]?.focus();
+		if (!extend) return;
+		let anchor = books.findIndex((b) => b.id === anchorId);
+		if (anchor === -1) {
+			anchor = from;
+			anchorId = books[from].id;
+		}
+		onSelectionChange(books.slice(Math.min(anchor, index), Math.max(anchor, index) + 1).map((b) => b.id));
 	}
 
 	function handleKeydown(event: KeyboardEvent) {
@@ -122,22 +130,22 @@
 
 		switch (event.key) {
 			case 'ArrowRight':
-				focusAt(index + 1);
+				focusAt(index + 1, index, event.shiftKey);
 				break;
 			case 'ArrowLeft':
-				focusAt(index - 1);
+				focusAt(index - 1, index, event.shiftKey);
 				break;
 			case 'ArrowDown':
-				focusAt(index + columns());
+				focusAt(index + columns(), index, event.shiftKey);
 				break;
 			case 'ArrowUp':
-				focusAt(index - columns());
+				focusAt(index - columns(), index, event.shiftKey);
 				break;
 			case 'Home':
-				focusAt(0);
+				focusAt(0, index);
 				break;
 			case 'End':
-				focusAt(books.length - 1);
+				focusAt(books.length - 1, index);
 				break;
 			case 'Enter':
 				onOpen(books[index]);

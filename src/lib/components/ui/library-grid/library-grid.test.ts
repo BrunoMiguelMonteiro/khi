@@ -324,3 +324,53 @@ describe("LibraryGrid · hideNew (Task 38)", () => {
     expect(badges()[0].classList.contains("animate-in")).toBe(false);
   });
 });
+
+describe("LibraryGrid shift+arrows", () => {
+  it("shift_ArrowRight_extends_and_shift_ArrowLeft_shrinks_from_the_focused_book", async () => {
+    const user = userEvent.setup();
+    const { onSelectionChange } = renderGrid();
+    options()[0].focus();
+
+    await user.keyboard("{Shift>}{ArrowRight}{/Shift}");
+    expect(onSelectionChange).toHaveBeenLastCalledWith([1, 2]);
+    await user.keyboard("{Shift>}{ArrowRight}{/Shift}");
+    expect(onSelectionChange).toHaveBeenLastCalledWith([1, 2, 3]);
+    expect(document.activeElement).toBe(options()[2]);
+    await user.keyboard("{Shift>}{ArrowLeft}{/Shift}");
+    expect(onSelectionChange).toHaveBeenLastCalledWith([1, 2]);
+  });
+
+  it("shift_arrow_extends_from_the_anchor_set_by_space", async () => {
+    const user = userEvent.setup();
+    const { onSelectionChange } = renderGrid();
+    options()[1].focus();
+
+    await user.keyboard(" ");
+    await user.keyboard("{ArrowRight}");
+    expect(onSelectionChange).toHaveBeenCalledTimes(1);
+    await user.keyboard("{Shift>}{ArrowRight}{/Shift}");
+    expect(onSelectionChange).toHaveBeenLastCalledWith([2, 3, 4]);
+  });
+
+  it("shift_arrow_at_the_last_item_changes_nothing", async () => {
+    const user = userEvent.setup();
+    const { onSelectionChange } = renderGrid();
+    options()[4].focus();
+
+    await user.keyboard("{Shift>}{ArrowRight}{/Shift}");
+    expect(onSelectionChange).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(options()[4]);
+  });
+
+  it("shift_down_selects_the_whole_display_order_range", async () => {
+    const user = userEvent.setup();
+    const { onSelectionChange } = renderGrid();
+    options()[1].focus();
+
+    await user.keyboard("{Shift>}{ArrowDown}{/Shift}");
+    expect(document.activeElement).toBe(options()[4]);
+    expect(onSelectionChange).toHaveBeenLastCalledWith([2, 3, 4, 5]);
+    await user.keyboard("{Shift>}{ArrowUp}{/Shift}");
+    expect(onSelectionChange).toHaveBeenLastCalledWith([2]);
+  });
+});
