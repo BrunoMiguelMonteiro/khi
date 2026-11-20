@@ -2108,6 +2108,90 @@ Fontes: [Apple HIG, Progress indicators](https://developer.apple.com/design/huma
 
 **Ecrã 5 aprovado a 2026-11-20** (Bruno: «Aprovo o ecrã 5»).
 
+### Task 44: Ecrã 6 · Primeiro arranque e Kobo novo
+**Decisões do Bruno a 2026-11-20** (AskUserQuestion, uma a uma; ver DECISIONS, «Ecrãs · 6 · … o que ficava por decidir antes do código»):
+- **Q1 · mantém-se o R1** (contra a minha recomendação): sem nenhum leitor, o Khi não pergunta, cria o leitor com o nome do aparelho e sincroniza. A variante `Kobo novo · Sem leitores` (`62:2125`) e as molduras `72:11461` / `72:11500` não entram no código;
+- **Q2:** depois de Cancelar, o Sincronizar fica ativo e volta a perguntar; desligar e ligar também;
+- **Q3:** o pop-up vem no leitor da Biblioteca aberta; sem nenhum aberto, o `lastReader`; sem esse, o primeiro;
+- **Q4:** o campo do nome em «Novo leitor…» começa vazio.
+
+**Figma** (só leitura, medido a 2026-11-20):
+- **Primeiro arranque** (`72:11425` Claro, `72:11443` Escuro), janela 1000 × 700:
+  - a Barra da janela tem tudo à vista e desativado: Título-menu «Biblioteca», Grupo de vista, Ordenar, Sincronizar e Exportar;
+  - o Estado vazio fica centrado, com 320 de largura e `gap` 24. Leva o Kobo tracejado de 96 (`highlight-line`, estático) e, por baixo, o Texto (`gap` 8);
+  - o título é «Liga o teu Kobo», em Title 3 `foreground`;
+  - a explicação é «Os destaques ficam guardados na Biblioteca, mesmo com o Kobo desligado, e exportas para Markdown quando quiseres.», em Body `muted-foreground`, centrada.
+- **Kobo novo · Com leitores** (`58:6794`, 380 × 212) e **Novo leitor** (`62:2147`, 380 × 248):
+  - o título é «De quem é este Kobo?» e o texto «Os destaques ficam na Biblioteca de quem escolheres.»;
+  - os campos têm `pt-4 gap-2`, em linhas de 28 com um rótulo de 56 (Body), `gap` 8 e o controlo a 268;
+  - a linha «Leitor» tem o Pop-up com os leitores, um separador e «Novo leitor…»;
+  - com «Novo leitor…» entra a linha «Nome», com o Campo de texto;
+  - os botões ficam à direita, com `pt-4 gap-2`: Cancelar (Secundário) e «Escolher» (Principal, o botão por omissão), ou Cancelar e «Criar leitor» com «Novo leitor…»;
+  - o fundo é `bg-scrim` (Q-G).
+
+**Ficheiros:**
+- `src/lib/components/EmptyStateNoDevice.svelte` e um teste novo;
+- `src/lib/components/UnknownKoboDialog.svelte`, reescrito sobre o `Dialog` da Task 23, o `Select` e o `FormRow`, e o seu teste;
+- `src/lib/stores/library.svelte.ts` e `src/routes/+page.svelte` (com `page.svelte.test.ts`);
+- `src/lib/components/ui/window-bar/window-bar.svelte`, só se precisar de um `disabled` global;
+- `pt.json` e `en.json`;
+- `tests/visual/scenarios.ts` e as baselines.
+
+**Comportamento:**
+1. **Primeiro arranque (sem leitor ativo, `uiState` `no-device`):**
+   - o `EmptyStateNoDevice` passa ao esqueleto do `EmptyStateSyncing` (`gap-6`, `w-[320px]`, `text-title-3`, `text-body text-muted-foreground`, `bg-background`), com o `KoboIcon` `dashed` de 96;
+   - os textos são `screens.noKobo.title` «Liga o teu Kobo» e `subtitle`, a frase da L1, e mudam em pt e en;
+   - mantém `role="status"`;
+   - a Barra tem tudo desativado: Título-menu, Grupo de vista, Ordenar, Sincronizar e Exportar. Nenhum atalho de teclado da Biblioteca dispara.
+2. **R1 fica como está:** sem leitores, `deviceConnected` cria o leitor e sincroniza. Os testes atuais disso não mudam; se algum falhar, a implementação está errada, não o teste.
+3. **Janela «De quem é este Kobo?» (há leitores):**
+   - abre como `Dialog` (`role="dialog"`, `aria-modal`, nome no título, descrição no texto). Saem o `bg-black/40`, o `max-w-md` e os botões por leitor;
+   - **Com leitores:** pop-up na pré-escolha da Q3, Cancelar e «Escolher». O foco vai para a janela, não para o pop-up (Q-E). Return carrega no «Escolher», que chama `onChoose(id)`;
+   - **Novo leitor…:** aparece a linha «Nome», com o campo vazio e o foco nele. O botão principal passa a «Criar leitor», desativado sem texto (`trim`); Return com texto cria o leitor (`onCreate(nome)`). Voltar a um leitor no pop-up esconde o campo e o texto escrito não se perde;
+   - **Cancelar, Esc e ⌘.:** fecham sem escolher (`onCancel`), e o Kobo não sincroniza;
+   - **Teclas com o pop-up aberto:** Return e Esc atuam só no pop-up; nem confirmam nem cancelam a janela.
+4. **Depois de Cancelar (Q2):**
+   - a Biblioteca aberta fica à vista;
+   - a recusa fica guardada para esta ligação (o número de série), até `deviceDisconnected`. O `device-detected` repetido do monitor não reabre a janela;
+   - o Sincronizar fica ativo enquanto o Kobo sem dono está ligado. Carregar nele reabre a janela, em vez de sincronizar a Biblioteca aberta;
+   - desligar e voltar a ligar volta a perguntar.
+5. **Desligar com a janela aberta:** fecha a janela, sem escolher nem criar.
+6. **Textos (pt e en):**
+   - `unknownKoboTitle` passa a «De quem é este Kobo?» / «Whose Kobo is this?»;
+   - `unknownKoboSubtitle` passa a «Os destaques ficam na Biblioteca de quem escolheres.» / «Highlights go to the Library of whoever you choose.»;
+   - entram `choose` «Escolher» / «Choose», `newReaderOption` «Novo leitor…» / «New Reader…», `name` «Nome» / «Name» e `cancel` «Cancelar» / «Cancel» (se já existir uma chave comum de Cancelar, usa-se essa);
+   - saem `existing`, `newReader` e `newReaderName`, se ficarem sem uso.
+
+**Passos:**
+- [ ] **Passo 1:** testes que falham do `EmptyStateNoDevice` (textos, Kobo de 96, `role="status"`) e da Barra sem leitores (os cinco controlos desativados; ⌘E, ⌘R e afins não fazem nada). Implementar.
+- [ ] **Passo 2:** testes que falham do `UnknownKoboDialog`:
+  - `role` e nome;
+  - pré-escolha da Q3, com os três casos;
+  - Return escolhe, e Return e Esc com o pop-up aberto não fecham a janela;
+  - «Novo leitor…» mostra o campo vazio com o foco;
+  - «Criar leitor» desativado com espaços;
+  - o texto mantém-se ao voltar a um leitor;
+  - Cancelar, Esc e ⌘. chamam `onCancel`.
+  
+  Implementar.
+- [ ] **Passo 3:** testes que falham da página e da store:
+  - `cancel_keeps_library_and_does_not_sync`;
+  - `repeated_device_detected_after_cancel_does_not_reopen`;
+  - `sync_after_cancel_asks_again`;
+  - `reconnect_after_cancel_asks_again`;
+  - `disconnect_closes_unknown_kobo_dialog`;
+  - `first_kobo_without_readers_does_not_ask` (o R1, se ainda não existir com este alcance).
+  
+  Implementar.
+- [ ] **Passo 4:** cenários visuais, em Claro e Escuro, comparados com o Figma: `first-launch` (com a Barra desativada), `unknown-kobo` (Com leitores) e `unknown-kobo-new-reader` (com um nome escrito), mais `first-launch--min` (800 × 600).
+- [ ] **Passo 5:** gate completo (Vitest, check, build, `test:visual`, `cargo check` se mexer em Rust).
+- [ ] **Passo 6:** review adversarial (Opus) e mutações minhas; commit `feat(readers): first start and whose-Kobo dialog from the redesign`.
+
+**Verificar no ecrã (Bruno):** o Bruno já tem leitores, por isso o primeiro arranque aprova-se pelas capturas. No ecrã, com a build dev:
+- um Kobo sem dono abre a janela no leitor aberto;
+- Cancelar deixa a Biblioteca e o Sincronizar volta a perguntar;
+- desligar fecha a janela.
+
 ## Fase 6 · Fecho da v2 (tasks a escrever)
 - **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.
   
