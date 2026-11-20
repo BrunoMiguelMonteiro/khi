@@ -253,6 +253,14 @@ async function listView(page: Page, text: Strings) {
 	await connectKobo(page, text);
 	await expect(page.getByTestId('books-list')).toBeVisible();
 	await expect(page.getByText(books[0].title).first()).toBeVisible();
+	// Task 42: a 1 px border under the header row; 44 days ago (2 Oct, now 15 Nov) reads as a short date, 5 days ago stays relative
+	await expect(page.getByTestId('books-list').getByRole('row').first()).toHaveCSS('border-bottom-width', '1px');
+	const lastRead = page.locator('[data-slot="book-row-last-read"]');
+	// The Last read column is gone below 900 px, and the order depends on the scenario's sort
+	if ((await lastRead.count()) > 0) {
+		await expect(lastRead.filter({ hasText: /^(2 out\.|Oct 2)$/ })).toHaveCount(1);
+		await expect(lastRead.filter({ hasText: /^(Há 5 dias|5 days ago)$/ })).toHaveCount(1);
+	}
 }
 
 export const SCENARIOS: Record<string, Scenario> = {

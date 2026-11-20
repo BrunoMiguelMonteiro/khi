@@ -65,7 +65,7 @@
 	</div>
 {/if}
 
-<div class="flex-1 overflow-y-auto scroll-pt-7">
+<div class="flex-1 overflow-y-auto scroll-pt-9">
 	<div class="flex flex-col gap-6 p-6">
 		{@render header?.()}
 		{#if books.length === 0}

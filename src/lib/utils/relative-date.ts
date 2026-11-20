@@ -1,6 +1,8 @@
+import { formatShortDate } from './short-date';
+
 const DASH = '—';
 const DAY_MS = 86_400_000;
-const DAYS_PER_MONTH = 30;
+const MAX_RELATIVE_DAYS = 30;
 
 /** Whole local calendar days from `date` to `now`: 23:50 yesterday is 1, whatever the hour. */
 function calendarDaysBetween(date: Date, now: Date): number {
@@ -10,25 +12,23 @@ function calendarDaysBetween(date: Date, now: Date): number {
 }
 
 /**
- * «Hoje», «Ontem», «Há 3 dias», «Há 2 semanas», «Há 4 meses», «Há 2 anos», in the interface's language.
- * Days up to 6, weeks up to 4, months up to 11, then years. No date is «—».
+ * Last read, in the interface's language: «Hoje», «Ontem», «Há 3 dias» up to 6 days, «Há 2 semanas» up to 30,
+ * then a short date («9 nov.», with the year when it is not the current one). No date is «—».
  */
-export function formatRelativeDate(value: string | null | undefined, locale: string, now: Date = new Date()): string {
+export function formatLastRead(value: string | null | undefined, locale: string, now: Date = new Date()): string {
 	if (!value) return DASH;
 	const date = new Date(value);
 	if (Number.isNaN(date.getTime())) return DASH;
 
 	const days = Math.max(0, calendarDaysBetween(date, now));
-	const tag = locale === 'pt' ? 'pt-PT' : locale;
-	// «auto» only for days («Hoje», «Ontem»): for weeks and up it would say «Semana passada» for a count, not the calendar.
-	const dayFormat = new Intl.RelativeTimeFormat(tag, { numeric: 'auto' });
-	const format = new Intl.RelativeTimeFormat(tag, { numeric: 'always' });
+	if (days > MAX_RELATIVE_DAYS) return formatShortDate(date, locale, date.getFullYear() !== now.getFullYear());
 
-	let text: string;
-	if (days < 7) text = dayFormat.format(-days, 'day');
-	else if (days < 35) text = format.format(-Math.floor(days / 7), 'week');
-	else if (days < 365) text = format.format(-Math.min(11, Math.floor(days / DAYS_PER_MONTH)), 'month');
-	else text = format.format(-Math.floor(days / 365), 'year');
+	const tag = locale === 'pt' ? 'pt-PT' : locale;
+	// «auto» only for days («Hoje», «Ontem»): for weeks it would say «Semana passada» for a count, not the calendar.
+	const text =
+		days < 7
+			? new Intl.RelativeTimeFormat(tag, { numeric: 'auto' }).format(-days, 'day')
+			: new Intl.RelativeTimeFormat(tag, { numeric: 'always' }).format(-Math.floor(days / 7), 'week');
 
 	return text.charAt(0).toUpperCase() + text.slice(1);
 }

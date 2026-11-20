@@ -77,14 +77,14 @@ role="gridcell"
 			aria-hidden="true"
 			data-slot="selection-box"
 			data-state={selected ? 'checked' : 'unchecked'}
-			class="absolute inset-y-0 left-0 flex w-9 items-center pl-2"
+			class="absolute inset-y-0 left-0 flex w-9 items-center pl-2.5"
 		>
 			{#if selected}
-				<span class="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground ring-2 ring-background">
-					<Icon icon={Check} size="sm" />
+				<span class="flex size-4 items-center justify-center rounded-full bg-primary text-primary-foreground ring-2 ring-background">
+					<Icon icon={Check} size="xs" />
 				</span>
 			{:else}
-				<span class="size-5 rounded-full border-[1.5px] border-selection-outline group-[:hover]/row:border-selection-outline-hover"></span>
+				<span class="size-4 rounded-full border-[1.5px] border-selection-outline group-[:hover]/row:border-selection-outline-hover"></span>
 			{/if}
 		</span>
 		<Thumbnail class="mr-4 ml-1" src={book.coverSrc} bookId={book.id} />

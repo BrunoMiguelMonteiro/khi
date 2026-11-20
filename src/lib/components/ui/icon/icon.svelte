@@ -2,11 +2,13 @@
 	import type { Component, ComponentType, SvelteComponent } from 'svelte';
 	import type { IconProps } from 'lucide-svelte';
 
-	export type IconSize = 'sm' | 'md' | 'lg';
+	export type IconSize = 'xs' | 'sm' | 'md' | 'lg';
 	export type LucideIcon = ComponentType<SvelteComponent<IconProps>> | Component<IconProps>;
 
 	// Figma size/icon-sm, size/icon and size/icon-lg (design/tokens.json → medidas).
 	const SIZES = {
+		// The list's selection check, inside a 16 px disc (Task 42): no token, a fixed 10.
+		xs: { px: 10, class: 'size-2.5' },
 		sm: { px: 12, class: 'size-icon-sm' },
 		md: { px: 16, class: 'size-icon' },
 		lg: { px: 20, class: 'size-icon-lg' }

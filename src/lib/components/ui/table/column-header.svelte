@@ -43,12 +43,12 @@
 	role="columnheader"
 	aria-sort={ARIA_SORT[sort]}
 	data-slot="column-header"
-	class={cn('h-7 p-0', className)}
+	class={cn('h-9 p-0', className)}
 >
 	<button
 		type="button"
 		class={cn(
-			'flex h-7 w-full items-center gap-1 rounded-control text-callout-medium outline-none focus-visible:focus-ring',
+			'flex h-9 w-full items-center gap-1 rounded-control text-callout-medium outline-none focus-visible:focus-ring',
 			flush ? 'px-0' : 'px-2',
 			ALIGN[align],
 			TONE[sort]

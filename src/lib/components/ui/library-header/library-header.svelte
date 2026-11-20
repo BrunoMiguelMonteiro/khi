@@ -29,6 +29,7 @@
 	import { prefersReducedMotion } from 'svelte/motion';
 	import { _, locale } from '$lib/i18n';
 	import { cn } from '$lib/utils';
+	import { formatShortDate } from '$lib/utils/short-date';
 	import { Button } from '../button';
 	import { Icon } from '../icon';
 
@@ -56,12 +57,7 @@
 	});
 	onDestroy(() => clearTimeout(timer));
 
-	const shortDate = (when: When) =>
-		new Intl.DateTimeFormat($locale, { day: 'numeric', month: 'short' })
-			.formatToParts(new Date(when))
-			.filter((part) => part.type === 'day' || part.type === 'month')
-			.map((part) => part.value)
-			.join(' ');
+	const shortDate = (when: When) => formatShortDate(when, $locale ?? 'pt');
 	const time = (when: When) =>
 		new Intl.DateTimeFormat($locale, { hour: '2-digit', minute: '2-digit' }).format(new Date(when));
 

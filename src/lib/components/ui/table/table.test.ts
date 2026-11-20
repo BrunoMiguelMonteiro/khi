@@ -298,10 +298,12 @@ describe("BookRow", () => {
       { binding: "36 wide", utility: "w-9", css: "width: calc(var(--spacing) * 9);" },
       { binding: "row tall", utility: "inset-y-0", css: "inset-block: 0px;" },
     ]);
-    // The empty disc: 20 px, a 1.5 px outline in selection-outline, the hover value with the pointer on the row.
+    // 10 px of padding: the 16 px disc centres at 18 px, as the 20 px one did at 8 + 10
+    await expectBindings(box, [{ binding: "disc centre at 18", utility: "pl-2.5", css: "padding-left: calc(var(--spacing) * 2.5);" }]);
+    // The empty disc: 16 px, a 1.5 px outline in selection-outline, the hover value with the pointer on the row.
     const disc = must(box.querySelector<HTMLElement>(":scope > span"), "disc");
     await expectBindings(disc, [
-      { binding: "20 px", utility: "size-5", css: "width: calc(var(--spacing) * 5);" },
+      { binding: "16 px", utility: "size-4", css: "width: calc(var(--spacing) * 4);" },
       { binding: "1.5 px outline", utility: "border-[1.5px]", css: "border-width: 1.5px;" },
       { binding: "rest", utility: "border-selection-outline", css: "var(--selection-outline)" },
       {
@@ -311,6 +313,23 @@ describe("BookRow", () => {
       },
     ]);
     expect(disc.classList).not.toContain("bg-selection-box");
+  });
+
+  it("selected_disc_is_16_with_a_10_check", async () => {
+    const { row } = renderRow({}, true);
+    const box = must(slot(row, "selection-box"), "box");
+    const disc = must(box.querySelector<HTMLElement>(":scope > span"), "disc");
+    await expectBindings(disc, [
+      { binding: "16 px", utility: "size-4", css: "width: calc(var(--spacing) * 4);" },
+      { binding: "primary", utility: "bg-primary", css: "background-color: var(--primary);" },
+      { binding: "2 px background ring", utility: "ring-2", css: "calc(2px + var(--tw-ring-offset-width))" },
+    ]);
+    expect(disc.classList).not.toContain("size-5");
+    const icon = must(disc.querySelector<HTMLElement>("svg"), "check");
+    expect(icon.classList).toContain("size-2.5");
+    expect(icon.classList).not.toContain("size-icon-sm");
+    // lucide gets 10, so absoluteStrokeWidth keeps the stroke at 1.333
+    expect(icon.getAttribute("width")).toBe("10");
   });
 
   it("selected_row_shows_a_2px_inset_primary_foreground_ring_only_when_focused", async () => {
@@ -476,13 +495,13 @@ describe("ColumnHeader", () => {
       }
       document.body.innerHTML = "";
     }
-    // Componentes (D7) · 19 · Cabeçalho de coluna (66:4649): 28 high, px-2, gap-1, Callout Medium.
+    // Componentes (D7) · 19 · Cabeçalho de coluna (66:4649): 36 high, px-2, gap-1, Callout Medium.
     const { button } = renderHeader();
     await expectBindings(button, [
       {
-        binding: "28 high",
-        utility: "h-7",
-        css: "height: calc(var(--spacing) * 7);",
+        binding: "36 high",
+        utility: "h-9",
+        css: "height: calc(var(--spacing) * 9);",
       },
       {
         binding: "spacing/2",

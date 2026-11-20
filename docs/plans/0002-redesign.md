@@ -2035,6 +2035,34 @@ Fontes: [Apple HIG, Progress indicators](https://developer.apple.com/design/huma
 
 **Verificar no ecrã (Bruno):** as capas reais reconhecem-se; as caixas vêem-se em repouso no Claro; com a janela estreita, «Última leitura» sai sem saltos; navegar com as setas sobre linhas selecionadas mostra sempre onde está o foco.
 
+### Task 42: Lista · separador do cabeçalho, caixa de 16 px e datas absolutas
+**Task aprovada pelo Bruno a 2026-11-20** («Aprovo a Task 42»).
+
+**Decisões do Bruno a 2026-11-20** (DECISIONS, «Componentes · 11»): caixa da lista a 16 px com visto de 10; datas relativas até 30 dias e depois data curta («9 nov.», «9 nov. 2025» noutro ano). O separador do cabeçalho já estava no Figma (Componentes · 17) e é um bug da Task 40.
+
+**Já existe:** a lista M2 (`75146fe`), `formatRelativeDate` em `src/lib/utils/relative-date.ts`, e a data curta do resumo («desde 9 nov.») em `library-header`.
+
+**Implementador:** um Sonnet. No Figma, um Opus atualiza a M2 (`127:32889`) com a caixa de 16 px. Review adversarial (Opus) leve no fim, centrada nas fronteiras das datas e no fuso.
+
+**Ficheiros:** `src/lib/components/ui/library-list/library-list.svelte`, `src/lib/components/ui/table/book-row.svelte`, `src/lib/utils/relative-date.ts` e testes, `tests/visual/scenarios.ts` e as baselines da lista.
+
+**Comportamento:**
+1. **Separador:** 1 px em `border` por baixo da linha de cabeçalhos, em Claro e Escuro, alinhado com os separadores das linhas.
+2. **Caixa da lista:** disco de 16 px; vazio com contorno de 1,5 px em `selection-outline` (hover como hoje); selecionado em `primary` com visto de 10 px e o anel de `background` de hoje. Mesma posição horizontal do centro e área de clique de 36 × 56. A grelha não muda.
+3. **Datas:** 0–6 dias «Hoje», «Ontem», «Há N dias»; 7–30 dias «Há N semanas»; a partir de 31 dias, data curta com o mesmo formatador do resumo, sem ano no ano corrente e com ano noutro. Sem data, «—». Em inglês, o mesmo esquema.
+4. **Cabeçalho a 36 px** (acrescento do Bruno a 2026-11-20, no ecrã): a linha de cabeçalhos passa de 28 a 36 px, 8 px acima e abaixo do rótulo, sempre (sem mudar ao colar); o `scroll-pt-7` do contentor passa a `scroll-pt-9`.
+
+**Passos:**
+- [x] **Passo 1:** testes que falham: o cabeçalho tem o separador; o disco mede 16 e o visto 10 na lista e 20 na grelha; datas nas fronteiras 30/31 dias, na passagem de ano (31 dez → 1 jan) e noutro ano, em pt e en.
+- [x] **Passo 2:** implementação; Figma M2 com a caixa de 16 px. Feito: código; Figma M2 `127:32889` com a caixa de 16 px e visto de 10, datas absolutas a partir de 31 dias e cabeçalho a 36 px (linhas `127:32896`, `127:33065`, `127:33234`; nota `129:33593`).
+- [x] **Passo 3:** baselines visuais da lista.
+- [x] **Passo 4:** gate completo (Vitest, check, build, `test:visual`).
+- [x] **Passo 5:** review adversarial e mutações minhas; commit `fix(library): list header rule, smaller selection box, absolute dates past a month`. Feito: review com 0 blockers, 0 majors e 3 minors, todos corrigidos (traço do visto via `Icon` `xs`; vírgula do ano em inglês; o fuso já estava fixo no harness). Mutações: 9 aplicadas, 8 mortas à primeira; a sobrevivente (centro da caixa, `pl-2.5` → `pl-2`) passou a morrer com a nova asserção.
+
+**Feito (2026-11-20).** Passo 1: 10 testes falharam primeiro (7 do `relative-date`, por a função ainda se chamar `formatRelativeDate`; 2 da caixa em `table.test.ts`, disco 16 e visto 10; 1 do separador do cabeçalho). Implementado: `HeaderRow` perde o `border-b-0` e herda o `border-b border-border` do `table-row`, igual às linhas; disco `size-4` nos dois estados com o visto a `size-2.5` (10 px; o `Icon` não tem esse tamanho, passa-se a classe sem mexer nos tamanhos existentes) e `pl-2.5` na tira de 36 × 56, para o centro ficar nos 18 px de antes; a grelha não mudou (o teste dos 20 px do `book-card` continua verde). `formatRelativeDate` passou a `formatLastRead`: 0–6 dias relativo, 7–30 «Há N semanas», a partir de 31 dias data curta; o formatador do resumo foi extraído para `src/lib/utils/short-date.ts` (`formatShortDate`) e é partilhado com `library-header`. Desvios: em inglês o ano vem depois de um espaço («Nov 20 2026»), o mesmo esquema do resumo, sem vírgula; o `formatShortDate` usa o locale tal e qual (com `pt-PT` o WebKit dá «9 11»); o cenário visual `listView` ganhou asserções (linha do cabeçalho com 1 px, «2 out.» e «Há 5 dias», só quando a coluna existe), e as datas das fixtures não mudaram (2 out. = 44 dias, 15 ago., 1 jul. deixam de ser «Há N meses» e passam a data curta). Baselines: só as 14 da lista (`list`, `list-selected`, `list-selecting`, `list-reversed`, mais `list--min` em claro e escuro). Acrescento do Bruno (cabeçalho a 36 px): `h-7` passou a `h-9` na linha de cabeçalhos e no `ColumnHeader`, `scroll-pt-7` a `scroll-pt-9` na `LibraryView`, mantendo o separador de 1 px; testes da altura ajustados e baselines da lista atualizadas de novo. Correções da review: o `Icon` ganhou o tamanho `xs` (10 px, `size-2.5`) para o visto, porque com `size="sm"` o lucide recebia 12 e o traço, com `absoluteStrokeWidth`, saía a ≈1,11 px em vez de 1,333 (teste: `width="10"` no svg); o ano em `formatShortDate` passou a vir do Intl (`year: 'numeric'`, só o « de » português vira espaço): «9 nov. 2025» e «Nov 9, 2025» (o teste inglês ganhou a vírgula, e a nota anterior sobre «Nov 20 2026» fica sem efeito); o fuso dos testes visuais já estava fixo em `Europe/Lisbon` no `newContext` do harness (`harness.ts`), por isso a config do Playwright não mudou; a mutação `pl-2.5`→`pl-2` sobrevivia e agora o teste da caixa fixa o `pl-2.5` (centro do disco a 18 px). Baselines da lista atualizadas de novo. Gate final: Vitest 790 passam e 1 ignorado, `npm run check` 0/0, build OK, `test:visual` 109/109.
+
+**Verificar no ecrã (Bruno):** a linha por baixo do cabeçalho; a caixa proporcional à capa; livros lidos há mais de um mês mostram a data.
+
 ## Fase 6 · Fecho da v2 (tasks a escrever)
 - **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.
   

@@ -63,6 +63,17 @@ describe("LibraryList", () => {
     expect(rows()[0].getAttribute("aria-label")).toBe("Os Maias, Eça de Queirós, 3 highlights, 2 new");
   });
 
+  it("header_row_has_a_one_pixel_border_separator", () => {
+    renderList();
+    const header = screen.getAllByRole("row")[0];
+    expect(header.classList).toContain("border-b");
+    expect(header.classList).toContain("border-border");
+    expect(header.classList).not.toContain("border-b-0");
+    // 36 px: 8 above and below the label, the same when it sticks
+    expect(header.classList).toContain("h-9");
+    expect(screen.getAllByRole("columnheader")[0].classList).toContain("h-9");
+  });
+
   it("click_opens", async () => {
     const user = userEvent.setup();
     const { onOpen, onSelectionChange } = renderList();

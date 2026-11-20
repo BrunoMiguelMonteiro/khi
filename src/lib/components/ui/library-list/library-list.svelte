@@ -38,7 +38,7 @@
 	import { _, locale } from '$lib/i18n';
 	import { newHighlightCount } from '$lib/stores/library.svelte';
 	import { cn } from '$lib/utils';
-	import { formatRelativeDate } from '$lib/utils/relative-date';
+	import { formatLastRead } from '$lib/utils/relative-date';
 	import { BOOK_ROW_COLUMNS, BookRow, ColumnHeader, type ColumnSort } from '../table';
 	import Body from '../table/table-body.svelte';
 	import Header from '../table/table-header.svelte';
@@ -225,7 +225,7 @@
 	onfocusin={handleFocusin}
 >
 	<Header role="rowgroup" class="sticky top-0 z-10 block bg-background">
-		<HeaderRow role="row" class="flex h-7 items-center gap-4 border-b-0 pr-2">
+		<HeaderRow role="row" class="flex h-9 items-center gap-4 pr-2">
 			<ColumnHeader
 				flush
 				class={cn(BOOK_ROW_COLUMNS.title, 'pl-22')}
@@ -276,7 +276,7 @@
 					coverSrc: book.coverPath ? convertFileSrc(book.coverPath) : undefined,
 					highlightCount: book.highlights.length,
 					newCount,
-					lastRead: formatRelativeDate(book.dateLastRead, $locale)
+					lastRead: formatLastRead(book.dateLastRead, $locale)
 				}}
 				onclick={(event) => handleClick(book, event)}
 			/>
