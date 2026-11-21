@@ -2794,7 +2794,7 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 ## Fase 6 · Fecho da v2
 - **Menus:** desenhados na ronda Q-Z (Z1 escolhida). Ver a Task 53.
   
-- **Ícone da app:** o `khi-desvio-optico` (Bruno, 2026-11-21). Ver a Task 54.
+- **Ícone da app:** o marcador de `design/khi-marcador-imagem/`, que substituiu o `khi-desvio-optico` (Bruno, 2026-11-21). Ver a Task 54.
   
 - **Inglês:** os textos dos ecrãs do redesign.
   
@@ -3022,6 +3022,9 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
   - o `icon.ico` vem do `tauri icon`;
   - o `favicon.png` é o 128;
   - visual 179.
+- **Escolha nova (Bruno, 2026-11-21), substitui o `khi-desvio-optico` acima:** o marcador feito a partir da imagem dele, em `design/khi-marcador-imagem/`. Aplicado: `src-tauri/icons/Khi.icon` (Marcador.png + Linhas.png, no lugar do trabalho antigo), `icon.icns`, `icon_*.png`, `icon.ico`, `static/favicon.png` (128) e `Assets.car` (recompilado com `scripts/build-app-icon.sh`, que agora mostra os erros do `actool` e só substitui o ficheiro se correr bem). A build dev tem `CFBundleIconName=Khi`, `CFBundleIconFile=icon.icns` e o `Assets.car` igual ao da fonte. **À espera da aprovação do Bruno no Dock.**
+  - **Correção (2026-11-21):** os `icon_*.png` e o `favicon.png` novos eram de 16 bits por canal, e a app não arrancava («invalid icon: … 32x32 … 2048»), porque o Tauri lê o `icon_32x32.png` como RGBA de 8 bits. Convertidos para 8 bits com `magick -depth 8 PNG32:` (cerca de 0,07 % de píxeis com ±1 de cor). A build dev arranca e abre só a pasta Dev.
+  - **Aprovada no ecrã pelo Bruno (2026-11-21):** «Aprovo o ícone».
 
 ## Visto à margem (não se apaga sem pedido)
 - `src/lib/components/LibraryView.svelte.backup` e `date.ts` são código morto.
