@@ -2958,19 +2958,19 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 5. **Textos:** pt «Edição»; os itens novos em pt e en. O inglês é revisto na task do inglês.
 
 **Passos:**
-- [ ] **Passo 1 (TDD):** os testes da função pura do ponto 1. Vermelho, implementação, verde.
-- [ ] **Passo 2:** reestruturar o `menu.ts`:
+- [x] **Passo 1 (TDD):** os testes da função pura do ponto 1. Vermelho, implementação, verde.
+- [x] **Passo 2:** reestruturar o `menu.ts`:
   - os itens de vista, ordem e leitor são `CheckMenuItem`;
   - atualizam-se sem reconstruir (`setEnabled`, `setChecked`, `setText`);
   - a lista dos leitores reconstrói-se só quando os leitores mudam.
-- [ ] **Passo 3:** ligar no `+page.svelte`:
+- [x] **Passo 3:** ligar no `+page.svelte`:
   - um `$effect` aplica a função pura ao menu;
   - o foco da janela vem do `onFocusChanged`;
   - tirar os atalhos do `keydown`, menos o Esc.
-- [ ] **Passo 4:** os textos em pt e en.
-- [ ] **Passo 5:** gate completo.
-- [ ] **Passo 6:** review adversarial (Opus), porque muda o caminho do teclado e o atalho de uma ação destrutiva.
-- [ ] **Passo 7 (eu):** correções, mutações e verificação na build dev:
+- [x] **Passo 4:** os textos em pt e en.
+- [x] **Passo 5:** gate completo.
+- [x] **Passo 6:** review adversarial (Opus), porque muda o caminho do teclado e o atalho de uma ação destrutiva.
+- [x] **Passo 7 (eu):** correções, mutações e verificação na build dev:
   - cada atalho e cada item;
   - o ⌘⌫ no campo «Nome» das Definições, com um livro apagável aberto, apaga texto e não o livro;
   - o ⌘⌫ na Biblioteca não faz nada;
@@ -2982,6 +2982,7 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 - ⌘R, ⌘E, ⌘1, ⌘2, ⌘[ e ⌘⌫ fazem o mesmo que antes;
 - num livro com todos os destaques removidos, Livro › Apagar livro… abre a confirmação;
 - com dois leitores, Visualização mostra-os e troca de Biblioteca.
+- **Feito (2026-11-21), à espera do ecrã do Bruno:** `src/lib/menu-state.ts` (função pura, 16 testes) e `menu.ts` refeito. A review adversarial encontrou duas falhas, ambas corrigidas: uma tecla mantida repetia o ⌘E e o ⌘R (agora há um intervalo de 300 ms), e a reconstrução do menu depois de mudar de língua podia correr ao mesmo tempo que uma atualização e congelar os estados (agora corre em série, e cada ação confirma o estado antes de agir). 15 mutações dos guardas apanhadas (duas só depois de dois testes novos). Gate: vitest 1131 + 1 skipped, check 0/0, visual 179. Na build dev: o ⌘2 muda a vista pelo menu nativo.
 
 ## Visto à margem (não se apaga sem pedido)
 - `src/lib/components/LibraryView.svelte.backup` e `date.ts` são código morto.
