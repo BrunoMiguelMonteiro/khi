@@ -25,7 +25,7 @@
 	let panel: ReturnType<typeof SettingsPanel> | undefined;
 	let frame = $state<HTMLElement | null>(null);
 
-	const pane = $derived<SettingsPane>(settings.uiPreferences.settingsPane ?? 'export');
+	const pane = $derived<SettingsPane>(settings.uiPreferences.settingsPane ?? 'kobo');
 	const titles = $derived<Record<SettingsPane, string>>({
 		export: $_('settings.tabs.export'),
 		appearance: $_('settings.tabs.appearance'),

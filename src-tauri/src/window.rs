@@ -74,10 +74,9 @@ pub fn settings_window_spec(title: String) -> SettingsWindowSpec {
         // The page draws the bar under the traffic lights
         title_bar_style: tauri::TitleBarStyle::Overlay,
         hidden_title: true,
-        // The Figma has the lights at (20, 10), but tao does not take y as the distance from the
-        // top: it grows the bar by y and leaves the buttons where they were. Measured on the main
-        // window, config y 28 gives the button at AX top 18, so y = the Figma's y + 8. Not 10.
-        traffic_light_position: (20.0, 18.0),
+        // The same as the main window's (tauri.conf.json), by Bruno's decision: with both open the
+        // lights line up. (tao's y is not the distance from the top: y 28 puts the button at AX top 18.)
+        traffic_light_position: (16.0, 28.0),
         minimizable: false,
         maximizable: false,
         visible: false,
@@ -324,9 +323,8 @@ mod tests {
         // The page draws the bar under the traffic lights (Task 45)
         assert_eq!(spec.title_bar_style, tauri::TitleBarStyle::Overlay);
         assert!(spec.hidden_title, "the native title is hidden; the pane's name is only the window's name");
-        // The Figma has the lights at (20, 10); tao's y is not the distance from the top, so the
-        // config is the Figma's y + 8 (measured on the main window: y 28 puts the button at AX top 18)
-        assert_eq!(spec.traffic_light_position, (20.0, 18.0));
+        // The same as the main window's, by Bruno's decision (not the Figma's y + 8)
+        assert_eq!(spec.traffic_light_position, (16.0, 28.0));
         assert!(!spec.minimizable);
         assert!(!spec.maximizable);
         // Shown by the page once its theme is applied

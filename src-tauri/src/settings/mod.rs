@@ -89,10 +89,11 @@ pub struct UiPreferences {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default, specta::Type)]
 #[serde(rename_all = "kebab-case")]
 pub enum SettingsPane {
+    /// The first tab: where the window opens when no pane was stored.
     #[default]
-    Export,
-    Appearance,
     Kobo,
+    Appearance,
+    Export,
     Updates,
 }
 
@@ -955,8 +956,8 @@ mod tests {
     }
 
     #[test]
-    fn old_file_without_settings_pane_opens_on_export() {
-        // A file from before the Settings window remembered its pane
+    fn old_file_without_settings_pane_opens_on_kobo() {
+        // A file from before the Settings window remembered its pane: it opens on the first tab, Kobo
         let json = r#"{
             "theme": "system",
             "windowWidth": 1200,
@@ -969,9 +970,9 @@ mod tests {
 
         let prefs: UiPreferences = serde_json::from_str(json).unwrap();
 
-        assert_eq!(prefs.settings_pane, SettingsPane::Export);
+        assert_eq!(prefs.settings_pane, SettingsPane::Kobo);
         assert_eq!(prefs.accent_color, AccentChoice::System);
-        assert_eq!(UiPreferences::default().settings_pane, SettingsPane::Export);
+        assert_eq!(UiPreferences::default().settings_pane, SettingsPane::Kobo);
     }
 
     #[test]
@@ -1017,7 +1018,7 @@ mod tests {
         assert!(!settings.ui_preferences.show_onboarding);
         assert_eq!(settings.ui_preferences.library_view_mode, ViewMode::Grid);
         assert_eq!(settings.ui_preferences.library_sort, SortPreference::DateLastRead);
-        assert_eq!(settings.ui_preferences.settings_pane, SettingsPane::Export);
+        assert_eq!(settings.ui_preferences.settings_pane, SettingsPane::Kobo);
         assert_eq!(settings.ui_preferences.accent_color, AccentChoice::System);
         assert_eq!(settings.version, "9.9.9");
         // No "corrupted" backup: the file was read, not discarded

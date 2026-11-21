@@ -42,9 +42,9 @@
 	const language = $derived(settings.language);
 
 	const tabs = $derived([
-		{ value: 'export', icon: FileOutput, label: $_('settings.tabs.export') },
-		{ value: 'appearance', icon: Palette, label: $_('settings.tabs.appearance') },
 		{ value: 'kobo', icon: Tablet, label: $_('settings.tabs.kobo') },
+		{ value: 'appearance', icon: Palette, label: $_('settings.tabs.appearance') },
+		{ value: 'export', icon: FileOutput, label: $_('settings.tabs.export') },
 		{ value: 'updates', icon: CircleArrowDown, label: $_('updates.settings.tab') }
 	] as const);
 	const title = $derived(tabs.find((tab) => tab.value === pane)?.label ?? '');
@@ -91,14 +91,14 @@
 		</TabsList>
 	</div>
 
-	<TabsContent value="export" class="flex flex-col gap-6 p-6">
-		<ExportPane onerror={(message) => (saveError = message)} />
+	<TabsContent value="kobo" class="flex flex-col gap-6 p-6">
+		<KoboPane bind:this={koboPane} onerror={(message) => (saveError = message)} />
 	</TabsContent>
 	<TabsContent value="appearance" class="flex flex-col gap-6 p-6">
 		<AppearancePane onerror={(message) => (saveError = message)} />
 	</TabsContent>
-	<TabsContent value="kobo" class="flex flex-col gap-6 p-6">
-		<KoboPane bind:this={koboPane} onerror={(message) => (saveError = message)} />
+	<TabsContent value="export" class="flex flex-col gap-6 p-6">
+		<ExportPane onerror={(message) => (saveError = message)} />
 	</TabsContent>
 	<!-- Updates: as before; its redesign is Task 46 -->
 	<TabsContent value="updates" class="flex flex-col gap-8 p-6">

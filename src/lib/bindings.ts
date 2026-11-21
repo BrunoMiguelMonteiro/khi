@@ -345,7 +345,9 @@ export type Reader_Serialize = {
 };
 
 /**  A pane of the Settings window. */
-export type SettingsPane = "export" | "appearance" | "kobo" | "updates";
+export type SettingsPane = 
+/**  The first tab: where the window opens when no pane was stored. */
+"kobo" | "appearance" | "export" | "updates";
 
 /**
  *  What one window changes in the settings file: a field per leaf it edits,

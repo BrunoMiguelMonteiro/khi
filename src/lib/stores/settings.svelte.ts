@@ -121,7 +121,7 @@ function createInitialState(): AppSettings {
       librarySortReversed: false,
       syncOnConnect: true,
       checkForUpdates: true,
-      settingsPane: "export",
+      settingsPane: "kobo",
       accentColor: "system",
     },
     language: "en",

@@ -64,7 +64,7 @@ class FakeResizeObserver {
 	}
 }
 function activePane(): string {
-	return document.querySelector('[role="tab"][data-state="active"]')?.getAttribute('data-value') ?? 'export';
+	return document.querySelector('[role="tab"][data-state="active"]')?.getAttribute('data-value') ?? 'kobo';
 }
 /** The content changed size: what a ResizeObserver reports after layout. */
 const resized = () => observers.forEach((callback) => callback());
@@ -148,6 +148,21 @@ describe('/definicoes · window', () => {
 		const size = appWindow.setSize.mock.calls[0][0];
 		expect([size.width, size.height]).toEqual([540, 382]);
 		expect(screen.getByRole('tab', { name: 'Export' })).toHaveAttribute('aria-selected', 'true');
+	});
+
+	it('the tabs are Kobo, Appearance, Export and Updates, in that order', async () => {
+		render(Page);
+
+		expect(screen.getAllByRole('tab').map((tab) => tab.textContent?.trim())).toEqual(['Kobo', 'Appearance', 'Export', 'Updates']);
+	});
+
+	it('without a stored pane the window opens on Kobo, the first tab', async () => {
+		delete (file.uiPreferences as { settingsPane?: string }).settingsPane;
+		await settings.load();
+		flushSync();
+		render(Page);
+
+		expect(screen.getByRole('tab', { name: 'Kobo' })).toHaveAttribute('aria-selected', 'true');
 	});
 
 	it('fits_the_window_when_the_pane_changes', async () => {
