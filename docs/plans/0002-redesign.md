@@ -2632,6 +2632,45 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 
 **Ecrã 8 aprovado a 2026-11-21** (Bruno: «Aprovo o ecrã 8»), pela build dev.
 
+### Task 48: Ecrã 9 · Apagar livro (Detalhe 5, Q-A)
+**Decisões** (ver DECISIONS, «Ecrãs · 9 · Apagar livro» e «Task 48 · decisões»):
+- **Já decididas:** Detalhe 5 (A1): o caixote na barra só quando todos os destaques foram removidos do Kobo. Q-A: «Apagar» Secundário em `destructive-text`, sem botão por omissão, Esc e ⌘. cancelam. Q-E: foco inicial no Cancelar. Q-F: texto 13/16. Q-G: fundo a 15 %. Movimento 4 e Movimento 5.
+- **Menu Livro (Bruno, 2026-11-21):** fica para a Fase 6. Agora o ⌘⌫ funciona pelo `keydown` da página, como o ⌘R e o ⌘E.
+- **Por omissão (minhas, registadas):** ver «Comportamento», pontos 3 a 6.
+
+**Figma** (só leitura, medido a 2026-11-21):
+- **Barra** `74:16535` / `74:16671`: `Ecrã=Detalhe com Apagar`, com o caixote (`trash-2`, 32 × 32) antes de Exportar, no mesmo grupo. Tooltip Com atalho «Apagar livro… ⌘⌫» (134 × 24, a 46 do topo).
+- **Confirmação** `74:16868` / `74:16918`: Janela modal Apagar livro (`58:6782`), 380 × 160, centrada (x 310, y 270), sobre o preto a 15 %. Textos: «Apagar este livro?», «Todos os destaques foram removidos do Kobo. O livro e os destaques saem da Biblioteca de vez.», Cancelar e Apagar.
+
+**Ficheiros:**
+- `src/routes/+page.svelte` e `page.svelte.test.ts`: o `canDelete`, o ⌘⌫, a janela e o apagar;
+- `src/lib/components/DeleteBookDialog.svelte` (novo) e o seu teste, sobre o `ui/alert-dialog` (Task 23), com o padrão `busy` do `UnknownKoboDialog`;
+- `src/lib/stores/library.svelte.ts` só se for preciso;
+- `pt.json` e `en.json`: reutilizar `screens.bookDetails.deleteBookTitle`, `deleteBookBody`, `deleteBookConfirm`, `cancel` e `deleteBookError` (com ponto final). A chave `screens.bookDetails.deleteBook` já está órfã: mencionar e não apagar;
+- `tests/visual/scenarios.ts`, o mock (`delete_book`) e as baselines novas.
+
+**Comportamento:**
+1. **Caixote:** `canDelete` é verdadeiro quando o livro aberto tem pelo menos 1 destaque e todos têm `removedAt`. Um livro sem destaques não mostra o caixote (o Rust só exige 0 vivos; a regra da interface é a do Figma).
+2. **Abrir a janela:** pelo caixote ou por ⌘⌫ no Detalhe, só com `canDelete`. O ⌘⌫ não dispara num campo de texto, com outra janela modal aberta, com o atualizador ativo nem com a tecla a repetir.
+3. **Inerte durante uma sincronização ou exportação:** o caixote fica desativado, com o tooltip que o Exportar já usa («Espera pelo fim da sincronização»), e o ⌘⌫ não faz nada.
+4. **A janela:**
+   - foco inicial no Cancelar, Return não confirma, Esc e ⌘. cancelam;
+   - enquanto apaga (`busy`), Cancelar, Esc, ⌘. e um segundo clique em Apagar não fazem nada;
+   - com a janela aberta, ⌘E, ⌘R, ⌘1, ⌘2, ⌘[ e ⌘⌫ não chegam à página, e o Esc que cancela a janela não fecha também o Detalhe;
+   - se começar uma sincronização (por exemplo, «Sincronizar ao ligar»), a janela fecha-se sem apagar.
+5. **Confirmar:** volta a verificar no clique que não há `isImporting` nem `isExporting`, que o mesmo livro continua aberto e que continua tudo removido. Depois do `await`, desiste se o leitor ou o livro aberto mudaram (como o `stale()` do `recoverExport`).
+6. **Depois de apagar:** fecha a janela e volta à Biblioteca. O livro sai da lista e da seleção, e o título da janela volta ao de antes. Não há aviso de sucesso: o livro desaparece da Biblioteca (`feedback.md`).
+7. **Falha:** recarrega a Biblioteca do leitor (`openReader` com `keepSelection`). Se o livro já não existe, trata como apagado e volta à Biblioteca sem erro. Se continua lá, fica no Detalhe, a janela fecha-se e aparece o aviso com `icon: 'error'` e «Não foi possível apagar o livro.». Se o livro voltou a ter destaques no Kobo, o caixote desaparece sozinho.
+
+**Passos:**
+- [ ] **Passo 1:** testes que falham: o caixote aparece e desaparece com a regra 1; ⌘⌫ abre a janela e não dispara num campo; foco no Cancelar; Return não apaga; Esc cancela sem fechar o Detalhe; o duplo clique apaga uma só vez; inerte durante uma sincronização ou exportação; a sincronização a meio fecha a janela; volta à Biblioteca e o livro sai; as três falhas; os atalhos da página bloqueados com a janela aberta.
+- [ ] **Passo 2:** a implementação.
+- [ ] **Passo 3:** cenários visuais em Claro e Escuro, comparados com o Figma: `detail-delete` (caixote com tooltip) e `detail-delete-confirm` (janela).
+- [ ] **Passo 4:** gate completo (Vitest, check, build, `test:visual`, `cargo test`, `cargo clippy --all-targets`).
+- [ ] **Passo 5:** review adversarial (Opus), mutações minhas e comparação com o Figma. Commit `feat(detail): screen 9, delete a book whose highlights left the Kobo`.
+
+**Verificar no ecrã (Bruno), com a build dev:** um livro com todos os destaques removidos do Kobo (apagá-los no Kobo e sincronizar) mostra o caixote; ⌘⌫ abre a janela; Apagar volta à Biblioteca sem o livro.
+
 ## Fase 6 · Fecho da v2 (tasks a escrever)
 - **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.
   
