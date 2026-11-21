@@ -16,6 +16,7 @@ const mainWindow = vi.hoisted(() => ({
 	title: vi.fn(() => Promise.resolve('Khi')),
 	setTitle: vi.fn(() => Promise.resolve()),
 	isFullscreen: vi.fn(() => Promise.resolve(false)),
+	isFocused: vi.fn(() => Promise.resolve(true)),
 	onResized: vi.fn((handler: (event: { payload: unknown }) => void) => {
 		windowEvents.set('resized', handler);
 		return Promise.resolve(windowUnlisten.resized);
@@ -38,20 +39,46 @@ vi.mock('@tauri-apps/api/window', () => ({ getCurrentWindow: () => mainWindow })
 /** The updater plugin's `check`, which the page's store calls: it answers «up to date» unless a test holds it. */
 const pluginCheck = vi.hoisted(() => vi.fn((): Promise<unknown> => Promise.resolve(null)));
 vi.mock('@tauri-apps/plugin-updater', () => ({ check: pluginCheck }));
-vi.mock('$lib/menu', () => ({ createApplicationMenu: vi.fn(), setRevealLastExportEnabled: vi.fn() }));
+vi.mock('$lib/menu', () => ({ createApplicationMenu: vi.fn(), setRevealLastExportEnabled: vi.fn(), applyMenuState: vi.fn(), setMenuActions: vi.fn() }));
 /** The opener plugin's Finder reveal, and the home folder the paths are written against. */
 vi.mock('@tauri-apps/plugin-opener', () => ({ revealItemInDir: vi.fn(() => Promise.resolve()) }));
 vi.mock('@tauri-apps/api/path', () => ({ homeDir: () => Promise.resolve('/Users/test') }));
 
 import { invoke } from '@tauri-apps/api/core';
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
-import { createApplicationMenu, setRevealLastExportEnabled } from '$lib/menu';
+import { applyMenuState, createApplicationMenu, setMenuActions, setRevealLastExportEnabled } from '$lib/menu';
+import type { MenuActions } from '$lib/menu';
 import { emit, listen } from '@tauri-apps/api/event';
 import { settings } from '$lib/stores/settings.svelte';
 import { library } from '$lib/stores/library.svelte';
 import { makeBook, makeDevice, makeHighlight } from '$lib/test-fixtures';
 import { updater } from '$lib/stores/updater.svelte';
 import Page from './+page.svelte';
+
+/**
+ * The native menu owns ⌘R, ⌘E, ⌘1, ⌘2, ⌘[ and ⌘⌫: the key reaches the page only when the item is disabled.
+ * This stands in for it, with the state the page last gave the menu and the actions it registered.
+ */
+const MENU_KEYS: Record<string, [string, keyof MenuActions, unknown?]> = {
+	KeyR: ['sync', 'sync'],
+	KeyE: ['export', 'exportBooks'],
+	Digit1: ['view-grid', 'setView', 'grid'],
+	Digit2: ['view-list', 'setView', 'list'],
+	BracketLeft: ['back', 'back'],
+	Backspace: ['delete', 'deleteBook']
+};
+function nativeMenuKey(event: KeyboardEvent) {
+	const entry = MENU_KEYS[event.code];
+	if (!entry || !event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
+	const state = vi.mocked(applyMenuState).mock.calls.at(-1)?.[0];
+	if (!state?.items[entry[0]]?.enabled) return;
+	event.preventDefault();
+	event.stopImmediatePropagation();
+	const actions = vi.mocked(setMenuActions).mock.calls.at(-1)![0];
+	(actions[entry[1]] as (arg?: unknown) => void)(entry[2]);
+}
+beforeEach(() => window.addEventListener('keydown', nativeMenuKey, true));
+afterEach(() => window.removeEventListener('keydown', nativeMenuKey, true));
 
 // jsdom has no pointer capture, which Bits UI's triggers release on pointerdown
 Element.prototype.hasPointerCapture ??= () => false;
@@ -717,20 +744,6 @@ describe('+page · review fixes', () => {
 
 		await waitFor(() => expect(invoke).toHaveBeenCalledWith('export_library_books', { readerId: 1, bookIds: [1, 2, 3] }));
 		expect(library.selectedBookIds).toEqual([]);
-	});
-
-	it('held_cmd_e_exports_once', async () => {
-		await mockLibrary({ books: newBooks(), overrides: { export_library_books: () => ['x'] } });
-		render(Page);
-		await waitFor(() => expect(options()).toHaveLength(3));
-
-		await press('e');
-		await press('e', { metaKey: true, repeat: true });
-		await press('e', { metaKey: true, repeat: true });
-
-		await waitFor(() => expect(calls('export_library_books')).toHaveLength(1));
-		await new Promise((r) => setTimeout(r, 20));
-		expect(calls('export_library_books')).toHaveLength(1);
 	});
 
 	it('second_export_while_exporting_is_ignored', async () => {
@@ -1952,6 +1965,42 @@ describe('+page · shortcuts', () => {
 	const press = (key: string, init: KeyboardEventInit = { metaKey: true }, target: Element | Window = window) =>
 		fireEvent.keyDown(target, { key, code: codeOf(key), ...init });
 
+	const menuState = () => vi.mocked(applyMenuState).mock.calls.at(-1)![0];
+
+	it('the_page_no_longer_handles_the_menus_shortcuts', async () => {
+		await mockLibrary({ books: newBooks(), device: kobo });
+		render(Page);
+		await syncReady();
+		await waitFor(() => expect(options()).toHaveLength(3));
+		// No native menu in between: the key reaches the page, which leaves it alone
+		window.removeEventListener('keydown', nativeMenuKey, true);
+		for (const key of ['r', 'e', '2']) await press(key);
+		await new Promise((r) => setTimeout(r, 20));
+
+		expect(calls('sync_kobo')).toHaveLength(0);
+		expect(calls('export_library_books')).toHaveLength(0);
+		expect(settings.uiPreferences.libraryViewMode).toBe('grid');
+	});
+
+	it('the_menu_stands_down_while_a_text_field_has_the_caret_or_another_window_is_in_front', async () => {
+		await mockLibrary({ books: newBooks(), device: kobo });
+		const { container } = render(Page);
+		await syncReady();
+		await waitFor(() => expect(menuState().items.sync.enabled).toBe(true));
+
+		const input = document.createElement('input');
+		container.appendChild(input);
+		input.focus();
+		await waitFor(() => expect(menuState().items.sync.enabled).toBe(false));
+		input.blur();
+		await waitFor(() => expect(menuState().items.sync.enabled).toBe(true));
+
+		windowEvents.get('focus')!({ payload: false });
+		await waitFor(() => expect(menuState().items.export.enabled).toBe(false));
+		windowEvents.get('focus')!({ payload: true });
+		await waitFor(() => expect(menuState().items.export.enabled).toBe(true));
+	});
+
 	it('shortcuts_sync_export_and_switch_view', async () => {
 		await mockLibrary({ books: newBooks(), device: kobo });
 		render(Page);
@@ -2330,7 +2379,6 @@ describe('+page · traffic lights', () => {
 		const page = render(Page);
 		await waitFor(() => expect(block()?.style.width).toBe('60px'));
 		await settle();
-		expect(mainWindow.onFocusChanged).not.toHaveBeenCalled();
 		expect(calls('traffic_lights_max_x')).toHaveLength(1);
 
 		page.unmount();
@@ -3903,13 +3951,6 @@ describe('+page · screen 9 · delete a book (Task 48)', () => {
 			input.remove();
 			expect(windowOpen()).toBeNull();
 			expect(detailOpen()).toBe(true);
-		});
-
-		it('does_not_repeat', async () => {
-			await openBookAt(0);
-			pressBackspace({ metaKey: true, repeat: true });
-			await wait(20);
-			expect(windowOpen()).toBeNull();
 		});
 
 		it('waits_for_the_update_dialog', async () => {

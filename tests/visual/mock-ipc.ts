@@ -184,7 +184,13 @@ export function installTauriMock(config: MockConfig): void {
 				return [nextRid++, args.options?.id ?? `mock-menu-${nextRid}`];
 			case 'plugin:menu|set_as_app_menu':
 			case 'plugin:menu|set_enabled':
+			case 'plugin:menu|set_checked':
+			case 'plugin:menu|set_text':
+			case 'plugin:menu|append':
+			case 'plugin:menu|remove':
 				return null;
+			case 'plugin:window|is_focused':
+				return true;
 			case 'plugin:path|resolve_directory':
 				// homeDir() (BaseDirectory.Home is 21); the rest is resolveResource
 				if (args.directory === 21) return '/Users/leitor';

@@ -2,12 +2,18 @@
   "app": {
     "name": "Khi",
     "title": "Khi - Kobo Highlights Exporter",
-    "menuEdit": "Editar",
+    "menuEdit": "Edição",
     "menuWindow": "Janela",
     "loading": "A carregar...",
     "koboDevice": "Leitor Kobo",
     "menuFile": "Ficheiro",
-    "menuRevealLastExport": "Mostrar última exportação no Finder"
+    "menuRevealLastExport": "Mostrar última exportação no Finder",
+    "menuView": "Visualização",
+    "menuBook": "Livro",
+    "menuViewGrid": "Ver em grelha",
+    "menuViewList": "Ver em lista",
+    "menuExportBook": "Exportar livro",
+    "menuBackToLibrary": "Voltar à Biblioteca"
   },
   "screens": {
     "noKobo": {

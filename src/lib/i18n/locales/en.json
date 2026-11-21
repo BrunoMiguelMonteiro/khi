@@ -7,7 +7,13 @@
     "loading": "Loading...",
     "koboDevice": "Kobo e-reader device",
     "menuFile": "File",
-    "menuRevealLastExport": "Show Last Export in Finder"
+    "menuRevealLastExport": "Show Last Export in Finder",
+    "menuView": "View",
+    "menuBook": "Book",
+    "menuViewGrid": "View as Grid",
+    "menuViewList": "View as List",
+    "menuExportBook": "Export Book",
+    "menuBackToLibrary": "Back to Library"
   },
   "screens": {
     "noKobo": {

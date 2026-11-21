@@ -21,7 +21,8 @@
 	import { library, newHighlightCount } from '$lib/stores/library.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
 	import type { Book, KoboDevice, SortPreference, ViewMode } from '$lib/types';
-	import { createApplicationMenu, setRevealLastExportEnabled } from '$lib/menu';
+	import { applyMenuState, createApplicationMenu, setRevealLastExportEnabled, setMenuActions } from '$lib/menu';
+	import { menuState } from '$lib/menu-state';
 	import UpdateDialog from '$lib/components/UpdateDialog.svelte';
 	import { UPDATES_STATE_EVENT, UPDATES_STATE_REQUEST_EVENT, updater } from '$lib/stores/updater.svelte';
 
@@ -243,6 +244,68 @@
 		const format = $_;
 		const timer = setTimeout(() => createApplicationMenu(format, () => library.activeReaderId, () => library.lastExport), 500);
 		return () => clearTimeout(timer);
+	});
+
+	/** The menu's actions are the toolbar's: one path for the click and the shortcut. */
+	setMenuActions({
+		sync: () => void handleSync(),
+		exportBooks: () => void handleBarExport(),
+		deleteBook: () => openDeleteDialog(),
+		back: () => handleCloseBookDetails(),
+		setView: (mode) => {
+			if (mode !== viewMode) handleViewModeChange(mode);
+		},
+		setSort: (sort) => handleSortChange(sort),
+		selectReader: (id) => void handleSelectReader(id)
+	});
+
+	// The menu's shortcuts take the keys before the page: while Settings is in front, or a text field has the caret, they stand down
+	let mainFocused = $state(true);
+	let editableFocused = $state(false);
+	$effect(() => {
+		const win = getCurrentWindow();
+		let unlisten: UnlistenFn | undefined;
+		let gone = false;
+		win.isFocused().then((focused) => {
+			if (!gone) mainFocused = focused;
+		}).catch(() => {});
+		win.onFocusChanged(({ payload }) => (mainFocused = payload)).then((fn) => {
+			if (gone) fn();
+			else unlisten = fn;
+		}).catch((error) => console.error('Failed to follow the window focus:', error));
+		return () => {
+			gone = true;
+			unlisten?.();
+		};
+	});
+	const EDITABLE = 'input, textarea, select, [contenteditable=""], [contenteditable="true"]';
+	const isEditable = (target: EventTarget | null) => target instanceof Element && !!target.closest(EDITABLE);
+
+	// File, View and Book items: enabled exactly where the page's shortcuts worked
+	$effect(() => {
+		const state = menuState(
+			{
+				mainFocused,
+				editableFocused,
+				unknownDevice: unknownDevice !== null,
+				deleting: deleting !== null,
+				updaterBusy: updater.state !== 'idle' && updater.state !== 'restartPending',
+				uiState: library.uiState,
+				inDetail: !!detailBook,
+				canSync: library.canSync,
+				declinedKobo: library.declinedKobo,
+				isImporting: library.isImporting,
+				canDelete,
+				deleteBusy,
+				activeReaderId: library.activeReaderId,
+				viewMode,
+				sortBy,
+				readers: library.readers.map((reader) => ({ id: reader.id, name: reader.name })),
+				exportCount: library.selectedBookIds.length || library.books.length
+			},
+			$_
+		);
+		applyMenuState(state);
 	});
 
 	// File › «Mostrar última exportação no Finder» works from the first export of the session
@@ -751,59 +814,22 @@
 			.catch((error) => console.error('Failed to restore the window title:', error));
 	});
 
-	/** ⌘[ and Esc: back to the Library, without the Back button's fade (Movimento 1). Esc only when nothing consumed it. */
+	/** Esc: back to the Library, without the Back button's fade (Movimento 1). Only when nothing consumed it; ⌘[ is the menu's. */
 	function handleBackKey(event: KeyboardEvent) {
-		if (!detailBook || event.repeat) return;
-		const target = event.target instanceof Element ? event.target : null;
-		if (target?.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]')) return;
+		if (!detailBook || event.repeat || event.key !== 'Escape') return;
+		if (isEditable(event.target)) return;
 		if (unknownDevice || deleting || (updater.state !== 'idle' && updater.state !== 'restartPending')) return;
-		if (event.key === 'Escape') {
-			if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
-		} else if (event.code !== 'BracketLeft' || !event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
-			return;
-		}
+		if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
 		event.preventDefault();
 		handleCloseBookDetails();
 	}
-
-	/** ⌘R, ⌘E, ⌘1, ⌘2 and ⌘⌫, the shortcuts of the bar's tooltips: not in the native menu until Phase 6. */
-	function handleShortcut(event: KeyboardEvent) {
-		handleBackKey(event);
-		if (!event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
-		// The physical key: Caps Lock or another layout changes `key`, never `code`
-		const key = { KeyR: 'r', KeyE: 'e', Digit1: '1', Digit2: '2', Backspace: 'delete' }[event.code];
-		if (!key) return;
-		// A held key repeats; none of these is meant to
-		if (event.repeat) return;
-		const target = event.target instanceof Element ? event.target : null;
-		// A text field keeps its keys; a modal window owns the keyboard
-		if (target?.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]')) return;
-		if (unknownDevice || deleting || (updater.state !== 'idle' && updater.state !== 'restartPending')) return;
-
-		const inLibrary = library.uiState === 'library';
-		// ⌘⌫ is the book's alone
-		if (key === 'delete' && !detailBook) return;
-		// In a book only ⌘E and ⌘⌫ work: they export and delete that book
-		// With no Library open, ⌘R still asks about a Kobo that was declined
-		const asksAgain = key === 'r' && library.uiState === 'no-device' && library.declinedKobo;
-		if (!inLibrary && !(detailBook && (key === 'e' || key === 'delete')) && !asksAgain) return;
-		event.preventDefault();
-
-		// While a Sync runs only the views switch: Sync and Export wait for its end
-		if (key === 'r') {
-			if (library.canSync && !library.isImporting) handleSync();
-		} else if (key === 'e') {
-			if (!library.isImporting) handleBarExport();
-		} else if (key === 'delete') {
-			openDeleteDialog();
-		} else {
-			const mode: ViewMode = key === '1' ? 'grid' : 'list';
-			if (mode !== viewMode) handleViewModeChange(mode);
-		}
-	}
 </script>
 
-<svelte:window onkeydown={handleShortcut} />
+<svelte:window
+	onkeydown={handleBackKey}
+	onfocusin={(event) => (editableFocused = isEditable(event.target))}
+	onfocusout={() => (editableFocused = false)}
+/>
 
 <TooltipProvider>
 	<div class="flex flex-col h-screen bg-background overflow-hidden">
