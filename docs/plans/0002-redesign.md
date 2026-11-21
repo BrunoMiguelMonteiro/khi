@@ -2792,7 +2792,7 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 **Ecrã 10 aprovado a 2026-11-21** (Bruno: «Aprovo o ecrã 10»), pela build dev. Ficam aprovados os 10 ecrãs da Fase 5.
 
 ## Fase 6 · Fecho da v2
-- **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.
+- **Menus:** desenhados na ronda Q-Z (Z1 escolhida). Ver a Task 53.
   
 - **Inglês:** os textos dos ecrãs do redesign.
   
@@ -2904,6 +2904,84 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
   - build OK;
   - `test:visual`: 179, sem baselines novas, porque o headless não desenha a barra;
   - Rust não mudou.
+
+### Task 53: Barra de menus (Q-Z, Z1)
+**Decisões** (Bruno escolheu a Z1, 2026-11-21; DECISIONS «16 · Q-Z · Barra de menus»; Figma `142:36584`):
+- **Menus, por esta ordem:** Khi · Ficheiro · Edição · Visualização · Livro · Janela.
+- **Khi:** fica como está.
+- **Ficheiro:**
+  - Sincronizar com o Kobo ⌘R;
+  - Exportar ⌘E. O texto segue o botão da barra: «Exportar 12 livros» ou «Exportar 1 livro» na Biblioteca, e «Exportar livro» dentro de um livro;
+  - separador; Mostrar última exportação no Finder (já existe);
+  - separador; Fechar janela ⌘W, que sai do menu Janela.
+- **Edição:** em pt, «Editar» passa a «Edição», o nome do macOS em português. Os itens não mudam.
+- **Visualização:**
+  - Ver em grelha ⌘1 e Ver em lista ⌘2, com ✓ na vista atual;
+  - separador; Ordenar por ›, com as quatro ordens da barra e ✓ na atual;
+  - separador; a lista dos leitores («Biblioteca de {leitor}»), com ✓ no aberto. **Só aparece com dois ou mais leitores**, sem atalho (Bruno, 2026-11-21).
+- **Livro:** Voltar à Biblioteca ⌘[ ; separador; Apagar livro… ⌘⌫.
+- **Janela:** Minimizar ⌘M e Zoom.
+
+**O que já existe** (levantamento a 2026-11-21):
+- **`src/lib/menu.ts`:**
+  - o `createApplicationMenu(t, activeReaderId, lastExport)` cria Khi, Ficheiro, Editar e Janela;
+  - só é reconstruído quando muda a língua (`+page.svelte:244`, com 500 ms de atraso);
+  - o estado do item da última exportação muda sem reconstruir, pelo `setRevealLastExportEnabled`. É o padrão a seguir para os outros estados.
+- **`+page.svelte`:**
+  - ≈ 755: o `handleBackKey` trata o ⌘[ e o Esc;
+  - ≈ 769: o `handleShortcut` trata o ⌘R, ⌘E, ⌘1, ⌘2 e ⌘⌫, com as condições de hoje (campo de texto, `unknownDevice`, `deleting`, updater, `uiState`, `declinedKobo`, `detailBook`, `canSync`, `isImporting`).
+- **Ações da página que o menu reutiliza:** `handleSync`, `handleBarExport`, `openDeleteDialog` (com o `canDelete` na linha 146), `handleViewModeChange`, `handleSortChange`, `handleSelectReader` e `handleCloseBookDetails`.
+- **Estado:** `viewMode` e `sortBy` vêm de `settings.uiPreferences`; os leitores vêm de `library.readers` e `library.activeReaderId`.
+- **Textos:** `app.menuFile`, `app.menuEdit`, `app.menuWindow` e `app.menuRevealLastExport`; os textos dos botões da barra estão em `ui.windowBar.*`, `ui.viewGroup.*` e `screens.library.sort.*`.
+
+**O que a pesquisa encontrou** (2026-11-21):
+- **Um item ativo com atalho apanha a tecla antes da página**, mesmo com o cursor num campo de texto ([muda#393](https://github.com/tauri-apps/muda/issues/393), [tauri#15909](https://github.com/tauri-apps/tauri/issues/15909)). O Tauri não diz se a ação veio do atalho ou de um clique.
+- **Um item desativado deixa a tecla seguir** para a página (Apple, `NSMenuDelegate.menuHasKeyEquivalent`: um item desativado não conta).
+- **Consequência:** o estado ativo de cada item tem de ser exatamente a condição em que o atalho funciona hoje. Para o ⌘⌫, isto inclui **a janela principal estar à frente**: as Definições têm campos de texto, e lá o ⌘⌫ apaga até ao início da linha.
+
+**Comportamento a provar:**
+1. **Estado dos itens:** uma função pura recebe o estado da página e devolve, para cada item, se está ativo, se tem ✓ e o seu texto. Reproduz as condições do `handleShortcut` e do `handleBackKey` de hoje. Os testes Vitest cobrem:
+   - Biblioteca normal;
+   - Detalhe;
+   - Detalhe com `canDelete`;
+   - sem Kobo, com e sem `declinedKobo`;
+   - a sincronizar e a importar;
+   - `unknownDevice`, `deleting` e updater ocupado;
+   - um leitor e dois leitores;
+   - a janela principal sem foco.
+2. **Um só caminho:** as ações do menu chamam as mesmas funções que os botões da barra. Os atalhos ⌘R, ⌘E, ⌘1, ⌘2, ⌘⌫ e ⌘[ saem do `keydown` da página; o Esc fica. Um atalho nunca corre duas vezes.
+3. **Apagar livro… ⌘⌫:** só fica ativo com `canDelete`, sem `deleteBusy`, sem janela modal e com a janela principal à frente. Fora de um livro, o menu Livro fica todo desativado.
+4. **Marcas e textos:**
+   - o ✓ segue a vista, a ordem e o leitor, mesmo quando mudam pela barra;
+   - o texto do Exportar segue o contexto e o número de livros;
+   - a lista dos leitores aparece e desaparece com o número de leitores, sem reiniciar a app.
+5. **Textos:** pt «Edição»; os itens novos em pt e en. O inglês é revisto na task do inglês.
+
+**Passos:**
+- [ ] **Passo 1 (TDD):** os testes da função pura do ponto 1. Vermelho, implementação, verde.
+- [ ] **Passo 2:** reestruturar o `menu.ts`:
+  - os itens de vista, ordem e leitor são `CheckMenuItem`;
+  - atualizam-se sem reconstruir (`setEnabled`, `setChecked`, `setText`);
+  - a lista dos leitores reconstrói-se só quando os leitores mudam.
+- [ ] **Passo 3:** ligar no `+page.svelte`:
+  - um `$effect` aplica a função pura ao menu;
+  - o foco da janela vem do `onFocusChanged`;
+  - tirar os atalhos do `keydown`, menos o Esc.
+- [ ] **Passo 4:** os textos em pt e en.
+- [ ] **Passo 5:** gate completo.
+- [ ] **Passo 6:** review adversarial (Opus), porque muda o caminho do teclado e o atalho de uma ação destrutiva.
+- [ ] **Passo 7 (eu):** correções, mutações e verificação na build dev:
+  - cada atalho e cada item;
+  - o ⌘⌫ no campo «Nome» das Definições, com um livro apagável aberto, apaga texto e não o livro;
+  - o ⌘⌫ na Biblioteca não faz nada;
+  - as marcas mudam ao usar a barra;
+  - commit `feat(menu): menu bar from Q-Z (Z1)`.
+
+**Verificar no ecrã (Bruno), com a build dev:**
+- os menus são os do Figma, com «Edição»;
+- ⌘R, ⌘E, ⌘1, ⌘2, ⌘[ e ⌘⌫ fazem o mesmo que antes;
+- num livro com todos os destaques removidos, Livro › Apagar livro… abre a confirmação;
+- com dois leitores, Visualização mostra-os e troca de Biblioteca.
 
 ## Visto à margem (não se apaga sem pedido)
 - `src/lib/components/LibraryView.svelte.backup` e `date.ts` são código morto.
