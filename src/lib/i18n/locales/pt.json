@@ -99,7 +99,6 @@
       "noHighlights": "Não existem destaques disponíveis para este livro",
       "page": "Página {number}",
       "chapter": "Capítulo {number}",
-      "deleteBook": "Apagar livro",
       "deleteBookTitle": "Apagar este livro?",
       "deleteBookBody": "Todos os destaques foram removidos do Kobo. O livro e os destaques saem da Biblioteca de vez.",
       "deleteBookConfirm": "Apagar",

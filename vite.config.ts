@@ -21,8 +21,7 @@ export default defineConfig({
 		fs: {
 			allow: [
 				'.',
-				'../node_modules',
-				'/Users/bruno/Documents/khi-project/kobo-highlights-exporter/node_modules'
+				'../node_modules'
 			]
 		}
 	}
