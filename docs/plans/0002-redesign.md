@@ -2882,12 +2882,28 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 3. **Visual:** a suite inteira passa. Os PNG que mudarem são revistos um a um; o Playwright em headless pode nem desenhar a barra.
 
 **Passos:**
-- [ ] **Passo 1 (TDD):** os testes dos pontos 1 e 2. Vermelho, implementação, verde.
-- [ ] **Passo 2:** tokens e CSS em `tokens.css` e no `app.css` ou `components.css`, onde estiverem as regras globais.
-- [ ] **Passo 3:** gate completo.
-- [ ] **Passo 4 (eu):** build dev; comparar com uma janela do Finder, com «Mostrar barras: sempre» e com «automaticamente», nos 3 temas. Review adversarial só se o CSS for além dos tokens e destas regras. Depois, o commit `fix(theme): lighter scroll bar in light theme`.
+- [x] **Passo 1 (TDD):** os testes dos pontos 1 e 2. Vermelho, implementação, verde.
+- [x] **Passo 2:** tokens e CSS em `tokens.css` e no `app.css` ou `components.css`, onde estiverem as regras globais.
+- [x] **Passo 3:** gate completo.
+- [x] **Passo 4 (eu):** build dev; comparar com uma janela do Finder, com «Mostrar barras: sempre» e com «automaticamente», nos 3 temas. Review adversarial só se o CSS for além dos tokens e destas regras. Depois, o commit `fix(theme): lighter scroll bar in light theme`.
 
 **Verificar no ecrã (Bruno), com a build dev:** com o rato ou «Mostrar barras: sempre», a barra da Biblioteca no tema claro tem a mesma claridade que a do Finder, e continua visível no escuro. Com o trackpad e «automaticamente», a barra continua a esconder-se.
+
+**Feito (2026-11-21).** Aprovada pelo Bruno («Aprovo a Task 52»). O Sonnet implementou com TDD, e eu revi. Não houve review adversarial, porque só mudaram tokens e CSS.
+- **Onde ficou:** os tokens estão no `app.css`, não no `tokens.css`, porque o `tokens.test.ts` prende o `tokens.css` ao `design/tokens.json`; é o mesmo precedente do `--selection-outline`, da Task 41. O `scrollbar-color` está na `:root`, e o recurso `::-webkit-scrollbar` está dentro do `@supports not`. O build mantém os dois.
+- **Cores do polegar (normal / hover):**
+  - claro: `#C1C1C1` / `#A8A8A8`;
+  - escuro: `#6B6B6B` / `#8A8A8A`;
+  - contraste alto claro: `#8D8D91` / `#6E6E73`;
+  - contraste alto escuro: `#A1A1A6` / `#C7C7CC`.
+- **Visto no ecrã (macOS 27.2, com rato):** a barra da Biblioteca no tema claro passou de cinzento-escuro a cinzento-claro, perto da nativa.
+  - **Ficam por ver:** o esconder automático com o trackpad e o recurso nos macOS 13–15. Não há onde os testar aqui.
+- **Gate:**
+  - Vitest: 1105 passam, 1 ignorado;
+  - `npm run check`: 0/0;
+  - build OK;
+  - `test:visual`: 179, sem baselines novas, porque o headless não desenha a barra;
+  - Rust não mudou.
 
 ## Visto à margem (não se apaga sem pedido)
 - `src/lib/components/LibraryView.svelte.backup` e `date.ts` são código morto.
