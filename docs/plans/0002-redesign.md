@@ -2791,7 +2791,7 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 
 **Ecrã 10 aprovado a 2026-11-21** (Bruno: «Aprovo o ecrã 10»), pela build dev. Ficam aprovados os 10 ecrãs da Fase 5.
 
-## Fase 6 · Fecho da v2 (tasks a escrever)
+## Fase 6 · Fecho da v2
 - **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.
   
 - **Inglês:** os textos dos ecrãs do redesign.
@@ -2810,6 +2810,52 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
     
   - teste do Tab do Bruno.
     
+### Task 51: Fase 6 · Base técnica (strip, pasta de dados, BUSY e limpeza)
+**Decisões** (ver DECISIONS, «Fase 6 · Pendentes antes do fecho», 2026-11-21, todas do Bruno):
+- **Strip:** `[profile.release.build-override] strip = false` no `Cargo.toml`.
+- **Pasta de dados:** segue o identificador da app, e não o `debug_assertions`.
+- **BUSY:** a exportação espera pela sincronização em curso antes de marcar os livros.
+- **Código morto:** apaga-se, confirmando antes que nada o usa.
+- **Fora desta task:** o `collisionPadding` dos tooltips fica como está, e o push espera pelo fim da Fase 6.
+
+**O que já existe** (levantamento a 2026-11-21):
+- `src-tauri/Cargo.toml` ainda não tem nenhum `[profile.*]`. A release só compila com `CARGO_PROFILE_RELEASE_STRIP=false` (§4 do handover 1800: o strip do ld-27106 estraga os dylibs de proc-macro).
+- `settings/mod.rs` ≈ 352: `data_dir_in(home)` escolhe «KoboHighlightsExporter Dev» com `cfg!(debug_assertions)`. Chamam-no `data_dir()` em `lib.rs:99` (setup), `settings/mod.rs:417` (`get_config_dir`) e `commands/library.rs:337`. O teste `debug_builds_use_their_own_data_folder` fica ≈ 706.
+- O identificador é `com.bruno.khi` em `tauri.conf.json` e `com.bruno.khi.dev` em `tauri.dev.conf.json`. O `npm run dev:app` e a build dev do handover já passam o `tauri.dev.conf.json`.
+- `library.svelte.ts` ≈ 434: o `exportIds` chama o `markBookOpened` sem esperar pelo `this.running`. O `openBook` (≈ 165) já espera (M1, handover 1055), porque o `mark_book_opened` tem `busy_timeout(ZERO)` contra a transação IMMEDIATE do `sync`.
+- **Código morto:** `src/lib/components/LibraryView.svelte.backup`; `src/lib/utils/date.ts`, que ninguém importa (substituído por `short-date.ts`); a chave `screens.bookDetails.deleteBook` em `pt.json` e `en.json`, enquanto as `deleteBook*` irmãs estão em uso; e `/Users/bruno/Documents/khi-project/kobo-highlights-exporter/node_modules` em `vite.config.ts` → `server.fs.allow`.
+
+**Comportamento a provar:**
+1. **Pasta de dados:** um identificador acabado em `.dev` dá «KoboHighlightsExporter Dev», e qualquer outro dá «KoboHighlightsExporter», seja qual for o tipo de build. A função pura recebe o identificador. O identificador real vem da config do Tauri (`app.config().identifier`) no setup, antes de qualquer `data_dir()`. Se o `data_dir()` for chamado sem identificador conhecido, **dá erro e nunca cai na pasta real**.
+2. **BUSY:** com uma sincronização em curso, o `exportIds` exporta logo, mas só chama o `markBookOpened` depois de a sincronização acabar, e limpa o «novo» como hoje. O snapshot continua a ser tirado antes da exportação, por isso um destaque que chegue com a sincronização continua novo. O teste falha sem a correção.
+3. **Strip:** a release compila sem a variável de ambiente.
+4. **Limpeza:** os 4 restos desaparecem; o Vitest, o `check`, a build e o visual continuam verdes.
+
+**Passos:**
+- [x] **Passo 1 (TDD):** os testes Rust da pasta de dados (o ponto 1, com `.dev`, sem `.dev` e sem identificador), substituindo o `debug_builds_use_their_own_data_folder`. Vermelho, implementação, verde.
+- [x] **Passo 2 (TDD):** o teste Vitest do ponto 2 em `library.svelte.test.ts`, com o `markBookOpened` a rejeitar enquanto a sincronização falsa estiver aberta. Vermelho, implementação, verde.
+- [x] **Passo 3:** o `build-override` no `Cargo.toml`. Prova com `npx tauri build --config src-tauri/tauri.dev.conf.json --config '{"bundle":{"createUpdaterArtifacts":false}}' --bundles app`, **sem** o `CARGO_PROFILE_RELEASE_STRIP`. Não se lança a `.app`; isso faço eu.
+- [x] **Passo 4:** a limpeza. Antes de apagar, um `grep` em `src`, `tests` e `src-tauri` por cada resto.
+- [x] **Passo 5:** gate completo.
+- [x] **Passo 6:** review adversarial (Opus), porque muda a escolha da pasta de dados, que guarda a library real. Depois vêm as correções, as minhas mutações, a minha verificação da release «Khi Dev» (com `ls` à pasta Dev, sem tocar na real), e os commits `fix(release): keep proc-macros unstripped`, `fix(settings): data folder follows the app identifier`, `fix(export): wait for the running sync before marking books` e `chore: remove dead code`.
+
+**Verificar no ecrã (Bruno), com a build dev:** nada de visível muda. Exporta durante a sincronização ao ligar o Kobo: os livros exportados deixam de aparecer como novos.
+
+**Feito (2026-11-21).** Aprovada pelo Bruno («Aprovo a Task 51»). O Sonnet implementou com TDD, e eu revi.
+- **Review adversarial (Opus): «aprovar com correções».** As 2 correções foram feitas:
+  - **Major:** o `npm run tauri dev` documentado, sem a config dev, passava a abrir a pasta real. Agora, uma build de debug sem identificador `.dev` dá o erro `DebugBuildNeedsDevIdentifier`. O README e o BUILD passaram a dizer `npm run dev:app`.
+  - **Minor:** a espera pela sincronização atrasava o «✓ Exportado». Agora o `exportIds` devolve os ficheiros e põe o `isExporting` a falso logo a seguir à exportação. As marcas correm depois (`marksSettled()` para os testes).
+- **Pasta:** a função pura é `data_dir_for(home, identifier, debug)`. O identificador vem de `app.config().identifier` (um `OnceLock`, posto no setup antes do primeiro `data_dir()`). Sem identificador, dá `IdentifierUnknown`.
+- **Mutações (7):** morreram 6. Sobreviveu a que retira o `set_app_identifier` do setup, porque não há teste que corra o setup. Nesse caso a app dá erro ao arrancar e nunca toca na pasta real (o `IdentifierUnknown` está testado).
+- **Prova no runtime:** a release «Khi Dev» compilou sem o `CARGO_PROFILE_RELEASE_STRIP`. Lançada, abriu só a pasta Dev (`lsof`), e as datas de modificação da pasta real não mudaram.
+- **Gate:**
+  - Vitest: 1102 passam, 1 ignorado;
+  - `npm run check`: 0/0;
+  - build OK;
+  - `test:visual`: 179 passam;
+  - `cargo test`: 182;
+  - `clippy`: os 7 avisos de antes.
+
 ## Visto à margem (não se apaga sem pedido)
 - `src/lib/components/LibraryView.svelte.backup` e `date.ts` são código morto.
   
