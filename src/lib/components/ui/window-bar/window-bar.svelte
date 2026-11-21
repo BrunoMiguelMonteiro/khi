@@ -33,6 +33,9 @@
 		onexport?: () => void;
 		/** Detail: show Apagar. */
 		canDelete?: boolean;
+		/** Apagar is inert, e.g. during a Sync or an export; with a reason, the tooltip says why. */
+		deleteDisabled?: boolean;
+		deleteDisabledReason?: string;
 		ondelete?: () => void;
 		onback?: () => void;
 		/** The width left for the traffic lights, measured by the page; 0 in full screen, where they are hidden. */
@@ -74,6 +77,8 @@
 		exportDisabledReason,
 		onexport,
 		canDelete = false,
+		deleteDisabled = false,
+		deleteDisabledReason,
 		ondelete,
 		onback,
 		trafficLightsWidth = 52,
@@ -208,6 +213,8 @@
 					icon={Trash2}
 					label={$_('ui.windowBar.delete')}
 					shortcut="⌘⌫"
+					disabled={deleteDisabled}
+					disabledReason={deleteDisabledReason}
 					onclick={ondelete}
 				/>
 			{/if}

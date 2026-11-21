@@ -112,6 +112,48 @@ export const booksWithoutNews: Book[] = books.map((book) => ({
 	highlights: book.highlights.map((highlight) => ({ ...highlight, isNew: false }))
 }));
 
+/**
+ * The Library of the delete scenarios (Ecrã 9, Figma 74:16535): «O Retorno» takes the first book's place. Its three
+ * highlights were all removed from the Kobo, one has a note, so the trash can is in the bar. The lines are invented.
+ */
+export const booksDeletable: Book[] = [
+	makeBook({
+		id: 1,
+		title: 'O Retorno',
+		author: 'Dulce Maria Cardoso',
+		publisher: 'Tinta-da-china',
+		language: 'pt',
+		dateLastRead: '2026-10-02T21:14:00Z',
+		highlights: [
+			{
+				id: 'h1-1',
+				text: 'Chegámos de manhã e a casa já não era a nossa.',
+				dateCreated: '2026-09-20T20:01:00Z',
+				chapterTitle: 'Capítulo 1',
+				chapterProgress: 0.02,
+				removedAt: '2026-10-01T08:00:00Z'
+			},
+			{
+				id: 'h1-2',
+				text: 'Voltar é também uma maneira de partir outra vez.',
+				dateCreated: '2026-09-22T22:10:00Z',
+				annotation: 'Reler com calma.',
+				chapterTitle: 'Capítulo 3',
+				chapterProgress: 0.4,
+				removedAt: '2026-10-01T08:00:00Z'
+			},
+			{
+				id: 'h1-3',
+				text: 'Ninguém nos esperava e, mesmo assim, havia quem nos olhasse.',
+				dateCreated: '2026-09-25T09:30:00Z',
+				chapterTitle: 'Capítulo 7',
+				removedAt: '2026-10-01T08:00:00Z'
+			}
+		]
+	}),
+	...booksWithoutNews.slice(1)
+];
+
 /** What `library_summary` answers: new highlights since 9 Nov, the connected Kobo's last sync at 09:42 (Lisbon, UTC+0). */
 export const summary = { newSince: '2026-11-09T10:00:00Z', lastSyncAt: '2026-11-15T09:42:00Z' };
 

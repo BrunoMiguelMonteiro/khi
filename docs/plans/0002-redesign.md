@@ -2634,7 +2634,7 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 
 ### Task 48: Ecrã 9 · Apagar livro (Detalhe 5, Q-A)
 **Decisões** (ver DECISIONS, «Ecrãs · 9 · Apagar livro» e «Task 48 · decisões»):
-- **Já decididas:** Detalhe 5 (A1): o caixote na barra só quando todos os destaques foram removidos do Kobo. Q-A: «Apagar» Secundário em `destructive-text`, sem botão por omissão, Esc e ⌘. cancelam. Q-E: foco inicial no Cancelar. Q-F: texto 13/16. Q-G: fundo a 15 %. Movimento 4 e Movimento 5.
+- **Já decididas:** Detalhe 5 (A1): o caixote na barra só quando todos os destaques foram removidos do Kobo. Q-A: «Apagar» Secundário em `destructive-text`, sem botão por omissão, Esc e ⌘. cancelam. Q-E (B): à entrada, nenhum botão recebe o foco, que fica na janela, e o anel não aparece. (Corrigido a 2026-11-21: a primeira versão desta Task dizia «foco no Cancelar», que vinha da proposta 2 do componente 15 e que a Q-E substituiu.) Q-F: texto 13/16. Q-G: fundo a 15 %. Movimento 4 e Movimento 5.
 - **Menu Livro (Bruno, 2026-11-21):** fica para a Fase 6. Agora o ⌘⌫ funciona pelo `keydown` da página, como o ⌘R e o ⌘E.
 - **Por omissão (minhas, registadas):** ver «Comportamento», pontos 3 a 6.
 
@@ -2654,7 +2654,7 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 2. **Abrir a janela:** pelo caixote ou por ⌘⌫ no Detalhe, só com `canDelete`. O ⌘⌫ não dispara num campo de texto, com outra janela modal aberta, com o atualizador ativo nem com a tecla a repetir.
 3. **Inerte durante uma sincronização ou exportação:** o caixote fica desativado, com o tooltip que o Exportar já usa («Espera pelo fim da sincronização»), e o ⌘⌫ não faz nada.
 4. **A janela:**
-   - foco inicial no Cancelar, Return não confirma, Esc e ⌘. cancelam;
+   - o foco inicial segue a Q-E (fica na janela, não num botão); Return não confirma; Esc e ⌘. cancelam;
    - enquanto apaga (`busy`), Cancelar, Esc, ⌘. e um segundo clique em Apagar não fazem nada;
    - com a janela aberta, ⌘E, ⌘R, ⌘1, ⌘2, ⌘[ e ⌘⌫ não chegam à página, e o Esc que cancela a janela não fecha também o Detalhe;
    - se começar uma sincronização (por exemplo, «Sincronizar ao ligar»), a janela fecha-se sem apagar.
@@ -2663,13 +2663,32 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 7. **Falha:** recarrega a Biblioteca do leitor (`openReader` com `keepSelection`). Se o livro já não existe, trata como apagado e volta à Biblioteca sem erro. Se continua lá, fica no Detalhe, a janela fecha-se e aparece o aviso com `icon: 'error'` e «Não foi possível apagar o livro.». Se o livro voltou a ter destaques no Kobo, o caixote desaparece sozinho.
 
 **Passos:**
-- [ ] **Passo 1:** testes que falham: o caixote aparece e desaparece com a regra 1; ⌘⌫ abre a janela e não dispara num campo; foco no Cancelar; Return não apaga; Esc cancela sem fechar o Detalhe; o duplo clique apaga uma só vez; inerte durante uma sincronização ou exportação; a sincronização a meio fecha a janela; volta à Biblioteca e o livro sai; as três falhas; os atalhos da página bloqueados com a janela aberta.
-- [ ] **Passo 2:** a implementação.
-- [ ] **Passo 3:** cenários visuais em Claro e Escuro, comparados com o Figma: `detail-delete` (caixote com tooltip) e `detail-delete-confirm` (janela).
-- [ ] **Passo 4:** gate completo (Vitest, check, build, `test:visual`, `cargo test`, `cargo clippy --all-targets`).
-- [ ] **Passo 5:** review adversarial (Opus), mutações minhas e comparação com o Figma. Commit `feat(detail): screen 9, delete a book whose highlights left the Kobo`.
+- [x] **Passo 1:** testes que falham: o caixote aparece e desaparece com a regra 1; ⌘⌫ abre a janela e não dispara num campo; foco na janela (Q-E); Return não apaga; Esc cancela sem fechar o Detalhe; o duplo clique apaga uma só vez; inerte durante uma sincronização ou exportação; a sincronização a meio fecha a janela; volta à Biblioteca e o livro sai; as três falhas; os atalhos da página bloqueados com a janela aberta.
+- [x] **Passo 2:** a implementação.
+- [x] **Passo 3:** cenários visuais em Claro e Escuro, comparados com o Figma: `detail-delete` (caixote com tooltip) e `detail-delete-confirm` (janela).
+- [x] **Passo 4:** gate completo (Vitest, check, build, `test:visual`, `cargo test`, `cargo clippy --all-targets`).
+- [x] **Passo 5:** review adversarial (Opus), mutações minhas e comparação com o Figma. Commit `feat(detail): screen 9, delete a book whose highlights left the Kobo`.
 
 **Verificar no ecrã (Bruno), com a build dev:** um livro com todos os destaques removidos do Kobo (apagá-los no Kobo e sincronizar) mostra o caixote; ⌘⌫ abre a janela; Apagar volta à Biblioteca sem o livro.
+
+**Feito (2026-11-21).** Aprovada pelo Bruno («Aprovo a Task 48»). Implementada pelo Sonnet com TDD, revista pelo Opus (review adversarial independente) e testada com mutações minhas.
+- **1.ª ronda:** `DeleteBookDialog` (novo, sobre o `ui/alert-dialog`, com o padrão `busy`); na página, `canDelete`, ⌘⌫, `confirmDelete` com nova verificação no clique e `stale()` depois do `await`; `deleteDisabled`/`deleteDisabledReason` no caixote; no store, o `deleteBook` só tira o livro se o leitor for o mesmo. Antes da implementação falharam 20 testes da página e os 9 da janela.
+- **Review adversarial: «aprovar com correções».** Corrigidos:
+  - o foco inicial passa à Q-E (fica na janela). O erro estava na primeira versão desta Task;
+  - **M1:** o teste da nova verificação no clique não a exercitava; reescrito com `isExporting`;
+  - **M2:** uma janela do Kobo novo ou de uma atualização deixava de se empilhar sobre a de apagar, que agora se fecha sem apagar;
+  - minors: comentário sobre o `AlertDialog.Action` (na 2.21.0 não fecha), `confirm().catch`, sem aviso quando o recarregar depois de uma falha é ultrapassado (`openReader` devolve se aplicou), foco no livro vizinho depois de apagar, `boundingBox` do tooltip no cenário.
+- **Mutações minhas:** 12. Morrem 11; a guarda `deleteInFlight` da página só morre junto com o `busy` da janela (guarda em camadas, aceite). A ordem do vizinho e a tecla mantida sobreviviam e ganharam um teste cada.
+- **Comparação com o Figma:** caixote 32 × 32 antes de Exportar; janela 380 × 160 em x 310, y 270, fundo a 15 %, «Apagar» em `destructive-text`, sem anel de foco. Duas diferenças anteriores a esta Task:
+  - a capa pequena ainda não segue a Q-N (13/16 e espaço não separável), por isso «O / Retorno» parte em duas linhas;
+  - o tooltip encosta à borda direita (o `collisionPadding`, ainda em aberto).
+- **Gate final:**
+  - Vitest: 1070 passam, 1 ignorado;
+  - `npm run check`: 0/0;
+  - build OK;
+  - `test:visual`: 155 passam (143 + 12 controlos), 6 baselines novas (`detail-delete`, `detail-delete-confirm`), nenhuma antiga mudou;
+  - `cargo test`: 179;
+  - `clippy`: os 7 avisos de antes.
 
 ## Fase 6 · Fecho da v2 (tasks a escrever)
 - **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.

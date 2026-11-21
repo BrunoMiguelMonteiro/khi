@@ -104,7 +104,7 @@
       "deleteBookBody": "Todos os destaques foram removidos do Kobo. O livro e os destaques saem da Biblioteca de vez.",
       "deleteBookConfirm": "Apagar",
       "cancel": "Cancelar",
-      "deleteBookError": "Não foi possível apagar o livro",
+      "deleteBookError": "Não foi possível apagar o livro.",
       "active": "Ativos",
       "excluded": "Excluídos",
       "lastRead": "Última leitura",

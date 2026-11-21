@@ -3698,3 +3698,530 @@ describe('+page · screen 8 · review fixes (Task 47)', () => {
 		expect(calls('export_library_books')).toHaveLength(1);
 	});
 });
+
+describe('+page · screen 9 · delete a book (Task 48)', () => {
+	beforeEach(() => {
+		vi.mocked(invoke).mockReset();
+		handlers.clear();
+		mainWindow.setTitle.mockClear();
+		resetLibrary();
+		library.isImporting = false;
+		library.isExporting = false;
+		updater.state = 'idle';
+	});
+
+	const REMOVED = '2026-02-01';
+	/** Alpha: every highlight removed from the Kobo. Beta: one still there. Gamma: no highlights at all. */
+	const books = () => [
+		makeBook({ id: 1, title: 'Alpha', author: 'A', highlights: [hl('a1', { removedAt: REMOVED }), hl('a2', { removedAt: REMOVED })] }),
+		makeBook({ id: 2, title: 'Beta', author: 'B', highlights: [hl('b1', { removedAt: REMOVED }), hl('b2')] }),
+		makeBook({ id: 3, title: 'Gamma', author: 'C', highlights: [] })
+	];
+	const press = (key: string, init: KeyboardEventInit = { metaKey: true }, target: Element | Window = window) =>
+		fireEvent.keyDown(target, { key, code: key === 'Backspace' || key === 'Escape' ? key : `Key${key.toUpperCase()}`, ...init });
+	const pressBackspace = (init: KeyboardEventInit = { metaKey: true }, target: Element | Window = window) => press('Backspace', init, target);
+	const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+	const trash = () => within(bar()!).queryByRole('button', { name: 'Delete book…' });
+	const windowOpen = () => screen.queryByRole('alertdialog');
+	const detailOpen = () => screen.queryByTestId('book-details-view') !== null;
+	const toastText = 'Could not delete the book.';
+
+	/** Rust's side: `delete_book` forgets the book, `get_library` answers what is left. */
+	function rust(overrides: Record<string, (args: unknown) => unknown> = {}, initial = books()) {
+		const state = { books: initial };
+		return {
+			state,
+			overrides: {
+				get_library: () => structuredClone(state.books),
+				delete_book: (args: unknown) => {
+					state.books = state.books.filter((b) => b.id !== (args as { bookId: number }).bookId);
+					return null;
+				},
+				...overrides
+			}
+		};
+	}
+	async function openBookAt(index: number, setup: ReturnType<typeof rust> = rust()) {
+		await mockLibrary({ books: setup.state.books, overrides: setup.overrides });
+		render(Page);
+		await waitFor(() => expect(options()).toHaveLength(setup.state.books.length));
+		await userEvent.setup().click(options()[index]);
+		await waitFor(() => expect(detailOpen()).toBe(true));
+		return setup;
+	}
+	async function openWindow() {
+		pressBackspace();
+		return screen.findByRole('alertdialog');
+	}
+
+	describe('the trash can', () => {
+		it('shows_only_when_every_highlight_is_removed', async () => {
+			const user = userEvent.setup();
+			await openBookAt(0);
+			expect(trash()).not.toBeNull();
+			await user.click(within(bar()!).getByRole('button', { name: 'Back' }));
+			await waitFor(() => expect(options()).toHaveLength(3));
+			// One highlight still on the Kobo
+			await user.click(options()[1]);
+			await waitFor(() => expect(detailOpen()).toBe(true));
+			expect(trash()).toBeNull();
+			await user.click(within(bar()!).getByRole('button', { name: 'Back' }));
+			await waitFor(() => expect(options()).toHaveLength(3));
+			// No highlights at all: the Figma's rule, not Rust's
+			await user.click(options()[2]);
+			await waitFor(() => expect(detailOpen()).toBe(true));
+			expect(trash()).toBeNull();
+		});
+
+		it('is_not_in_the_library', async () => {
+			await mockLibrary({ books: books() });
+			render(Page);
+			await waitFor(() => expect(options()).toHaveLength(3));
+			expect(trash()).toBeNull();
+		});
+
+		it('appears_and_goes_with_a_reload_that_restores_or_removes_highlights', async () => {
+			const setup = await openBookAt(0);
+			expect(trash()).not.toBeNull();
+			// A Sync finds a highlight back on the Kobo
+			setup.state.books[0].highlights.push(makeHighlight({ id: 'a3', text: 'a3', dateCreated: '2026-01-02' }));
+			handlers.get('sync-finished')!({ payload: { readerId: 1, report: { added: 0, updated: 0, removed: 0, restored: 1, books: 3 } } });
+			await waitFor(() => expect(trash()).toBeNull());
+			// And removes it again
+			setup.state.books[0].highlights[2].removedAt = REMOVED;
+			handlers.get('sync-finished')!({ payload: { readerId: 1, report: { added: 0, updated: 0, removed: 1, restored: 0, books: 3 } } });
+			await waitFor(() => expect(trash()).not.toBeNull());
+		});
+
+		it('is_inert_during_a_sync_and_says_why', async () => {
+			const user = userEvent.setup();
+			await openBookAt(0);
+			library.isImporting = true;
+			await tick();
+			const button = trash()!;
+			expect(button).toHaveAttribute('aria-disabled', 'true');
+			// The tooltip opens after 500 ms
+			await user.hover(button);
+			await waitFor(() => expect(screen.getAllByRole('tooltip').some((t) => t.textContent?.includes('Wait for the sync to finish'))).toBe(true), { timeout: 2000 });
+			await user.click(button);
+			expect(windowOpen()).toBeNull();
+		});
+
+		it('is_inert_during_an_export', async () => {
+			const user = userEvent.setup();
+			await openBookAt(0);
+			library.isExporting = true;
+			await tick();
+			expect(trash()).toHaveAttribute('aria-disabled', 'true');
+			await user.click(trash()!);
+			expect(windowOpen()).toBeNull();
+		});
+
+		it('opens_the_window_on_click', async () => {
+			const user = userEvent.setup();
+			await openBookAt(0);
+			await user.click(trash()!);
+			expect(await screen.findByRole('alertdialog', { name: 'Delete this book?' })).toBeInTheDocument();
+		});
+	});
+
+	describe('cmd_backspace', () => {
+		it('opens_the_window_only_with_a_book_that_can_be_deleted', async () => {
+			const user = userEvent.setup();
+			await openBookAt(0);
+			expect(await openWindow()).toBeInTheDocument();
+			await user.keyboard('{Escape}');
+			await waitFor(() => expect(windowOpen()).toBeNull());
+			await user.click(within(bar()!).getByRole('button', { name: 'Back' }));
+			await waitFor(() => expect(options()).toHaveLength(3));
+			// Not in the Library
+			pressBackspace();
+			await wait(20);
+			expect(windowOpen()).toBeNull();
+			// Not with a live highlight
+			await user.click(options()[1]);
+			await waitFor(() => expect(detailOpen()).toBe(true));
+			pressBackspace();
+			await wait(20);
+			expect(windowOpen()).toBeNull();
+		});
+
+		it('needs_the_command_key_alone', async () => {
+			await openBookAt(0);
+			pressBackspace({});
+			pressBackspace({ metaKey: true, shiftKey: true });
+			pressBackspace({ metaKey: true, altKey: true });
+			pressBackspace({ ctrlKey: true });
+			await wait(20);
+			expect(windowOpen()).toBeNull();
+		});
+
+		it('does_not_fire_in_a_text_field', async () => {
+			await openBookAt(0);
+			const input = document.body.appendChild(document.createElement('input'));
+			input.focus();
+			pressBackspace({ metaKey: true }, input);
+			await wait(20);
+			input.remove();
+			expect(windowOpen()).toBeNull();
+			expect(detailOpen()).toBe(true);
+		});
+
+		it('does_not_repeat', async () => {
+			await openBookAt(0);
+			pressBackspace({ metaKey: true, repeat: true });
+			await wait(20);
+			expect(windowOpen()).toBeNull();
+		});
+
+		it('waits_for_the_update_dialog', async () => {
+			await openBookAt(0);
+			updater.update = { version: '9.9.9', currentVersion: '1.3.0', rawJson: { releases: [] }, close: vi.fn().mockResolvedValue(undefined) } as never;
+			updater.state = 'available';
+			expect(await screen.findByTestId('update-dialog')).toBeInTheDocument();
+			pressBackspace();
+			await wait(20);
+			expect(windowOpen()).toBeNull();
+			updater.state = 'idle';
+		});
+
+		it('does_nothing_during_a_sync_or_an_export', async () => {
+			await openBookAt(0);
+			library.isImporting = true;
+			await tick();
+			pressBackspace();
+			await wait(20);
+			expect(windowOpen()).toBeNull();
+			library.isImporting = false;
+			library.isExporting = true;
+			await tick();
+			pressBackspace();
+			await wait(20);
+			expect(windowOpen()).toBeNull();
+		});
+	});
+
+	describe('the window', () => {
+		it('focus_is_in_the_window_and_return_does_not_delete', async () => {
+			const user = userEvent.setup();
+			await openBookAt(0);
+			const dialog = await openWindow();
+			// Q-E: no button takes the focus at entry
+			await waitFor(() => expect(document.activeElement).toBe(dialog));
+			await user.keyboard('{Enter}');
+			await wait(20);
+			expect(calls('delete_book')).toHaveLength(0);
+			expect(windowOpen()).not.toBeNull();
+		});
+
+		it('escape_cancels_the_window_and_the_detail_stays', async () => {
+			const user = userEvent.setup();
+			await openBookAt(0);
+			await openWindow();
+			await user.keyboard('{Escape}');
+			await waitFor(() => expect(windowOpen()).toBeNull());
+			await wait(20);
+			expect(detailOpen()).toBe(true);
+			expect(calls('delete_book')).toHaveLength(0);
+			// With the window gone, the next Esc goes back as before
+			await user.keyboard('{Escape}');
+			await waitFor(() => expect(detailOpen()).toBe(false));
+		});
+
+		it('cmd_period_and_cancel_close_it_without_deleting', async () => {
+			const user = userEvent.setup();
+			await openBookAt(0);
+			const dialog = await openWindow();
+			fireEvent.keyDown(dialog, { key: '.', code: 'Period', metaKey: true });
+			await waitFor(() => expect(windowOpen()).toBeNull());
+			await openWindow();
+			await user.click(screen.getByRole('button', { name: 'Cancel' }));
+			await waitFor(() => expect(windowOpen()).toBeNull());
+			expect(detailOpen()).toBe(true);
+			expect(calls('delete_book')).toHaveLength(0);
+		});
+
+		it('holds_the_pages_shortcuts', async () => {
+			await openBookAt(0, rust({ export_library_books: () => ['/x/Alpha.md'] }));
+			await openWindow();
+			press('e');
+			press('r');
+			fireEvent.keyDown(window, { key: '1', code: 'Digit1', metaKey: true });
+			fireEvent.keyDown(window, { key: '2', code: 'Digit2', metaKey: true });
+			fireEvent.keyDown(window, { key: '[', code: 'BracketLeft', metaKey: true });
+			pressBackspace();
+			await wait(30);
+			expect(calls('export_library_books')).toHaveLength(0);
+			expect(calls('sync_kobo')).toHaveLength(0);
+			expect(calls('update_settings')).toHaveLength(0);
+			expect(calls('delete_book')).toHaveLength(0);
+			expect(detailOpen()).toBe(true);
+			expect(windowOpen()).not.toBeNull();
+		});
+
+		it('closes_without_deleting_when_a_sync_starts', async () => {
+			await openBookAt(0);
+			await openWindow();
+			// «Sincronizar ao ligar»: a Sync begins under the open window
+			library.isImporting = true;
+			await waitFor(() => expect(windowOpen()).toBeNull());
+			expect(calls('delete_book')).toHaveLength(0);
+			expect(detailOpen()).toBe(true);
+		});
+
+		it('closes_without_deleting_when_a_reload_brings_a_highlight_back', async () => {
+			const setup = await openBookAt(0);
+			await openWindow();
+			setup.state.books[0].highlights.push(makeHighlight({ id: 'a3', text: 'a3', dateCreated: '2026-01-02' }));
+			handlers.get('sync-finished')!({ payload: { readerId: 1, report: { added: 0, updated: 0, removed: 0, restored: 1, books: 3 } } });
+			await waitFor(() => expect(windowOpen()).toBeNull());
+			expect(calls('delete_book')).toHaveLength(0);
+		});
+
+		it('a_double_click_deletes_once', async () => {
+			const user = userEvent.setup();
+			let finish = () => {};
+			const setup = rust();
+			const deleteBook = setup.overrides.delete_book;
+			await openBookAt(0, rust({ delete_book: (args) => new Promise((resolve) => (finish = () => resolve(deleteBook(args)))) }));
+			await openWindow();
+			await user.dblClick(screen.getByRole('button', { name: 'Delete' }));
+			await user.click(screen.getByRole('button', { name: 'Delete' }));
+			await wait(20);
+			expect(calls('delete_book')).toHaveLength(1);
+			// Busy: Cancel, Esc and ⌘. leave the window standing
+			await user.keyboard('{Escape}');
+			fireEvent.keyDown(document.activeElement ?? document.body, { key: '.', code: 'Period', metaKey: true });
+			await wait(20);
+			expect(windowOpen()).not.toBeNull();
+			finish();
+			await waitFor(() => expect(detailOpen()).toBe(false));
+			expect(calls('delete_book')).toHaveLength(1);
+		});
+	});
+
+	describe('deleting', () => {
+		it('goes_back_to_the_library_without_the_book_and_without_a_notice', async () => {
+			const user = userEvent.setup();
+			await openBookAt(0);
+			await waitFor(() => expect(mainWindow.setTitle).toHaveBeenCalledWith('Alpha'));
+			library.setSelectedBookIds([1, 2]);
+			await openWindow();
+			await user.click(screen.getByRole('button', { name: 'Delete' }));
+
+			await waitFor(() => expect(detailOpen()).toBe(false));
+			expect(calls('delete_book')).toEqual([['delete_book', { readerId: 1, bookId: 1 }]]);
+			await waitFor(() => expect(options()).toHaveLength(2));
+			expect(options().map((o) => o.textContent)).not.toContain('Alpha');
+			expect(windowOpen()).toBeNull();
+			expect(library.uiState).toBe('library');
+			expect(library.viewingBookId).toBeNull();
+			expect(library.selectedBookIds).toEqual([2]);
+			// The window's title is back to what it was
+			await waitFor(() => expect(mainWindow.setTitle).toHaveBeenLastCalledWith('Khi'));
+			// No notice of success: the book is gone from the Library
+			expect(document.querySelector('[data-slot="toast"]')).toBeNull();
+		});
+
+		it('checks_again_on_the_click_and_gives_up_if_an_export_is_running', async () => {
+			// No export starts under the open window today, so nothing closes it: the click itself must check
+			const user = userEvent.setup();
+			await openBookAt(0);
+			await openWindow();
+			library.isExporting = true;
+			await tick();
+			await user.click(screen.getByRole('button', { name: 'Delete' }));
+			await wait(20);
+			expect(calls('delete_book')).toHaveLength(0);
+			expect(windowOpen()).toBeNull();
+		});
+
+		it('gives_up_after_the_await_if_the_reader_changed', async () => {
+			const user = userEvent.setup();
+			let finish = () => {};
+			const setup = rust({ delete_book: () => new Promise((resolve) => (finish = () => resolve(null))) });
+			await openBookAt(0, setup);
+			await openWindow();
+			await user.click(screen.getByRole('button', { name: 'Delete' }));
+			await waitFor(() => expect(calls('delete_book')).toHaveLength(1));
+
+			// Another Reader's Library, whose book 1 is not the one being deleted
+			setup.state.books = [makeBook({ id: 1, title: 'Other', author: 'X', highlights: [hl('o1')] })];
+			await library.openReader(2);
+			finish();
+			await wait(50);
+
+			expect(library.activeReaderId).toBe(2);
+			expect(library.books.map((b) => b.title)).toEqual(['Other']);
+			expect(document.querySelector('[data-slot="toast"]')).toBeNull();
+			expect(windowOpen()).toBeNull();
+		});
+
+		it('gives_up_after_the_await_if_another_book_is_open', async () => {
+			const user = userEvent.setup();
+			let finish = () => {};
+			const setup = rust({ delete_book: () => new Promise((resolve) => (finish = () => resolve(null))) });
+			await openBookAt(0, setup);
+			await openWindow();
+			await user.click(screen.getByRole('button', { name: 'Delete' }));
+			await waitFor(() => expect(calls('delete_book')).toHaveLength(1));
+
+			library.openBook(3);
+			finish();
+			await wait(50);
+
+			// Not sent back to the Library: the open book is another one
+			expect(library.viewingBookId).toBe(3);
+			expect(library.uiState).toBe('book-details');
+			expect(windowOpen()).toBeNull();
+		});
+	});
+
+	describe('another modal window', () => {
+		it('closes_without_deleting_when_a_kobo_nobody_owns_connects', async () => {
+			await openBookAt(0, rust({ reader_for_kobo: () => null }));
+			await openWindow();
+			handlers.get('device-detected')!({ payload: { device: kobo } });
+			expect(await screen.findByTestId('unknown-kobo-dialog')).toBeInTheDocument();
+			await waitFor(() => expect(windowOpen()).toBeNull());
+			expect(calls('delete_book')).toHaveLength(0);
+			expect(screen.getByTestId('unknown-kobo-dialog')).toBeInTheDocument();
+		});
+
+		it('closes_without_deleting_when_an_update_is_found', async () => {
+			await openBookAt(0);
+			await openWindow();
+			updater.update = { version: '9.9.9', currentVersion: '1.3.0', rawJson: { releases: [] }, close: vi.fn().mockResolvedValue(undefined) } as never;
+			updater.state = 'available';
+			expect(await screen.findByTestId('update-dialog')).toBeInTheDocument();
+			await waitFor(() => expect(windowOpen()).toBeNull());
+			expect(calls('delete_book')).toHaveLength(0);
+			expect(screen.getByTestId('update-dialog')).toBeInTheDocument();
+			updater.state = 'idle';
+		});
+	});
+
+	describe('after deleting', () => {
+		it('the_focus_goes_to_the_book_that_took_its_place', async () => {
+			const user = userEvent.setup();
+			await openBookAt(0);
+			await openWindow();
+			await user.click(screen.getByRole('button', { name: 'Delete' }));
+			await waitFor(() => expect(options()).toHaveLength(2));
+			// Alpha is gone: Beta, the next one, has the focus
+			await waitFor(() => expect(document.activeElement).toBe(options()[0]));
+			expect(options()[0].textContent).toContain('Beta');
+		});
+
+		it('the_focus_goes_to_the_next_book_when_one_in_the_middle_was_deleted', async () => {
+			const user = userEvent.setup();
+			const all = books();
+			all[1].highlights = [makeHighlight({ id: 'b1', text: 'b1', dateCreated: '2026-01-01', removedAt: REMOVED })];
+			await openBookAt(1, rust({}, all));
+			await openWindow();
+			await user.click(screen.getByRole('button', { name: 'Delete' }));
+			await waitFor(() => expect(options()).toHaveLength(2));
+			// Beta is gone: Gamma, the next one, not Alpha, has the focus
+			await waitFor(() => expect(document.activeElement).toBe(options()[1]));
+			expect(options()[1].textContent).toContain('Gamma');
+		});
+
+		it('the_focus_goes_to_the_previous_book_when_the_last_was_deleted', async () => {
+			const user = userEvent.setup();
+			// Gamma, the last, can be deleted: every highlight removed
+			const all = books();
+			all[2].highlights = [makeHighlight({ id: 'c1', text: 'c1', dateCreated: '2026-01-01', removedAt: REMOVED })];
+			await openBookAt(2, rust({}, all));
+			await openWindow();
+			await user.click(screen.getByRole('button', { name: 'Delete' }));
+			await waitFor(() => expect(options()).toHaveLength(2));
+			await waitFor(() => expect(document.activeElement).toBe(options()[1]));
+			expect(options()[1].textContent).toContain('Beta');
+		});
+	});
+
+	describe('failing', () => {
+		const failure = (message: string) => () => {
+			throw message;
+		};
+		const toastIcon = () => document.querySelector('[data-slot="toast"] svg')?.getAttribute('class') ?? '';
+
+		it('stays_in_the_book_with_an_error_notice_when_the_book_is_still_there', async () => {
+			const user = userEvent.setup();
+			vi.spyOn(console, 'error').mockImplementation(() => {});
+			await openBookAt(0, rust({ delete_book: failure('database is locked') }));
+			await openWindow();
+			await user.click(screen.getByRole('button', { name: 'Delete' }));
+
+			expect(await screen.findByText(toastText)).toBeInTheDocument();
+			expect(toastIcon()).toContain('circle-alert');
+			expect(windowOpen()).toBeNull();
+			expect(detailOpen()).toBe(true);
+			// The Library was read again, keeping the selection
+			expect(calls('get_library').length).toBeGreaterThanOrEqual(2);
+			expect(trash()).not.toBeNull();
+		});
+
+		it('a_book_that_is_gone_counts_as_deleted_without_an_error', async () => {
+			const user = userEvent.setup();
+			vi.spyOn(console, 'error').mockImplementation(() => {});
+			const setup = rust();
+			setup.overrides.delete_book = () => {
+				// Deleted from elsewhere meanwhile
+				setup.state.books = setup.state.books.filter((b) => b.id !== 1);
+				throw 'NotFound';
+			};
+			await openBookAt(0, setup);
+			await openWindow();
+			await user.click(screen.getByRole('button', { name: 'Delete' }));
+
+			await waitFor(() => expect(detailOpen()).toBe(false));
+			await waitFor(() => expect(options()).toHaveLength(2));
+			expect(screen.queryByText(toastText)).toBeNull();
+			expect(library.uiState).toBe('library');
+		});
+
+		it('a_book_with_highlights_back_on_the_kobo_loses_its_trash_can', async () => {
+			const user = userEvent.setup();
+			vi.spyOn(console, 'error').mockImplementation(() => {});
+			const setup = rust();
+			setup.overrides.delete_book = () => {
+				setup.state.books[0].highlights.push(makeHighlight({ id: 'a3', text: 'a3', dateCreated: '2026-01-02' }));
+				throw 'BookHasLiveHighlights';
+			};
+			await openBookAt(0, setup);
+			await openWindow();
+			await user.click(screen.getByRole('button', { name: 'Delete' }));
+
+			expect(await screen.findByText(toastText)).toBeInTheDocument();
+			await waitFor(() => expect(trash()).toBeNull());
+			expect(windowOpen()).toBeNull();
+			expect(detailOpen()).toBe(true);
+		});
+
+		it('a_reload_overtaken_by_another_shows_no_error', async () => {
+			const user = userEvent.setup();
+			vi.spyOn(console, 'error').mockImplementation(() => {});
+			let reloads = 0;
+			let overtake = () => {};
+			const setup = rust({ delete_book: failure('database is locked') });
+			const getLibrary = setup.overrides.get_library;
+			const overrides: Record<string, (args: unknown) => unknown> = setup.overrides;
+			overrides.get_library = () => {
+				// The reload after the failure waits; another one is shown meanwhile
+				if (++reloads === 2) return new Promise((resolve) => (overtake = () => resolve(getLibrary())));
+				return getLibrary();
+			};
+			await openBookAt(0, setup);
+			await openWindow();
+			await user.click(screen.getByRole('button', { name: 'Delete' }));
+			await waitFor(() => expect(reloads).toBe(2));
+			await library.openReader(1, { keepSelection: true });
+			overtake();
+			await wait(50);
+			expect(screen.queryByText(toastText)).toBeNull();
+			expect(windowOpen()).toBeNull();
+			expect(detailOpen()).toBe(true);
+		});
+	});
+});

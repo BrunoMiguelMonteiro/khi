@@ -214,14 +214,16 @@ class LibraryStore {
 
 	/** Shows the Reader's Library, read from Rust; no Kobo needed (R17).
 	 * `keepSelection` (a reload after a Sync) keeps the selected ids still in
-	 * the Library; another Reader's never stay. */
-	async openReader(readerId: number, { keepSelection = false }: { keepSelection?: boolean } = {}): Promise<void> {
+	 * the Library; another Reader's never stay. Whether this Library was the
+	 * one shown: false when a later request overtook it. */
+	async openReader(readerId: number, { keepSelection = false }: { keepSelection?: boolean } = {}): Promise<boolean> {
 		const request = ++this.#openRequest;
 		const books = await commands.getLibrary(readerId);
 		// A Library shown since (another Reader, or a Kobo's on connect) wins
-		if (request !== this.#openRequest) return;
+		if (request !== this.#openRequest) return false;
 		this.#showLibrary(readerId, books, keepSelection);
 		await this.loadSummary();
+		return true;
 	}
 
 	#openRequest = 0;
@@ -271,9 +273,11 @@ class LibraryStore {
 
 	/** Deletes a book whose highlights were all removed from the Kobo (R19). */
 	async deleteBook(bookId: number): Promise<void> {
-		if (this.activeReaderId === null) throw new Error('No reader open');
-		await commands.deleteBook(this.activeReaderId, bookId);
-		this.removeBook(bookId);
+		const readerId = this.activeReaderId;
+		if (readerId === null) throw new Error('No reader open');
+		await commands.deleteBook(readerId, bookId);
+		// Another Reader's Library may be on screen by now: its book with the same id is not this one
+		if (this.activeReaderId === readerId) this.removeBook(bookId);
 	}
 
 	/** The connected Kobo's Reader if it is known, else the last one (R5). */

@@ -853,7 +853,7 @@ describe('Library Store', () => {
 			const log = vi.spyOn(console, 'error').mockImplementation(() => {});
 			answer({ get_library: mockBooks });
 
-			await expect(library.openReader(4)).resolves.toBeUndefined();
+			await expect(library.openReader(4)).resolves.toBe(true);
 
 			expect(library.books).toEqual(mockBooks);
 			expect(library.summary).toBeNull();

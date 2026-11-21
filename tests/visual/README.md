@@ -21,7 +21,7 @@ The report is written to `output/report.md`, grouped by capture, then element, t
 
 Only update the baseline on a tree whose visuals you have verified. Run `test:visual` twice afterwards to check that the baseline is stable. Commit `baseline/` together with the change that justifies it.
 
-## Matrix (137 captures + 12 controls)
+## Matrix (143 captures + 12 controls)
 
 Scenarios (`scenarios.ts`):
 
@@ -56,6 +56,9 @@ Scenarios (`scenarios.ts`):
   - `export-done` (0 to 2 s): the header stays with its Principal «✓ Exportado», the cards keep their «N novos» and the toast says «2 livros exportados» with «Mostrar no Finder»;
   - `export-done-after`: only the 4 s timer is held; the header and the labels have left, the grid starts 24 px below the bar and the toast is still there;
   - `export-error`: `exportFailure` makes `export_library_books` reject with `folderNotWritable` for `~/Documents/Kobo`: the Erro header with «Escolher pasta…» as the Principal, and the «N novos» labels stay. The app logs the failure on purpose (`expectedConsoleErrors`).
+- The delete scenarios (Ecrã 9, Task 48): the Library has «O Retorno» (Dulce Maria Cardoso) first, with its three highlights all removed from the Kobo and one with a note (`booksDeletable`), so the bar has the trash can:
+  - `detail-delete`: the pointer on the trash can, 32 × 32 and 4 before Export, and its tooltip «Apagar livro… ⌘⌫» (134 × 24, top at 46 ± 1);
+  - `detail-delete-confirm`: the trash can pressed: «Apagar este livro?» 380 × 160 and centred, the focus on the window itself (no button, so no focus ring), «Apagar» in destructive-text.
 
 Themes:
 

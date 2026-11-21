@@ -8,7 +8,7 @@ import type { Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import type { Language, ThemePreference, ViewMode } from '../../src/lib/bindings';
 import type { MockConfig } from './mock-ipc';
-import { APP_VERSION, HOME, availableUpdate, books, booksWithoutNews, defaultSettings, device, makeSettings, reader, summary } from './fixtures';
+import { APP_VERSION, HOME, availableUpdate, books, booksDeletable, booksWithoutNews, defaultSettings, device, makeSettings, reader, summary } from './fixtures';
 
 export type ThemeName = 'light' | 'dark-app' | 'system-dark';
 
@@ -61,6 +61,8 @@ export interface Scenario {
 	/** `settings`: the window's height, that of its pane (Task 45). The page measures it and sets the size; the harness checks that it did. */
 	windowHeight?: number;
 	update?: boolean;
+	/** The Library has «O Retorno» first, every highlight of it removed from the Kobo: the detail has the trash can (Ecrã 9). */
+	deletableBook?: boolean;
 	/** The export fails with `folderNotWritable` for `~/Documents/Kobo` (Ecrã 8). */
 	exportFailure?: boolean;
 	/** The updater fails: `check` (state 6) or the install after a download that worked (state 7). */
@@ -138,6 +140,12 @@ export interface Strings {
 	exportErrorTitle: string;
 	exportErrorDetail: string;
 	chooseFolderAction: string;
+	/** Ecrã 9: the bar's trash can and its tooltip, and the window's texts. */
+	deleteBook: string;
+	deleteTooltip: string;
+	deleteTitle: string;
+	deleteBody: string;
+	deleteConfirm: string;
 }
 
 const STRINGS: Record<Language, Strings> = {
@@ -188,7 +196,12 @@ const STRINGS: Record<Language, Strings> = {
 		showInFinder: 'Mostrar no Finder',
 		exportErrorTitle: 'Não foi possível exportar.',
 		exportErrorDetail: 'O Khi não consegue escrever em ~/Documents/Kobo. Escolhe outra pasta.',
-		chooseFolderAction: 'Escolher pasta…'
+		chooseFolderAction: 'Escolher pasta…',
+		deleteBook: 'Apagar livro…',
+		deleteTooltip: 'Apagar livro… ⌘⌫',
+		deleteTitle: 'Apagar este livro?',
+		deleteBody: 'Todos os destaques foram removidos do Kobo. O livro e os destaques saem da Biblioteca de vez.',
+		deleteConfirm: 'Apagar'
 	},
 	en: {
 		noKoboTitle: 'Connect your Kobo',
@@ -237,7 +250,12 @@ const STRINGS: Record<Language, Strings> = {
 		showInFinder: 'Show in Finder',
 		exportErrorTitle: 'Couldn’t export.',
 		exportErrorDetail: 'Khi can’t write to ~/Documents/Kobo. Choose another folder.',
-		chooseFolderAction: 'Choose folder…'
+		chooseFolderAction: 'Choose folder…',
+		deleteBook: 'Delete book…',
+		deleteTooltip: 'Delete book… ⌘⌫',
+		deleteTitle: 'Delete this book?',
+		deleteBody: 'Its highlights were all removed from the Kobo. The book and its highlights leave the Library for good.',
+		deleteConfirm: 'Delete'
 	}
 };
 export const stringsFor = (language: Language) => STRINGS[language];
@@ -266,11 +284,16 @@ async function connectKobo(page: Page, text: Strings) {
 	await expect(page.getByRole('button', { name: text.sync, exact: true })).not.toHaveAttribute('aria-disabled', 'true');
 }
 
-async function library(page: Page, text: Strings) {
+async function libraryWithFirst(page: Page, text: Strings, firstTitle: string) {
 	await connectKobo(page, text);
 	await expect(page.getByTestId('books-grid')).toBeVisible();
 	await expect(page.getByTestId('book-card')).toHaveCount(books.length);
-	await expect(page.getByRole('option', { name: books[0].title })).toBeVisible();
+	await expect(page.getByRole('option', { name: firstTitle })).toBeVisible();
+}
+
+// Not `libraryWithFirst` itself: scenarios pass this as `reach`, which hands it a third argument
+async function library(page: Page, text: Strings) {
+	await libraryWithFirst(page, text, books[0].title);
 }
 
 /** The first book, opened: events, not mouse moves, since hover states are recorded separately. */
@@ -285,6 +308,18 @@ async function openDetail(page: Page, text: Strings) {
 	const group = await view.getByRole('radiogroup').boundingBox();
 	const line = await view.locator('[data-slot="highlight-line"]').first().boundingBox();
 	expect(line!.y - (group!.y + group!.height)).toBe(48);
+	await page.mouse.move(0, 0);
+}
+
+/** «O Retorno», opened: its three highlights removed from the Kobo, so the bar has the trash can. */
+async function openDeletableDetail(page: Page, text: Strings) {
+	await libraryWithFirst(page, text, 'O Retorno');
+	await page.getByRole('option', { name: 'O Retorno' }).dispatchEvent('click');
+	const view = page.getByTestId('book-details-view');
+	await expect(view.getByRole('heading', { name: 'O Retorno' })).toBeVisible();
+	await expect(view.locator('[data-slot="highlight"]')).toHaveCount(3);
+	await expect(view.locator('[data-slot="highlight-removed"]')).toHaveCount(3);
+	await expect(bar(page).getByRole('button', { name: text.deleteBook, exact: true })).toBeVisible();
 	await page.mouse.move(0, 0);
 }
 
@@ -718,6 +753,51 @@ export const SCENARIOS: Record<string, Scenario> = {
 			await expect(page.locator('[data-slot="highlight-removed"]')).toHaveCount(1);
 		}
 	},
+	'detail-delete': {
+		name: 'detail-delete',
+		description: 'A book whose highlights all left the Kobo, with the pointer on the trash can in the bar: «Apagar livro… ⌘⌫» (Ecrã 9, Figma 74:16535)',
+		withLibrary: true,
+		withoutNews: true,
+		deletableBook: true,
+		async reach(page, text) {
+			await openDeletableDetail(page, text);
+			const trash = bar(page).getByRole('button', { name: text.deleteBook, exact: true });
+			// Before Export, in the same group
+			const [trashBox, exportBox] = await Promise.all([trash.boundingBox(), bar(page).getByRole('button', { name: /^(Exportar|Export) 1 /i }).boundingBox()]);
+			expect(trashBox!.width).toBe(32);
+			expect(trashBox!.height).toBe(32);
+			expect(exportBox!.x - (trashBox!.x + trashBox!.width)).toBe(4);
+			await trash.hover();
+			await tooltipOpen(page);
+			const tooltip = page.locator('[data-slot="tooltip-content"]:not([data-state="closed"])');
+			await expect(tooltip).toHaveText(text.deleteTooltip);
+			// Figma: 134 × 24, 46 from the top of the window; the same ±1 the other tooltips' 47 gets (the half pixel is the text's width)
+			const box = (await tooltip.boundingBox())!;
+			expect(Math.abs(box.width - 134)).toBeLessThanOrEqual(1);
+			expect(box.height).toBe(24);
+			// To the half pixel, as the recorder rounds boxes: the opening scale is still settling
+			expect(Math.abs(Math.round(box.y * 2) / 2 - 46)).toBeLessThanOrEqual(1);
+		}
+	},
+	'detail-delete-confirm': {
+		name: 'detail-delete-confirm',
+		description: 'The trash can pressed: «Apagar este livro?» over the black at 15 %, 380 × 160 and centred, the focus on Cancelar (Ecrã 9, Figma 74:16868)',
+		withLibrary: true,
+		withoutNews: true,
+		deletableBook: true,
+		async reach(page, text) {
+			await openDeletableDetail(page, text);
+			await bar(page).getByRole('button', { name: text.deleteBook, exact: true }).dispatchEvent('click');
+			const dialog = page.getByRole('alertdialog', { name: text.deleteTitle });
+			await expect(dialog).toBeVisible();
+			await expect(dialog).toContainText(text.deleteBody);
+			// Q-E: no button takes the focus at entry, so no focus ring is drawn
+			await expect(dialog).toBeFocused();
+			await expect(dialog.getByRole('button', { name: text.deleteConfirm, exact: true })).toBeVisible();
+			// 380 × 160, the Figma's Janela modal Apagar livro, without the 1 px borders the Figma draws inside the frame
+			expect(await dialog.evaluate((el) => [(el as HTMLElement).offsetWidth, (el as HTMLElement).clientHeight])).toEqual([380, 160]);
+		}
+	},
 	'settings-export': {
 		name: 'settings-export',
 		description: 'Settings on the Export pane: Ficheiros and the metadata, 540 × 377 (Figma 382)',
@@ -1122,7 +1202,7 @@ export function captures(): Capture[] {
 }
 
 export function mockConfigFor(scenario: Scenario, variant: Variant): MockConfig {
-	const library = scenario.emptyLibrary ? [] : scenario.withoutNews ? booksWithoutNews : books;
+	const library = scenario.emptyLibrary ? [] : scenario.deletableBook ? booksDeletable : scenario.withoutNews ? booksWithoutNews : books;
 	return {
 		settings: makeSettings({ theme: THEMES[variant.theme].app, language: variant.language, viewMode: scenario.viewMode }),
 		defaultSettings: defaultSettings(variant.language),

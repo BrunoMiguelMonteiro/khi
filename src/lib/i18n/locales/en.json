@@ -110,7 +110,7 @@
       "deleteBookBody": "Its highlights were all removed from the Kobo. The book and its highlights leave the Library for good.",
       "deleteBookConfirm": "Delete",
       "cancel": "Cancel",
-      "deleteBookError": "Could not delete the book"
+      "deleteBookError": "Could not delete the book."
     }
   },
   "book": {

@@ -9,6 +9,7 @@
 	import BookDetailsView from '$lib/components/BookDetailsView.svelte';
 	import EmptyStateNoDevice from '$lib/components/EmptyStateNoDevice.svelte';
 	import EmptyStateSyncing from '$lib/components/EmptyStateSyncing.svelte';
+	import DeleteBookDialog from '$lib/components/DeleteBookDialog.svelte';
 	import UnknownKoboDialog from '$lib/components/UnknownKoboDialog.svelte';
 	import { LibraryHeader, type LibraryHeaderState } from '$lib/components/ui/library-header';
 	import { dismiss, notify, Toaster } from '$lib/components/ui/toast';
@@ -136,6 +137,22 @@
 	});
 	/** The book on screen in the detail; it stays open while a Sync runs (Task 38). */
 	const detailBook = $derived(library.uiState === 'book-details' ? library.viewingBook : undefined);
+
+	/** The book «Apagar este livro?» is about, and the Reader it was open in; the window is mounted while this is set. */
+	let deleting = $state<{ bookId: number; readerId: number } | null>(null);
+	/** One delete at a time, whatever the window does. */
+	let deleteInFlight = false;
+	/** Apagar is for a book whose highlights all left the Kobo: at least one, and none alive (Detalhe 5; Rust only asks for no live ones). */
+	const canDelete = $derived(!!detailBook && detailBook.highlights.length > 0 && detailBook.highlights.every((h) => h.removedAt));
+	/** A Sync or an export has the Library in use: Apagar waits, as Export does. */
+	const deleteBusy = $derived(library.isImporting || library.isExporting);
+	// The window closes, deleting nothing, once what it asked about is no longer so: a Sync began, the book came back to life, the book or the Reader changed
+	$effect.pre(() => {
+		if (!deleting || deleteInFlight) return;
+		if (library.isImporting || !canDelete || detailBook?.id !== deleting.bookId || library.activeReaderId !== deleting.readerId) deleting = null;
+		// Another modal window on top would stack two: «De quem é este Kobo?» and the updater's win
+		else if (unknownDevice || (updater.state !== 'idle' && updater.state !== 'restartPending')) deleting = null;
+	});
 
 	// Event unlisten functions for cleanup
 	let unlistenDeviceDetected: UnlistenFn | undefined;
@@ -639,6 +656,59 @@
 		library.setUiState('library');
 	}
 
+	/** The caixote and ⌘⌫: asks before deleting the open book. */
+	function openDeleteDialog() {
+		if (!detailBook || !canDelete || deleteBusy || deleting || library.activeReaderId === null) return;
+		deleting = { bookId: detailBook.id, readerId: library.activeReaderId };
+	}
+
+	/** «Apagar» in the window: checks again, deletes, and goes back to the Library. A failure reads the Library again to know what happened. */
+	async function confirmDelete() {
+		const target = deleting;
+		if (!target || deleteInFlight) return;
+		if (deleteBusy || !canDelete || detailBook?.id !== target.bookId || library.activeReaderId !== target.readerId) {
+			deleting = null;
+			return;
+		}
+		deleteInFlight = true;
+		// The book that takes its place in the grid or the list, as the Library shows them: the next one, else the previous
+		const order = sortedBooks.map((book) => book.id);
+		const at = order.indexOf(target.bookId);
+		const neighbour = order[at + 1] ?? order[at - 1] ?? null;
+		/** Back to the Library, the focus on the neighbour (it is the card or the row that was in the deleted one's place). */
+		const leave = () => {
+			openedBookId = neighbour;
+			handleCloseBookDetails();
+		};
+		// Another Reader or another book on screen by the time Rust answers: this delete is no longer the screen's business
+		const stale = () => library.activeReaderId !== target.readerId || library.viewingBookId !== target.bookId || library.uiState !== 'book-details';
+		try {
+			await library.deleteBook(target.bookId);
+			deleting = null;
+			if (!stale()) leave();
+		} catch (error) {
+			console.error('Failed to delete the book:', error);
+			if (stale()) {
+				deleting = null;
+				return;
+			}
+			let overtaken = false;
+			try {
+				overtaken = !(await library.openReader(target.readerId, { keepSelection: true }));
+			} catch (reloadError) {
+				console.error('Failed to reload the Library:', reloadError);
+			}
+			deleting = null;
+			// Overtaken by a later reload: that one decides what is on screen
+			if (stale() || overtaken) return;
+			// Gone already (deleted elsewhere): the same as deleted, with nothing to say
+			if (!library.books.some((book) => book.id === target.bookId)) leave();
+			else notify($_('screens.bookDetails.deleteBookError'), { icon: 'error' });
+		} finally {
+			deleteInFlight = false;
+		}
+	}
+
 	/** The main window's own choices, saved straight from the click so they
 	 * come back next launch. Never from an $effect: applying settings-changed
 	 * changes the state, and the effect would save again. */
@@ -686,7 +756,7 @@
 		if (!detailBook || event.repeat) return;
 		const target = event.target instanceof Element ? event.target : null;
 		if (target?.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]')) return;
-		if (unknownDevice || (updater.state !== 'idle' && updater.state !== 'restartPending')) return;
+		if (unknownDevice || deleting || (updater.state !== 'idle' && updater.state !== 'restartPending')) return;
 		if (event.key === 'Escape') {
 			if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
 		} else if (event.code !== 'BracketLeft' || !event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
@@ -696,25 +766,27 @@
 		handleCloseBookDetails();
 	}
 
-	/** ⌘R, ⌘E, ⌘1 and ⌘2, the shortcuts of the bar's tooltips: not in the native menu until Phase 6. */
+	/** ⌘R, ⌘E, ⌘1, ⌘2 and ⌘⌫, the shortcuts of the bar's tooltips: not in the native menu until Phase 6. */
 	function handleShortcut(event: KeyboardEvent) {
 		handleBackKey(event);
 		if (!event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
 		// The physical key: Caps Lock or another layout changes `key`, never `code`
-		const key = { KeyR: 'r', KeyE: 'e', Digit1: '1', Digit2: '2' }[event.code];
+		const key = { KeyR: 'r', KeyE: 'e', Digit1: '1', Digit2: '2', Backspace: 'delete' }[event.code];
 		if (!key) return;
 		// A held key repeats; none of these is meant to
 		if (event.repeat) return;
 		const target = event.target instanceof Element ? event.target : null;
 		// A text field keeps its keys; a modal window owns the keyboard
 		if (target?.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]')) return;
-		if (unknownDevice || (updater.state !== 'idle' && updater.state !== 'restartPending')) return;
+		if (unknownDevice || deleting || (updater.state !== 'idle' && updater.state !== 'restartPending')) return;
 
 		const inLibrary = library.uiState === 'library';
-		// In a book only ⌘E works: it exports that book
+		// ⌘⌫ is the book's alone
+		if (key === 'delete' && !detailBook) return;
+		// In a book only ⌘E and ⌘⌫ work: they export and delete that book
 		// With no Library open, ⌘R still asks about a Kobo that was declined
 		const asksAgain = key === 'r' && library.uiState === 'no-device' && library.declinedKobo;
-		if (!inLibrary && !(detailBook && key === 'e') && !asksAgain) return;
+		if (!inLibrary && !(detailBook && (key === 'e' || key === 'delete')) && !asksAgain) return;
 		event.preventDefault();
 
 		// While a Sync runs only the views switch: Sync and Export wait for its end
@@ -722,6 +794,8 @@
 			if (library.canSync && !library.isImporting) handleSync();
 		} else if (key === 'e') {
 			if (!library.isImporting) handleBarExport();
+		} else if (key === 'delete') {
+			openDeleteDialog();
 		} else {
 			const mode: ViewMode = key === '1' ? 'grid' : 'list';
 			if (mode !== viewMode) handleViewModeChange(mode);
@@ -742,7 +816,10 @@
 				exportCount={1}
 				{exportDisabledReason}
 				onexport={handleBarExport}
-				canDelete={false}
+				{canDelete}
+				deleteDisabled={deleteBusy}
+				deleteDisabledReason={exportDisabledReason}
+				ondelete={openDeleteDialog}
 			/>
 		{:else}
 			<WindowBar
@@ -818,6 +895,10 @@
 		onCreate={handleCreateReader}
 		onCancel={handleCancelUnknownKobo}
 	/>
+{/if}
+
+{#if deleting}
+	<DeleteBookDialog onConfirm={confirmDelete} onCancel={() => (deleting = null)} />
 {/if}
 
 <UpdateDialog {isBusy} />

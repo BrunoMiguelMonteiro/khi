@@ -529,6 +529,34 @@ describe("WindowBar while syncing (Task 38)", () => {
     });
   });
 
+  it("delete_disabled_with_reason", async () => {
+    const ondelete = vi.fn();
+    renderBar({
+      screen: "detail",
+      exportCount: 1,
+      canDelete: true,
+      deleteDisabled: true,
+      deleteDisabledReason: REASON,
+      ondelete,
+    });
+    const button = screen.getByRole("button", { name: "Delete book…" });
+    await expectDisabledInert({
+      control: button,
+      read: () => button.getAttribute("aria-disabled"),
+      callback: ondelete,
+      reason: REASON,
+    });
+  });
+
+  it("delete_is_enabled_without_a_reason", async () => {
+    const ondelete = vi.fn();
+    renderBar({ screen: "detail", exportCount: 1, canDelete: true, ondelete });
+    const button = screen.getByRole("button", { name: "Delete book…" });
+    expect(button.getAttribute("aria-disabled")).toBeNull();
+    await userEvent.setup().click(button);
+    expect(ondelete).toHaveBeenCalledTimes(1);
+  });
+
   it("export_is_enabled_without_a_reason", async () => {
     const onexport = vi.fn();
     renderBar({ onexport });
