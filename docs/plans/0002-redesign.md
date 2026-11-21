@@ -2547,6 +2547,8 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
   Nenhuma baseline da principal mudou.
 - **Dívida vista, sem tocar:** os outros listeners de `setupDeviceListeners` na principal não têm a guarda `destroyed`.
 
+**Ecrã 7 aprovado a 2026-11-21** (Bruno: «Aprovo o ecrã 7»), pela build dev. A atualização de ponta a ponta (descarregar, instalar e reiniciar) só se verifica com uma release real.
+
 ## Fase 6 · Fecho da v2 (tasks a escrever)
 - **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.
   
