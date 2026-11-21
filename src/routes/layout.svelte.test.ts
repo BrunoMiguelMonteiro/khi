@@ -45,23 +45,14 @@ describe('+layout', () => {
 		expect(show).not.toHaveBeenCalled();
 	});
 
-	it('settings_window_shows_itself_once_initialized', async () => {
+	it('settings_window_is_shown_by_its_page_not_by_the_layout', async () => {
 		label.current = 'settings';
-		let initialized = false;
-		vi.mocked(settings.initialize).mockImplementationOnce(async () => {
-			await Promise.resolve();
-			initialized = true;
-		});
-		let initializedWhenShown: boolean | null = null;
-		show.mockImplementationOnce(() => {
-			initializedWhenShown = initialized;
-			return Promise.resolve();
-		});
 		render(Layout, { children });
+		await waitFor(() => expect(settings.initialize).toHaveBeenCalled());
+		await waitFor(() => expect(updater.loadVersion).toHaveBeenCalled());
 
-		await waitFor(() => expect(show).toHaveBeenCalledTimes(1));
-		// Built hidden: shown only with its theme and language applied
-		expect(initializedWhenShown).toBe(true);
+		// The page shows it after setSize, so the window never appears at the wrong height
+		expect(show).not.toHaveBeenCalled();
 	});
 
 	it('layout_skips_app_ready_and_updater_outside_main', async () => {

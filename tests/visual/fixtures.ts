@@ -125,7 +125,7 @@ export interface SettingsInput {
 export function makeSettings({ theme, language, viewMode = 'grid' }: SettingsInput): AppSettings_Serialize {
 	return {
 		exportConfig: {
-			exportPath: `${HOME}/Documents/Kobo Highlights`,
+			exportPath: `${HOME}/Documents/Kobo`,
 			metadata: {
 				author: true,
 				isbn: true,
@@ -147,7 +147,9 @@ export function makeSettings({ theme, language, viewMode = 'grid' }: SettingsInp
 			librarySortReversed: false,
 			// Off, so connecting the Kobo shows the Library without a Sync
 			syncOnConnect: false,
-			checkForUpdates: true
+			checkForUpdates: true,
+			settingsPane: 'export',
+			accentColor: 'system'
 		},
 		language,
 		version: APP_VERSION

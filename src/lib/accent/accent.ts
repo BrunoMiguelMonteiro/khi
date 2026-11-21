@@ -39,10 +39,10 @@ const tones = table as unknown as {
 	amostras: Record<SwatchName, AccentTones>;
 };
 
-/** The precomputed tones for a choice: Sistema follows macOS, and Multicolor gives Azul-tinta. */
+/** The precomputed tones for a choice: Sistema follows macOS, and Multicolor gives the app's own blue (the system blue tones, as in tokens.css; Azul-tinta is only a swatch). */
 export function accentTones(choice: AccentChoice, system: SystemAccent): AccentTones {
 	if (choice !== 'system') return tones.amostras[choice];
-	if (system.name === 'multicolor') return tones.amostras['azul-tinta'];
+	if (system.name === 'multicolor') return tones.sistema.azul;
 	return tones.sistema[system.name];
 }
 

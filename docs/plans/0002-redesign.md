@@ -2297,7 +2297,7 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
    - «Nome do leitor».
 
 **Passos:**
-- [ ] **Passo 1:** testes que falham da janela.
+- [x] **Passo 1:** testes que falham da janela.
   - Rust:
     - `settings_window_spec` (540, `Overlay`, título visível, posição dos semáforos, não minimizável nem ampliável);
     - o teste da capability (`allow-set-size`);
@@ -2308,7 +2308,7 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
     - reabrir no último painel.
 
   Implementar.
-- [ ] **Passo 2:** testes que falham da Exportação e da Aparência:
+- [x] **Passo 2:** testes que falham da Exportação e da Aparência:
   - grava no momento, sem botões;
   - «Escolher…» com e sem leitor;
   - Caixas em 3 colunas;
@@ -2317,7 +2317,7 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
   - dois cliques rápidos não se perdem.
 
   Implementar.
-- [ ] **Passo 3:** testes que falham do Kobo:
+- [x] **Passo 3:** testes que falham do Kobo:
   - um leitor;
   - M2 com dois;
   - sem leitores;
@@ -2329,11 +2329,11 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
   - `readers-changed` troca para o M2 ao vivo.
 
   Implementar.
-- [ ] **Passo 4:** cenários visuais `settings-export`, `settings-appearance`, `settings-kobo`, `settings-kobo-readers` e `settings-kobo-none`, em Claro e Escuro, cada um com a altura do seu painel, comparados com o Figma.
+- [x] **Passo 4:** cenários visuais `settings-export`, `settings-appearance`, `settings-kobo`, `settings-kobo-readers` e `settings-kobo-none`, em Claro e Escuro, cada um com a altura do seu painel, comparados com o Figma.
   - Os cenários `settings*` de hoje são revistos ou substituídos.
   - O separador Atualizações fica com o cenário de hoje, só com a moldura nova.
-- [ ] **Passo 5:** gate completo (Vitest, check, build, `test:visual`, `cargo test`, `cargo clippy --all-targets`).
-- [ ] **Passo 6:** review adversarial (Opus), mutações minhas e comparação com o Figma. Commit `feat(settings): live settings window with export, appearance and Kobo panes`.
+- [x] **Passo 5:** gate completo (Vitest, check, build, `test:visual`, `cargo test`, `cargo clippy --all-targets`).
+- [x] **Passo 6:** review adversarial (Opus), mutações minhas e comparação com o Figma. Commit `feat(settings): live settings window with export, appearance and Kobo panes`.
 
 **Verificar no ecrã (Bruno), com a build dev:**
 - a janela muda de altura entre separadores e reabre no último;
@@ -2341,6 +2341,62 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 - ⌘, repetido abre sempre uma só janela;
 - renomear o leitor muda o título da principal;
 - ligar um Kobo e ver o leitor nas Definições, o que fecha as duas verificações adiadas da Fase 4.
+
+**Feito (2026-11-21).** Aprovada pelo Bruno («Aprovo a Task 45»). Implementada pelo Sonnet com TDD; revista pelo Opus (review adversarial independente); mutações minhas.
+- **1.ª ronda:**
+  - janela de 540 com barra `Overlay`, título visível e semáforos em (20,10), sem minimizar nem ampliar;
+  - altura medida no painel, com `setSize` antes de `show`;
+  - `settings_pane` e `accent_color` gravados no Rust;
+  - painéis `ExportPane`, `AppearancePane` e `KoboPane` sobre `FormGroup` e `FormRow`;
+  - sem Guardar: cada controlo grava logo com `settings.commit(fields)`, e só os eventos `settings-changed` aplicam;
+  - saem Repor padrões, `save`, `resetAndSave` e `revertUnsavedLanguage`;
+  - com Multicolor fica o azul da app (`tones.sistema.azul`, Q2).
+- **Review:** 1 blocker, 2 majors e vários minors, todos corrigidos:
+  - **blocker:** um valor desconhecido num enum do `settings.json` apagava as definições. Agora usa `or_default` nos enums;
+  - **major:** «Escolher…» gravava a pasta global depois de `readers-changed`. Agora usa `currentReaderId()`;
+  - **major:** uma resposta antiga sobrepunha-se a um ficheiro mais novo. Agora o `persist` não aplica;
+  - **minors:**
+    - o nome da pasta passou a vir dos commands `reader_export_folder` e `reader_default_export_folder` (`safe_dir_name`);
+    - o `saveError` limpa-se ao gravar outra vez;
+    - o foco fica no campo ao passar para o M2;
+    - ⌘W com um nome a meio grava-o antes de fechar (o `beforeClose` envolve o `commitName` num `try/catch`, e o `destroy()` corre sempre);
+    - o `control.spec` ganhou asserções.
+  - O `allow-destroy` fica, porque o `onCloseRequested` do Tauri chama `destroy()`.
+- **Mutações minhas:** 11, todas mortas no fim:
+  - `or_default` no `accent_color` e no `unwrap_or_default`;
+  - `currentReaderId`;
+  - `persist` com `applySaved`;
+  - `onerror(null)` na Exportação, na Aparência e no interruptor do Kobo;
+  - `commitName` e `destroy` no fecho;
+  - Multicolor;
+  - `show` sem esperar pelo `setSize`.
+  - A Aparência, o Kobo e a ordem `setSize`/`show` sobreviviam no início e ganharam testes.
+- **Comparação com o Figma (minha):**
+  - o campo do nome passou de 220 para 160 px (`w-40`), e a dica cabe numa linha;
+  - a dica da pasta abrevia a pasta pessoal para `~`, como no Finder, com `abbreviateHome` em `src/lib/home-path.ts`. É só apresentação, e o valor gravado continua absoluto;
+  - os fixtures visuais passaram a usar `~/Documents/Kobo`.
+
+  | Painel | Medido | Figma (com 2 px do contorno) |
+  |---|---|---|
+  | Exportação | 377 | 382 |
+  | Aparência | 285 | 287 |
+  | Kobo, um leitor | 240 | 243 |
+  | Kobo, M2 | 315 | 320 |
+
+- **Gate final:**
+  - Vitest: 893 passam, 1 ignorado;
+  - `npm run check`: 0/0;
+  - build OK;
+  - `test:visual`: 124 passam;
+  - `cargo test`: 179 passam;
+  - `clippy`: os 7 avisos de antes.
+
+  Nenhuma baseline fora das `settings*` mudou.
+- **Fica para depois:**
+  - o leitor ativo da principal a mudar com as Definições abertas;
+  - nomes de leitor duplicados;
+  - o piscar da cor de destaque no arranque;
+  - o `homeDir()` real, só testado com mock (a confirmar na build dev).
 
 ## Fase 6 · Fecho da v2 (tasks a escrever)
 - **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.

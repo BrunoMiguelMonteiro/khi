@@ -143,18 +143,11 @@
     "title": "Settings",
     "windowTitle": "Settings",
     "export": {
-      "tab": "Export",
       "defaultFormat": "Default Format",
       "includeMetadata": "Include book metadata in exports",
       "exportPath": "Export folder",
       "chooseFolder": "Choose folder",
-      "path": "Path",
-      "browse": "Browse",
-      "browseLabel": "Browse for export folder",
-      "folderHint": "Markdown files will be saved in this folder.",
-      "readerFolderHint": "{name}'s books are exported to this folder.",
       "metadataTitle": "Metadata to Include",
-      "metadataHint": "Select which metadata to include in the exported files.",
       "metadata": {
         "author": "Author",
         "isbn": "ISBN",
@@ -168,17 +161,18 @@
         "dd_mm_yyyy": "DD/MM/YYYY (24/01/2025)",
         "dd_month_yyyy": "24 January 2025",
         "iso8601": "ISO 8601 (2025-01-24)"
-      }
+      },
+      "filesGroup": "Files",
+      "choose": "Choose…",
+      "folderHelp": "{path} · {name}'s books are exported here.",
+      "folderHelpNoReader": "{path} · Books are exported here."
     },
     "appearance": {
-      "tab": "Appearance",
       "theme": "Theme",
       "themeLight": "Light",
       "themeDark": "Dark",
       "themeAuto": "Auto (follows system)",
       "viewMode": "Default view mode",
-      "viewModeGrid": "Grid",
-      "viewModeList": "List",
       "sortBy": "Sort by",
       "sortByTitle": "Title",
       "sortByAuthor": "Author",
@@ -189,16 +183,11 @@
         "en": "English",
         "pt": "Português"
       },
-      "themeSystem": "System",
-      "viewModeTitle": "Library View Mode"
+      "themeSystem": "System"
     },
     "actions": {
-      "save": "Save",
-      "cancel": "Cancel",
-      "reset": "Reset to defaults",
-      "saveChanges": "Save Changes"
+      "save": "Save"
     },
-    "close": "Close settings",
     "tabs": {
       "label": "Settings tabs",
       "export": "Export",
@@ -210,17 +199,10 @@
       "name": "Name"
     },
     "device": {
-      "title": "Device Connection",
-      "syncOnConnectHint": "Sync the Library when a known Kobo is connected.",
       "syncOnConnect": "Sync on connect"
-    },
-    "confirm": {
-      "reset": "Are you sure you want to reset to default settings?",
-      "unsaved": "You have unsaved changes. Do you want to exit without saving?"
     },
     "errors": {
       "save": "Error saving settings",
-      "reset": "Error resetting settings",
       "renameReader": "Couldn’t rename the reader"
     },
     "accent": {
@@ -236,6 +218,14 @@
         "rosa": "Pink",
         "violeta": "Violet"
       }
+    },
+    "kobo": {
+      "readerName": "Reader name",
+      "readerNameHelp": "Shown in the title with two or more readers.",
+      "syncOnConnectHelp": "Syncs when you connect a known Kobo.",
+      "readerPickHelp": "The reader whose name you want to change.",
+      "nameHelp": "Shown in the Library title.",
+      "syncOnConnectAllHelp": "Applies to every reader: syncs when you connect a known Kobo."
     }
   },
   "export": {

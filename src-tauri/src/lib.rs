@@ -43,6 +43,8 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         commands::library::library_summary,
         commands::library::export_library_books,
         commands::library::set_reader_export_path,
+        commands::library::reader_export_folder,
+        commands::library::reader_default_export_folder,
         commands::library::sync_kobo,
         system_accent::get_system_accent,
         window::open_settings,

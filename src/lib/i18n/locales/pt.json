@@ -143,18 +143,11 @@
     "title": "Definições",
     "windowTitle": "Definições",
     "export": {
-      "tab": "Exportação",
       "defaultFormat": "Formato Padrão",
       "includeMetadata": "Incluir metadados do livro nas exportações",
       "exportPath": "Pasta de exportação",
       "chooseFolder": "Escolher pasta",
-      "path": "Caminho",
-      "browse": "Escolher",
-      "browseLabel": "Escolher a pasta de exportação",
-      "folderHint": "Os ficheiros Markdown são guardados nesta pasta.",
-      "readerFolderHint": "Os livros de {name} são exportados para esta pasta.",
       "metadataTitle": "Metadados a incluir",
-      "metadataHint": "Escolhe os metadados a incluir nos ficheiros exportados.",
       "metadata": {
         "author": "Autor",
         "isbn": "ISBN",
@@ -168,17 +161,18 @@
         "dd_mm_yyyy": "DD/MM/AAAA (24/01/2025)",
         "dd_month_yyyy": "24 Janeiro 2025",
         "iso8601": "ISO 8601 (2025-01-24)"
-      }
+      },
+      "filesGroup": "Ficheiros",
+      "choose": "Escolher…",
+      "folderHelp": "{path} · os livros de {name} vão para aqui.",
+      "folderHelpNoReader": "{path} · os livros exportados vão para aqui."
     },
     "appearance": {
-      "tab": "Aparência",
       "theme": "Tema",
       "themeLight": "Claro",
       "themeDark": "Escuro",
       "themeAuto": "Automático (segue o sistema)",
       "viewMode": "Modo de visualização padrão",
-      "viewModeGrid": "Grelha",
-      "viewModeList": "Lista",
       "sortBy": "Ordenar por",
       "sortByTitle": "Título",
       "sortByAuthor": "Autor",
@@ -189,16 +183,11 @@
         "en": "English",
         "pt": "Português"
       },
-      "themeSystem": "Sistema",
-      "viewModeTitle": "Vista da Biblioteca"
+      "themeSystem": "Sistema"
     },
     "actions": {
-      "save": "Guardar",
-      "cancel": "Cancelar",
-      "reset": "Repor padrões",
-      "saveChanges": "Guardar alterações"
+      "save": "Guardar"
     },
-    "close": "Fechar definições",
     "tabs": {
       "label": "Separadores das definições",
       "export": "Exportação",
@@ -210,17 +199,10 @@
       "name": "Nome"
     },
     "device": {
-      "title": "Ligação do Kobo",
-      "syncOnConnectHint": "Sincroniza a Biblioteca quando ligas um Kobo conhecido.",
       "syncOnConnect": "Sincronizar ao ligar"
-    },
-    "confirm": {
-      "reset": "Repor as definições por defeito?",
-      "unsaved": "Tens alterações por guardar. Sair sem guardar?"
     },
     "errors": {
       "save": "Erro ao guardar as definições",
-      "reset": "Erro ao repor as definições",
       "renameReader": "Não foi possível mudar o nome do leitor"
     },
     "accent": {
@@ -236,6 +218,14 @@
         "rosa": "Rosa",
         "violeta": "Violeta"
       }
+    },
+    "kobo": {
+      "readerName": "Nome do leitor",
+      "readerNameHelp": "Aparece no título com dois ou mais leitores.",
+      "syncOnConnectHelp": "Sincroniza quando ligas um Kobo conhecido.",
+      "readerPickHelp": "O leitor cujo nome queres mudar.",
+      "nameHelp": "Aparece no título da Biblioteca.",
+      "syncOnConnectAllHelp": "Vale para todos os leitores: sincroniza quando ligas um Kobo conhecido."
     }
   },
   "export": {

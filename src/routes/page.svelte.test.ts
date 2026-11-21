@@ -261,16 +261,21 @@ describe('+page', () => {
 		await screen.findByRole('radiogroup', { name: 'View' });
 		vi.mocked(invoke).mockClear();
 
-		// Settings saved another view mode and theme: the main window follows
+		// Settings saved another theme and accent: the main window follows. The view mode is its own
+		// (no longer a Settings field), so a file with another one does not change it
 		const saved = structuredClone(onDisk);
-		saved.uiPreferences.libraryViewMode = settings.uiPreferences.libraryViewMode === 'list' ? 'grid' : 'list';
+		const view = settings.uiPreferences.libraryViewMode;
+		saved.uiPreferences.libraryViewMode = view === 'list' ? 'grid' : 'list';
 		saved.uiPreferences.theme = 'dark';
+		(saved.uiPreferences as Record<string, unknown>).accentColor = 'rosa';
 		handlers.get('settings-changed')!({ payload: saved });
 		flushSync();
 		await tick();
 		await new Promise((resolve) => setTimeout(resolve, 0));
 
-		expect(settings.uiPreferences.libraryViewMode).toBe(saved.uiPreferences.libraryViewMode);
+		expect(settings.uiPreferences.theme).toBe('dark');
+		expect(settings.uiPreferences.accentColor).toBe('rosa');
+		expect(settings.uiPreferences.libraryViewMode).toBe(view);
 		expect(invoke).not.toHaveBeenCalledWith('update_settings', expect.anything());
 	});
 

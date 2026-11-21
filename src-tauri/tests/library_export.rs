@@ -181,3 +181,43 @@ fn the_failure_reaches_the_screen_as_a_kind() {
     assert_eq!(serde_json::to_value(ExportFailure::DiskFull).unwrap(), serde_json::json!({ "kind": "diskFull" }));
     assert_eq!(serde_json::to_value(ExportFailure::Internal).unwrap(), serde_json::json!({ "kind": "internal" }));
 }
+
+#[test]
+fn reader_export_folder_is_the_one_the_export_writes_to() {
+    use khi_lib::commands::library::reader_export_folder_with;
+
+    let dir = TempDir::new().unwrap();
+    let (lib, reader_id, _) = synced(&dir, "Kobo: Libra", &["a1"]);
+
+    // The default folder uses the safe name, not the raw one, and a base that ends in «/» gets no
+    // doubled slash
+    assert_eq!(
+        reader_export_folder_with(&lib, reader_id, "/Users/leitor/Kobo/").unwrap(),
+        "/Users/leitor/Kobo/Kobo- Libra"
+    );
+    assert_eq!(
+        reader_export_folder_with(&lib, reader_id, "/Users/leitor/Kobo").unwrap(),
+        "/Users/leitor/Kobo/Kobo- Libra"
+    );
+
+    // A folder chosen for this Reader wins over the base
+    lib.set_reader_export_path(reader_id, Some("/Volumes/Notes")).unwrap();
+    assert_eq!(
+        reader_export_folder_with(&lib, reader_id, "/Users/leitor/Kobo").unwrap(),
+        "/Volumes/Notes"
+    );
+}
+
+#[test]
+fn reader_default_export_folder_ignores_the_folder_chosen() {
+    use khi_lib::commands::library::reader_default_export_folder_with;
+
+    let dir = TempDir::new().unwrap();
+    let (lib, reader_id, _) = synced(&dir, "Kobo: Libra", &["a1"]);
+    lib.set_reader_export_path(reader_id, Some("/Volumes/Notes")).unwrap();
+
+    assert_eq!(
+        reader_default_export_folder_with(&lib, reader_id, "/Users/leitor/Kobo/").unwrap(),
+        "/Users/leitor/Kobo/Kobo- Libra"
+    );
+}

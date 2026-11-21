@@ -6,7 +6,7 @@
 //! - Last import/export records
 
 use crate::models::{DateFormat, ExportConfig, Language, MetadataConfig};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -22,7 +22,8 @@ pub struct AppSettings {
     pub ui_preferences: UiPreferences,
     /// Language of the interface and of the exported Markdown. A file
     /// without it, from before this setting, follows the system.
-    #[serde(default = "system_language")]
+    #[serde(default = "system_language", deserialize_with = "language_or_system")]
+    #[specta(type = Language)]
     pub language: Language,
     /// Version for migration support
     pub version: String,
@@ -33,6 +34,8 @@ pub struct AppSettings {
 #[serde(rename_all = "camelCase")]
 pub struct UiPreferences {
     /// Theme preference
+    #[serde(deserialize_with = "or_default")]
+    #[specta(type = ThemePreference)]
     pub theme: ThemePreference,
     /// Window width
     #[serde(alias = "window_width")]
@@ -47,10 +50,15 @@ pub struct UiPreferences {
     #[serde(alias = "show_onboarding")]
     pub show_onboarding: bool,
     /// Library view mode (grid or list)
-    #[serde(alias = "library_view_mode")]
+    #[serde(alias = "library_view_mode", deserialize_with = "or_default")]
+    #[specta(type = ViewMode)]
     pub library_view_mode: ViewMode,
     /// Sort preference for library
-    #[serde(alias = "library_sort")]
+    #[serde(
+        alias = "library_sort",
+        deserialize_with = "sort_or_default"
+    )]
+    #[specta(type = SortPreference)]
     pub library_sort: SortPreference,
     /// The sort runs against its natural direction (the column header was clicked on the active column)
     #[serde(default, alias = "library_sort_reversed")]
@@ -67,10 +75,71 @@ pub struct UiPreferences {
     /// Whether to look for a new version once a day, when Khi opens.
     #[serde(default = "default_true")]
     pub check_for_updates: bool,
+    /// The Settings pane that was open last, reopened with the window.
+    #[serde(default, deserialize_with = "or_default")]
+    #[specta(type = SettingsPane)]
+    pub settings_pane: SettingsPane,
+    /// The accent colour: the macOS one (`system`) or one of the seven swatches.
+    #[serde(default, deserialize_with = "or_default")]
+    #[specta(type = AccentChoice)]
+    pub accent_color: AccentChoice,
+}
+
+/// A pane of the Settings window.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default, specta::Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum SettingsPane {
+    #[default]
+    Export,
+    Appearance,
+    Kobo,
+    Updates,
+}
+
+/// The accent colour chosen in Settings: Sistema follows macOS; the others are the swatches of
+/// `design/accent-tones.json`, named as `SwatchName` in `src/lib/accent/accent.ts`.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default, specta::Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum AccentChoice {
+    #[default]
+    System,
+    AzulTinta,
+    VerdeFolha,
+    Turquesa,
+    Laranja,
+    Amarelo,
+    Rosa,
+    Violeta,
 }
 
 fn default_true() -> bool {
     true
+}
+
+/// Reads a value, and takes the type's default when it is not one this build knows (a newer
+/// build's name, a hand edit). A name nobody knows must not make the whole file unreadable: the
+/// next save would then write the defaults over the export folder and everything else.
+pub(crate) fn or_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    D: Deserializer<'de>,
+    T: serde::de::DeserializeOwned + Default,
+{
+    let value = serde_json::Value::deserialize(deserializer)?;
+    Ok(serde_json::from_value(value).unwrap_or_default())
+}
+
+fn default_library_sort() -> SortPreference {
+    SortPreference::DateLastRead
+}
+
+fn sort_or_default<'de, D: Deserializer<'de>>(deserializer: D) -> Result<SortPreference, D::Error> {
+    let value = serde_json::Value::deserialize(deserializer)?;
+    Ok(serde_json::from_value(value).unwrap_or_else(|_| default_library_sort()))
+}
+
+fn language_or_system<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Language, D::Error> {
+    let value = serde_json::Value::deserialize(deserializer)?;
+    Ok(serde_json::from_value(value).unwrap_or_else(|_| system_language()))
 }
 
 /// Theme preference
@@ -149,6 +218,12 @@ pub struct SettingsPatch {
     /// `uiPreferences.checkForUpdates`
     #[specta(optional)]
     pub check_for_updates: Option<bool>,
+    /// `uiPreferences.settingsPane`
+    #[specta(optional)]
+    pub settings_pane: Option<SettingsPane>,
+    /// `uiPreferences.accentColor`
+    #[specta(optional)]
+    pub accent_color: Option<AccentChoice>,
 }
 
 impl SettingsPatch {
@@ -186,6 +261,12 @@ impl SettingsPatch {
         if let Some(enabled) = self.check_for_updates {
             ui.check_for_updates = enabled;
         }
+        if let Some(pane) = self.settings_pane {
+            ui.settings_pane = pane;
+        }
+        if let Some(accent) = self.accent_color {
+            ui.accent_color = accent;
+        }
     }
 }
 
@@ -213,6 +294,8 @@ impl Default for UiPreferences {
             library_sort_reversed: false,
             sync_on_connect: true,
             check_for_updates: true,
+            settings_pane: SettingsPane::default(),
+            accent_color: AccentChoice::default(),
         }
     }
 }
@@ -718,6 +801,8 @@ mod tests {
             library_sort_reversed: false,
             sync_on_connect: false,
             check_for_updates: false,
+            settings_pane: SettingsPane::Export,
+            accent_color: AccentChoice::System,
         };
 
         manager.set_ui_preferences(new_prefs).unwrap();
@@ -867,6 +952,110 @@ mod tests {
 
         SettingsPatch::default().apply_to(&mut settings);
         assert!(settings.ui_preferences.library_sort_reversed);
+    }
+
+    #[test]
+    fn old_file_without_settings_pane_opens_on_export() {
+        // A file from before the Settings window remembered its pane
+        let json = r#"{
+            "theme": "system",
+            "windowWidth": 1200,
+            "windowHeight": 800,
+            "isMaximized": false,
+            "showOnboarding": true,
+            "libraryViewMode": "grid",
+            "librarySort": "date_last_read"
+        }"#;
+
+        let prefs: UiPreferences = serde_json::from_str(json).unwrap();
+
+        assert_eq!(prefs.settings_pane, SettingsPane::Export);
+        assert_eq!(prefs.accent_color, AccentChoice::System);
+        assert_eq!(UiPreferences::default().settings_pane, SettingsPane::Export);
+    }
+
+    #[test]
+    fn unknown_enum_values_fall_back_without_losing_the_rest_of_the_file() {
+        // A newer or hand-edited file: every enum holds a name this build does not know
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("settings.json");
+        fs::write(
+            &config_path,
+            r#"{
+                "exportConfig": {
+                    "exportPath": "/Volumes/Livros/Kobo",
+                    "metadata": {"author": false, "isbn": true, "publisher": true, "dateLastRead": true, "language": true, "description": true},
+                    "dateFormat": "sideways"
+                },
+                "uiPreferences": {
+                    "theme": "sepia",
+                    "windowWidth": 1111,
+                    "windowHeight": 777,
+                    "isMaximized": false,
+                    "showOnboarding": false,
+                    "libraryViewMode": "cover-flow",
+                    "librarySort": "mood",
+                    "settingsPane": "general",
+                    "accentColor": "magenta"
+                },
+                "language": "fr",
+                "version": "9.9.9"
+            }"#,
+        )
+        .unwrap();
+
+        let manager = SettingsManager::with_path(config_path.clone()).unwrap();
+        let settings = manager.get();
+
+        // The unknown names take the default; everything else stays
+        assert_eq!(settings.export_config.export_path, "/Volumes/Livros/Kobo");
+        assert!(!settings.export_config.metadata.author);
+        assert!(settings.export_config.metadata.description);
+        assert_eq!(settings.export_config.date_format, DateFormat::DdMonthYyyy);
+        assert_eq!(settings.ui_preferences.theme, ThemePreference::System);
+        assert_eq!(settings.ui_preferences.window_width, 1111);
+        assert!(!settings.ui_preferences.show_onboarding);
+        assert_eq!(settings.ui_preferences.library_view_mode, ViewMode::Grid);
+        assert_eq!(settings.ui_preferences.library_sort, SortPreference::DateLastRead);
+        assert_eq!(settings.ui_preferences.settings_pane, SettingsPane::Export);
+        assert_eq!(settings.ui_preferences.accent_color, AccentChoice::System);
+        assert_eq!(settings.version, "9.9.9");
+        // No "corrupted" backup: the file was read, not discarded
+        assert!(!config_path.with_extension("json.corrupted").exists());
+    }
+
+    #[test]
+    fn settings_pane_and_accent_are_stored_by_name_and_survive_save() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("settings.json");
+
+        let mut manager = SettingsManager::with_path(config_path.clone()).unwrap();
+        manager.settings.ui_preferences.settings_pane = SettingsPane::Kobo;
+        manager.settings.ui_preferences.accent_color = AccentChoice::VerdeFolha;
+        manager.save().unwrap();
+
+        let saved = fs::read_to_string(&config_path).unwrap();
+        assert!(saved.contains("\"settingsPane\": \"kobo\""), "{saved}");
+        assert!(saved.contains("\"accentColor\": \"verde-folha\""), "{saved}");
+        let reloaded = SettingsManager::with_path(config_path).unwrap();
+        assert_eq!(reloaded.get().ui_preferences.settings_pane, SettingsPane::Kobo);
+        assert_eq!(reloaded.get().ui_preferences.accent_color, AccentChoice::VerdeFolha);
+    }
+
+    #[test]
+    fn patch_sets_settings_pane_and_accent_and_keeps_them_when_absent() {
+        let mut settings = AppSettings::default();
+        let patch: SettingsPatch =
+            serde_json::from_str(r#"{"settingsPane": "appearance", "accentColor": "azul-tinta"}"#)
+                .unwrap();
+
+        patch.apply_to(&mut settings);
+        assert_eq!(settings.ui_preferences.settings_pane, SettingsPane::Appearance);
+        assert_eq!(settings.ui_preferences.accent_color, AccentChoice::AzulTinta);
+
+        SettingsPatch::default().apply_to(&mut settings);
+        assert_eq!(settings.ui_preferences.settings_pane, SettingsPane::Appearance);
+        assert_eq!(settings.ui_preferences.accent_color, AccentChoice::AzulTinta);
     }
 
     #[test]

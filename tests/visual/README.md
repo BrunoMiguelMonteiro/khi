@@ -32,13 +32,11 @@ Scenarios (`scenarios.ts`):
 - `grid-no-news`: the same Library with nothing new: no header, the grid starts 24 px below the bar.
 - `list`: library list view.
 - `detail`: book detail.
-- `settings`: settings panel open.
+- `settings-export`, `settings-appearance`, `settings-kobo`, `settings-kobo-readers`, `settings-kobo-none` and `settings-updates`: the Settings window on each pane (Exportação, Aparência, Kobo with one Reader, Kobo with two Readers (M2), Kobo with no Reader, Atualizações).
 
-  The `settings*` scenarios run in the Settings window: they open `/definicoes` directly, the mock reports window label `settings` (so no `app-ready`, no updater check, no menu), and the viewport is that window's fixed size, 700×540 (`settings_window_spec` in `src-tauri/src/window.rs`). The window is not resizable, so `settings--*--min` equals `settings--*`.
-- `settings-appearance`: the appearance section of settings.
+  The `settings*` scenarios run in the Settings window: they open `/definicoes` directly, the mock reports window label `settings` (so no `app-ready`, no updater check, no menu), and the viewport is 540 wide (`settings_window_spec` in `src-tauri/src/window.rs`) and as tall as the active pane, which the page measures and sends in `setSize(540, h)`. The scenario's `windowHeight` is that measured height: the harness fails the capture if the page measured another one, if the width is not 540, or if the window was shown before it was sized. The window is not resizable, so `settings-export--*--min` equals `settings-export--*`. Measured against the Figma frames (which include a 1 px outline) the heights are Export 377 (Figma 382), Appearance 285 (287), Kobo one Reader 240 (243), Kobo two Readers 315 (320). The folder help shows the home as `~` and the name field is 160 px, as in the Figma, so no help wraps.
 - `grid-selected` / `list-selected`: two books selected (⌘-click on the cards, the checkboxes in the list); the bar's Export counts them.
 - `select-by-box`: one book selected by hovering its card and clicking the selection box with the real pointer (`hover()` then `click()`, not `dispatchEvent`, so `pointer-events` is tested): it selects without opening, and the other covers show their box.
-- `settings-updates`: the Updates tab, with the automatic-check switch (hover, keyboard focus) and «Check now».
 - `update`: the update dialog.
 - `library-syncing`: a Sync in progress with the Library on screen. `sync_kobo` is held pending (`__KHI_MOCK__.hold`) and `sync-progress` says 12 of 42: the header counts the books, no card has its «N novos» badge, Sync turns (`animation-name` is `spin`, or `none` under reduced motion) and Export is disabled.
 - `library-syncing-tooltip`: the same, with the pointer on Sync and its tooltip open («A sincronizar · 12 de 42 livros», no shortcut).
@@ -46,7 +44,6 @@ Scenarios (`scenarios.ts`):
 - `library-empty-syncing`: the first Sync, with no books yet: the centred state with the solid Kobo whose 7 text lines fill with the progress (12 of 42: 2 lines). No header, no «Sem livros».
 - `sync-finished-enters`: the held `sync_kobo` is released (`__KHI_MOCK__.release`): the «novos» header and the badges are on screen, Sync has stopped and Export is back.
 - `update-checking`: an update check in progress (held `plugin:updater|check`), with the pulsing progress bar.
-- `settings-saving`: settings changed and Save pressed, with `update_settings` held, so the spinner shows.
 
 Themes:
 
@@ -56,14 +53,14 @@ Themes:
 
 All scenarios × all themes, plus:
 
-- `grid` and `settings` with `prefers-contrast: more` and with `prefers-reduced-motion: reduce`, each in light and dark-app;
-- `library-syncing`, `library-empty-syncing`, `update-checking` and `settings-saving` with `prefers-reduced-motion: reduce`, in light and dark-app;
-- `grid`, `list`, `detail`, `settings` and `first-launch` at the **minimum window size** (suffix `--min`), in light and dark-app;
+- `grid` and `settings-export` with `prefers-contrast: more` and with `prefers-reduced-motion: reduce`, each in light and dark-app;
+- `library-syncing`, `library-empty-syncing` and `update-checking` with `prefers-reduced-motion: reduce`, in light and dark-app;
+- `grid`, `list`, `detail`, `settings-export` and `first-launch` at the **minimum window size** (suffix `--min`), in light and dark-app;
 - `grid` in English (light).
 
 Fixed for every capture:
 
-- viewport 1000×700 at deviceScaleFactor 2 (the main window with `titleBarStyle: Overlay`: the webview fills it, the window bar draws under the traffic lights; it was 1000×669 while the native title bar took 31px); `--min` captures use tauri.conf.json's `minWidth` × `minHeight` (800×600); `settings*` captures use the Settings window's 700×540;
+- viewport 1000×700 at deviceScaleFactor 2 (the main window with `titleBarStyle: Overlay`: the webview fills it, the window bar draws under the traffic lights; it was 1000×669 while the native title bar took 31px); `--min` captures use tauri.conf.json's `minWidth` × `minHeight` (800×600); `settings*` captures use the Settings window's 540 × the pane's measured height;
 - locale pt-PT and app language pt;
 - timezone Europe/Lisbon;
 - clock frozen at 2026-11-15T10:00:00Z.
@@ -97,7 +94,7 @@ Requests to any origin other than the local server are aborted.
 - **`baseline-store.ts`**: `baseline/<capture>.json` holds the records and maps each screenshot name to the `pixelHash` of its pixels. That hash is a sha256 of the decoded RGBA and the size. Each distinct image is stored once, as `baseline/png/<pixelHash>.png`; `test:visual:update` deletes PNGs that no capture refers to.
 - **`control.spec.ts`**: the judge of the judge. Every control goes through `capture` and `compareWithBaseline`, as the real captures do, and asserts that the comparator reports:
   - a 1-unit colour change (a card title, rgb(29, 29, 31) → rgb(30, 29, 31)) and a 1px padding on the grid on `grid--light`: the colour, the padding, the box shift and the pixels;
-  - `#export-path:focus { box-shadow: none }` on `settings--light`: the box-shadow in state `focus-text-input`, and its pixels;
+  - the Kobo name field's `:focus-visible` outline removed on `settings-kobo--light`: the outline in state `focus-text-input`, and its pixels;
   - the hovered highlight's copy button forced to `opacity: 0` on `detail--light`: the opacity in state `hover-highlight`, and its pixels;
   - the Sync icon's `animation: none` on `library-syncing--light`: `animation-name`;
   - every line of the syncing Kobo forced to the filled colour on `library-empty-syncing--light`: `stroke` and pixels;

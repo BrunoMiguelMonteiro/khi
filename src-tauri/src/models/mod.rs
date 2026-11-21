@@ -96,7 +96,8 @@ pub struct ExportConfig {
     #[serde(alias = "export_path")]
     pub export_path: String,
     pub metadata: MetadataConfig,
-    #[serde(alias = "date_format")]
+    #[serde(alias = "date_format", deserialize_with = "crate::settings::or_default")]
+    #[specta(type = DateFormat)]
     pub date_format: DateFormat,
 }
 
@@ -182,10 +183,11 @@ pub struct KoboHighlight {
     pub date_modified: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, specta::Type)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default, specta::Type)]
 #[serde(rename_all = "snake_case")]
 pub enum DateFormat {
     DdMmYyyy,
+    #[default]
     DdMonthYyyy,
     Iso8601,
 }

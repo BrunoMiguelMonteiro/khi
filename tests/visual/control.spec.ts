@@ -43,13 +43,15 @@ test('control: a 1px padding and a near-identical colour are detected', async ({
 	expect(has(blocked, /^screenshot grid--light\.png$/, 'pixels'), 'pixel difference reported').toBe(true);
 });
 
-test('control: a lost focus ring on the export path input is detected', async ({ browser }) => {
-	const result = await captureOf(browser, 'settings--light', { injectCss: '#export-path:focus { box-shadow: none !important; }' });
+test('control: a lost focus ring on the name field is detected', async ({ browser }) => {
+	const result = await captureOf(browser, 'settings-kobo--light', {
+		injectCss: '[data-testid="reader-name"]:focus-visible { outline: none !important; }'
+	});
 	const { blocked } = compareWithBaseline(result, { outputName: 'control--focus-ring' });
-	expect(has(blocked, /^state focus-text-input: .*\[id="export-path"\]/, 'box-shadow'), 'focused box-shadow reported').toBe(true);
-	expect(has(blocked, /^screenshot settings--light\.state-focus-text-input\.png$/, 'pixels'), 'state pixels reported').toBe(true);
+	expect(has(blocked, /^state focus-text-input: .*\[data-testid="reader-name"\]/, 'outline-style'), 'focused outline reported').toBe(true);
+	expect(has(blocked, /^screenshot settings-kobo--light\.state-focus-text-input\.png$/, 'pixels'), 'state pixels reported').toBe(true);
 	// Unfocused, the input is unchanged
-	expect(has(blocked, /^html .*\[id="export-path"\]/, 'box-shadow'), 'page record unaffected').toBe(false);
+	expect(has(blocked, /^html .*\[data-testid="reader-name"\]/, 'outline-style'), 'page record unaffected').toBe(false);
 });
 
 test('control: a copy button that stays hidden on hover is detected', async ({ browser }) => {

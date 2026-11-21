@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { emit } from '@tauri-apps/api/event';
-  import { getCurrentWindow } from '@tauri-apps/api/window';
   import { currentWindowLabel } from '$lib/window';
   import { settings } from '$lib/stores/settings.svelte';
   import { updater } from '$lib/stores/updater.svelte';
@@ -20,13 +19,8 @@
     }
     // Signal to Rust backend that theme is applied and window can be shown
     // (handled by src-tauri/src/window.rs — must match event name)
-    // Settings are built hidden (no white flash) and show themselves now;
-    // Rust shows them anyway after 3 s
-    if (!isMain) {
-      getCurrentWindow()
-        .show()
-        .catch((e) => console.error('[Layout] Failed to show the window:', e));
-    }
+    // Settings are built hidden (no white flash): their page shows them once
+    // its height is set; Rust shows them anyway after 3 s
     if (isMain) {
       console.log('[Layout] Emitting app-ready event');
       try {

@@ -146,6 +146,7 @@ export function installTauriMock(config: MockConfig): void {
 				return config.appVersion;
 			case 'plugin:window|set_theme':
 			case 'plugin:window|set_title':
+			case 'plugin:window|set_size':
 			case 'plugin:window|close':
 			case 'plugin:window|destroy':
 			case 'plugin:window|show':
@@ -160,6 +161,8 @@ export function installTauriMock(config: MockConfig): void {
 			case 'plugin:menu|set_as_app_menu':
 				return null;
 			case 'plugin:path|resolve_directory':
+				// homeDir() (BaseDirectory.Home is 21); the rest is resolveResource
+				if (args.directory === 21) return '/Users/leitor';
 				return `/Applications/Khi.app/Contents/Resources/${args.path}`;
 			case 'plugin:image|from_path':
 				return nextRid++;
@@ -167,6 +170,9 @@ export function installTauriMock(config: MockConfig): void {
 				return null;
 
 			// tauri-plugin-updater and tauri-plugin-process
+			case 'get_system_accent':
+				// Multicolor, the macOS default: Sistema is the system blue tones, so the baselines keep the app's blue
+				return { name: 'multicolor', light: '#007AFF', dark: '#007AFF' };
 			case 'plugin:updater|check':
 				return config.update ?? null;
 			case 'plugin:process|restart':
@@ -218,6 +224,13 @@ export function installTauriMock(config: MockConfig): void {
 			case 'mark_book_opened':
 			case 'set_reader_export_path':
 				return null;
+			case 'reader_export_folder':
+			case 'reader_default_export_folder': {
+				// As Rust decides it: the Reader's own folder, else the base and the Reader's name
+				const owner = config.readers.find((r) => r.id === args.readerId);
+				const own = owner?.exportPath;
+				return (cmd === 'reader_export_folder' && own) || `${config.defaultExportPath}/${owner?.name ?? ''}`;
+			}
 			case 'reader_for_kobo':
 				return config.koboOwners[args.serial] ?? null;
 			case 'last_reader':

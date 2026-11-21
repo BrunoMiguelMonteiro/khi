@@ -48,7 +48,9 @@ const MOCK_DEFAULTS: AppSettings = {
     librarySort: 'title',
     librarySortReversed: false,
     syncOnConnect: true,
-    checkForUpdates: true
+    checkForUpdates: true,
+    settingsPane: 'export',
+    accentColor: 'system'
   },
   language: 'en',
   version: '0.1.0'
@@ -206,7 +208,9 @@ describe('Settings Store - Settings Management', () => {
 				librarySort: 'author' as SortPreference,
 				librarySortReversed: false,
 				syncOnConnect: true,
-				checkForUpdates: true
+				checkForUpdates: true,
+				settingsPane: 'export',
+				accentColor: 'system'
 			},
 			language: 'en',
 			version: '0.1.0'
@@ -267,30 +271,6 @@ describe('Settings Store - Tauri Integration', () => {
 		expect(locale.set).toHaveBeenLastCalledWith('pt');
 	});
 
-	it('closing without saving puts back the saved language', async () => {
-		mockedInvoke.mockResolvedValueOnce({ ...MOCK_DEFAULTS, language: 'en' });
-		await settings.load();
-		settings.setLanguage('pt');
-
-		settings.revertUnsavedLanguage();
-		flushSync();
-
-		expect(settings.state.language).toBe('en');
-		expect(locale.set).toHaveBeenLastCalledWith('en');
-	});
-
-	it('a saved language stays after closing', async () => {
-		mockedInvoke.mockResolvedValueOnce({ ...MOCK_DEFAULTS, language: 'en' });
-		await settings.load();
-		settings.setLanguage('pt');
-		mockedInvoke.mockResolvedValueOnce({ ...MOCK_DEFAULTS, language: 'pt' });
-		await settings.save();
-
-		settings.revertUnsavedLanguage();
-
-		expect(settings.state.language).toBe('pt');
-	});
-
 	it('should load settings from Tauri', async () => {
 		const mockSettings: AppSettings = {
 			exportConfig: {
@@ -315,7 +295,9 @@ describe('Settings Store - Tauri Integration', () => {
 				librarySort: 'author',
 				librarySortReversed: false,
 				syncOnConnect: false,
-				checkForUpdates: true
+				checkForUpdates: true,
+				settingsPane: 'export',
+				accentColor: 'system'
 			},
 			language: 'en',
 			version: '0.1.0'
@@ -343,60 +325,54 @@ describe('Settings Store - Tauri Integration', () => {
 		// Should have fallen back to defaults
 		expect(settings.exportConfig.exportPath).toBe('~/Documents/Kobo Highlights');
 	});
+});
 
-	it('should save settings to Tauri', async () => {
-		mockedInvoke.mockResolvedValueOnce(structuredClone(MOCK_DEFAULTS));
-
-		await settings.save();
-
-		expect(mockedInvoke).toHaveBeenCalledWith('update_settings', {
-			patch: expect.objectContaining({ theme: expect.any(String), exportPath: expect.any(String) })
-		});
-		// The sort belongs to the main window, never to Settings' save
-		const { patch } = mockedInvoke.mock.calls.at(-1)?.[1] as { patch: Record<string, unknown> };
-		expect(patch).not.toHaveProperty('librarySort');
+describe('Settings Store - Helper Functions', () => {
+	it('should return correct sort labels', () => {
+		expect(getSortLabel('title')).toBe('Title');
+		expect(getSortLabel('author')).toBe('Author');
+		expect(getSortLabel('date_last_read')).toBe('Date Read');
+		expect(getSortLabel('highlight_count')).toBe('Highlight Count');
 	});
 
-	it('sends syncOnConnect: false when "Sincronizar ao ligar" is off', async () => {
-		mockedInvoke.mockResolvedValueOnce({ ...structuredClone(MOCK_DEFAULTS), uiPreferences: { ...MOCK_DEFAULTS.uiPreferences, syncOnConnect: false } });
-
-		settings.setSyncOnConnect(false);
-		await settings.save();
-
-		const payload = mockedInvoke.mock.calls.at(-1)?.[1] as { patch: Record<string, unknown> };
-		expect(mockedInvoke.mock.calls.at(-1)?.[0]).toBe('update_settings');
-		expect(payload.patch.syncOnConnect).toBe(false);
-		expect(payload.patch).not.toHaveProperty('autoImportOnConnect');
-		expect(payload.patch).not.toHaveProperty('lastImport');
-		expect(settings.uiPreferences.syncOnConnect).toBe(false);
+	it('should return correct view mode labels', () => {
+		expect(getViewModeLabel('grid')).toBe('Grid');
+		expect(getViewModeLabel('list')).toBe('List');
 	});
 
-	it('should handle save settings error', async () => {
-		mockedInvoke.mockRejectedValueOnce(new Error('Failed to save'));
-
-		await expect(settings.save()).rejects.toThrow('Failed to save');
-		expect(settings.error).toBe('Failed to save');
+	it('should return correct theme labels', () => {
+		expect(getThemeLabel('system')).toBe('System');
+		expect(getThemeLabel('light')).toBe('Light');
+		expect(getThemeLabel('dark')).toBe('Dark');
 	});
 
-	it('should reset and save settings', async () => {
+	it('should return correct date format labels', () => {
+		expect(getDateFormatLabel('dd_mm_yyyy')).toBe('DD/MM/YYYY (24/01/2025)');
+		expect(getDateFormatLabel('dd_month_yyyy')).toBe('24 January 2025');
+		expect(getDateFormatLabel('iso8601')).toBe('ISO 8601 (2025-01-24)');
+	});
+});
+
+describe('Settings Store - Loading State', () => {
+	beforeEach(() => {
 		mockedInvoke.mockClear();
-    mockedInvoke.mockImplementation((cmd) => {
-      if (cmd === 'get_default_settings') return Promise.resolve(MOCK_DEFAULTS);
-      // Rust answers the file with the patch written over it
-      if (cmd === 'update_settings') return Promise.resolve(structuredClone(MOCK_DEFAULTS));
-      return Promise.resolve({});
-    });
+	});
 
-		// Modify settings first
-		await settings.setTheme('dark');
+	it('should set loading state during load', async () => {
+		mockedInvoke.mockImplementation(
+			(cmd) =>
+				new Promise((resolve) => {
+          if (cmd === 'get_default_settings') resolve(MOCK_DEFAULTS);
+					// Check loading is true during the call
+					expect(settings.isLoading).toBe(true);
+					setTimeout(() => resolve(structuredClone(MOCK_DEFAULTS)), 10);
+				})
+		);
 
-		await settings.resetAndSave();
+		const promise = settings.load();
+		await promise;
 
-		// Should be reset to defaults
-		expect(settings.uiPreferences.theme).toBe('system');
-		expect(mockedInvoke).toHaveBeenCalledWith('update_settings', {
-			patch: expect.objectContaining({ theme: 'system' })
-		});
+		expect(settings.isLoading).toBe(false);
 	});
 });
 
@@ -448,15 +424,4 @@ describe('Settings Store - Loading State', () => {
 		expect(settings.isLoading).toBe(false);
 	});
 
-	it('should set loading state during save', async () => {
-		mockedInvoke.mockResolvedValueOnce(structuredClone(MOCK_DEFAULTS));
-
-		const promise = settings.save();
-
-		expect(settings.isLoading).toBe(true);
-
-		await promise;
-
-		expect(settings.isLoading).toBe(false);
-	});
 });

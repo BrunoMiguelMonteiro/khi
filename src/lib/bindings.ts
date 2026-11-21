@@ -42,6 +42,16 @@ export const commands = {
 	exportLibraryBooks: (readerId: number, bookIds: number[]) => __TAURI_INVOKE<string[]>("export_library_books", { readerId, bookIds }),
 	setReaderExportPath: (readerId: number, path: string | null) => __TAURI_INVOKE<null>("set_reader_export_path", { readerId, path }),
 	/**
+	 *  The folder the Reader's exports go to now, as the export itself decides it (R21): Settings
+	 *  shows it and compares a chosen folder with it.
+	 */
+	readerExportFolder: (readerId: number) => __TAURI_INVOKE<string>("reader_export_folder", { readerId }),
+	/**
+	 *  The folder the Reader's exports go to when it has none of its own: Settings compares the folder
+	 *  chosen with it, and stores «the default» as no folder.
+	 */
+	readerDefaultExportFolder: (readerId: number) => __TAURI_INVOKE<string>("reader_default_export_folder", { readerId }),
+	/**
 	 *  Syncs the connected Kobo into its Reader's Library, emitting
 	 *  `sync-progress` per book and `sync-finished` at the end.
 	 */
@@ -79,6 +89,12 @@ export const events = {
 };
 
 /* Types */
+/**
+ *  The accent colour chosen in Settings: Sistema follows macOS; the others are the swatches of
+ *  `design/accent-tones.json`, named as `SwatchName` in `src/lib/accent/accent.ts`.
+ */
+export type AccentChoice = "system" | "azul-tinta" | "verde-folha" | "turquesa" | "laranja" | "amarelo" | "rosa" | "violeta";
+
 /**  The System Settings accent, named as in `design/accent-tones.json` (`sistema`). */
 export type AccentName = "multicolor" | "grafite" | "vermelho" | "laranja" | "amarelo" | "verde" | "azul" | "roxo" | "rosa";
 
@@ -328,6 +344,9 @@ export type Reader_Serialize = {
 	exportPath: string | null,
 };
 
+/**  A pane of the Settings window. */
+export type SettingsPane = "export" | "appearance" | "kobo" | "updates";
+
 /**
  *  What one window changes in the settings file: a field per leaf it edits,
  *  left out when it is not changed. The rest of the file stays as it is, so
@@ -366,6 +385,10 @@ export type SettingsPatch_Deserialize = {
 	syncOnConnect?: boolean | null,
 	/**  `uiPreferences.checkForUpdates` */
 	checkForUpdates?: boolean | null,
+	/**  `uiPreferences.settingsPane` */
+	settingsPane?: SettingsPane | null,
+	/**  `uiPreferences.accentColor` */
+	accentColor?: AccentChoice | null,
 };
 
 /**
@@ -396,6 +419,10 @@ export type SettingsPatch_Serialize = {
 	syncOnConnect?: boolean | null,
 	/**  `uiPreferences.checkForUpdates` */
 	checkForUpdates?: boolean | null,
+	/**  `uiPreferences.settingsPane` */
+	settingsPane?: SettingsPane | null,
+	/**  `uiPreferences.accentColor` */
+	accentColor?: AccentChoice | null,
 };
 
 /**  Sort preference for library */
@@ -453,6 +480,10 @@ export type UiPreferences_Deserialize = {
 	theme: ThemePreference_Deserialize,
 	/**  Whether to look for a new version once a day, when Khi opens. */
 	checkForUpdates?: boolean,
+	/**  The Settings pane that was open last, reopened with the window. */
+	settingsPane?: SettingsPane,
+	/**  The accent colour: the macOS one (`system`) or one of the seven swatches. */
+	accentColor?: AccentChoice,
 } & ((({
 	/**  Window width */
 	windowWidth: number,
@@ -546,6 +577,10 @@ export type UiPreferences_Serialize = {
 	syncOnConnect: boolean,
 	/**  Whether to look for a new version once a day, when Khi opens. */
 	checkForUpdates: boolean,
+	/**  The Settings pane that was open last, reopened with the window. */
+	settingsPane: SettingsPane,
+	/**  The accent colour: the macOS one (`system`) or one of the seven swatches. */
+	accentColor: AccentChoice,
 };
 
 /**  View mode for library */

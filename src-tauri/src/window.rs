@@ -50,23 +50,33 @@ pub struct SettingsWindowSpec {
     pub width: f64,
     pub height: f64,
     pub title_bar_style: tauri::TitleBarStyle,
+    /// The native title stays in view under the page's bar (the main window hides it).
+    pub hidden_title: bool,
+    /// Where the traffic lights go, in points from the window's top left corner.
+    pub traffic_light_position: (f64, f64),
+    pub minimizable: bool,
+    pub maximizable: bool,
     /// Built hidden and shown by the page once its theme is applied (no
     /// white flash), or by `show_when_ready`'s fallback.
     pub visible: bool,
 }
 
-/// The size is the Settings panel's box in the old modal (700 × 535 at the
-/// 1000 × 700 main window), so its content lays out as before.
+/// 540 wide, as in the Figma (Task 45). The page measures its pane and sets the height with
+/// `setSize` before showing the window; 382 is the first pane's, Exportação.
 pub fn settings_window_spec(title: String) -> SettingsWindowSpec {
     SettingsWindowSpec {
         label: "settings",
         url_path: "definicoes",
         title,
         resizable: false,
-        width: 700.0,
-        height: 540.0,
-        // The macOS convention for settings windows: the normal title bar
-        title_bar_style: tauri::TitleBarStyle::Visible,
+        width: 540.0,
+        height: 382.0,
+        // The page draws the bar: the native title and the traffic lights share its first row
+        title_bar_style: tauri::TitleBarStyle::Overlay,
+        hidden_title: false,
+        traffic_light_position: (20.0, 10.0),
+        minimizable: false,
+        maximizable: false,
         visible: false,
     }
 }
@@ -156,11 +166,19 @@ pub async fn open_settings(
     )
     .title(spec.title)
     .resizable(spec.resizable)
+    .minimizable(spec.minimizable)
+    .maximizable(spec.maximizable)
     .inner_size(spec.width, spec.height)
     .visible(spec.visible)
     .center();
     #[cfg(target_os = "macos")]
-    let builder = builder.title_bar_style(spec.title_bar_style);
+    let builder = builder
+        .title_bar_style(spec.title_bar_style)
+        .hidden_title(spec.hidden_title)
+        .traffic_light_position(tauri::LogicalPosition::new(
+            spec.traffic_light_position.0,
+            spec.traffic_light_position.1,
+        ));
     builder.build().map_err(|e| e.to_string())?;
     show_when_ready(app.clone(), spec.label);
     Ok(())
@@ -297,9 +315,16 @@ mod tests {
         assert_eq!(spec.url_path, "definicoes");
         assert_eq!(spec.title, "Definições");
         assert!(!spec.resizable);
-        assert_eq!((spec.width, spec.height), (700.0, 540.0));
-        // The normal macOS bar: settings windows have no Overlay
-        assert_eq!(spec.title_bar_style, tauri::TitleBarStyle::Visible);
+        // 540 wide; the page sets the height to its pane (`setSize`) before showing the window,
+        // and this is the first pane's (Exportação, 382)
+        assert_eq!((spec.width, spec.height), (540.0, 382.0));
+        // The page draws the bar under the native title and the traffic lights (Task 45)
+        assert_eq!(spec.title_bar_style, tauri::TitleBarStyle::Overlay);
+        assert!(!spec.hidden_title, "the native title shows, in the bar's first row");
+        // x 20, y 10: the lights and the title share the bar's first row
+        assert_eq!(spec.traffic_light_position, (20.0, 10.0));
+        assert!(!spec.minimizable);
+        assert!(!spec.maximizable);
         // Shown by the page once its theme is applied
         assert!(!spec.visible);
     }
@@ -335,7 +360,7 @@ mod tests {
         let config: tauri::Config =
             serde_json::from_str(include_str!("../tauri.conf.json")).expect("tauri.conf.json");
         assert_eq!(super::configured_inset_x(&config, "main"), Some(16.0));
-        // Settings is built in code, with the normal title bar
+        // Settings is built in code (`settings_window_spec`), not in tauri.conf.json
         assert_eq!(super::configured_inset_x(&config, "settings"), None);
     }
 

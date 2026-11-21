@@ -30,11 +30,12 @@ function minViewport() {
 	return { width: window.minWidth as number, height: (window.minHeight as number) - (window.height - VIEWPORT.height) };
 }
 /**
- * The Settings window: `inner_size` in `settings_window_spec`
- * (src-tauri/src/window.rs), the webview without its title bar. It is not
+ * The Settings window: 540 wide (`settings_window_spec` in src-tauri/src/window.rs), as tall as the
+ * pane on show. The page measures the pane and sets the size (`setSize`), so each scenario names the
+ * height of its pane and `capture` checks that the page asked for exactly that. The window is not
  * resizable, so `--min` captures of it use the same size.
  */
-export const SETTINGS_VIEWPORT = { width: 700, height: 540 };
+export const SETTINGS_WIDTH = 540;
 /** Every capture happens at this instant: dates and «last checked» labels never move. */
 export const NOW = new Date('2026-11-15T10:00:00Z');
 
@@ -252,11 +253,34 @@ async function waitForIpcQuiet(page: Page, withMenu: boolean) {
 	);
 }
 
+/**
+ * What the page asked of the Settings window: the height of its pane (the Figma's, since the viewport is
+ * that high), and the window shown only after it was sized.
+ */
+function settingsWindowProblems(calls: { cmd: string; args: unknown }[], expected: number): string[] {
+	const sizes = calls.filter((c) => c.cmd === 'plugin:window|set_size');
+	const height = (call: { args: unknown }) => {
+		const value = (call.args as { value: { Logical?: { height: number; width: number } } }).value.Logical;
+		return value ? [value.width, value.height] : null;
+	};
+	const problems: string[] = [];
+	const last = sizes.at(-1);
+	if (!last) return ['the Settings page never sized its window'];
+	const [width, measured] = height(last) ?? [0, 0];
+	if (width !== SETTINGS_WIDTH) problems.push(`the window was sized ${width} wide, not ${SETTINGS_WIDTH}`);
+	if (measured !== expected) problems.push(`the pane measures ${measured}, the scenario's window is ${expected}`);
+	const firstShow = calls.findIndex((c) => c.cmd === 'plugin:window|show');
+	const firstSize = calls.findIndex((c) => c.cmd === 'plugin:window|set_size');
+	if (firstShow === -1) problems.push('the Settings page never showed its window');
+	else if (firstSize === -1 || firstSize > firstShow) problems.push('the window was shown before it was sized');
+	return problems;
+}
+
 export async function capture(browser: Browser, { id, scenario, variant }: Capture, options: CaptureOptions = {}): Promise<CaptureResult> {
 	const theme = THEMES[variant.theme];
 	const inSettings = scenario.window === 'settings';
 	const context = await browser.newContext({
-		viewport: inSettings ? SETTINGS_VIEWPORT : variant.size === 'min' ? MIN_VIEWPORT : VIEWPORT,
+		viewport: inSettings ? { width: SETTINGS_WIDTH, height: scenario.windowHeight || 400 } : variant.size === 'min' ? MIN_VIEWPORT : VIEWPORT,
 		deviceScaleFactor: 2,
 		locale: variant.language === 'pt' ? 'pt-PT' : 'en-US',
 		timezoneId: 'Europe/Lisbon',
@@ -332,6 +356,7 @@ export async function capture(browser: Browser, { id, scenario, variant }: Captu
 		const { phases } = await page.evaluate(recordDom, { mode: 'phases' as const });
 
 		const mock = await page.evaluate(() => ({ calls: window.__KHI_MOCK__.calls, unknown: window.__KHI_MOCK__.unknown }));
+		if (inSettings) problems.push(...settingsWindowProblems(mock.calls, scenario.windowHeight ?? 0));
 		for (const call of mock.unknown) problems.push(`unknown IPC call: ${call.cmd} ${JSON.stringify(call.args)}`);
 		return { snapshot: { id, dom: dom!, focus, states, phases: phases! }, screenshot, focusShots, stateShots, unreachable, calls: mock.calls, problems };
 	} finally {

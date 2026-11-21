@@ -41,7 +41,9 @@ function onDisk(): AppSettings {
 			librarySort: 'title',
 			librarySortReversed: false,
 			syncOnConnect: true,
-			checkForUpdates: true
+			checkForUpdates: true,
+			settingsPane: 'export',
+			accentColor: 'system'
 		},
 		language: 'en',
 		version: '1.3.0'
@@ -61,6 +63,8 @@ function rustKeeps(file: AppSettings) {
 					leaf in file.exportConfig ? file.exportConfig : leaf in file.uiPreferences ? file.uiPreferences : (file as never);
 				parent[leaf] = structuredClone(value);
 			}
+			// Rust emits the file under its lock, to every window, the writer included
+			handlers.get('settings-changed')?.({ payload: structuredClone(file) });
 			return Promise.resolve(structuredClone(file));
 		}
 		return Promise.resolve(null);
@@ -95,7 +99,8 @@ describe('settings in two windows', () => {
 				'exportConfig.dateFormat',
 				'language',
 				'uiPreferences.theme',
-				'uiPreferences.libraryViewMode',
+				'uiPreferences.accentColor',
+				'uiPreferences.settingsPane',
 				'uiPreferences.syncOnConnect',
 				'uiPreferences.checkForUpdates'
 			].sort()
@@ -120,27 +125,28 @@ describe('settings in two windows', () => {
 		expect(settings.exportConfig.dateFormat).toBe('dd_mm_yyyy');
 		expect(settings.uiPreferences.librarySort).toBe('author');
 		expect(settings.uiPreferences.windowWidth).toBe(1200);
-		// The saved language is now Portuguese: nothing to put back
-		settings.revertUnsavedLanguage();
-		expect(settings.language).toBe('pt');
 	});
 
-	it('main keeps its view mode when Settings saved without changing it', async () => {
+	it('the main window takes the accent and the pane Settings saved', async () => {
 		await openIn('main');
-		settings.setViewMode('list');
 
 		const saved = onDisk();
-		saved.uiPreferences.theme = 'dark';
+		saved.uiPreferences.accentColor = 'turquesa';
+		saved.uiPreferences.settingsPane = 'kobo';
 		settingsChanged(saved);
 
-		expect(settings.uiPreferences.libraryViewMode).toBe('list');
+		expect(settings.uiPreferences.accentColor).toBe('turquesa');
+		expect(settings.uiPreferences.settingsPane).toBe('kobo');
+	});
 
-		// Changed in Settings and saved: the main window follows
-		const again = structuredClone(saved);
-		again.uiPreferences.libraryViewMode = 'list';
-		settingsChanged(again);
-		again.uiPreferences.libraryViewMode = 'grid';
-		settingsChanged(again);
+	it('the view mode is the main window\'s: Settings no longer edits it', async () => {
+		await openIn('main');
+
+		// Not a field of the Settings window: an event with another one does not change it
+		const saved = onDisk();
+		saved.uiPreferences.libraryViewMode = 'list';
+		settingsChanged(saved);
+
 		expect(settings.uiPreferences.libraryViewMode).toBe('grid');
 	});
 
@@ -160,54 +166,112 @@ describe('settings in two windows', () => {
 		expect(settings.uiPreferences.librarySort).toBe('author');
 	});
 
-	it('settings_save_keeps_main_changes', async () => {
+	it('commit_writes_only_the_fields_it_names_and_keeps_main_changes', async () => {
 		const file = onDisk();
 		await openIn('settings', file);
 		settings.setTheme('dark');
-		settings.setLanguage('pt');
 
 		// Meanwhile the main window saved its sort: its own patch, through Rust
 		await commands.updateSettings({ librarySort: 'author' });
 		mockedInvoke.mockClear();
 
-		await settings.save();
+		await settings.commit(['uiPreferences.theme']);
 
 		// One call, no load before: two would race the main window
 		expect(mockedInvoke.mock.calls.map(([cmd]) => cmd)).toEqual(['update_settings']);
 		const { patch } = mockedInvoke.mock.calls[0][1] as { patch: Record<string, unknown> };
-		expect(Object.keys(patch).sort()).toEqual(SETTINGS_WINDOW_FIELDS.map((path) => path.split('.').pop()).sort());
-		expect(patch).not.toHaveProperty('librarySort');
-		expect(patch).toMatchObject({ theme: 'dark', language: 'pt' });
+		expect(patch).toEqual({ theme: 'dark' });
 		// Both survive, in the file and in this window
 		expect(file.uiPreferences.librarySort).toBe('author');
 		expect(file.uiPreferences.theme).toBe('dark');
-		expect(file.language).toBe('pt');
 		expect(settings.uiPreferences.librarySort).toBe('author');
 		expect(settings.uiPreferences.theme).toBe('dark');
 	});
 
-	it('reset_keeps_main_fields', async () => {
+	it('two_quick_commits_of_one_field_lose_neither', async () => {
 		const file = onDisk();
-		file.uiPreferences.theme = 'dark';
-		file.uiPreferences.librarySort = 'author';
-		file.uiPreferences.windowWidth = 1440;
 		await openIn('settings', file);
-		mockedInvoke.mockClear();
+		// Rust answers each patch only when told to, in the order they were sent
+		const answers: (() => void)[] = [];
+		const real = mockedInvoke.getMockImplementation()!;
+		mockedInvoke.mockImplementation((cmd: string, args?: unknown) => {
+			if (cmd !== 'update_settings') return real(cmd, args as never);
+			return new Promise((resolve) => answers.push(() => resolve(real(cmd, args as never))));
+		});
 
-		await settings.resetAndSave();
+		// Two boxes ticked before the first write is answered
+		settings.setMetadataOption('author', false);
+		const first = settings.commit(['exportConfig.metadata']);
+		settings.setMetadataOption('isbn', false);
+		const second = settings.commit(['exportConfig.metadata']);
 
-		const update = mockedInvoke.mock.calls.find(([cmd]) => cmd === 'update_settings');
-		const { patch } = update![1] as { patch: Record<string, unknown> };
-		expect(patch).toMatchObject({ theme: 'system' });
-		expect(patch).not.toHaveProperty('librarySort');
-		expect(patch).not.toHaveProperty('windowWidth');
-		// Settings' fields are the defaults again; the main window's stay
-		expect(file.uiPreferences.theme).toBe('system');
-		expect(file.uiPreferences.librarySort).toBe('author');
-		expect(file.uiPreferences.windowWidth).toBe(1440);
-		expect(settings.uiPreferences.theme).toBe('system');
+		const patches = mockedInvoke.mock.calls
+			.filter(([cmd]) => cmd === 'update_settings')
+			.map(([, args]) => (args as { patch: { metadata: Record<string, boolean> } }).patch.metadata);
+		// The second patch carries both
+		expect(patches[1]).toMatchObject({ author: false, isbn: false });
+		answers.forEach((answer) => answer());
+		await Promise.all([first, second]);
+
+		expect(settings.exportConfig.metadata).toMatchObject({ author: false, isbn: false });
+		expect(file.exportConfig.metadata).toMatchObject({ author: false, isbn: false });
+	});
+
+	it('an answer to the first write does not undo the second choice', async () => {
+		const file = onDisk();
+		await openIn('settings', file);
+		const answers: (() => void)[] = [];
+		const real = mockedInvoke.getMockImplementation()!;
+		mockedInvoke.mockImplementation((cmd: string, args?: unknown) => {
+			if (cmd !== 'update_settings') return real(cmd, args as never);
+			// The answer is the file as it was when the patch arrived
+			const answer = real(cmd, args as never);
+			return new Promise((resolve) => answers.push(() => resolve(answer)));
+		});
+
+		settings.setTheme('dark');
+		const first = settings.commit(['uiPreferences.theme']);
+		settings.setTheme('light');
+		const second = settings.commit(['uiPreferences.theme']);
+		// Only the first has been answered: «dark», while «light» is chosen
+		answers[0]();
+		await first;
+		expect(settings.uiPreferences.theme).toBe('light');
+		answers[1]();
+		await second;
+		expect(settings.uiPreferences.theme).toBe('light');
+	});
+
+	it('a settings-changed from the main window meanwhile does not undo a choice being written', async () => {
+		const file = onDisk();
+		await openIn('settings', file);
+		mockedInvoke.mockImplementation((cmd: string) =>
+			cmd === 'update_settings' ? new Promise(() => {}) : Promise.resolve(structuredClone(file))
+		);
+
+		settings.setTheme('dark');
+		void settings.commit(['uiPreferences.theme']);
+		const saved = onDisk();
+		saved.uiPreferences.librarySort = 'author';
+		settingsChanged(saved);
+
+		expect(settings.uiPreferences.theme).toBe('dark');
 		expect(settings.uiPreferences.librarySort).toBe('author');
-		expect(settings.uiPreferences.windowWidth).toBe(1440);
+	});
+
+	it('a commit Rust refuses puts the field back and says so', async () => {
+		const file = onDisk();
+		await openIn('settings', file);
+		const real = mockedInvoke.getMockImplementation()!;
+		mockedInvoke.mockImplementation((cmd: string, args?: unknown) =>
+			cmd === 'update_settings' ? Promise.reject('disk full') : real(cmd, args as never)
+		);
+
+		settings.setTheme('dark');
+		await expect(settings.commit(['uiPreferences.theme'])).rejects.toBe('disk full');
+
+		expect(settings.uiPreferences.theme).toBe('system');
+		expect(settings.error).toBe('disk full');
 	});
 
 	it('main_persist_applies_settings_saved_meanwhile', async () => {
@@ -226,5 +290,68 @@ describe('settings in two windows', () => {
 		late.uiPreferences.theme = 'dark';
 		settingsChanged(late);
 		expect(settings.uiPreferences.theme).toBe('dark');
+	});
+
+	it('main: the answer to a late write does not undo the theme the last event carried', async () => {
+		const file = onDisk();
+		await openIn('main', file);
+		const real = mockedInvoke.getMockImplementation()!;
+		let answer!: () => void;
+		mockedInvoke.mockImplementation((cmd: string, args?: unknown) => {
+			if (cmd !== 'update_settings') return real(cmd, args as never);
+			// The main window's write (the sort) is answered with the file as it was then: theme «system»
+			const asItWas = structuredClone(file);
+			asItWas.uiPreferences.librarySort = 'author';
+			return new Promise((resolve) => (answer = () => resolve(asItWas)));
+		});
+
+		const writing = settings.persist({ librarySort: 'author' });
+		// Settings saves «dark», then «light»; both events reach the main window before that answer
+		const dark = structuredClone(file);
+		dark.uiPreferences.librarySort = 'author';
+		dark.uiPreferences.theme = 'dark';
+		settingsChanged(dark);
+		const light = structuredClone(dark);
+		light.uiPreferences.theme = 'light';
+		settingsChanged(light);
+		expect(settings.uiPreferences.theme).toBe('light');
+
+		answer();
+		await writing;
+
+		expect(settings.uiPreferences.theme).toBe('light');
+	});
+
+	it('settings: system, dark, system, delivered as E1, R2, E2, R1, ends on system', async () => {
+		const file = onDisk();
+		await openIn('settings', file);
+		const answers: (() => void)[] = [];
+		const answerOf: AppSettings[] = [];
+		mockedInvoke.mockImplementation((cmd: string) => {
+			if (cmd !== 'update_settings') return Promise.resolve(structuredClone(file));
+			const n = answers.length;
+			return new Promise((resolve) => answers.push(() => resolve(answerOf[n])));
+		});
+		const asFile = (theme: 'system' | 'dark') => {
+			const saved = onDisk();
+			saved.uiPreferences.theme = theme;
+			return saved;
+		};
+
+		settings.setTheme('dark');
+		const first = settings.commit(['uiPreferences.theme']);
+		settings.setTheme('system');
+		const second = settings.commit(['uiPreferences.theme']);
+
+		// Rust wrote «dark» (E1, R1), then «system» (E2, R2); they arrive as E1, R2, E2, R1
+		answerOf.push(asFile('dark'), asFile('system'));
+		settingsChanged(asFile('dark'));
+		answers[1]();
+		await second;
+		settingsChanged(asFile('system'));
+		answers[0]();
+		await first;
+
+		expect(settings.uiPreferences.theme).toBe('system');
 	});
 });

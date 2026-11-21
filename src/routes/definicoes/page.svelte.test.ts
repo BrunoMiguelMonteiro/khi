@@ -1,16 +1,24 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
+
+/** Calls of the window, in order: the height has to come before the window shows. */
+const calls = vi.hoisted(() => [] as string[]);
+
+/** The page's handler for a close from the red button or ⌘W. */
+const closing = vi.hoisted(() => ({ handler: null as ((event: { preventDefault(): void }) => unknown) | null }));
 
 const appWindow = vi.hoisted(() => ({
 	label: 'settings',
-	closeRequested: null as null | ((event: { preventDefault(): void }) => unknown),
 	close: vi.fn(() => Promise.resolve()),
-	setTitle: vi.fn(() => Promise.resolve()),
+	destroy: vi.fn(() => Promise.resolve()),
+	onCloseRequested: vi.fn((handler: (event: { preventDefault(): void }) => unknown) => {
+		closing.handler = handler;
+		return Promise.resolve(() => {});
+	}),
+	setTitle: vi.fn((_title: string) => Promise.resolve()),
 	setTheme: vi.fn(() => Promise.resolve()),
-	onCloseRequested: vi.fn(async (handler: (event: { preventDefault(): void }) => unknown) => {
-		appWindow.closeRequested = handler;
-		return () => {};
-	})
+	setSize: vi.fn((_size: { width: number; height: number }) => Promise.resolve()),
+	show: vi.fn(() => Promise.resolve())
 }));
 
 const handlers = vi.hoisted(() => new Map<string, (event: { payload: unknown }) => void>());
@@ -28,6 +36,7 @@ vi.mock('$lib/i18n', async () => await vi.importActual('$lib/i18n'));
 
 import { invoke } from '@tauri-apps/api/core';
 import { emit } from '@tauri-apps/api/event';
+import userEvent from '@testing-library/user-event';
 import { flushSync } from 'svelte';
 import { locale } from '$lib/i18n';
 import { library } from '$lib/stores/library.svelte';
@@ -35,28 +44,90 @@ import { settings } from '$lib/stores/settings.svelte';
 import { updater } from '$lib/stores/updater.svelte';
 import Page from './+page.svelte';
 
-const reader = { id: 1, name: 'Bruno', exportPath: null };
-const other = { id: 2, name: 'Ana', exportPath: null };
+// Bits UI's Select and Tabs call these; jsdom has none
+Element.prototype.hasPointerCapture ??= () => false;
+Element.prototype.scrollIntoView ??= () => {};
+
+/** The window's height per pane, as the page would measure it (the Figma's, Task 45). */
+const HEIGHTS: Record<string, number> = { export: 382, appearance: 287, kobo: 243, updates: 200 };
+
+/** jsdom has no layout: the frame's height is the active pane's, and the observer is driven by hand. */
+const observers = new Set<() => void>();
+class FakeResizeObserver {
+	constructor(private callback: () => void) {}
+	observe() {
+		observers.add(this.callback);
+	}
+	unobserve() {}
+	disconnect() {
+		observers.delete(this.callback);
+	}
+}
+function activePane(): string {
+	return document.querySelector('[role="tab"][data-state="active"]')?.getAttribute('data-value') ?? 'export';
+}
+/** The content changed size: what a ResizeObserver reports after layout. */
+const resized = () => observers.forEach((callback) => callback());
+
+const reader = { id: 1, name: 'Bruno', exportPath: null as string | null };
+const other = { id: 2, name: 'Ana', exportPath: null as string | null };
+/** The Readers Rust has: a new Kobo adds one. */
+let readers = [reader];
 
 /** What `settings_reader` answers: the Reader the main window sent. */
 let sentReader: number | null = null;
+/** What `last_reader` answers: the Reader opened last, if any. */
+let lastOpened: number | null = reader.id;
+/** settings.json as Rust keeps it. */
+let file = structuredClone(onDisk());
 
-describe('/definicoes', () => {
+describe('/definicoes · window', () => {
 	beforeEach(async () => {
 		vi.clearAllMocks();
+		calls.length = 0;
+		observers.clear();
 		handlers.clear();
-		appWindow.closeRequested = null;
 		sentReader = null;
+		closing.handler = null;
+		lastOpened = reader.id;
+		readers = [reader];
+		file = structuredClone(onDisk());
 		library.activeReaderId = null;
+		library.readers = [];
 		locale.set('en');
+		vi.stubGlobal('ResizeObserver', FakeResizeObserver);
+		vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+			const pane = activePane();
+			const height =
+				this.getAttribute('data-slot') !== 'settings-window' ? 0 : pane === 'kobo' && readers.length >= 2 ? 320 : HEIGHTS[pane];
+			return { x: 0, y: 0, top: 0, left: 0, right: 540, bottom: height, width: 540, height, toJSON() {} };
+		});
+		appWindow.setSize.mockImplementation(() => {
+			calls.push('setSize');
+			return Promise.resolve();
+		});
+		appWindow.show.mockImplementation(() => {
+			calls.push('show');
+			return Promise.resolve();
+		});
 		vi.mocked(invoke).mockImplementation((cmd: string, args?: unknown) => {
-			if (cmd === 'list_readers') return Promise.resolve([reader, other]);
+			if (cmd === 'list_readers') return Promise.resolve(structuredClone(readers));
+			if (cmd === 'rename_reader') {
+				const { id, name } = args as { id: number; name: string };
+				readers = readers.map((r) => (r.id === id ? { ...r, name } : r));
+				return Promise.resolve(null);
+			}
 			if (cmd === 'settings_reader') return Promise.resolve(sentReader);
-			if (cmd === 'last_reader') return Promise.resolve(reader.id);
-			if (cmd === 'load_settings') return Promise.resolve(structuredClone(onDisk));
+			if (cmd === 'last_reader') return Promise.resolve(lastOpened);
+			if (cmd === 'load_settings') return Promise.resolve(structuredClone(file));
 			if (cmd === 'update_settings') {
 				const { patch } = args as { patch: Record<string, unknown> };
-				return Promise.resolve({ ...structuredClone(onDisk), language: patch.language ?? onDisk.language });
+				for (const [leaf, value] of Object.entries(patch)) {
+					const parent: Record<string, unknown> =
+						leaf in file.exportConfig ? file.exportConfig : leaf in file.uiPreferences ? file.uiPreferences : (file as never);
+					parent[leaf] = structuredClone(value);
+				}
+				return Promise.resolve(structuredClone(file));
 			}
 			return Promise.resolve(null);
 		});
@@ -65,95 +136,371 @@ describe('/definicoes', () => {
 		flushSync();
 	});
 
-	it('shows the last Reader when the main window sent none', async () => {
-		render(Page);
-		expect(await screen.findByTestId('reader-name')).toHaveValue('Bruno');
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		vi.restoreAllMocks();
 	});
 
-	it('shows the Reader the main window has open', async () => {
-		sentReader = other.id;
+	it('opens on Export and fits the window to it', async () => {
 		render(Page);
-		expect(await screen.findByTestId('reader-name')).toHaveValue('Ana');
-		expect(invoke).not.toHaveBeenCalledWith('last_reader');
+
+		await waitFor(() => expect(appWindow.setSize).toHaveBeenCalled());
+		const size = appWindow.setSize.mock.calls[0][0];
+		expect([size.width, size.height]).toEqual([540, 382]);
+		expect(screen.getByRole('tab', { name: 'Export' })).toHaveAttribute('aria-selected', 'true');
 	});
 
-	it('settings_reader_switches_without_draft', async () => {
+	it('fits_the_window_when_the_pane_changes', async () => {
 		render(Page);
-		expect(await screen.findByTestId('reader-name')).toHaveValue('Bruno');
-		await waitFor(() => expect(handlers.has('settings-reader')).toBe(true));
+		await waitFor(() => expect(appWindow.setSize).toHaveBeenCalledTimes(1));
 
-		// ⌘, again, from the main window now showing Ana
-		handlers.get('settings-reader')!({ payload: other.id });
+		await fireEvent.click(screen.getByRole('tab', { name: 'Appearance' }));
+		resized();
+		await waitFor(() => expect(appWindow.setSize).toHaveBeenCalledTimes(2));
+		expect(appWindow.setSize.mock.calls[1][0]).toMatchObject({ width: 540, height: 287 });
 
-		await waitFor(() => expect(screen.getByTestId('reader-name')).toHaveValue('Ana'));
-		expect(library.activeReaderId).toBe(other.id);
+		await fireEvent.click(screen.getByRole('tab', { name: 'Kobo' }));
+		resized();
+		await waitFor(() => expect(appWindow.setSize).toHaveBeenCalledTimes(3));
+		expect(appWindow.setSize.mock.calls[2][0]).toMatchObject({ width: 540, height: 243 });
 	});
 
-	it('settings_reader_keeps_a_name_draft', async () => {
+	it('a height that did not change does not ask for a size again', async () => {
 		render(Page);
-		const name = await screen.findByTestId('reader-name');
-		await waitFor(() => expect(handlers.has('settings-reader')).toBe(true));
-		await fireEvent.input(name, { target: { value: 'Bruno M.' } });
+		await waitFor(() => expect(appWindow.setSize).toHaveBeenCalledTimes(1));
 
-		handlers.get('settings-reader')!({ payload: other.id });
+		resized();
+		resized();
 		await new Promise((resolve) => setTimeout(resolve, 0));
 
-		// The half-typed name stays on its own Reader
-		expect(library.activeReaderId).toBe(reader.id);
-		expect(screen.getByTestId('reader-name')).toHaveValue('Bruno M.');
+		expect(appWindow.setSize).toHaveBeenCalledTimes(1);
 	});
 
-	it('settings_reader_keeps_a_folder_draft', async () => {
+	it('shows_the_window_only_after_its_first_size', async () => {
 		render(Page);
-		await screen.findByTestId('reader-name');
-		await waitFor(() => expect(handlers.has('settings-reader')).toBe(true));
-		await fireEvent.input(screen.getByLabelText('Path'), { target: { value: '/Volumes/Notes' } });
 
-		handlers.get('settings-reader')!({ payload: other.id });
-		await new Promise((resolve) => setTimeout(resolve, 0));
-
-		expect(library.activeReaderId).toBe(reader.id);
-		expect(screen.getByLabelText('Path')).toHaveValue('/Volumes/Notes');
+		await waitFor(() => expect(appWindow.show).toHaveBeenCalledTimes(1));
+		expect(calls).toEqual(['setSize', 'show']);
 	});
 
-	it('Esc closes the window', async () => {
+	it('show waits for setSize to finish, and shows once', async () => {
+		let sized!: () => void;
+		appWindow.setSize.mockImplementation(() => {
+			calls.push('setSize');
+			return new Promise<void>((resolve) => (sized = resolve));
+		});
 		render(Page);
-		await fireEvent.keyDown(window, { key: 'Escape' });
-		expect(appWindow.close).toHaveBeenCalled();
+		await waitFor(() => expect(appWindow.setSize).toHaveBeenCalledTimes(1));
+		await new Promise((resolve) => setTimeout(resolve, 20));
+
+		// setSize has not finished: the window stays hidden
+		expect(appWindow.show).not.toHaveBeenCalled();
+
+		sized();
+		await waitFor(() => expect(appWindow.show).toHaveBeenCalledTimes(1));
+		resized();
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		expect(appWindow.show).toHaveBeenCalledTimes(1);
 	});
 
-	it('close_without_save_reverts_language', async () => {
+	it('names_the_window_after_the_pane', async () => {
 		render(Page);
-		await waitFor(() => expect(appWindow.closeRequested).not.toBeNull());
+		await waitFor(() => expect(appWindow.setTitle).toHaveBeenCalledWith('Export'));
+
+		await fireEvent.click(screen.getByRole('tab', { name: 'Appearance' }));
+		await waitFor(() => expect(appWindow.setTitle).toHaveBeenLastCalledWith('Appearance'));
+		await fireEvent.click(screen.getByRole('tab', { name: 'Kobo' }));
+		await waitFor(() => expect(appWindow.setTitle).toHaveBeenLastCalledWith('Kobo'));
+		await fireEvent.click(screen.getByRole('tab', { name: 'Updates' }));
+		await waitFor(() => expect(appWindow.setTitle).toHaveBeenLastCalledWith('Updates'));
+	});
+
+	it('the title follows the language', async () => {
+		render(Page);
+		await waitFor(() => expect(appWindow.setTitle).toHaveBeenCalledWith('Export'));
+
+		// English → Portuguese, from Settings itself or from a settings-changed
 		settings.setLanguage('pt');
+		flushSync();
 
-		appWindow.closeRequested!({ preventDefault: vi.fn() });
-
-		expect(settings.language).toBe('en');
-		// settings-changed only comes from Rust after update_settings
-		expect(invoke).not.toHaveBeenCalledWith('update_settings', expect.anything());
-		expect(emit).not.toHaveBeenCalled();
+		await waitFor(() => expect(appWindow.setTitle).toHaveBeenLastCalledWith('Exportação'));
 	});
 
-	it('saved_language_updates_window_title', async () => {
+	it('the bar draws no title of its own: the native one shows', async () => {
 		render(Page);
-		await fireEvent.click(screen.getByRole('tab', { name: /Appearance/ }));
-		// English → Portuguese: the window speaks the new language once saved
-		await fireEvent.click(screen.getByRole('button', { name: 'Português' }));
+		await waitFor(() => expect(appWindow.show).toHaveBeenCalled());
+
+		// A heading for screen readers only; the first row of the bar stays empty
+		const bar = document.querySelector('[data-slot="settings-bar"]')!;
+		expect(bar).toHaveAttribute('data-tauri-drag-region');
+		expect(screen.queryAllByText('Export', { selector: 'h1:not(.sr-only)' })).toHaveLength(0);
+	});
+
+	it('reopens_on_the_last_pane', async () => {
+		file.uiPreferences.settingsPane = 'kobo';
+		await settings.load();
 		flushSync();
-		expect(appWindow.setTitle).not.toHaveBeenCalled();
+		render(Page);
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Guardar alterações' }));
+		await waitFor(() => expect(screen.getByRole('tab', { name: 'Kobo' })).toHaveAttribute('aria-selected', 'true'));
+		await waitFor(() => expect(appWindow.setSize.mock.calls.at(-1)?.[0]).toMatchObject({ height: 243 }));
+		expect(appWindow.setTitle).toHaveBeenLastCalledWith('Kobo');
+		// The window is shown with the right height already
+		expect(appWindow.setSize.mock.calls.every(([size]) => size.height === 243)).toBe(true);
+	});
 
-		await waitFor(() => expect(appWindow.setTitle).toHaveBeenCalledWith('Definições'));
-		expect(appWindow.setTitle).not.toHaveBeenCalledWith('Settings');
-		expect(invoke).toHaveBeenCalledWith('update_settings', { patch: expect.objectContaining({ language: 'pt' }) });
+	it('the pane chosen is saved as the last one', async () => {
+		render(Page);
+		await waitFor(() => expect(appWindow.show).toHaveBeenCalled());
+
+		await fireEvent.click(screen.getByRole('tab', { name: 'Appearance' }));
+
+		await waitFor(() =>
+			expect(invoke).toHaveBeenCalledWith('update_settings', { patch: { settingsPane: 'appearance' } })
+		);
+		expect(file.uiPreferences.settingsPane).toBe('appearance');
+	});
+
+	describe('Esc', () => {
+		it('closes the window when nothing else is open', async () => {
+			render(Page);
+			await fireEvent.keyDown(window, { key: 'Escape' });
+			expect(appWindow.close).toHaveBeenCalled();
+		});
+
+		it('closes it from a tab too', async () => {
+			const user = userEvent.setup();
+			render(Page);
+			screen.getByRole('tab', { name: 'Export' }).focus();
+
+			await user.keyboard('{Escape}');
+
+			expect(appWindow.close).toHaveBeenCalledTimes(1);
+		});
+
+		it('in the name field only puts the name back', async () => {
+			const user = userEvent.setup();
+			readers = [reader];
+			render(Page);
+			await user.click(screen.getByRole('tab', { name: 'Kobo' }));
+			const field = await screen.findByTestId('reader-name');
+			await waitFor(() => expect(field).toHaveValue('Bruno'));
+			await user.clear(field);
+			await user.type(field, 'Bruno M.');
+
+			await user.keyboard('{Escape}');
+
+			expect(field).toHaveValue('Bruno');
+			expect(appWindow.close).not.toHaveBeenCalled();
+			// A second Esc, now outside the typing, closes
+			await user.tab();
+			await user.keyboard('{Escape}');
+			expect(appWindow.close).toHaveBeenCalledTimes(1);
+			expect(invoke).not.toHaveBeenCalledWith('rename_reader', expect.anything());
+		});
+
+		it('with a pop-up open only closes the list', async () => {
+			const user = userEvent.setup();
+			render(Page);
+			const trigger = screen.getByRole('combobox', { name: 'Date Format' });
+			trigger.focus();
+			await user.keyboard(' ');
+			await screen.findByRole('listbox', { hidden: true });
+
+			await user.keyboard('{Escape}');
+
+			await waitFor(() => expect(screen.queryByRole('listbox', { hidden: true })).toBeNull());
+			expect(appWindow.close).not.toHaveBeenCalled();
+			// The next Esc, with the list shut, closes the window
+			await user.keyboard('{Escape}');
+			expect(appWindow.close).toHaveBeenCalledTimes(1);
+		});
+	});
+
+	it('has no Save, Cancel or Reset anywhere, in any pane', async () => {
+		render(Page);
+		for (const name of ['Export', 'Appearance', 'Kobo', 'Updates']) {
+			await fireEvent.click(screen.getByRole('tab', { name }));
+			expect(screen.queryByRole('button', { name: /save|cancel|reset/i })).toBeNull();
+		}
+		expect(screen.queryByText(/library view mode|reset to defaults/i)).toBeNull();
+		expect(screen.queryByRole('button', { name: /close settings/i })).toBeNull();
+	});
+
+	describe('readers', () => {
+		it('shows the last Reader when the main window sent none', async () => {
+			readers = [reader, other];
+			render(Page);
+			await fireEvent.click(screen.getByRole('tab', { name: 'Kobo' }));
+			await waitFor(() => expect(screen.getByTestId('reader-name')).toHaveValue('Bruno'));
+		});
+
+		it('settings_reader_preselects_the_reader_the_main_window_has_open', async () => {
+			sentReader = other.id;
+			readers = [reader, other];
+			render(Page);
+			await fireEvent.click(screen.getByRole('tab', { name: 'Kobo' }));
+
+			await waitFor(() => expect(screen.getByTestId('reader-name')).toHaveValue('Ana'));
+			expect(screen.getByRole('combobox', { name: 'Reader' })).toHaveTextContent('Ana');
+			expect(invoke).not.toHaveBeenCalledWith('last_reader');
+		});
+
+		it('⌘, again with another Reader on screen: the window follows it', async () => {
+			readers = [reader, other];
+			render(Page);
+			await fireEvent.click(screen.getByRole('tab', { name: 'Kobo' }));
+			await waitFor(() => expect(handlers.has('settings-reader')).toBe(true));
+			await waitFor(() => expect(screen.getByTestId('reader-name')).toHaveValue('Bruno'));
+
+			handlers.get('settings-reader')!({ payload: other.id });
+
+			await waitFor(() => expect(screen.getByTestId('reader-name')).toHaveValue('Ana'));
+			expect(library.activeReaderId).toBe(other.id);
+		});
+
+		it('…and saves a name half-typed first, instead of dropping it', async () => {
+			const user = userEvent.setup();
+			readers = [reader, other];
+			render(Page);
+			await fireEvent.click(screen.getByRole('tab', { name: 'Kobo' }));
+			await waitFor(() => expect(handlers.has('settings-reader')).toBe(true));
+			const field = await screen.findByTestId('reader-name');
+			await waitFor(() => expect(field).toHaveValue('Bruno'));
+			await user.clear(field);
+			await user.type(field, 'Bruno M.');
+
+			handlers.get('settings-reader')!({ payload: other.id });
+
+			await waitFor(() => expect(library.activeReaderId).toBe(other.id));
+			expect(invoke).toHaveBeenCalledWith('rename_reader', { id: 1, name: 'Bruno M.' });
+		});
+
+		it('readers_changed_turns_one_reader_into_two_live', async () => {
+			render(Page);
+			await fireEvent.click(screen.getByRole('tab', { name: 'Kobo' }));
+			await waitFor(() => expect(screen.getByText('Reader name')).toBeInTheDocument());
+			expect(screen.queryByRole('combobox', { name: 'Reader' })).toBeNull();
+			await waitFor(() => expect(handlers.has('readers-changed')).toBe(true));
+
+			// A new Kobo connected and Ana was created in the main window
+			readers = [reader, other];
+			handlers.get('readers-changed')!({ payload: null });
+
+			expect(await screen.findByRole('combobox', { name: 'Reader' })).toHaveTextContent('Bruno');
+			expect(screen.getByText('Shown in the Library title.')).toBeInTheDocument();
+			expect(screen.queryByText('Reader name')).toBeNull();
+		});
+
+		it('a Reader created with Settings open becomes the active one, so the folder is its own (R21)', async () => {
+			const user = userEvent.setup();
+			// The first start: no Reader yet, so none is open
+			readers = [];
+			lastOpened = null;
+			render(Page);
+			await waitFor(() => expect(handlers.has('readers-changed')).toBe(true));
+			await waitFor(() => expect(library.readers).toEqual([]));
+
+			// A new Kobo is connected and its Reader created; the main window has not opened it yet
+			readers = [reader];
+			handlers.get('readers-changed')!({ payload: null });
+			await waitFor(() => expect(library.activeReaderId).toBe(reader.id));
+
+			vi.mocked(invoke).mockClear();
+			const real = vi.mocked(invoke).getMockImplementation()!;
+			vi.mocked(invoke).mockImplementation((cmd: string, args?: unknown) =>
+				cmd === 'pick_export_folder' ? Promise.resolve('/Volumes/Notes') : real(cmd, args as never)
+			);
+			await user.click(await screen.findByRole('button', { name: 'Choose…' }));
+
+			await waitFor(() => expect(invoke).toHaveBeenCalledWith('set_reader_export_path', { readerId: 1, path: '/Volumes/Notes' }));
+			const patches = vi.mocked(invoke).mock.calls.filter(([cmd]) => cmd === 'update_settings');
+			expect(patches).toEqual([]);
+		});
+
+		it('renaming here is announced to the list at once', async () => {
+			const user = userEvent.setup();
+			readers = [reader, other];
+			render(Page);
+			await fireEvent.click(screen.getByRole('tab', { name: 'Kobo' }));
+			const field = await screen.findByTestId('reader-name');
+			await waitFor(() => expect(field).toHaveValue('Bruno'));
+			await user.clear(field);
+			await user.type(field, 'Bruno M.{Enter}');
+
+			await waitFor(() => expect(library.readers.map((r) => r.name)).toEqual(['Bruno M.', 'Ana']));
+		});
+	});
+
+	it('the save error shows when a write fails and goes away with the next write that works', async () => {
+		const user = userEvent.setup();
+		render(Page);
+		const real = vi.mocked(invoke).getMockImplementation()!;
+		let refuse = true;
+		vi.mocked(invoke).mockImplementation((cmd: string, args?: unknown) =>
+			cmd === 'update_settings' && refuse ? Promise.reject('disk full') : real(cmd, args as never)
+		);
+
+		await user.click(await screen.findByRole('checkbox', { name: 'Author' }));
+		expect(await screen.findByRole('alert')).toHaveTextContent('Error saving settings');
+
+		refuse = false;
+		await user.click(screen.getByRole('checkbox', { name: 'Author' }));
+
+		await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+	});
+
+	it('the height follows the content when a pane grows without a tab change (1 reader to M2)', async () => {
+		render(Page);
+		await fireEvent.click(screen.getByRole('tab', { name: 'Kobo' }));
+		resized();
+		await waitFor(() => expect(appWindow.setSize).toHaveBeenLastCalledWith(expect.objectContaining({ height: 243 })));
+		await waitFor(() => expect(handlers.has('readers-changed')).toBe(true));
+		const sizes = appWindow.setSize.mock.calls.length;
+
+		readers = [reader, other];
+		handlers.get('readers-changed')!({ payload: null });
+		await screen.findByRole('combobox', { name: 'Reader' });
+		resized();
+
+		await waitFor(() => expect(appWindow.setSize.mock.calls.length).toBe(sizes + 1));
+		expect(appWindow.setSize).toHaveBeenLastCalledWith(expect.objectContaining({ width: 540, height: 320 }));
+	});
+
+	it('the Updates switch is saved at the moment', async () => {
+		const user = userEvent.setup();
+		render(Page);
+		await fireEvent.click(screen.getByRole('tab', { name: 'Updates' }));
+
+		await user.click(await screen.findByTestId('check-for-updates'));
+
+		await waitFor(() => expect(invoke).toHaveBeenCalledWith('update_settings', { patch: { checkForUpdates: false } }));
+		expect(file.uiPreferences.checkForUpdates).toBe(false);
+	});
+
+	it('the red button or ⌘W with a name half-typed saves it before the window closes', async () => {
+		const user = userEvent.setup();
+		render(Page);
+		await fireEvent.click(screen.getByRole('tab', { name: 'Kobo' }));
+		const field = await screen.findByTestId('reader-name');
+		await waitFor(() => expect(field).toHaveValue('Bruno'));
+		await user.clear(field);
+		await user.type(field, 'Bruno M.');
+		await waitFor(() => expect(closing.handler).not.toBeNull());
+		const preventDefault = vi.fn();
+
+		// The webview never blurred: the native close is held, the name saved, then the window closes
+		await closing.handler!({ preventDefault });
+
+		expect(preventDefault).toHaveBeenCalled();
+		expect(invoke).toHaveBeenCalledWith('rename_reader', { id: 1, name: 'Bruno M.' });
+		expect(appWindow.destroy).toHaveBeenCalledTimes(1);
 	});
 
 	it('Check Now asks the main window, which has the updater', async () => {
 		const checkNow = vi.spyOn(updater, 'checkNow');
 		render(Page);
-		await fireEvent.click(screen.getByRole('tab', { name: /Updates/ }));
+		await fireEvent.click(screen.getByRole('tab', { name: 'Updates' }));
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Check Now' }));
 
@@ -162,23 +509,28 @@ describe('/definicoes', () => {
 	});
 });
 
-const onDisk = {
-	exportConfig: {
-		exportPath: '/Users/test/Documents/Kobo Highlights',
-		metadata: { author: true, isbn: true, publisher: true, dateLastRead: true, language: true, description: false },
-		dateFormat: 'iso8601'
-	},
-	uiPreferences: {
-		theme: 'light',
-		windowWidth: 1200,
-		windowHeight: 800,
-		isMaximized: false,
-		showOnboarding: true,
-		libraryViewMode: 'grid',
-		librarySort: 'title',
-		syncOnConnect: true,
-		checkForUpdates: true
-	},
-	language: 'en',
-	version: '1.3.0'
-};
+function onDisk() {
+	return {
+		exportConfig: {
+			exportPath: '/Users/test/Documents/Kobo Highlights',
+			metadata: { author: true, isbn: true, publisher: true, dateLastRead: true, language: true, description: false },
+			dateFormat: 'iso8601'
+		},
+		uiPreferences: {
+			theme: 'light',
+			windowWidth: 1200,
+			windowHeight: 800,
+			isMaximized: false,
+			showOnboarding: true,
+			libraryViewMode: 'grid',
+			librarySort: 'title',
+			librarySortReversed: false,
+			syncOnConnect: true,
+			checkForUpdates: true,
+			settingsPane: 'export',
+			accentColor: 'system'
+		},
+		language: 'en',
+		version: '1.3.0'
+	};
+}

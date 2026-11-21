@@ -264,6 +264,8 @@ mod tests {
             library_sort_reversed: Some(true),
             sync_on_connect: Some(false),
             check_for_updates: Some(false),
+            settings_pane: Some(crate::settings::SettingsPane::Kobo),
+            accent_color: Some(crate::settings::AccentChoice::Rosa),
         }
         .apply_to(&mut settings);
 
@@ -280,6 +282,8 @@ mod tests {
         );
         assert!(!settings.ui_preferences.sync_on_connect);
         assert!(!settings.ui_preferences.check_for_updates);
+        assert_eq!(settings.ui_preferences.settings_pane, crate::settings::SettingsPane::Kobo);
+        assert_eq!(settings.ui_preferences.accent_color, crate::settings::AccentChoice::Rosa);
         // Window size is never in a patch
         assert_eq!(settings.ui_preferences.window_width, AppSettings::default().ui_preferences.window_width);
     }

@@ -42,12 +42,16 @@ describe("window config", () => {
   it("settings_capability_is_minimal", () => {
     const settings = capability("settings");
     expect(settings.windows).toEqual(["settings"]);
-    // Esc ends in close(), onCloseRequested in destroy(), a saved language in
-    // setTitle(); built hidden, the page show()s it once its theme is applied
+    // Esc ends in close(), the close request (held to save a name half-typed) in destroy(), the pane's name in
+    // setTitle(), its height in setSize(); the Overlay bar is dragged by its
+    // drag region (start-dragging, as the main window); built hidden, the page
+    // show()s it once its theme and height are applied
     expect([...settings.permissions].sort()).toEqual(
       [
         "core:default",
         "core:event:default",
+        "core:window:allow-set-size",
+        "core:window:allow-start-dragging",
         "core:window:allow-set-theme",
         "core:window:allow-set-title",
         "core:window:allow-close",

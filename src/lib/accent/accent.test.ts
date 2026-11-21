@@ -113,10 +113,10 @@ describe("accent", () => {
       }
   });
 
-  it("multicolor_maps_to_azul_tinta", () => {
-    expect(accentTones("system", multicolor)).toBe(groups.amostras["azul-tinta"]);
+  it("multicolor_uses_the_system_blue_tones", () => {
+    // Sistema with Multicolor is the app's own blue (the system blue tones); Azul-tinta is only a swatch
+    expect(accentTones("system", multicolor)).toBe(groups.sistema.azul);
     expect(accentTones("azul-tinta", multicolor)).toBe(groups.amostras["azul-tinta"]);
-    // Blue chosen in System Settings is the system blue, not Azul-tinta, though both read #007AFF.
     expect(accentTones("system", { ...multicolor, name: "azul" })).toBe(groups.sistema.azul);
     expect(accentTones("system", { name: "roxo", light: "#953D96", dark: "#A550A7" })).toBe(
       groups.sistema.roxo,
@@ -131,7 +131,7 @@ describe("accent", () => {
     const style = document.documentElement.style;
     applyAccent("system", multicolor, "claro");
     for (const tone of TONES)
-      expect(style.getPropertyValue(`--${tone}`), tone).toBe(groups.amostras["azul-tinta"].claro[tone].value);
+      expect(style.getPropertyValue(`--${tone}`), tone).toBe(groups.sistema.azul.claro[tone].value);
     applyAccent("laranja", multicolor, "escuro");
     for (const tone of TONES)
       expect(style.getPropertyValue(`--${tone}`), tone).toBe(groups.amostras.laranja.escuro[tone].value);

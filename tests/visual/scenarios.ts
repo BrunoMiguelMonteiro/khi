@@ -58,6 +58,8 @@ export interface Scenario {
 	emptyLibrary?: boolean;
 	/** `settings`: the Settings window, its own route (`/definicoes`) and size. Default: the main window. */
 	window?: 'settings';
+	/** `settings`: the window's height, that of its pane (Task 45). The page measures it and sets the size; the harness checks that it did. */
+	windowHeight?: number;
 	update?: boolean;
 	/** Records keyboard focus states by pressing Tab. */
 	focusStops?: number;
@@ -100,11 +102,16 @@ export interface Strings {
 	/** The title of the first Sync's centred state, and its text at 12 of 42 books. */
 	syncingTitle: string;
 	syncingText: string;
-	closeSettings: string;
-	browseFolder: string;
+	/** The Settings window's tabs. */
+	tabExport: string;
+	tabAppearance: string;
+	tabKobo: string;
+	tabUpdates: string;
+	/** Export's «Escolher…» button and the Kobo pane's switch. */
+	chooseFolder: string;
+	syncOnConnect: string;
 	install: string;
 	later: string;
-	saveChanges: string;
 	checkNow: string;
 }
 
@@ -131,11 +138,14 @@ const STRINGS: Record<Language, Strings> = {
 		syncOtherReaderReason: 'O Kobo ligado é de Ana',
 		syncingTitle: 'A sincronizar com o Kobo',
 		syncingText: '12 de 42 livros',
-		closeSettings: 'Fechar definições',
-		browseFolder: 'Escolher a pasta de exportação',
+		tabExport: 'Exportação',
+		tabAppearance: 'Aparência',
+		tabKobo: 'Kobo',
+		tabUpdates: 'Atualizações',
+		chooseFolder: 'Escolher…',
+		syncOnConnect: 'Sincronizar ao ligar',
 		install: 'Instalar e reiniciar',
 		later: 'Mais tarde',
-		saveChanges: 'Guardar alterações',
 		checkNow: 'Procurar agora'
 	},
 	en: {
@@ -160,11 +170,14 @@ const STRINGS: Record<Language, Strings> = {
 		syncOtherReaderReason: 'The connected Kobo belongs to Ana',
 		syncingTitle: 'Syncing with the Kobo',
 		syncingText: '12 of 42 books',
-		closeSettings: 'Close settings',
-		browseFolder: 'Browse for export folder',
+		tabExport: 'Export',
+		tabAppearance: 'Appearance',
+		tabKobo: 'Kobo',
+		tabUpdates: 'Updates',
+		chooseFolder: 'Choose…',
+		syncOnConnect: 'Sync on connect',
 		install: 'Install and Restart',
 		later: 'Later',
-		saveChanges: 'Save Changes',
 		checkNow: 'Check Now'
 	}
 };
@@ -224,11 +237,18 @@ async function libraryWithoutKobo(page: Page, text: Strings) {
 	await expect(page.getByRole('button', { name: text.sync, exact: true })).toBeVisible();
 }
 
-/** The Settings window, as Rust opens it: its route, with the Reader the main window has open. */
+/** The Settings window, as Rust opens it: its route, on the pane it last had (Exportação), the page having sized and shown the window. */
 async function openSettings(page: Page) {
-	await expect(page.locator('[aria-labelledby="settings-title"]')).toBeVisible();
-	await expect(page.getByTestId('reader-name')).toHaveValue(reader.name);
-	await expect(page.locator('#export-tab')).toHaveAttribute('aria-selected', 'true');
+	await expect(page.locator('[data-slot="settings-window"]')).toBeVisible();
+	await page.waitForFunction(() => window.__KHI_MOCK__.calls.some((c) => c.cmd === 'plugin:window|show'));
+}
+
+/** Another tab, as the user clicks it; the page then sizes the window to that pane. */
+async function openTab(page: Page, name: string) {
+	await openSettings(page);
+	await page.getByRole('tab', { name, exact: true }).click();
+	await expect(page.getByRole('tab', { name, exact: true })).toHaveAttribute('aria-selected', 'true');
+	await page.mouse.move(0, 0);
 }
 
 /** The computed `animation-name` of the first match. */
@@ -241,7 +261,8 @@ async function expectAnimation(page: Page, selector: string, running: boolean) {
 	else await expect.poll(() => animationName(page, selector)).toBe('none');
 }
 
-const SETTINGS = '[aria-labelledby="settings-title"]';
+/** The pane on show (Bits UI keeps the others in the page, `hidden`). */
+const PANE = '[role="tabpanel"]:not([hidden])';
 
 /** The books selected in the `*-selected` scenarios: not adjacent, so a selected card sits next to an unselected one. */
 const SELECTED = [0, 2];
@@ -598,57 +619,99 @@ export const SCENARIOS: Record<string, Scenario> = {
 			await expect(page.locator('[data-slot="highlight-removed"]')).toHaveCount(1);
 		}
 	},
-	settings: {
-		name: 'settings',
-		description: 'Settings open on the Export tab',
+	'settings-export': {
+		name: 'settings-export',
+		description: 'Settings on the Export pane: Ficheiros and the metadata, 540 × 377 (Figma 382)',
 		withLibrary: true,
 		window: 'settings',
+		windowHeight: 377,
 		focusStops: 3,
 		states: [
-			// The focus ring (`focus:ring-2 focus:border-blue-500`)
-			{ name: 'focus-text-input', kind: 'focus', target: (p) => p.locator('#export-path') },
-			{ name: 'hover-tab', kind: 'hover', target: (p) => p.locator('#appearance-tab') },
-			{ name: 'hover-icon-button', kind: 'hover', target: (p, t) => p.getByRole('button', { name: t.closeSettings, exact: true }) },
-			{ name: 'hover-secondary-button', kind: 'hover', target: (p, t) => p.getByRole('button', { name: t.browseFolder, exact: true }) },
-			{ name: 'focus-secondary-button', kind: 'focus', target: (p, t) => p.getByRole('button', { name: t.browseFolder, exact: true }) },
-			{ name: 'hover-custom-checkbox', kind: 'hover', target: (p) => p.locator(`${SETTINGS} [role="checkbox"]`), root: 'label' },
-			{ name: 'focus-custom-checkbox', kind: 'focus', target: (p) => p.locator(`${SETTINGS} [role="checkbox"]`), root: 'label' },
-			{ name: 'hover-custom-radio', kind: 'hover', target: (p) => p.locator(`${SETTINGS} [role="radio"]`), root: 'label' },
-			{ name: 'focus-custom-radio', kind: 'focus', target: (p) => p.locator(`${SETTINGS} [role="radio"]`), root: 'label' }
+			{ name: 'hover-tab', kind: 'hover', target: (p, t) => p.getByRole('tab', { name: t.tabAppearance, exact: true }) },
+			{ name: 'hover-secondary-button', kind: 'hover', target: (p, t) => p.getByRole('button', { name: t.chooseFolder, exact: true }) },
+			{ name: 'focus-secondary-button', kind: 'focus', target: (p, t) => p.getByRole('button', { name: t.chooseFolder, exact: true }) },
+			{ name: 'hover-select', kind: 'hover', target: (p) => p.locator(`${PANE} [data-slot="select-trigger"]`) },
+			{ name: 'focus-select', kind: 'focus', target: (p) => p.locator(`${PANE} [data-slot="select-trigger"]`) },
+			{ name: 'hover-checkbox', kind: 'hover', target: (p) => p.locator(`${PANE} [role="checkbox"]`).first() },
+			{ name: 'focus-checkbox', kind: 'focus', target: (p) => p.locator(`${PANE} [role="checkbox"]`).first() }
 		],
 		reach: openSettings
 	},
 	'settings-appearance': {
 		name: 'settings-appearance',
-		description: 'Settings open on the Appearance tab',
+		description: 'Settings on the Appearance pane: theme, accent colour and language, 540 × 285 (Figma 287)',
 		withLibrary: true,
 		window: 'settings',
+		windowHeight: 285,
 		states: [
-			{ name: 'hover-segmented', kind: 'hover', target: (p) => p.locator('#appearance-panel button[aria-pressed="false"]') },
-			{ name: 'focus-segmented', kind: 'focus', target: (p) => p.locator('#appearance-panel button[aria-pressed="false"]') },
-			{ name: 'hover-checkbox-row', kind: 'hover', target: (p) => p.locator('#appearance-panel label:has(input[type="checkbox"])') },
-			{ name: 'focus-native-checkbox', kind: 'focus', target: (p) => p.locator('#appearance-panel input[type="checkbox"]'), root: 'label' }
+			{ name: 'hover-select', kind: 'hover', target: (p) => p.locator(`${PANE} [data-slot="select-trigger"]`).first() },
+			{ name: 'focus-select', kind: 'focus', target: (p) => p.locator(`${PANE} [data-slot="select-trigger"]`).first() },
+			{ name: 'hover-swatch', kind: 'hover', target: (p) => p.locator(`${PANE} [role="radio"][aria-checked="false"]`).first() },
+			{ name: 'focus-swatch', kind: 'focus', target: (p) => p.locator(`${PANE} [role="radio"][aria-checked="true"]`) }
 		],
 		async reach(page, text) {
-			await openSettings(page);
-			await page.locator('#appearance-tab').dispatchEvent('click');
-			await expect(page.locator('#appearance-tab')).toHaveAttribute('aria-selected', 'true');
+			await openTab(page, text.tabAppearance);
+		}
+	},
+	'settings-kobo': {
+		name: 'settings-kobo',
+		description: 'Settings on the Kobo pane with one Reader: its name and «Sincronizar ao ligar», 540 × 240 (Figma 243)',
+		withLibrary: true,
+		window: 'settings',
+		windowHeight: 240,
+		states: [
+			{ name: 'focus-text-input', kind: 'focus', target: (p) => p.getByTestId('reader-name') },
+			{ name: 'hover-switch', kind: 'hover', target: (p, t) => p.getByRole('switch', { name: t.syncOnConnect, exact: true }) },
+			{ name: 'focus-switch', kind: 'focus', target: (p, t) => p.getByRole('switch', { name: t.syncOnConnect, exact: true }) }
+		],
+		async reach(page, text) {
+			await openTab(page, text.tabKobo);
+			await expect(page.getByTestId('reader-name')).toHaveValue(reader.name);
+		}
+	},
+	'settings-kobo-readers': {
+		name: 'settings-kobo-readers',
+		description: 'Settings on the Kobo pane with two Readers (M2): «Leitor» and «Nome», then the switch for all, 540 × 315 (Figma 320)',
+		withLibrary: true,
+		otherReaderKobo: true,
+		window: 'settings',
+		windowHeight: 315,
+		states: [
+			{ name: 'hover-select', kind: 'hover', target: (p) => p.locator(`${PANE} [data-slot="select-trigger"]`) },
+			{ name: 'focus-select', kind: 'focus', target: (p) => p.locator(`${PANE} [data-slot="select-trigger"]`) },
+			{ name: 'focus-text-input', kind: 'focus', target: (p) => p.getByTestId('reader-name') }
+		],
+		async reach(page, text) {
+			await openTab(page, text.tabKobo);
+			await expect(page.getByRole('combobox', { name: text.readerLabel, exact: true })).toHaveText(reader.name);
+			await expect(page.getByTestId('reader-name')).toHaveValue(reader.name);
+		}
+	},
+	'settings-kobo-none': {
+		name: 'settings-kobo-none',
+		description: 'Settings on the Kobo pane with no Reader (the first start): only «Sincronizar ao ligar»',
+		withLibrary: false,
+		window: 'settings',
+		windowHeight: 188,
+		async reach(page, text) {
+			await openTab(page, text.tabKobo);
+			await expect(page.getByRole('switch', { name: text.syncOnConnect, exact: true })).toBeVisible();
+			await expect(page.getByTestId('reader-name')).toHaveCount(0);
 		}
 	},
 	'settings-updates': {
 		name: 'settings-updates',
-		description: 'Settings open on the Updates tab: the automatic-check switch',
+		description: 'Settings on the Updates pane, as before inside the new frame: the automatic-check switch and «Check now»',
 		withLibrary: true,
 		window: 'settings',
+		windowHeight: 289,
 		states: [
-			{ name: 'hover-switch-row', kind: 'hover', target: (p) => p.locator('#updates-panel label:has([data-testid="check-for-updates"])') },
+			{ name: 'hover-switch-row', kind: 'hover', target: (p) => p.locator(`${PANE} label:has([data-testid="check-for-updates"])`) },
 			{ name: 'focus-switch', kind: 'focus', target: (p) => p.getByTestId('check-for-updates'), root: 'label' },
 			{ name: 'hover-check-now', kind: 'hover', target: (p, t) => p.getByRole('button', { name: t.checkNow, exact: true }) }
 		],
 		async reach(page, text) {
-			await openSettings(page);
-			await page.locator('#updates-tab').dispatchEvent('click');
-			await expect(page.locator('#updates-tab')).toHaveAttribute('aria-selected', 'true');
+			await openTab(page, text.tabUpdates);
 			await expect(page.getByTestId('check-for-updates')).toBeChecked();
 			await expect(page.getByTestId('last-checked')).not.toBeEmpty();
 		}
@@ -776,26 +839,6 @@ export const SCENARIOS: Record<string, Scenario> = {
 			// No `motion-reduce:` here: it pulses with reduced motion too
 			await expectAnimation(page, '[data-testid="update-dialog"] [role="progressbar"] > div', true);
 		}
-	},
-	'settings-saving': {
-		name: 'settings-saving',
-		description: 'Settings while saving: the primary button with its spinner',
-		withLibrary: true,
-		window: 'settings',
-		async reach(page, text) {
-			await openSettings(page);
-			const radio = page.locator(`${SETTINGS} [role="radio"][aria-checked="false"]`).first();
-			const value = await radio.getAttribute('data-value');
-			await radio.dispatchEvent('click');
-			await expect(page.locator(`${SETTINGS} [role="radio"][data-value="${value}"]`)).toHaveAttribute('aria-checked', 'true');
-			const save = page.getByRole('button', { name: text.saveChanges, exact: true });
-			await expect(save).toBeEnabled();
-			await page.evaluate(() => window.__KHI_MOCK__.hold('update_settings'));
-			await save.dispatchEvent('click');
-			await page.waitForFunction(() => window.__KHI_MOCK__.held.includes('update_settings'));
-			await expect(page.locator(`${SETTINGS} svg.animate-spin`)).toBeVisible();
-			await expectAnimation(page, `${SETTINGS} svg.animate-spin`, true);
-		}
 	}
 };
 
@@ -820,7 +863,7 @@ export function captures(): Capture[] {
 	for (const scenario of Object.keys(SCENARIOS)) {
 		for (const theme of themes) add(scenario, { theme, language: 'pt' });
 	}
-	for (const scenario of ['grid', 'settings']) {
+	for (const scenario of ['grid', 'settings-export']) {
 		for (const theme of ['light', 'dark-app'] as const) {
 			add(scenario, { theme, language: 'pt', contrast: 'more' });
 			add(scenario, { theme, language: 'pt', reducedMotion: 'reduce' });
@@ -828,11 +871,11 @@ export function captures(): Capture[] {
 		add(scenario, { theme: 'light', language: 'en' });
 	}
 	// Every animated state, with and without reduced motion
-	for (const scenario of ['library-syncing', 'library-empty-syncing', 'update-checking', 'settings-saving']) {
+	for (const scenario of ['library-syncing', 'library-empty-syncing', 'update-checking']) {
 		for (const theme of ['light', 'dark-app'] as const) add(scenario, { theme, language: 'pt', reducedMotion: 'reduce' });
 	}
 	// The smallest window the app allows
-	for (const scenario of ['grid', 'list', 'detail', 'settings', 'first-launch']) {
+	for (const scenario of ['grid', 'list', 'detail', 'settings-export', 'first-launch']) {
 		for (const theme of ['light', 'dark-app'] as const) add(scenario, { theme, language: 'pt', size: 'min' });
 	}
 	return out;
@@ -843,7 +886,7 @@ export function mockConfigFor(scenario: Scenario, variant: Variant): MockConfig 
 	return {
 		settings: makeSettings({ theme: THEMES[variant.theme].app, language: variant.language, viewMode: scenario.viewMode }),
 		defaultSettings: defaultSettings(variant.language),
-		defaultExportPath: `${HOME}/Documents/Kobo Highlights`,
+		defaultExportPath: `${HOME}/Documents/Kobo`,
 		appVersion: APP_VERSION,
 		readers: scenario.withLibrary ? (scenario.otherReaderKobo || scenario.unownedKobo ? [reader, otherReader] : [reader]) : [],
 		lastReader: scenario.withLibrary ? reader.id : null,
