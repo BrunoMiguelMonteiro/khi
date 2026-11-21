@@ -68,3 +68,46 @@ describe('app.css (Tailwind v4)', () => {
 		}
 	});
 });
+
+describe('scroll bar (Task 52)', () => {
+	const NAMES = ['--scrollbar-thumb', '--scrollbar-thumb-hover'];
+
+	function blockBody(css: string, prelude: RegExp): string {
+		const m = css.match(prelude);
+		if (!m || m.index === undefined) throw new Error(`no block ${prelude}`);
+		let depth = 1;
+		let i = m.index + m[0].length;
+		const start = i;
+		while (i < css.length && depth > 0) {
+			if (css[i] === '{') depth++;
+			else if (css[i] === '}') depth--;
+			i++;
+		}
+		return css.slice(start, i - 1);
+	}
+
+	const contrastBlock = () => blockBody(appCss, /@media \(prefers-contrast: more\)\s*\{/);
+
+	it('tokens_exist_in_light_dark_and_both_contrast_blocks', () => {
+		const light = blockBody(appCss, /(^|\n):root\s*\{(?=[^}]*--scrollbar-thumb)/);
+		const dark = blockBody(appCss, /(^|\n)\.dark\s*\{(?=[^}]*--scrollbar-thumb)/);
+		const contrast = contrastBlock();
+		const hcLight = blockBody(contrast, /(^|\n)\s*:root\s*\{/);
+		const hcDark = blockBody(contrast, /(^|\n)\s*\.dark\s*\{/);
+		for (const body of [light, dark, hcLight, hcDark]) {
+			for (const name of NAMES) expect(body).toMatch(new RegExp(`${name}:\\s*#[0-9a-fA-F]{6};`));
+		}
+	});
+
+	it('root_sets_scrollbar_color_from_the_token', () => {
+		expect(appCss).toMatch(/:root\s*\{[^}]*scrollbar-color:\s*var\(--scrollbar-thumb\)\s+transparent;/);
+	});
+
+	it('webkit_scrollbar_rules_only_inside_supports_not_scrollbar_color', () => {
+		const supports = blockBody(appCss, /@supports not \(scrollbar-color:\s*red transparent\)\s*\{/);
+		expect(supports).toContain('::-webkit-scrollbar-thumb');
+		expect(supports).toContain('::-webkit-scrollbar-track');
+		const outside = appCss.replace(supports, '');
+		expect(outside).not.toContain('::-webkit-scrollbar');
+	});
+});
