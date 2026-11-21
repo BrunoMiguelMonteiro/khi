@@ -38,9 +38,14 @@ vi.mock('@tauri-apps/api/window', () => ({ getCurrentWindow: () => mainWindow })
 /** The updater plugin's `check`, which the page's store calls: it answers «up to date» unless a test holds it. */
 const pluginCheck = vi.hoisted(() => vi.fn((): Promise<unknown> => Promise.resolve(null)));
 vi.mock('@tauri-apps/plugin-updater', () => ({ check: pluginCheck }));
-vi.mock('$lib/menu', () => ({ createApplicationMenu: vi.fn() }));
+vi.mock('$lib/menu', () => ({ createApplicationMenu: vi.fn(), setRevealLastExportEnabled: vi.fn() }));
+/** The opener plugin's Finder reveal, and the home folder the paths are written against. */
+vi.mock('@tauri-apps/plugin-opener', () => ({ revealItemInDir: vi.fn(() => Promise.resolve()) }));
+vi.mock('@tauri-apps/api/path', () => ({ homeDir: () => Promise.resolve('/Users/test') }));
 
 import { invoke } from '@tauri-apps/api/core';
+import { revealItemInDir } from '@tauri-apps/plugin-opener';
+import { createApplicationMenu, setRevealLastExportEnabled } from '$lib/menu';
 import { emit, listen } from '@tauri-apps/api/event';
 import { settings } from '$lib/stores/settings.svelte';
 import { library } from '$lib/stores/library.svelte';
@@ -158,6 +163,7 @@ function resetLibrary() {
 	library.isImporting = false;
 	library.lastSyncFailed = false;
 	library.isExporting = false;
+	library.lastExport = [];
 	library.summary = null;
 	library.setUiState('no-device');
 }
@@ -571,7 +577,6 @@ describe('+page · screen 1', () => {
 	});
 
 	it('header_leaves_after_export_clears_news', async () => {
-		const user = userEvent.setup();
 		await mockLibrary({
 			books: newBooks(),
 			summary: { newSince: '2026-11-09T10:00:00Z', lastSyncAt: null },
@@ -580,12 +585,13 @@ describe('+page · screen 1', () => {
 		render(Page);
 		await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
 
-		await user.click(within(header()!).getByRole('button', { name: 'Export 2 books' }));
+		// The bar's export (⌘E) has no «✓ Exportado» to show: the header leaves as the news are cleared
+		await fireEvent.keyDown(window, { key: 'e', code: 'KeyE', metaKey: true });
 
 		await waitFor(() => expect(calls('mark_book_opened')).toHaveLength(2));
-		// The header leaves, and nothing takes its place
 		await waitFor(() => expect(header()).toBeNull());
 		expect(screen.queryByText('No new highlights')).toBeNull();
+		expect(screen.queryByRole('button', { name: '✓ Exported' })).toBeNull();
 	});
 
 	it('header_follows_a_book_being_opened', async () => {
@@ -626,7 +632,15 @@ describe('+page · screen 1', () => {
 		await waitFor(() => expect(calls('mark_book_opened')).toHaveLength(2));
 		expect(invoke).toHaveBeenCalledWith('mark_book_opened', { readerId: 1, bookId: 1, seenSeq: 3 });
 		expect(invoke).toHaveBeenCalledWith('mark_book_opened', { readerId: 1, bookId: 3, seenSeq: 4 });
-		await waitFor(() => expect(header()).toBeNull());
+		// Y1: the header stays with the state it had, and the button reads «✓ Exported» for 2 s (the news are cleared meanwhile)
+		await waitFor(() => expect(within(header()!).getByRole('button', { name: '✓ Exported' })).toBeInTheDocument());
+		expect(header()!.dataset.state).toBe('novos');
+		expect(within(header()!).getByRole('button', { name: '✓ Exported' })).toBeInTheDocument();
+		await new Promise((r) => setTimeout(r, 1200));
+		expect(header()).not.toBeNull();
+		// ... then it leaves, and nothing takes its place
+		await waitFor(() => expect(header()).toBeNull(), { timeout: 3000 });
+		expect(screen.queryByText('No new highlights')).toBeNull();
 	});
 
 	it('exported_mark_belongs_to_the_header_export_alone', async () => {
@@ -2848,5 +2862,839 @@ describe('+page · screen 6 · whose Kobo is this', () => {
 
 		await waitFor(() => expect(calls('sync_kobo')).toHaveLength(1));
 		expect(library.activeReaderId).toBe(2);
+	});
+});
+
+
+describe('+page · screen 8 · export done and failed (Task 47)', () => {
+	beforeEach(() => {
+		vi.mocked(invoke).mockReset();
+		vi.mocked(revealItemInDir).mockClear();
+		vi.mocked(setRevealLastExportEnabled).mockClear();
+		handlers.clear();
+		resetLibrary();
+	});
+
+	const press = (key: string, init: KeyboardEventInit = { metaKey: true }) =>
+		fireEvent.keyDown(window, { key, code: `Key${key.toUpperCase()}`, ...init });
+	const FILES = ['/x/Alpha.md', '/x/Gamma.md'];
+	const FOLDER = '/Users/test/Documents/Kobo';
+	const folderFailure = () => {
+		throw { kind: 'folderNotWritable', folder: FOLDER };
+	};
+	const withNews = { newSince: '2026-11-09T10:00:00Z', lastSyncAt: null };
+	/** Fails with `failure` until `works` is called, then exports `FILES`. */
+	function failingExport(failure: () => never) {
+		const state = { works: false };
+		return { state, export_library_books: () => (state.works ? FILES : failure()) };
+	}
+	const headerButton = (name: string) => within(header()!).getByRole('button', { name });
+	const toastAction = (name: string) => screen.findByRole('button', { name });
+	const alertText = () => screen.getAllByRole('alert').map((a) => a.textContent).join(' ');
+
+	describe('done', () => {
+		it('header_holds_check_for_2s_then_leaves', async () => {
+			const user = userEvent.setup();
+			await mockLibrary({ books: newBooks(), summary: withNews, overrides: { export_library_books: () => FILES } });
+			render(Page);
+			await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+
+			await user.click(headerButton('Export 2 books'));
+
+			const done = await within(header()!).findByRole('button', { name: '✓ Exported' });
+			expect(done).toBeInTheDocument();
+			expect(header()!.dataset.state).toBe('novos');
+			// Still there well into the 2 s, the news already cleared underneath ...
+			await new Promise((r) => setTimeout(r, 1500));
+			expect(header()).not.toBeNull();
+			expect(newHighlightsLeft()).toBe(0);
+			// ... and the cards keep their «N novos» labels until the header leaves
+			expect(document.querySelectorAll('[data-slot="badge"]')).toHaveLength(2);
+			await waitFor(() => expect(header()).toBeNull(), { timeout: 2500 });
+			await waitFor(() => expect(document.querySelectorAll('[data-slot="badge"]')).toHaveLength(0));
+		});
+
+		it('a_book_opened_during_the_2s_ends_the_wait', async () => {
+			const user = userEvent.setup();
+			await mockLibrary({ books: newBooks(), summary: withNews, overrides: { export_library_books: () => FILES } });
+			render(Page);
+			await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+			await user.click(headerButton('Export 2 books'));
+			await within(header()!).findByRole('button', { name: '✓ Exported' });
+
+			await user.click(options()[0]);
+			await waitFor(() => expect(screen.getByTestId('book-details-view')).toBeInTheDocument());
+			await user.click(within(bar()!).getByRole('button', { name: 'Back' }));
+
+			// Back in the Library inside the 2 s: no header, no «✓ Exported» left over
+			await waitFor(() => expect(options().length).toBeGreaterThan(0));
+			expect(header()).toBeNull();
+			expect(screen.queryByRole('button', { name: '✓ Exported' })).toBeNull();
+		});
+
+		it('a_sync_during_the_2s_ends_the_wait', async () => {
+			const user = userEvent.setup();
+			await mockLibrary({
+				books: newBooks(),
+				device: kobo,
+				summary: withNews,
+				overrides: {
+					export_library_books: () => FILES,
+					sync_kobo: () => ({ added: 0, updated: 0, removed: 0, restored: 0, books: 3 })
+				}
+			});
+			render(Page);
+			await syncReady();
+			await user.click(headerButton('Export 2 books'));
+			await within(header()!).findByRole('button', { name: '✓ Exported' });
+
+			await user.click(within(bar()!).getByRole('button', { name: 'Sync with the Kobo' }));
+
+			await waitFor(() => expect(calls('sync_kobo')).toHaveLength(1));
+			await waitFor(() => expect(library.isImporting).toBe(false));
+			expect(screen.queryByRole('button', { name: '✓ Exported' })).toBeNull();
+		});
+
+		it('a_reader_switch_during_the_2s_ends_the_wait', async () => {
+			const user = userEvent.setup();
+			await mockLibrary({ books: newBooks(), summary: withNews, overrides: { export_library_books: () => FILES } });
+			render(Page);
+			await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+			await user.click(headerButton('Export 2 books'));
+			await within(header()!).findByRole('button', { name: '✓ Exported' });
+
+			await library.openReader(2);
+
+			await waitFor(() => expect(screen.queryByRole('button', { name: '✓ Exported' })).toBeNull());
+		});
+
+		it.each([
+			['the header', async (user: ReturnType<typeof userEvent.setup>) => user.click(headerButton('Export 2 books'))],
+			['the bar (⌘E)', async () => press('e')]
+		])('toast_shows_in_finder_with_the_files_of_the_export (%s)', async (_from, exportNow) => {
+			const user = userEvent.setup();
+			await mockLibrary({ books: newBooks(), summary: withNews, overrides: { export_library_books: () => FILES } });
+			render(Page);
+			await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+
+			await exportNow(user);
+
+			expect(await screen.findByText(/books exported/)).toBeInTheDocument();
+			const action = await toastAction('Show in Finder');
+			// The notice is in the Toaster's polite region (Cor 6)
+			expect(document.querySelector('[data-slot="toaster"][aria-live="polite"]')!.contains(action)).toBe(true);
+			await user.click(action);
+
+			expect(revealItemInDir).toHaveBeenCalledWith(FILES);
+			expect(library.lastExport).toEqual(FILES);
+		});
+
+		it('the_menu_learns_of_the_first_export', async () => {
+			await mockLibrary({ books: newBooks(), summary: withNews, overrides: { export_library_books: () => FILES } });
+			render(Page);
+			await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+			expect(setRevealLastExportEnabled).toHaveBeenLastCalledWith(false);
+
+			await press('e');
+
+			await waitFor(() => expect(setRevealLastExportEnabled).toHaveBeenLastCalledWith(true));
+			// The menu is built with a reader of the session's last export
+			await waitFor(() => expect(createApplicationMenu).toHaveBeenCalled());
+			const lastExport = vi.mocked(createApplicationMenu).mock.calls.at(-1)![2] as () => string[];
+			expect(lastExport()).toEqual(FILES);
+		});
+	});
+
+	describe('failed in the Library', () => {
+		it.each([
+			['the header', async (user: ReturnType<typeof userEvent.setup>) => user.click(headerButton('Export 2 books'))],
+			['the bar (⌘E)', async () => press('e')]
+		])('folder_not_writable_goes_to_the_header (%s)', async (_from, exportNow) => {
+			const user = userEvent.setup();
+			await mockLibrary({ books: newBooks(), summary: withNews, overrides: { export_library_books: folderFailure } });
+			vi.spyOn(console, 'error').mockImplementation(() => {});
+			render(Page);
+			await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+			const newBefore = newHighlightsLeft();
+
+			await exportNow(user);
+
+			await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
+			expect(header()!.querySelector('[data-slot="library-header-message"]')?.textContent?.trim()).toBe('Couldn’t export.');
+			expect(header()!.querySelector('[data-slot="library-header-detail"]')?.textContent?.trim()).toBe(
+				'Khi can’t write to ~/Documents/Kobo. Choose another folder.'
+			);
+			expect(headerButton('Choose folder…')).toBeInTheDocument();
+			expect(within(header()!).queryByRole('button', { name: 'Try again' })).toBeNull();
+			expect(alertText()).toContain('Couldn’t export.');
+			// In the header, not in a toast; the news and the Sync's error are not touched
+			expect(document.querySelector('[data-slot="toaster"]')?.textContent?.trim()).toBe('');
+			expect(newHighlightsLeft()).toBe(newBefore);
+			expect(library.lastSyncFailed).toBe(false);
+			expect(library.lastExport).toEqual([]);
+		});
+
+		it('disk_full_offers_to_try_again_and_repeats_the_same_export', async () => {
+			const user = userEvent.setup();
+			const rust = failingExport(() => {
+				throw { kind: 'diskFull' };
+			});
+			await mockLibrary({ books: newBooks(), summary: withNews, overrides: { export_library_books: rust.export_library_books } });
+			vi.spyOn(console, 'error').mockImplementation(() => {});
+			render(Page);
+			await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+			// A selection that exists stays out of the header's export
+			await user.click(headerButton('Export 2 books'));
+			await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
+			expect(header()!.querySelector('[data-slot="library-header-detail"]')?.textContent?.trim()).toBe('The disk is full.');
+
+			rust.state.works = true;
+			await user.click(headerButton('Try again'));
+
+			await waitFor(() => expect(calls('export_library_books')).toHaveLength(2));
+			expect(calls('export_library_books')[1][1]).toEqual({ readerId: 1, bookIds: [1, 3] });
+			// The retry of the header's export ends as it does: «✓ Exported», the error gone
+			expect(await within(header()!).findByRole('button', { name: '✓ Exported' })).toBeInTheDocument();
+			expect(header()!.dataset.state).toBe('novos');
+			expect(await screen.findByText('2 books exported')).toBeInTheDocument();
+		});
+
+		it('an_unknown_failure_is_a_title_and_try_again_with_no_detail', async () => {
+			const user = userEvent.setup();
+			await mockLibrary({
+				books: newBooks(),
+				summary: withNews,
+				overrides: {
+					export_library_books: () => {
+						throw 'Library IO error: Permission denied (os error 13)';
+					}
+				}
+			});
+			vi.spyOn(console, 'error').mockImplementation(() => {});
+			render(Page);
+			await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+
+			await user.click(headerButton('Export 2 books'));
+
+			await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
+			expect(header()!.querySelector('[data-slot="library-header-detail"]')).toBeNull();
+			expect(headerButton('Try again')).toBeInTheDocument();
+			// Never the raw error
+			expect(document.body.textContent).not.toContain('os error 13');
+		});
+
+		it('choose_folder_saves_it_on_the_reader_and_repeats_the_export', async () => {
+			const user = userEvent.setup();
+			const rust = failingExport(folderFailure);
+			await mockLibrary({
+				books: newBooks(),
+				summary: withNews,
+				overrides: {
+					export_library_books: rust.export_library_books,
+					pick_export_folder: () => {
+						rust.state.works = true;
+						return '/Volumes/Livros';
+					},
+					reader_default_export_folder: () => '/Users/test/Documents/Kobo/Bruno'
+				}
+			});
+			vi.spyOn(console, 'error').mockImplementation(() => {});
+			render(Page);
+			await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+			await press('e');
+			await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
+
+			await user.click(headerButton('Choose folder…'));
+
+			await waitFor(() => expect(calls('export_library_books')).toHaveLength(2));
+			expect(invoke).toHaveBeenCalledWith('pick_export_folder', { defaultPath: FOLDER });
+			expect(invoke).toHaveBeenCalledWith('set_reader_export_path', { readerId: 1, path: '/Volumes/Livros' });
+			// The same export: every book, as ⌘E asked
+			expect(calls('export_library_books')[1][1]).toEqual({ readerId: 1, bookIds: [1, 2, 3] });
+			expect(await screen.findByText('3 books exported')).toBeInTheDocument();
+			expect(header()?.dataset.state).not.toBe('erro');
+		});
+
+		it('the_default_folder_is_saved_as_null', async () => {
+			const user = userEvent.setup();
+			const rust = failingExport(folderFailure);
+			await mockLibrary({
+				books: newBooks(),
+				summary: withNews,
+				overrides: {
+					export_library_books: rust.export_library_books,
+					pick_export_folder: () => {
+						rust.state.works = true;
+						return '/Users/test/Documents/Kobo/Bruno';
+					},
+					reader_default_export_folder: () => '/Users/test/Documents/Kobo/Bruno'
+				}
+			});
+			vi.spyOn(console, 'error').mockImplementation(() => {});
+			render(Page);
+			await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+			await press('e');
+			await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
+
+			await user.click(headerButton('Choose folder…'));
+
+			await waitFor(() => expect(invoke).toHaveBeenCalledWith('set_reader_export_path', { readerId: 1, path: null }));
+		});
+
+		it('cancelling_the_picker_leaves_the_error', async () => {
+			const user = userEvent.setup();
+			await mockLibrary({
+				books: newBooks(),
+				summary: withNews,
+				overrides: { export_library_books: folderFailure, pick_export_folder: () => null }
+			});
+			vi.spyOn(console, 'error').mockImplementation(() => {});
+			render(Page);
+			await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+			await press('e');
+			await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
+
+			await user.click(headerButton('Choose folder…'));
+
+			await waitFor(() => expect(calls('pick_export_folder')).toHaveLength(1));
+			await new Promise((r) => setTimeout(r, 30));
+			expect(header()?.dataset.state).toBe('erro');
+			expect(calls('export_library_books')).toHaveLength(1);
+			expect(calls('set_reader_export_path')).toHaveLength(0);
+		});
+
+		it('a_sync_error_wins_over_an_export_error_and_a_sync_wins_over_both', async () => {
+			await mockLibrary({ books: newBooks(), summary: withNews, overrides: { export_library_books: folderFailure } });
+			vi.spyOn(console, 'error').mockImplementation(() => {});
+			render(Page);
+			await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+			await press('e');
+			await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
+			expect(header()!.querySelector('[data-slot="library-header-message"]')?.textContent?.trim()).toBe('Couldn’t export.');
+
+			library.lastSyncFailed = true;
+			await waitFor(() =>
+				expect(header()!.querySelector('[data-slot="library-header-message"]')?.textContent?.trim()).toBe('Could not sync the Kobo')
+			);
+
+			library.isImporting = true;
+			await waitFor(() => expect(header()?.dataset.state).toBe('aSincronizar'));
+		});
+
+		it('a_sync_clears_the_export_error', async () => {
+			const user = userEvent.setup();
+			await mockLibrary({
+				books: newBooks(),
+				device: kobo,
+				summary: withNews,
+				overrides: {
+					export_library_books: folderFailure,
+					sync_kobo: () => ({ added: 0, updated: 0, removed: 0, restored: 0, books: 3 })
+				}
+			});
+			vi.spyOn(console, 'error').mockImplementation(() => {});
+			render(Page);
+			await syncReady();
+			await press('e');
+			await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
+
+			await user.click(within(bar()!).getByRole('button', { name: 'Sync with the Kobo' }));
+
+			await waitFor(() => expect(calls('sync_kobo')).toHaveLength(1));
+			await waitFor(() => expect(library.isImporting).toBe(false));
+			await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+		});
+
+		it('opening_a_book_clears_the_export_error', async () => {
+			const user = userEvent.setup();
+			await mockLibrary({ books: newBooks(), summary: withNews, overrides: { export_library_books: folderFailure } });
+			vi.spyOn(console, 'error').mockImplementation(() => {});
+			render(Page);
+			await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+			await press('e');
+			await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
+
+			await user.click(options()[1]);
+			await waitFor(() => expect(screen.getByTestId('book-details-view')).toBeInTheDocument());
+			await user.click(within(bar()!).getByRole('button', { name: 'Back' }));
+
+			await waitFor(() => expect(options().length).toBeGreaterThan(0));
+			expect(header()?.dataset.state).toBe('novos');
+		});
+
+		it('a_reader_switch_clears_the_export_error', async () => {
+			await mockLibrary({ books: newBooks(), summary: withNews, overrides: { export_library_books: folderFailure } });
+			vi.spyOn(console, 'error').mockImplementation(() => {});
+			render(Page);
+			await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+			await press('e');
+			await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
+
+			await library.openReader(2);
+
+			await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+		});
+
+		it('the_next_successful_export_clears_the_error', async () => {
+			const rust = failingExport(folderFailure);
+			await mockLibrary({ books: newBooks(), summary: withNews, overrides: { export_library_books: rust.export_library_books } });
+			vi.spyOn(console, 'error').mockImplementation(() => {});
+			render(Page);
+			await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+			await press('e');
+			await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
+
+			rust.state.works = true;
+			await press('e');
+
+			await waitFor(() => expect(header()?.dataset.state).not.toBe('erro'));
+			expect(await screen.findByText(/books exported/)).toBeInTheDocument();
+		});
+	});
+
+	describe('failed in the book', () => {
+		async function openFirstBook(user: ReturnType<typeof userEvent.setup>) {
+			await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+			await user.click(options()[0]);
+			await waitFor(() => expect(screen.getByTestId('book-details-view')).toBeInTheDocument());
+		}
+
+		it('folder_not_writable_is_a_toast_with_choose_folder', async () => {
+			const user = userEvent.setup();
+			const rust = failingExport(folderFailure);
+			await mockLibrary({
+				books: newBooks(),
+				summary: withNews,
+				overrides: {
+					export_library_books: rust.export_library_books,
+					pick_export_folder: () => {
+						rust.state.works = true;
+						return '/Volumes/Livros';
+					},
+					reader_default_export_folder: () => '/d'
+				}
+			});
+			vi.spyOn(console, 'error').mockImplementation(() => {});
+			render(Page);
+			await openFirstBook(user);
+
+			await press('e');
+
+			expect(await screen.findByText('Couldn’t export to ~/Documents/Kobo.')).toBeInTheDocument();
+			const toast = document.querySelector('[data-slot="toast"]')!;
+			expect(toast.querySelector('svg')?.getAttribute('class')).toContain('circle-alert');
+			await user.click(await toastAction('Choose folder…'));
+
+			// The same export: this book alone
+			await waitFor(() => expect(calls('export_library_books')).toHaveLength(2));
+			expect(calls('export_library_books')[1][1]).toEqual({ readerId: 1, bookIds: [1] });
+			expect(invoke).toHaveBeenCalledWith('set_reader_export_path', { readerId: 1, path: '/Volumes/Livros' });
+			expect(await screen.findByText('1 book exported')).toBeInTheDocument();
+		});
+
+		it('disk_full_is_a_toast_with_try_again', async () => {
+			const user = userEvent.setup();
+			const rust = failingExport(() => {
+				throw { kind: 'diskFull' };
+			});
+			await mockLibrary({ books: newBooks(), summary: withNews, overrides: { export_library_books: rust.export_library_books } });
+			vi.spyOn(console, 'error').mockImplementation(() => {});
+			render(Page);
+			await openFirstBook(user);
+
+			await press('e');
+
+			expect(await screen.findByText('Couldn’t export: the disk is full.')).toBeInTheDocument();
+			rust.state.works = true;
+			await user.click(await toastAction('Try again'));
+
+			await waitFor(() => expect(calls('export_library_books')).toHaveLength(2));
+			expect(await screen.findByText('1 book exported')).toBeInTheDocument();
+		});
+
+		it('the_failure_in_a_book_does_not_become_a_header_error', async () => {
+			const user = userEvent.setup();
+			await mockLibrary({ books: newBooks(), summary: withNews, overrides: { export_library_books: folderFailure } });
+			vi.spyOn(console, 'error').mockImplementation(() => {});
+			render(Page);
+			await openFirstBook(user);
+			await press('e');
+			await screen.findByText('Couldn’t export to ~/Documents/Kobo.');
+
+			await user.click(within(bar()!).getByRole('button', { name: 'Back' }));
+
+			await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+		});
+	});
+});
+
+/** The new highlights still marked new in the store. */
+function newHighlightsLeft() {
+	return library.books.reduce((total, book) => total + book.highlights.filter((h) => h.isNew && !h.removedAt).length, 0);
+}
+
+
+describe('+page · screen 8 · review fixes (Task 47)', () => {
+	beforeEach(() => {
+		vi.mocked(invoke).mockReset();
+		vi.mocked(revealItemInDir).mockReset();
+		vi.mocked(revealItemInDir).mockResolvedValue(undefined);
+		handlers.clear();
+		resetLibrary();
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+	});
+
+	const press = (key: string) => fireEvent.keyDown(window, { key, code: `Key${key.toUpperCase()}`, metaKey: true });
+	const FILES = ['/x/Alpha.md', '/x/Gamma.md'];
+	const withNews = { newSince: '2026-11-09T10:00:00Z', lastSyncAt: null };
+	const headerButton = (name: string) => within(header()!).getByRole('button', { name });
+	const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+	/** An export that answers when the test says so. */
+	function pending() {
+		const control = { calls: 0, resolve: (_: unknown) => {}, reject: (_: unknown) => {} };
+		const answer = () => {
+			control.calls++;
+			return new Promise((resolve, reject) => {
+				control.resolve = resolve;
+				control.reject = reject;
+			});
+		};
+		return { control, answer };
+	}
+	const announcer = () => screen.getByTestId('sync-announcer').textContent?.trim();
+	const noNews = () => newBooks().map((b) => ({ ...b, highlights: b.highlights.map((h) => ({ ...h, isNew: false })) }));
+
+	it('a_double_click_on_the_header_export_is_one_export_and_no_false_error', async () => {
+		const user = userEvent.setup();
+		await mockLibrary({ books: newBooks(), summary: withNews, overrides: { export_library_books: () => FILES } });
+		render(Page);
+		await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+
+		await user.dblClick(headerButton('Export 2 books'));
+		await wait(100);
+
+		expect(calls('export_library_books')).toHaveLength(1);
+		expect(header()?.dataset.state).toBe('novos');
+		expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+	});
+
+	it('clicking_the_exported_check_does_nothing', async () => {
+		const user = userEvent.setup();
+		await mockLibrary({ books: newBooks(), summary: withNews, overrides: { export_library_books: () => FILES } });
+		render(Page);
+		await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+		await user.click(headerButton('Export 2 books'));
+		const done = await within(header()!).findByRole('button', { name: '✓ Exported' });
+
+		await user.click(done);
+		await wait(50);
+
+		expect(calls('export_library_books')).toHaveLength(1);
+		expect(header()?.dataset.state).toBe('novos');
+		expect(within(header()!).queryByRole('button', { name: 'Try again' })).toBeNull();
+	});
+
+	it('an_export_pending_when_the_reader_changes_shows_nothing_in_the_new_reader_if_it_fails', async () => {
+		const { control, answer } = pending();
+		await mockLibrary({ books: newBooks(), summary: withNews, overrides: { export_library_books: answer } });
+		render(Page);
+		await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+		await press('e');
+		await waitFor(() => expect(library.isExporting).toBe(true));
+
+		await library.openReader(2);
+		control.reject({ kind: 'diskFull' });
+		await waitFor(() => expect(library.isExporting).toBe(false));
+		await wait(50);
+
+		expect(header()?.dataset.state).not.toBe('erro');
+		expect(document.querySelector('[data-slot="toast"]')).toBeNull();
+	});
+
+	it('an_export_pending_when_a_sync_starts_leaves_no_error_when_the_sync_ends', async () => {
+		const user = userEvent.setup();
+		const { control, answer } = pending();
+		let endSync = (_: unknown) => {};
+		await mockLibrary({
+			books: newBooks(),
+			device: kobo,
+			summary: withNews,
+			overrides: { export_library_books: answer, sync_kobo: () => new Promise((resolve) => (endSync = resolve)) }
+		});
+		render(Page);
+		await syncReady();
+		await press('e');
+		await waitFor(() => expect(library.isExporting).toBe(true));
+		await user.click(within(bar()!).getByRole('button', { name: 'Sync with the Kobo' }));
+		await waitFor(() => expect(library.isImporting).toBe(true));
+
+		control.reject({ kind: 'diskFull' });
+		await wait(30);
+		endSync({ added: 0, updated: 0, removed: 0, restored: 0, books: 3 });
+		await waitFor(() => expect(library.isImporting).toBe(false));
+		await wait(50);
+
+		expect(header()?.dataset.state).not.toBe('erro');
+		expect(document.querySelector('[data-slot="toast"]')).toBeNull();
+	});
+
+	it('a_header_export_that_works_after_a_reader_switch_shows_no_check_in_the_new_reader', async () => {
+		const user = userEvent.setup();
+		const { control, answer } = pending();
+		await mockLibrary({ books: newBooks(), summary: withNews, overrides: { export_library_books: answer } });
+		render(Page);
+		await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+		await user.click(headerButton('Export 2 books'));
+		await waitFor(() => expect(library.isExporting).toBe(true));
+
+		await library.openReader(2);
+		control.resolve(FILES);
+		await waitFor(() => expect(library.isExporting).toBe(false));
+		await wait(50);
+
+		expect(screen.queryByRole('button', { name: '✓ Exported' })).toBeNull();
+		// The export did happen: its notice and its files stay
+		expect(library.lastExport).toEqual(FILES);
+		expect(await screen.findByText('2 books exported')).toBeInTheDocument();
+	});
+
+	it('a_failed_export_stores_no_last_export', async () => {
+		await mockLibrary({
+			books: newBooks(),
+			summary: withNews,
+			overrides: {
+				export_library_books: () => {
+					throw { kind: 'diskFull' };
+				}
+			}
+		});
+		render(Page);
+		await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+		await press('e');
+		await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
+		expect(library.lastExport).toEqual([]);
+	});
+
+	it('the_action_of_an_error_from_another_reader_gives_up_and_clears_it', async () => {
+		const user = userEvent.setup();
+		await mockLibrary({
+			books: newBooks(),
+			summary: withNews,
+			overrides: {
+				export_library_books: () => {
+					throw { kind: 'diskFull' };
+				}
+			}
+		});
+		render(Page);
+		await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+		await press('e');
+		await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
+		const retry = headerButton('Try again');
+
+		// The reader changes behind the error (store only: the page's own switch also clears it)
+		library.activeReaderId = 2;
+		await user.click(retry).catch(() => {});
+		await wait(30);
+
+		expect(calls('export_library_books')).toHaveLength(1);
+	});
+
+	it('the_detail_notice_action_does_not_export_while_a_sync_runs_and_the_notice_closes', async () => {
+		const user = userEvent.setup();
+		await mockLibrary({
+			books: newBooks(),
+			device: kobo,
+			summary: withNews,
+			overrides: {
+				export_library_books: () => {
+					throw { kind: 'diskFull' };
+				},
+				sync_kobo: () => new Promise(() => {})
+			}
+		});
+		render(Page);
+		await syncReady();
+		await user.click(options()[0]);
+		await waitFor(() => expect(screen.getByTestId('book-details-view')).toBeInTheDocument());
+		await press('e');
+		const retry = await screen.findByRole('button', { name: 'Try again' });
+
+		void library.sync();
+		await waitFor(() => expect(library.isImporting).toBe(true));
+		// The notice closes with the Sync's start (its exit takes 200 ms) ...
+		await waitFor(() => expect(document.querySelector('[data-slot="toast"]')?.getAttribute('data-state')).not.toBe('open'));
+		// ... and an action that is still clicked does not export during the Sync
+		await user.click(retry).catch(() => {});
+		await wait(30);
+		expect(calls('export_library_books')).toHaveLength(1);
+	});
+
+	it('export_is_refused_while_a_sync_runs_without_an_error', async () => {
+		await mockLibrary({ books: newBooks(), summary: withNews, overrides: { export_library_books: () => FILES } });
+		render(Page);
+		await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+		library.isImporting = true;
+		await press('e');
+		await wait(30);
+		expect(calls('export_library_books')).toHaveLength(0);
+		expect(header()?.dataset.state).not.toBe('erro');
+	});
+
+	it('focus_goes_to_the_error_action_when_the_header_export_failed', async () => {
+		const user = userEvent.setup();
+		await mockLibrary({
+			books: newBooks(),
+			summary: withNews,
+			overrides: {
+				export_library_books: () => {
+					throw { kind: 'diskFull' };
+				}
+			}
+		});
+		render(Page);
+		await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+		await user.click(headerButton('Export 2 books'));
+		await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
+		await waitFor(() => expect(document.activeElement).toBe(headerButton('Try again')));
+	});
+
+	it('focus_elsewhere_stays_where_it_was_when_the_export_fails', async () => {
+		await mockLibrary({
+			books: newBooks(),
+			summary: withNews,
+			overrides: {
+				export_library_books: () => {
+					throw { kind: 'diskFull' };
+				}
+			}
+		});
+		render(Page);
+		await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+		await press('e');
+		await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
+		await wait(30);
+		expect(document.activeElement).not.toBe(headerButton('Try again'));
+	});
+
+	it('an_export_error_in_a_header_that_was_not_there_is_announced_and_not_twice_when_it_was', async () => {
+		await mockLibrary({
+			books: noNews(),
+			overrides: {
+				export_library_books: () => {
+					throw { kind: 'folderNotWritable', folder: '/Users/test/Documents/Kobo' };
+				}
+			}
+		});
+		render(Page);
+		await waitFor(() => expect(options()).toHaveLength(3));
+		expect(header()).toBeNull();
+
+		await press('e');
+
+		await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
+		expect(announcer()).toBe('Couldn’t export. Khi can’t write to ~/Documents/Kobo. Choose another folder.');
+	});
+
+	it('an_export_error_in_a_header_that_was_already_there_is_not_announced_by_the_page', async () => {
+		await mockLibrary({
+			books: newBooks(),
+			summary: withNews,
+			overrides: {
+				export_library_books: () => {
+					throw { kind: 'diskFull' };
+				}
+			}
+		});
+		render(Page);
+		await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+		await press('e');
+		await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
+		expect(announcer()).toBe('');
+	});
+
+	it('with_a_sync_error_on_screen_the_export_failure_is_a_notice', async () => {
+		await mockLibrary({
+			books: newBooks(),
+			summary: withNews,
+			overrides: {
+				export_library_books: () => {
+					throw { kind: 'diskFull' };
+				}
+			}
+		});
+		render(Page);
+		await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+		library.lastSyncFailed = true;
+		await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
+
+		await press('e');
+
+		expect(await screen.findByText('Couldn’t export: the disk is full.')).toBeInTheDocument();
+		expect(header()!.querySelector('[data-slot="library-header-message"]')?.textContent?.trim()).toBe('Could not sync the Kobo');
+		// Gone from the header when the Sync error is
+		library.lastSyncFailed = false;
+		await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+	});
+
+	it('an_unknown_failure_in_a_book_is_one_sentence', async () => {
+		const user = userEvent.setup();
+		await mockLibrary({
+			books: newBooks(),
+			summary: withNews,
+			overrides: {
+				export_library_books: () => {
+					throw 'raw';
+				}
+			}
+		});
+		render(Page);
+		await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+		await user.click(options()[0]);
+		await waitFor(() => expect(screen.getByTestId('book-details-view')).toBeInTheDocument());
+		await press('e');
+		expect(await screen.findByText('Couldn’t export.')).toBeInTheDocument();
+	});
+
+	it('a_failed_show_in_finder_says_so', async () => {
+		const user = userEvent.setup();
+		vi.mocked(revealItemInDir).mockRejectedValue('gone');
+		await mockLibrary({ books: newBooks(), summary: withNews, overrides: { export_library_books: () => FILES } });
+		render(Page);
+		await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+		await press('e');
+
+		await user.click(await screen.findByRole('button', { name: 'Show in Finder' }));
+
+		expect(await screen.findByText('Couldn’t show the export in Finder.')).toBeInTheDocument();
+	});
+
+	it('a_reader_switch_while_the_picker_is_open_saves_the_folder_but_does_not_repeat_the_export', async () => {
+		const user = userEvent.setup();
+		let picked = (_: string | null) => {};
+		await mockLibrary({
+			books: newBooks(),
+			summary: withNews,
+			overrides: {
+				export_library_books: () => {
+					throw { kind: 'folderNotWritable', folder: '/Users/test/Documents/Kobo' };
+				},
+				pick_export_folder: () => new Promise((resolve) => (picked = resolve)),
+				reader_default_export_folder: () => '/d'
+			}
+		});
+		render(Page);
+		await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
+		await press('e');
+		await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
+		await user.click(headerButton('Choose folder…'));
+		await waitFor(() => expect(calls('pick_export_folder')).toHaveLength(1));
+
+		await library.openReader(2);
+		picked('/Volumes/Livros');
+		await waitFor(() => expect(invoke).toHaveBeenCalledWith('set_reader_export_path', { readerId: 1, path: '/Volumes/Livros' }));
+		await wait(50);
+
+		expect(calls('export_library_books')).toHaveLength(1);
 	});
 });

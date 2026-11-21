@@ -392,6 +392,61 @@ describe("Toast", () => {
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
+  it("error_toast_carries_the_alert_icon_and_keeps_the_action", async () => {
+    setup();
+    notify(TEXT);
+    await tick();
+    expect(toast()!.querySelector("svg")?.getAttribute("class")).toContain("circle-check");
+
+    // Task 47: the export that failed (Detail) says so with circle-alert, and keeps its action
+    const onClick = vi.fn();
+    notify("Couldn’t export to ~/Documents/Kobo.", {
+      icon: "error",
+      action: { label: "Choose Folder…", onClick },
+    });
+    await tick();
+    const svg = toast()!.querySelector("svg");
+    expect(svg?.getAttribute("class")).toContain("circle-alert");
+    expect(svg?.getAttribute("aria-hidden")).toBe("true");
+    expect(screen.getByRole("button", { name: "Choose Folder…" })).toBeTruthy();
+  });
+
+  it("dismiss_by_id_closes_only_that_toast", async () => {
+    setup();
+    const first = notify("one");
+    await tick();
+    const second = notify("two");
+    await tick();
+    expect(first).not.toBe(second);
+
+    // The first is gone already: its id closes nothing
+    dismiss(first);
+    await advance(50);
+    expect(toast()?.getAttribute("data-state")).toBe("open");
+
+    dismiss(second);
+    await advance(50);
+    expect(toast()?.getAttribute("data-state")).toBe("closed");
+  });
+
+  it("is_capped_to_the_window_and_keeps_its_action_whole", async () => {
+    setup();
+    notify("A very long text ".repeat(20), {
+      action: { label: ACTION, onClick: vi.fn() },
+    });
+    await tick();
+    const el = toast()!;
+    await expectBindings(el, [
+      { binding: "window less 24 px a side", utility: "max-w-[calc(100%-3rem)]", css: "max-width: calc(100% - 3rem);" },
+    ]);
+    // The text gives way with an ellipsis; the icon and the action never shrink
+    const text = el.querySelector('[data-slot="toast-text"]')!;
+    expect(text.classList.contains("truncate")).toBe(true);
+    expect(text.classList.contains("min-w-0")).toBe(true);
+    expect(el.querySelector('[data-slot="toast-action"]')!.classList.contains("shrink-0")).toBe(true);
+    expect(await ruleOf("truncate")).toContain("text-overflow: ellipsis;");
+  });
+
   it("only_one_visible", async () => {
     setup();
     notify("Primeiro");

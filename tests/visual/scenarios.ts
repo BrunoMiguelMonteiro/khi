@@ -61,6 +61,8 @@ export interface Scenario {
 	/** `settings`: the window's height, that of its pane (Task 45). The page measures it and sets the size; the harness checks that it did. */
 	windowHeight?: number;
 	update?: boolean;
+	/** The export fails with `folderNotWritable` for `~/Documents/Kobo` (Ecrã 8). */
+	exportFailure?: boolean;
 	/** The updater fails: `check` (state 6) or the install after a download that worked (state 7). */
 	updateFailure?: 'check' | 'install';
 	/** `console.error`s the app logs on purpose (a failure it shows): each starts with `prefix` and is logged exactly `times` times; the others still fail the test. */
@@ -130,6 +132,12 @@ export interface Strings {
 	installedTitle: string;
 	errorTitle: string;
 	installErrorTitle: string;
+	/** Ecrã 8: the header's button after an export, the toast's action, and the error with its action. */
+	exportedLabel: string;
+	showInFinder: string;
+	exportErrorTitle: string;
+	exportErrorDetail: string;
+	chooseFolderAction: string;
 }
 
 const STRINGS: Record<Language, Strings> = {
@@ -175,7 +183,12 @@ const STRINGS: Record<Language, Strings> = {
 		downloadingText: '4,3 MB de 6,9 MB',
 		installedTitle: 'Khi 2.0.0 está instalado.',
 		errorTitle: 'Não foi possível procurar atualizações',
-		installErrorTitle: 'Não foi possível instalar a atualização'
+		installErrorTitle: 'Não foi possível instalar a atualização',
+		exportedLabel: '✓ Exportado',
+		showInFinder: 'Mostrar no Finder',
+		exportErrorTitle: 'Não foi possível exportar.',
+		exportErrorDetail: 'O Khi não consegue escrever em ~/Documents/Kobo. Escolhe outra pasta.',
+		chooseFolderAction: 'Escolher pasta…'
 	},
 	en: {
 		noKoboTitle: 'Connect your Kobo',
@@ -219,7 +232,12 @@ const STRINGS: Record<Language, Strings> = {
 		downloadingText: '4.3 MB of 6.9 MB',
 		installedTitle: 'Khi 2.0.0 is installed.',
 		errorTitle: 'Couldn’t Check for Updates',
-		installErrorTitle: 'Couldn’t Install the Update'
+		installErrorTitle: 'Couldn’t Install the Update',
+		exportedLabel: '✓ Exported',
+		showInFinder: 'Show in Finder',
+		exportErrorTitle: 'Couldn’t export.',
+		exportErrorDetail: 'Khi can’t write to ~/Documents/Kobo. Choose another folder.',
+		chooseFolderAction: 'Choose folder…'
 	}
 };
 export const stringsFor = (language: Language) => STRINGS[language];
@@ -312,6 +330,23 @@ const SELECTED = [0, 2];
 const tooltipOpen = async (page: Page) => {
 	await expect(page.locator('[data-slot="tooltip-content"]:not([data-state="closed"])')).toBeVisible();
 };
+
+/**
+ * Holds the page's timers of `ms` for good (12 days): the 2 s of «✓ Exportado» and the toast's 4 s hold
+ * would otherwise run out while the harness waits for the IPC to go quiet, before the screenshot.
+ */
+async function holdTimers(page: Page, ...ms: number[]) {
+	await page.evaluate((held) => {
+		const original = window.setTimeout.bind(window);
+		window.setTimeout = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) =>
+			original(handler, held.includes(timeout ?? 0) ? 2 ** 30 : timeout, ...args)) as typeof window.setTimeout;
+	}, ms);
+}
+
+/** The header's own export, as an event (the pointer stays off the button, so no hover state is captured). */
+async function exportFromHeader(page: Page, text: Strings) {
+	await page.locator('[data-slot="library-header"]').getByRole('button', { name: text.exportNews, exact: true }).dispatchEvent('click');
+}
 
 const bar = (page: Page) => page.locator('[data-slot="window-bar"]');
 
@@ -989,6 +1024,61 @@ export const SCENARIOS: Record<string, Scenario> = {
 			await expect(dialog.getByRole('button', { name: text.tryAgain, exact: true })).toBeVisible();
 			await expectWindowWidth(page, 380);
 		}
+	},
+	'export-done': {
+		name: 'export-done',
+		description: 'The header exported the books with news (0 to 2 s): the header stays with its Principal «✓ Exportado», the cards keep their «N novos» and the toast says «N livros exportados» with «Mostrar no Finder»',
+		withLibrary: true,
+		async reach(page, text) {
+			await library(page, text);
+			await holdTimers(page, 2000, 4000);
+			await exportFromHeader(page, text);
+			const header = page.locator('[data-slot="library-header"]');
+			await expect(header.getByRole('button', { name: text.exportedLabel, exact: true })).toBeVisible();
+			await expect(header).toHaveAttribute('data-state', 'novos');
+			const toast = page.locator('[data-slot="toast"]');
+			await expect(toast).toBeVisible();
+			await expect(toast.getByRole('button', { name: text.showInFinder, exact: true })).toBeVisible();
+			// The news are cleared meanwhile, but the cards keep their «N novos» until the header leaves
+			await expect(page.locator('[data-slot="badge"]')).toHaveCount(2);
+			await page.mouse.move(0, 0);
+		}
+	},
+	'export-done-after': {
+		name: 'export-done-after',
+		description: 'After the 2 s: no header, the grid 24 px below the bar, the labels gone; the toast stays until 4 s',
+		withLibrary: true,
+		async reach(page, text) {
+			await library(page, text);
+			await holdTimers(page, 4000);
+			await exportFromHeader(page, text);
+			await expect(page.locator('[data-slot="library-header"]')).toHaveCount(0);
+			await expect(page.locator('[data-slot="badge"]')).toHaveCount(0);
+			const toast = page.locator('[data-slot="toast"]');
+			await expect(toast).toBeVisible();
+			await expect(toast.getByRole('button', { name: text.showInFinder, exact: true })).toBeVisible();
+			await page.mouse.move(0, 0);
+		}
+	},
+	'export-error': {
+		name: 'export-error',
+		description: 'The header\'s export fails because the folder cannot be written: the Erro header with «Escolher pasta…» as the Principal, the «N novos» labels stay',
+		withLibrary: true,
+		exportFailure: true,
+		expectedConsoleErrors: [{ prefix: 'Export failed:', times: 1 }],
+		async reach(page, text) {
+			await library(page, text);
+			await exportFromHeader(page, text);
+			const header = page.locator('[data-slot="library-header"]');
+			await expect(header).toHaveAttribute('data-state', 'erro');
+			await expect(header.locator('[data-slot="library-header-message"]')).toHaveText(text.exportErrorTitle);
+			await expect(header.locator('[data-slot="library-header-detail"]')).toHaveText(text.exportErrorDetail);
+			await expect(header.getByRole('button', { name: text.chooseFolderAction, exact: true })).toBeVisible();
+			// Nothing was exported, so the news are still there
+			await expect(page.locator('[data-slot="badge"]')).toHaveCount(2);
+			await expect(page.locator('[data-slot="toast"]')).toHaveCount(0);
+			await page.mouse.move(0, 0);
+		}
 	}
 };
 
@@ -1046,6 +1136,7 @@ export function mockConfigFor(scenario: Scenario, variant: Variant): MockConfig 
 		summary,
 		update: scenario.update ? availableUpdate : null,
 		updateFailure: scenario.updateFailure,
+		exportFailure: scenario.exportFailure ? { kind: 'folderNotWritable', folder: `${HOME}/Documents/Kobo` } : undefined,
 		windowLabel: scenario.window ?? 'main'
 	};
 }

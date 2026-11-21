@@ -2597,16 +2597,38 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 5. **Textos:** pt e en novos, comparados com o Figma, com ponto final nas frases.
 
 **Passos:**
-- [ ] **Passo 1:** testes que falham: o cabeçalho fica 2 s com «✓ Exportado» e depois sai; a ação do aviso chama o `revealItemInDir`; o erro de cada tipo no cabeçalho e no Detalhe; «Escolher pasta…» grava e repete; prioridades com a sincronização; menu Ficheiro.
-- [ ] **Passo 2:** a implementação.
-- [ ] **Passo 3:** cenários visuais, em Claro e Escuro, comparados com o Figma: `export-done` (0 a 2 s), `export-done-after` (sem cabeçalho, com o aviso) e `export-error`.
-- [ ] **Passo 4:** gate completo (Vitest, check, build, `test:visual`, `cargo test`, `cargo clippy --all-targets`).
-- [ ] **Passo 5:** review adversarial (Opus), mutações minhas e comparação com o Figma. Commit `feat(export): screen 8, export feedback, error in the header and Show in Finder`.
+- [x] **Passo 1:** testes que falham: o cabeçalho fica 2 s com «✓ Exportado» e depois sai; a ação do aviso chama o `revealItemInDir`; o erro de cada tipo no cabeçalho e no Detalhe; «Escolher pasta…» grava e repete; prioridades com a sincronização; menu Ficheiro.
+- [x] **Passo 2:** a implementação.
+- [x] **Passo 3:** cenários visuais, em Claro e Escuro, comparados com o Figma: `export-done` (0 a 2 s), `export-done-after` (sem cabeçalho, com o aviso) e `export-error`.
+- [x] **Passo 4:** gate completo (Vitest, check, build, `test:visual`, `cargo test`, `cargo clippy --all-targets`).
+- [x] **Passo 5:** review adversarial (Opus), mutações minhas e comparação com o Figma. Commit `feat(export): screen 8, export feedback, error in the header and Show in Finder`.
 
 **Verificar no ecrã (Bruno), com a build dev:**
 - exportar os novos: «✓ Exportado» 2 s, o cabeçalho sai, e o aviso leva ao Finder com os ficheiros selecionados;
 - Ficheiro › «Mostrar última exportação no Finder» depois de exportar, e desativado antes;
 - uma pasta sem permissão de escrita (por exemplo, criada com `chmod a-w`): o erro no cabeçalho, e «Escolher pasta…» grava a pasta e exporta.
+
+**Feito (2026-11-21).** Aprovada pelo Bruno («Aprovo a Task 47»). Implementada pelo Sonnet com TDD; revista pelo Opus (review adversarial independente); mutações minhas.
+- **1.ª ronda:** cabeçalho retido durante a exportação e os 2 s (`heldHeader`, `heldNew`), erro de exportação no cabeçalho com ação (`exportErrorView`), «Escolher pasta…» pela função partilhada `src/lib/export-folder.ts` (a `ExportPane` passa a usá-la), `library.lastExport`, menu Ficheiro, aviso com ícone de erro.
+- **Review adversarial: «rejeitar».** Corrigidos:
+  - **A1 (blocker):** duplo clique ou clique em «✓ Exportado» dava um erro falso permanente. O botão fica inerte durante os 2 s, e uma exportação sem livros não faz nada;
+  - **A2:** resultado de uma exportação a cair noutro leitor ou depois de uma sincronização. Contador de geração, `readerId` na tentativa, `recoverExport` desiste se o leitor mudou (também depois do seletor);
+  - **A3:** «Tentar de novo» do aviso exportava durante uma sincronização. `handleExport` recusa com `isImporting`, e o aviso de erro fecha-se ao começar uma sincronização ou ao trocar de leitor (`dismiss(id)` novo no `ui/toast`);
+  - minors A4 (foco para a ação do erro), A5 (anúncio pelo `sync-announcer` quando o cabeçalho não estava montado), A7 («Choose folder…»; no Detalhe, «Não foi possível exportar.»), A8 (órfãos apagados: `exportErrorMessage`, `errors.export.folderNotWritable`, `library.exportSelected`), A9 (largura máxima do aviso, texto truncado e ação inteira), A10 (menu refeito com o estado certo), A11 (aviso quando o Finder falha).
+- **Decisões minhas, por omissão:**
+  - com uma sincronização falhada, a falha de exportação vai para o aviso (A6);
+  - detalhe «O disco está cheio.» no `diskFull` e nenhum nas falhas desconhecidas;
+  - abrir um livro acaba o «✓ Exportado», mas não silencia uma exportação a correr: a falha aparece como aviso (desvio do Sonnet, aceite).
+- **Fica como está:** o «✓» de «Exportado» é texto, não o ícone `check` do Figma (vem do ecrã 1 aprovado).
+- **Mutações minhas:** 16; morrem 12 e a C9 depois de um teste novo (troca de leitor com o seletor aberto). Sobrevivem só as guardas em camadas contra o segundo clique (a da página, a do cabeçalho e a do «sem livros»): retiradas juntas, morrem.
+- **Comparação com o Figma:** cabeçalho em y 76 com 28 de altura, aviso a 24 do fundo com 32; «Escolher pasta…» mede 134 em vez de 136 (desenho do texto).
+- **Gate final:**
+  - Vitest: 1026 passam, 1 ignorado;
+  - `npm run check`: 0/0;
+  - build OK;
+  - `test:visual`: 149 passam (137 + 12 controlos), 9 baselines novas (`export-done`, `export-done-after`, `export-error`), nenhuma antiga mudou;
+  - `cargo test`: 179 passam;
+  - `clippy`: os 7 avisos de antes.
 
 ## Fase 6 · Fecho da v2 (tasks a escrever)
 - **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.

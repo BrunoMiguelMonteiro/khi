@@ -1,7 +1,9 @@
 <script lang="ts">
-	import { onMount, untrack } from 'svelte';
+	import { onMount, tick, untrack } from 'svelte';
 	import { emit, listen, type UnlistenFn } from '@tauri-apps/api/event';
+	import { homeDir } from '@tauri-apps/api/path';
 	import { getCurrentWindow } from '@tauri-apps/api/window';
+	import { revealItemInDir } from '@tauri-apps/plugin-opener';
 	import { commands, events } from '$lib/bindings';
 	import LibraryView from '$lib/components/LibraryView.svelte';
 	import BookDetailsView from '$lib/components/BookDetailsView.svelte';
@@ -9,15 +11,16 @@
 	import EmptyStateSyncing from '$lib/components/EmptyStateSyncing.svelte';
 	import UnknownKoboDialog from '$lib/components/UnknownKoboDialog.svelte';
 	import { LibraryHeader, type LibraryHeaderState } from '$lib/components/ui/library-header';
-	import { notify, Toaster } from '$lib/components/ui/toast';
+	import { dismiss, notify, Toaster } from '$lib/components/ui/toast';
 	import { TooltipProvider } from '$lib/components/ui/tooltip';
 	import { WindowBar } from '$lib/components/ui/window-bar';
 	import { _ } from '$lib/i18n';
-	import { exportErrorMessage } from '$lib/errors';
+	import { exportErrorView, type ExportErrorView } from '$lib/errors';
+	import { chooseExportFolder } from '$lib/export-folder';
 	import { library, newHighlightCount } from '$lib/stores/library.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
 	import type { Book, KoboDevice, SortPreference, ViewMode } from '$lib/types';
-	import { createApplicationMenu } from '$lib/menu';
+	import { createApplicationMenu, setRevealLastExportEnabled } from '$lib/menu';
 	import UpdateDialog from '$lib/components/UpdateDialog.svelte';
 	import { UPDATES_STATE_EVENT, UPDATES_STATE_REQUEST_EVENT, updater } from '$lib/stores/updater.svelte';
 
@@ -33,8 +36,26 @@
 	let askedLastReaderId = $state<number | null>(null);
 	/** The window was opened by Sync (a request), not by the Kobo connecting: choosing then syncs, whatever «Sincronizar ao ligar» says. */
 	let askedBySync = false;
-	/** The header's own export finished well: its button reads «✓ Exportado». Cleared when the Library is left or a Sync starts. */
+	/** The header's own export finished well: its button reads «✓ Exportado» for 2 s (Y1). Cleared when the Library is left or a Sync starts. */
 	let exported = $state(false);
+	/**
+	 * The header's state from before its own export: it stays on screen while the export runs and for the 2 s of
+	 * «✓ Exportado», since the export clears the news that made the header (Y1). Then the header leaves.
+	 */
+	let heldHeader = $state<LibraryHeaderState | null>(null);
+	/** The new highlights (book and id) of that same moment: the cards keep their «N novos» labels as long as the header is held. */
+	let heldNew = $state<ReadonlySet<string> | null>(null);
+	let exportedTimer: ReturnType<typeof setTimeout> | undefined;
+	/** What was exported, to repeat it: the books, and the header's state when the header's button asked for it. */
+	type ExportAttempt = { ids: number[]; held: LibraryHeaderState | null; readerId: number | null };
+	/** Bumped when a Sync starts or the Reader changes: an export that was running then is another Library's, and its end shows nothing. */
+	let exportGeneration = 0;
+	/** The Detail's failure notice, closed when the Library it was about goes away. */
+	let failureToastId: number | null = null;
+	/** The Library's last export failed (the header's error, from any of its exports); the Detail's failure is a toast. */
+	let exportFailure = $state<{ error: unknown; attempt: ExportAttempt } | null>(null);
+	/** The home folder, written «~» in the error; read once, and the full path if there is none. */
+	let home = $state<string | null>(null);
 	/** The book last opened: its option takes focus when the detail closes. */
 	let openedBookId = $state<number | null>(null);
 
@@ -52,6 +73,21 @@
 			return { kind: 'aSincronizar', done: library.syncProgress?.done ?? 0, total: library.syncProgress?.total ?? 0 };
 		}
 		if (library.lastSyncFailed) return { kind: 'erro', message: '' };
+		if (exportFailure) {
+			const { error, attempt } = exportFailure;
+			const view = exportErrorView(error, home, $_);
+			return {
+				kind: 'erro',
+				title: view.title,
+				message: view.detail,
+				action: {
+					label: exportActionLabel(view),
+					variant: view.action === 'chooseFolder' ? 'principal' : 'secundario',
+					onclick: () => recoverExport(view, attempt)
+				}
+			};
+		}
+		if (heldHeader) return heldHeader;
 		if (library.books.length === 0) return null;
 		if (newHighlights > 0) {
 			return { kind: 'novos', highlights: newHighlights, books: newBookIds.length, since: library.summary?.newSince };
@@ -83,6 +119,7 @@
 		if (readerId === lastReaderId) return;
 		lastReaderId = readerId;
 		openedBookId = null;
+		leaveExportLibrary();
 	});
 
 	/** Export waits for the end of a Sync, in the Library and in a book. */
@@ -171,16 +208,34 @@
 		});
 	});
 
+	const newHighlightKeys = () =>
+		new Set(library.books.flatMap((book) => book.highlights.filter((h) => h.isNew && !h.removedAt).map((h) => `${book.id}/${h.id}`)));
+	/** The books as the grid shows them: while the header is held, with the news the export cleared still marked, so the labels leave with the header. */
+	const shownBooks = $derived.by(() => {
+		const held = heldNew;
+		if (!held) return sortedBooks;
+		return sortedBooks.map((book) =>
+			book.highlights.some((h) => !h.isNew && held.has(`${book.id}/${h.id}`))
+				? { ...book, highlights: book.highlights.map((h) => (held.has(`${book.id}/${h.id}`) ? { ...h, isNew: true } : h)) }
+				: book
+		);
+	});
+
 	// The native menu speaks the interface's language: rebuilt when it changes
 	$effect(() => {
 		const format = $_;
-		const timer = setTimeout(() => createApplicationMenu(format, () => library.activeReaderId), 500);
+		const timer = setTimeout(() => createApplicationMenu(format, () => library.activeReaderId, () => library.lastExport), 500);
 		return () => clearTimeout(timer);
 	});
 
-	// Any Sync, from the button or on connect, ends the header's «✓ Exportado» as it starts, not when it ends
+	// File › «Mostrar última exportação no Finder» works from the first export of the session
+	$effect(() => {
+		setRevealLastExportEnabled(library.lastExport.length > 0);
+	});
+
+	// Any Sync, from the button or on connect, ends the header's «✓ Exportado» and an export error as it starts, not when it ends
 	$effect.pre(() => {
-		if (library.isImporting) exported = false;
+		if (library.isImporting) leaveExportLibrary();
 	});
 
 	/** An installed update waits for exports and Syncs before restarting. */
@@ -197,6 +252,10 @@
 
 	// Sync with store on mount
 	onMount(() => {
+		homeDir()
+			.then((path) => (home = typeof path === 'string' ? path : null))
+			.catch(() => (home = null));
+
 		// Setup event listeners for device monitoring
 		setupDeviceListeners();
 
@@ -213,6 +272,7 @@
 
 		// Cleanup on unmount
 		return () => {
+			clearTimeout(exportedTimer);
 			unlistenDeviceDetected?.();
 			unlistenDeviceDisconnected?.();
 			unlistenCheckForUpdates?.();
@@ -346,7 +406,7 @@
 			return;
 		}
 		// The store clears the error as the Sync starts
-		exported = false;
+		leaveExportLibrary();
 		try {
 			await library.sync();
 		} catch (error) {
@@ -426,7 +486,7 @@
 		// The Sync ends by opening its Kobo's Reader: a menu left open must not switch now
 		if (library.isImporting) return;
 		library.lastSyncFailed = false;
-		exported = false;
+		leaveExportLibrary();
 		try {
 			await library.openReader(readerId);
 		} catch (error) {
@@ -436,27 +496,122 @@
 		showLibraryOrEmpty();
 	}
 
-	/** Exports `bookIds` (the selection when none are given). The books stop being new (D1). Whether it worked. */
-	async function handleExport(bookIds?: number[]): Promise<boolean> {
-		// One export at a time: a held key or a second click must not start another
-		if (library.isExporting) return false;
-		const count = bookIds?.length ?? library.selectedBookIds.length;
+	/** The header's «✓ Exportado» is over (2 s, a Sync, another Reader or a book): the header goes back to what the books say. */
+	function endExported() {
+		clearTimeout(exportedTimer);
 		exported = false;
+		heldHeader = null;
+		heldNew = null;
+	}
+
+	/** The export's feedback in the Library ends with it: «✓ Exportado» and the error. */
+	function leaveExportFeedback() {
+		endExported();
+		exportFailure = null;
+	}
+
+	/** A Sync starts or the Reader changes: the feedback goes, and an export still running is not heard from any more. */
+	function leaveExportLibrary() {
+		exportGeneration++;
+		leaveExportFeedback();
+		if (failureToastId !== null) dismiss(failureToastId);
+		failureToastId = null;
+	}
+
+	/** The files of an export, selected in the Finder. */
+	function showInFinder(paths: string[]) {
+		revealItemInDir(paths).catch((error) => {
+			console.error('Failed to show the export in the Finder:', error);
+			notify($_('notifications.showInFinderError'));
+		});
+	}
+
+	/** Exports `bookIds` (the selection when none are given). The books stop being new (D1). `held` is the header's state when its own button asked. Whether it worked. */
+	async function handleExport(bookIds?: number[], held: LibraryHeaderState | null = null): Promise<boolean> {
+		// One export at a time: a held key or a second click must not start another; none while a Sync runs
+		if (library.isExporting || library.isImporting) return false;
+		const attempt: ExportAttempt = { ids: bookIds ?? [...library.selectedBookIds], held, readerId: library.activeReaderId };
+		// Nothing to export (the news were just cleared): not an error
+		if (attempt.ids.length === 0) return false;
+		const generation = exportGeneration;
+		const focusWasInHeader = !!document.querySelector('[data-slot="library-header"]')?.contains(document.activeElement);
+		endExported();
+		exportFailure = null;
+		// The export clears the news that made the header: it is kept until the «✓ Exportado» is over
+		heldHeader = held;
+		heldNew = held ? newHighlightKeys() : null;
 		try {
-			if (bookIds) await library.exportIds(bookIds);
-			else await library.exportSelected();
-			notify($_('notifications.booksExported', { count }));
+			await library.exportIds(attempt.ids);
+			const paths = library.lastExport;
+			notify(
+				$_('notifications.booksExported', { count: attempt.ids.length }),
+				paths.length > 0 ? { action: { label: $_('notifications.showInFinder'), onClick: () => showInFinder(paths) } } : {}
+			);
+			// Only while the header is still held: a Sync, another Reader or a book ended it, and the check would be about another screen
+			if (held && generation === exportGeneration && heldHeader !== null) {
+				exported = true;
+				exportedTimer = setTimeout(endExported, 2000);
+			}
 			return true;
 		} catch (error) {
 			console.error('Export failed:', error);
-			notify(exportErrorMessage(error));
+			// The Library it was about is gone (a Sync, another Reader): nothing to say about it here
+			if (generation !== exportGeneration) return false;
+			const headerWasThere = headerState !== null;
+			heldHeader = null;
+			heldNew = null;
+			const view = exportErrorView(error, home, $_);
+			if (detailBook || library.lastSyncFailed) {
+				// A book has no header, and the Sync's error holds the header: the failure is a notice with the same action
+				failureToastId = notify(view.toast, {
+					icon: 'error',
+					action: { label: exportActionLabel(view), onClick: () => recoverExport(view, attempt) }
+				});
+			} else {
+				exportFailure = { error, attempt };
+				// A header that mounts with its text is not reliably announced: the page's own region says it
+				if (!headerWasThere) syncAnnouncement = `${view.title} ${view.detail}`.trim();
+				// The button that was pressed is gone with the strip it was in: the focus follows to the error's action
+				if (focusWasInHeader) {
+					await tick();
+					document.querySelector<HTMLElement>('[data-slot="library-header"] button')?.focus();
+				}
+			}
 			return false;
 		}
 	}
 
+	const exportActionLabel = (view: ExportErrorView) =>
+		view.action === 'chooseFolder' ? $_('screens.library.header.chooseFolder') : $_('screens.library.header.retry');
+
+	/** The action of a failed export: another folder first when the folder is the problem, then the same export again. Cancelling the picker changes nothing. */
+	async function recoverExport(view: ExportErrorView, attempt: ExportAttempt) {
+		// The error was about another Reader's books: not repeated here
+		const stale = () => attempt.readerId !== library.activeReaderId;
+		if (stale()) {
+			exportFailure = null;
+			return;
+		}
+		if (view.action === 'chooseFolder') {
+			try {
+				if (!(await chooseExportFolder(view.folder, library.activeReaderId))) return;
+			} catch (error) {
+				console.error('Failed to choose the folder:', error);
+				notify($_('settings.errors.save'));
+				return;
+			}
+			// The picker was open while the Reader changed: the folder went to the one that was open, the export is not repeated
+			if (stale()) return;
+		}
+		await handleExport(attempt.ids, attempt.held);
+	}
+
 	/** «Exportar M livros» of the header: the books with news. The user's selection stays as it is. */
 	async function handleExportNew() {
-		exported = await handleExport(newBookIds);
+		// «✓ Exportado» is not a button for another export
+		if (exported) return;
+		const before = headerState?.kind === 'novos' ? headerState : null;
+		await handleExport(newBookIds, before);
 	}
 
 	/** The bar's Export, and ⌘E: the open book, else the selection, else every book (without selecting them). */
@@ -473,7 +628,7 @@
 
 	/** The only way into a book: a click or Enter, in the grid and in the list. */
 	function openBook(book: Book) {
-		exported = false;
+		leaveExportFeedback();
 		openedBookId = book.id;
 		library.openBook(book.id);
 		library.setUiState('book-details');
@@ -623,7 +778,7 @@
 				<BookDetailsView book={library.viewingBook} />
 			{:else if library.uiState === 'library'}
 				<LibraryView
-					books={sortedBooks}
+					books={shownBooks}
 					selectedBookIds={library.selectedBookIds}
 					{viewMode}
 					onSelectionChange={handleSelectionChange}

@@ -1,15 +1,30 @@
 import { Menu, Submenu, MenuItem, PredefinedMenuItem } from '@tauri-apps/api/menu';
 import { emit } from '@tauri-apps/api/event';
+import { revealItemInDir } from '@tauri-apps/plugin-opener';
+import { notify } from '$lib/components/ui/toast/toast-state.svelte';
 import { commands } from '$lib/bindings';
 import { Image } from '@tauri-apps/api/image';
 import { resolveResource } from '@tauri-apps/api/path';
 import type { MessageFormatter } from '$lib/i18n';
 
-/** `activeReaderId` is read when the item is chosen: the menu is rebuilt
+/** The File menu's item, kept so that an export can enable it without rebuilding the menu. */
+let revealLastExportItem: MenuItem | undefined;
+
+/** «Mostrar última exportação no Finder» works once an export has worked in this session. */
+export async function setRevealLastExportEnabled(enabled: boolean) {
+    try {
+        await revealLastExportItem?.setEnabled(enabled);
+    } catch (error) {
+        console.error('[MENU] Failed to update the File menu:', error);
+    }
+}
+
+/** `activeReaderId` and `lastExport` are read when the item is chosen: the menu is rebuilt
  * only when the language changes. */
 export async function createApplicationMenu(
     t: MessageFormatter,
-    activeReaderId: () => number | null = () => null
+    activeReaderId: () => number | null = () => null,
+    lastExport: () => string[] = () => []
 ) {
     try {
         // App Menu (macOS: Khi)
@@ -66,6 +81,28 @@ export async function createApplicationMenu(
             ]
         });
 
+        // File Menu: the files of the last export of the session, which are chosen again in the Finder
+        const revealLastExport = await MenuItem.new({
+            id: 'reveal-last-export',
+            text: t('app.menuRevealLastExport'),
+            enabled: lastExport().length > 0,
+            action: () => {
+                const paths = lastExport();
+                if (paths.length === 0) return;
+                revealItemInDir(paths).catch((error) => {
+                    console.error('[MENU] Failed to show the last export in the Finder:', error);
+                    notify(t('notifications.showInFinderError'));
+                });
+            }
+        });
+        revealLastExportItem = revealLastExport;
+        // A rebuild (the language changed) starts from the session's state, not from the one it was built with
+        await setRevealLastExportEnabled(lastExport().length > 0);
+        const fileMenu = await Submenu.new({
+            text: t('app.menuFile'),
+            items: [revealLastExport]
+        });
+
         // Edit Menu (Essential for input fields)
         const editMenu = await Submenu.new({
             text: t('app.menuEdit'),
@@ -92,7 +129,7 @@ export async function createApplicationMenu(
         // Create the menu
         const menu = await Menu.new({
             id: 'main-menu',
-            items: [appMenu, editMenu, windowMenu]
+            items: [appMenu, fileMenu, editMenu, windowMenu]
         });
 
         // Set as application menu

@@ -676,21 +676,20 @@ describe('Library Store', () => {
 		});
 	});
 
-	describe('exportSelected', () => {
-		it('should throw error if no books selected', async () => {
+	describe('exportIds', () => {
+		it('should throw error if no books are given', async () => {
 			library.activeReaderId = 1;
 			library.setBooks(mockBooks);
 
-			await expect(library.exportSelected()).rejects.toThrow('No books selected for export');
+			await expect(library.exportIds([])).rejects.toThrow('No books selected for export');
 		});
 
-		it('exports the selected ids of the active reader', async () => {
+		it('exports the ids of the active reader', async () => {
 			library.activeReaderId = 9;
 			library.setBooks(mockBooks);
-			library.setSelectedBookIds([2]);
 			answer({ export_library_books: ['/x/Book Two.md'] });
 
-			const result = await library.exportSelected();
+			const result = await library.exportIds([2]);
 
 			expect(invoke).toHaveBeenCalledWith('export_library_books', { readerId: 9, bookIds: [2] });
 			expect(result).toEqual(['/x/Book Two.md']);
@@ -787,6 +786,20 @@ describe('Library Store', () => {
 			expect(invoke).toHaveBeenCalledWith('mark_book_opened', { readerId: 9, bookId: 1, seenSeq: 2 });
 			expect(isNewOf(1, 'a')).toBe(false);
 			expect(isNewOf(1, 'z')).toBe(true);
+		});
+
+		it('export_remembers_the_files_of_the_last_export_for_the_session', async () => {
+			library.setBooks([bookOf(1, hl('a', true, 2))]);
+			library.lastExport = [];
+			answer({ export_library_books: ['/x/B1.md', '/x/B2.md'], mark_book_opened: null });
+
+			await library.exportIds([1]);
+			expect(library.lastExport).toEqual(['/x/B1.md', '/x/B2.md']);
+
+			// A failed export leaves the last good one as it was
+			vi.mocked(invoke).mockImplementation(() => Promise.reject('boom'));
+			await expect(library.exportIds([1])).rejects.toBe('boom');
+			expect(library.lastExport).toEqual(['/x/B1.md', '/x/B2.md']);
 		});
 
 		it('failed_export_keeps_new', async () => {

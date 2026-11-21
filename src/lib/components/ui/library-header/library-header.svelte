@@ -3,11 +3,14 @@
 
 	type When = Date | string | number;
 
+	export type LibraryHeaderAction = { label: string; variant: 'principal' | 'secundario'; onclick: () => void };
+
 	export type LibraryHeaderState =
 		| { kind: 'novos'; highlights: number; books: number; since?: When | null }
 		| { kind: 'aSincronizar'; done: number; total: number }
 		| { kind: 'semNovidades'; syncedAt?: When | null }
-		| { kind: 'erro'; message: string };
+		/** `title` and `action` are the export's error (Task 47); without them it is the Sync's, which `onRetry` repeats. */
+		| { kind: 'erro'; message: string; title?: string; action?: LibraryHeaderAction };
 
 	export type LibraryHeaderProps = Omit<HTMLAttributes<HTMLDivElement>, 'children'> & {
 		state: LibraryHeaderState;
@@ -57,6 +60,11 @@
 	});
 	onDestroy(() => clearTimeout(timer));
 
+	// «✓ Exportado» is a state, not a second export: the click does nothing for the 2 s
+	function exportClick() {
+		if (!exported) onExport?.();
+	}
+
 	const shortDate = (when: When) => formatShortDate(when, $locale ?? 'pt');
 	const time = (when: When) =>
 		new Intl.DateTimeFormat($locale, { hour: '2-digit', minute: '2-digit' }).format(new Date(when));
@@ -68,7 +76,7 @@
 				? $_('screens.library.header.syncing')
 				: current.kind === 'semNovidades'
 					? $_('screens.library.header.noNews')
-					: $_('notifications.syncError')
+					: (current.title ?? $_('notifications.syncError'))
 	);
 	const detail = $derived(
 		current.kind === 'novos'
@@ -148,10 +156,14 @@
 					{$_('screens.library.header.showOnly')}
 				</Button>
 			{/if}
-			<Button variant="principal" disabled={exporting} onclick={() => onExport?.()}>
+			<Button variant="principal" disabled={exporting} onclick={exportClick}>
 				{exportLabel}
 			</Button>
 		</div>
+	{:else if current.kind === 'erro' && current.action}
+		<Button variant={current.action.variant} onclick={() => current.action?.onclick()}>
+			{current.action.label}
+		</Button>
 	{:else if current.kind === 'erro' && onRetry}
 		<Button variant="secundario" onclick={() => onRetry()}>
 			{$_('screens.library.header.retry')}

@@ -30,6 +30,8 @@ export interface MockConfig {
 	update: unknown;
 	/** `check`: `plugin:updater|check` fails (state 6, «Sem ligação»). `install`: the download works and the install fails (state 7). */
 	updateFailure?: 'check' | 'install';
+	/** `export_library_books` is rejected with this, as Rust's `ExportFailure` is. */
+	exportFailure?: unknown;
 	/** The window this page runs in: `main`, or `settings` (the `/definicoes` route). */
 	windowLabel: 'main' | 'settings';
 }
@@ -121,7 +123,7 @@ export function installTauriMock(config: MockConfig): void {
 	const UNKNOWN = Symbol('unknown');
 	/** A call that answers with a rejection, as Rust's `Err` does. */
 	const REJECT = Symbol('reject');
-	const rejection = (reason: string) => ({ [REJECT]: reason });
+	const rejection = (reason: unknown) => ({ [REJECT]: reason });
 
 	/** What `Update.download` listens to: a `Channel` whose messages come in order, `Started` then `Progress`. */
 	const channelIndex = new Map<number, number>();
@@ -179,6 +181,7 @@ export function installTauriMock(config: MockConfig): void {
 			case 'plugin:menu|new':
 				return [nextRid++, args.options?.id ?? `mock-menu-${nextRid}`];
 			case 'plugin:menu|set_as_app_menu':
+			case 'plugin:menu|set_enabled':
 				return null;
 			case 'plugin:path|resolve_directory':
 				// homeDir() (BaseDirectory.Home is 21); the rest is resolveResource
@@ -203,6 +206,9 @@ export function installTauriMock(config: MockConfig): void {
 			case 'plugin:updater|install':
 				return config.updateFailure === 'install' ? rejection('install failed') : null;
 			case 'plugin:process|restart':
+				return null;
+			// tauri-plugin-opener: «Mostrar no Finder» (the call is logged; nothing opens)
+			case 'plugin:opener|reveal_item_in_dir':
 				return null;
 
 			// Khi's own commands (src/lib/bindings.ts)
@@ -269,6 +275,7 @@ export function installTauriMock(config: MockConfig): void {
 			case 'get_library':
 				return config.library[args.readerId] ?? [];
 			case 'export_library_books':
+				if (config.exportFailure !== undefined) return rejection(config.exportFailure);
 				return (args.bookIds as number[]).map((id) => `${config.defaultExportPath}/${id}.md`);
 			case 'sync_kobo': {
 				const readerId = config.koboOwners[args.device?.serialNumber] ?? null;
@@ -323,7 +330,7 @@ export function installTauriMock(config: MockConfig): void {
 			mock.unknown.push(call);
 			throw `[visual mock] unknown IPC command: ${cmd}`;
 		}
-		if (result && typeof result === 'object' && REJECT in result) throw (result as { [REJECT]: string })[REJECT];
+		if (result && typeof result === 'object' && REJECT in result) throw (result as { [REJECT]: unknown })[REJECT];
 		return clone(result);
 	}
 

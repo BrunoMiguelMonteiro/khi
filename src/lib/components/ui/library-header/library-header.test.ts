@@ -396,3 +396,57 @@ describe("LibraryHeader outro", () => {
     expect(durations()).toContain(150);
   });
 });
+
+describe("LibraryHeader export error (Task 47)", () => {
+  it("export_error_shows_its_own_title_detail_and_primary_action", async () => {
+    const onclick = vi.fn();
+    const onRetry = vi.fn();
+    const { container } = renderHeader(
+      {
+        kind: "erro",
+        title: "Couldn’t export.",
+        message: "Khi can’t write to ~/Documents/Kobo. Choose another folder.",
+        action: { label: "Choose Folder…", variant: "principal", onclick },
+      },
+      { onRetry },
+    );
+    const root = must(container.querySelector<HTMLElement>('[data-slot="library-header"]'), "header");
+    expect(root.dataset.state).toBe("erro");
+    expect(root.querySelector('[data-slot="library-header-message"]')?.textContent?.trim()).toBe("Couldn’t export.");
+    expect(root.querySelector('[data-slot="library-header-detail"]')?.textContent?.trim()).toBe(
+      "Khi can’t write to ~/Documents/Kobo. Choose another folder.",
+    );
+    // The action stands in for the Sync retry: one button, not two
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+    const button = screen.getByRole("button", { name: "Choose Folder…" });
+    expect(button.className).toContain("bg-primary");
+    await userEvent.setup().click(button);
+    expect(onclick).toHaveBeenCalledTimes(1);
+    expect(onRetry).not.toHaveBeenCalled();
+    // The text is the alert's; the button stays outside it
+    const alert = must(container.querySelector<HTMLElement>('[role="alert"]'), "alert");
+    expect(alert.textContent).toContain("Couldn’t export.");
+    expect(alert.textContent).toContain("Choose another folder.");
+    expect(alert.contains(button)).toBe(false);
+    expect(alert.textContent).not.toContain("Could not sync the Kobo");
+  });
+
+  it("export_error_secondary_action_is_a_secondary_button", () => {
+    renderHeader({
+      kind: "erro",
+      title: "Couldn’t export.",
+      message: "",
+      action: { label: "Try again", variant: "secundario", onclick: vi.fn() },
+    });
+    expect(screen.getByRole("button", { name: "Try again" }).className).toContain("border-input-strong");
+    expect(document.querySelector('[data-slot="library-header-detail"]')).toBeNull();
+  });
+
+  it("sync_error_keeps_its_title_and_retry", async () => {
+    const onRetry = vi.fn();
+    renderHeader({ kind: "erro", message: "" }, { onRetry });
+    expect(document.querySelector('[data-slot="library-header-message"]')?.textContent?.trim()).toBe("Could not sync the Kobo");
+    await userEvent.setup().click(screen.getByRole("button", { name: "Try again" }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+});

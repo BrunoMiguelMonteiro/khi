@@ -21,7 +21,7 @@ The report is written to `output/report.md`, grouped by capture, then element, t
 
 Only update the baseline on a tree whose visuals you have verified. Run `test:visual` twice afterwards to check that the baseline is stable. Commit `baseline/` together with the change that justifies it.
 
-## Matrix (128 captures + 12 controls)
+## Matrix (137 captures + 12 controls)
 
 Scenarios (`scenarios.ts`):
 
@@ -52,6 +52,10 @@ Scenarios (`scenarios.ts`):
 - `library-syncing-export-disabled`: the same, with the pointer on Export and the tooltip that says why it waits.
 - `library-empty-syncing`: the first Sync, with no books yet: the centred state with the solid Kobo whose 7 text lines fill with the progress (12 of 42: 2 lines). No header, no «Sem livros».
 - `sync-finished-enters`: the held `sync_kobo` is released (`__KHI_MOCK__.release`): the «novos» header and the badges are on screen, Sync has stopped and Export is back.
+- The export's feedback (Ecrã 8, Task 47), reached by the header's own button (a click event). `holdTimers` keeps the page's 2 s and 4 s timers from running out while the harness waits for the IPC to go quiet:
+  - `export-done` (0 to 2 s): the header stays with its Principal «✓ Exportado», the cards keep their «N novos» and the toast says «2 livros exportados» with «Mostrar no Finder»;
+  - `export-done-after`: only the 4 s timer is held; the header and the labels have left, the grid starts 24 px below the bar and the toast is still there;
+  - `export-error`: `exportFailure` makes `export_library_books` reject with `folderNotWritable` for `~/Documents/Kobo`: the Erro header with «Escolher pasta…» as the Principal, and the «N novos» labels stay. The app logs the failure on purpose (`expectedConsoleErrors`).
 
 Themes:
 

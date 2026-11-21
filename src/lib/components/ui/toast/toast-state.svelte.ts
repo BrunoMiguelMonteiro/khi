@@ -13,6 +13,8 @@ export type ToastItem = {
   id: number;
   text: string;
   action?: ToastAction;
+  /** `success` (circle-check) by default; `error` is the circle-alert of a failure. */
+  icon: "success" | "error";
   closing: boolean;
 };
 
@@ -30,12 +32,13 @@ class ToastState {
   #exitTimer: ReturnType<typeof setTimeout> | undefined;
 
   /** Shows the toast, replacing the one on screen: one is visible at a time. */
-  show(text: string, action?: ToastAction) {
+  show(text: string, action?: ToastAction, icon: ToastItem["icon"] = "success"): number {
     this.#clear();
     const item: ToastItem = {
       id: this.#nextId++,
       text,
       action,
+      icon,
       closing: false,
     };
     this.current = item;
@@ -43,6 +46,7 @@ class ToastState {
     this.#holding = false;
     // The enter animation's end calls entered(); the timer covers no animation (jsdom, no CSS).
     this.#enterTimer = setTimeout(() => this.entered(item.id), ENTER_MS);
+    return item.id;
   }
 
   /** The entry of the toast `id` is over: the hold starts, unless the toast is paused. */
@@ -72,9 +76,11 @@ class ToastState {
   }
 
   /** Starts the exit of the toast on screen. */
-  close() {
+  close(id?: number) {
     const item = this.current;
     if (!item || item.closing) return;
+    // A toast that was replaced is not this one's: its id closes nothing
+    if (id !== undefined && item.id !== id) return;
     clearTimeout(this.#enterTimer);
     clearTimeout(this.#holdTimer);
     item.closing = true;
@@ -109,12 +115,12 @@ export const toastState = new ToastState();
 // A hot update replaces this module; the old singleton must not keep a toast or a timer alive.
 import.meta.hot?.dispose(() => toastState.reset());
 
-/** Shows a toast with the text and, optionally, a link-styled action. */
-export function notify(text: string, options: { action?: ToastAction } = {}) {
-  toastState.show(text, options.action);
+/** Shows a toast with the text and, optionally, a link-styled action and the failure's icon. */
+export function notify(text: string, options: { action?: ToastAction; icon?: ToastItem["icon"] } = {}): number {
+  return toastState.show(text, options.action, options.icon);
 }
 
-/** Starts the exit of the toast on screen, if any. */
-export function dismiss() {
-  toastState.close();
+/** Starts the exit of the toast on screen, if any; with an `id` (what `notify` returned), only if it is still that one. */
+export function dismiss(id?: number) {
+  toastState.close(id);
 }

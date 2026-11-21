@@ -6,6 +6,7 @@
 	import { onMount } from 'svelte';
 	import { homeDir } from '@tauri-apps/api/path';
 	import { commands } from '$lib/bindings';
+	import { chooseExportFolder } from '$lib/export-folder';
 	import { abbreviateHome } from '$lib/home-path';
 	import { _ } from '$lib/i18n';
 	import { settings } from '$lib/stores/settings.svelte';
@@ -71,16 +72,7 @@
 	async function chooseFolder() {
 		writing();
 		try {
-			const picked = await commands.pickExportFolder(folder);
-			if (!picked) return;
-			if (activeReader) {
-				// The default folder is stored as null, so it keeps following the name
-				const defaultFolder = await commands.readerDefaultExportFolder(activeReader.id);
-				await library.setReaderExportPath(activeReader.id, picked === defaultFolder ? null : picked);
-			} else {
-				settings.setExportPath(picked);
-				await settings.commit(['exportConfig.exportPath']);
-			}
+			await chooseExportFolder(folder, activeReader?.id ?? null);
 		} catch (error) {
 			console.error('Failed to choose the folder:', error);
 			failed();

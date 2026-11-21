@@ -20,6 +20,8 @@ class LibraryStore {
 	 * `isImporting` turns false, so the header never shows a stale state in between (Task 38). */
 	lastSyncFailed = $state(false);
 	isExporting = $state(false);
+	/** The files of the last export that worked in this session (not kept across launches): «Mostrar no Finder» and the File menu. */
+	lastExport = $state<string[]>([]);
 	/** Books processed so far in the running Sync (R16). */
 	syncProgress = $state<{ done: number; total: number } | null>(null);
 	connectedDevice = $state<KoboDevice | undefined>(undefined);
@@ -421,12 +423,6 @@ class LibraryStore {
 		}
 	}
 
-	/** Exports the selected books of the active Reader with the Export
-	 * settings, which Rust reads itself (R22). */
-	async exportSelected(): Promise<string[]> {
-		return this.exportIds(this.selectedBookIds);
-	}
-
 	/** Exports the books, and a book that is exported stops being new, as when
 	 * it is opened (D1): the snapshot is taken before the export, so a
 	 * highlight that arrives meanwhile stays new. A failed export touches
@@ -442,6 +438,8 @@ class LibraryStore {
 		this.isExporting = true;
 		try {
 			const exported = await commands.exportLibraryBooks(readerId, bookIds);
+			// Rust answers the files; a stand-in that answers nothing leaves none
+			this.lastExport = exported ?? [];
 			const marked = await Promise.all(
 				seen.map(async ({ bookId, snapshot, seenSeq }) => {
 					try {

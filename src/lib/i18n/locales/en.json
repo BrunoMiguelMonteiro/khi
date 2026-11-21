@@ -5,7 +5,9 @@
     "menuEdit": "Edit",
     "menuWindow": "Window",
     "loading": "Loading...",
-    "koboDevice": "Kobo e-reader device"
+    "koboDevice": "Kobo e-reader device",
+    "menuFile": "File",
+    "menuRevealLastExport": "Show Last Export in Finder"
   },
   "screens": {
     "noKobo": {
@@ -40,7 +42,8 @@
         "syncProgress_other": "{done} of {count} books",
         "noNews": "No new highlights",
         "syncedAt": "synced at {time}",
-        "retry": "Try again"
+        "retry": "Try again",
+        "chooseFolder": "Choose folder…"
       },
       "title": "Library",
       "titleOf": "{reader}'s Library",
@@ -259,7 +262,9 @@
     "syncError": "Could not sync the Kobo",
     "openReaderError": "Could not open this reader's Library",
     "createReaderError": "Couldn’t create the reader",
-    "associateKoboError": "Couldn’t assign this Kobo to the reader"
+    "associateKoboError": "Couldn’t assign this Kobo to the reader",
+    "showInFinder": "Show in Finder",
+    "showInFinderError": "Couldn’t show the export in Finder."
   },
   "errors": {
     "noDevice": "No Kobo device found",
@@ -268,8 +273,11 @@
     "exportPathInvalid": "Invalid export path",
     "generic": "An error occurred",
     "export": {
-      "folderNotWritable": "Couldn’t export to {folder}. Check that the disk is connected, or choose another folder in Settings.",
-      "diskFull": "Couldn’t export: the disk is full."
+      "diskFull": "Couldn’t export: the disk is full.",
+      "title": "Couldn’t export.",
+      "folderNotWritableDetail": "Khi can’t write to {folder}. Choose another folder.",
+      "folderNotWritableToast": "Couldn’t export to {folder}.",
+      "diskFullDetail": "The disk is full."
     }
   },
   "readers": {

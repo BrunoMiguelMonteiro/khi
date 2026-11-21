@@ -5,7 +5,9 @@
     "menuEdit": "Editar",
     "menuWindow": "Janela",
     "loading": "A carregar...",
-    "koboDevice": "Leitor Kobo"
+    "koboDevice": "Leitor Kobo",
+    "menuFile": "Ficheiro",
+    "menuRevealLastExport": "Mostrar última exportação no Finder"
   },
   "screens": {
     "noKobo": {
@@ -40,7 +42,8 @@
         "syncProgress_other": "{done} de {count} livros",
         "noNews": "Sem destaques novos",
         "syncedAt": "sincronizado às {time}",
-        "retry": "Tentar de novo"
+        "retry": "Tentar de novo",
+        "chooseFolder": "Escolher pasta…"
       },
       "title": "Biblioteca",
       "titleOf": "Biblioteca de {reader}",
@@ -259,7 +262,9 @@
     "syncError": "Erro ao sincronizar o Kobo",
     "openReaderError": "Erro ao abrir a Biblioteca deste leitor",
     "createReaderError": "Não foi possível criar o leitor",
-    "associateKoboError": "Não foi possível associar este Kobo ao leitor"
+    "associateKoboError": "Não foi possível associar este Kobo ao leitor",
+    "showInFinder": "Mostrar no Finder",
+    "showInFinderError": "Não foi possível mostrar a exportação no Finder."
   },
   "errors": {
     "noDevice": "Nenhum dispositivo Kobo encontrado",
@@ -268,8 +273,11 @@
     "exportPathInvalid": "Caminho de exportação inválido",
     "generic": "Ocorreu um erro",
     "export": {
-      "folderNotWritable": "Não foi possível exportar para {folder}. Verifica se o disco está ligado ou escolhe outra pasta nas Definições.",
-      "diskFull": "Não foi possível exportar: o disco está cheio."
+      "diskFull": "Não foi possível exportar: o disco está cheio.",
+      "title": "Não foi possível exportar.",
+      "folderNotWritableDetail": "O Khi não consegue escrever em {folder}. Escolhe outra pasta.",
+      "folderNotWritableToast": "Não foi possível exportar para {folder}.",
+      "diskFullDetail": "O disco está cheio."
     }
   },
   "readers": {
