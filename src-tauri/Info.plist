@@ -5,6 +5,10 @@
      can follow Portuguese too. Keep in sync with src/lib/i18n/config.ts. -->
 <plist version="1.0">
 <dict>
+	<!-- Liquid Glass icon in Resources/Assets.car (macOS 26+), built by
+	     scripts/build-app-icon.sh. Older macOS uses the icon.icns. -->
+	<key>CFBundleIconName</key>
+	<string>Khi</string>
 	<key>CFBundleLocalizations</key>
 	<array>
 		<string>en</string>

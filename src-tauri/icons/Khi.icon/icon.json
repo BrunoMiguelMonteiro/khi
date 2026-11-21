@@ -1,0 +1,22 @@
+{
+  "fill-specializations": [
+    {"value": {"linear-gradient": ["srgb:0.29,0.33,0.40,1", "srgb:0.18,0.21,0.26,1"]}}
+  ],
+  "groups": [
+    {
+      "name": "Marcador",
+      "layers": [{"name": "Marcador da imagem original", "image-name": "Marcador.png", "glass": false}],
+      "shadow": {"kind": "neutral", "opacity": 0.5},
+      "specular": false,
+      "translucency": {"enabled": false, "value": 0.4}
+    },
+    {
+      "name": "Texto",
+      "layers": [{"name": "Linhas da imagem original", "image-name": "Linhas.png", "glass": false}],
+      "shadow": {"kind": "none", "opacity": 0},
+      "specular": false,
+      "translucency": {"enabled": false, "value": 0.4}
+    }
+  ],
+  "supported-platforms": {"squares": ["macOS"]}
+}

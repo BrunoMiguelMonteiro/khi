@@ -53,7 +53,10 @@
       "frameworks": [],
       "minimumSystemVersion": "13.3",
       "signingIdentity": null,
-      "entitlements": "Entitlements.plist"
+      "entitlements": "Entitlements.plist",
+      "files": {
+        "Resources/Assets.car": "icons/Assets.car"
+      }
     },
     "category": "Productivity",
     "shortDescription": "Export Kobo highlights to Markdown",
