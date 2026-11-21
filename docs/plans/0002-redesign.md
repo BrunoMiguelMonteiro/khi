@@ -110,7 +110,7 @@ Casos que nenhuma task testa por si e que mais provavelmente afetam quem usa o K
 - **D3. Sem galeria de componentes** (Bruno, 2026-11-18: «Não: comparo no próprio ecrã da app»). A comparação com o Figma faz-se na app, com `npm run dev:app`. Na Fase 1 a interface antiga não muda, por isso os tokens e a tipografia verificam-se pelos testes de contrato com a exportação do Figma. Cada componente da Fase 2 tem testes, e a comparação visual em Claro e Escuro faz-se quando o componente entra no seu primeiro ecrã, na Fase 5.
   - Rejeitada: uma rota `/dev/componentes`, só em desenvolvimento, com cada componente em todos os estados e os dois temas lado a lado.
   
-- **D4. Pendente de design** criado pela D1: o ecrã 8 tem de ser revisto no Figma antes da Fase 5, com 3 opções, um cartão e a recomendação primeiro.
+- **D4. Pendente de design** criado pela D1: o ecrã 8 tem de ser revisto no Figma antes da Fase 5, com 3 opções, um cartão e a recomendação primeiro. **Fechada a 2026-11-21** pela ronda Q-Y (Figma `137:34168`, Bruno: «Y1 · Botão e aviso»); ver a Task 47.
   
   - A revisão cobre o cabeçalho e não só as etiquetas: depois de exportar, ele continua em «Novos».
     
@@ -1422,7 +1422,7 @@ Cada ecrã fica feito em Claro e Escuro, comparado com o Figma, com captura. O B
 | 5 | Detalhe | `71:10560` / `71:10965` | Filtro Todos · Novos · Com notas, e `markBookOpened` (D2) |
 | 6 | Primeiro arranque e Kobo novo | `72:11425` / `72:11443`, `72:11461` / `72:11500` | Texto novo do Kobo novo em pt e en |
 | 7 | Definições | secção `73:12021` e Q-M (`74:18560`) | Pop-up de leitor com dois ou mais leitores, e 4 textos novos. Verificar no ecrã, com um Kobo sincronizado na build dev: as Definições mostram o Leitor da principal, e renomear um Leitor atualiza a principal (adiado da Fase 4) |
-| 8 | Exportação | por rever no Figma (D4) | O erro segue `folderNotWritable`, não «a pasta já não existe» |
+| 8 | Exportação | Q-Y, Y1: `137:34169` / `137:35323`, erro `137:34750` / `137:35904` | O erro segue `folderNotWritable`, não «a pasta já não existe» (Task 47) |
 | 9 | Apagar livro | `74:16535` / `74:16671`, `74:16868` / `74:16918` | ⌘⌫ e a janela modal Q-A |
 | 10 | Vários leitores | `74:17138` / `74:17195` e seguintes | Título-menu como seletor (R4) |
 
@@ -2548,6 +2548,65 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 - **Dívida vista, sem tocar:** os outros listeners de `setupDeviceListeners` na principal não têm a guarda `destroyed`.
 
 **Ecrã 7 aprovado a 2026-11-21** (Bruno: «Aprovo o ecrã 7»), pela build dev. A atualização de ponta a ponta (descarregar, instalar e reiniciar) só se verifica com uma release real.
+
+### Task 47: Ecrã 8 · Exportação concluída e com erro (Q-Y, Y1)
+**Decisões** (ver DECISIONS, «Ecrãs · 8 · Q-Y»):
+- **Q-Y (Bruno, 2026-11-21):** Y1 · Botão e aviso. Fecha a D4.
+- **Erro fora do cabeçalho (Bruno, 2026-11-21):** na Biblioteca, o erro de exportação vai para o cabeçalho, venha de onde vier (o botão do cabeçalho, a barra ou ⌘E). No Detalhe, vai para o aviso, com a mesma ação.
+- **Ficheiro › «Mostrar última exportação no Finder» (Bruno, 2026-11-21):** só da sessão, desativado antes da primeira exportação.
+- **Já decididas:** Cor 6 e as suas quatro condições, Movimento 3, «Sem novidades, sem cabeçalho» (2026-11-19), exportar limpa os «novos» (2026-11-19), códigos de erro do export (`ExportFailure`, 2026-11-18).
+
+**Figma** (só leitura, medido a 2026-11-21):
+- **Concluída, 0 a 2 s** `137:34169` / `137:35323`:
+  - cabeçalho «Novos» com o botão Principal «✓ Exportado» (ícone `check` à esquerda);
+  - aviso (componente 14) centrado a 24 do fundo, 297 × 32: `circle-check`, «4 livros exportados» e a ligação «Mostrar no Finder» no tom de ligação.
+- **Depois dos 2 s:** sem cabeçalho (prevalece sobre a moldura `73:12743`, que ainda o mostra); a grelha sobe para 24 da Barra e as etiquetas saem; o aviso continua até aos 4 s.
+- **Com erro** `137:34750` / `137:35904`:
+  - cabeçalho Erro: `circle-alert` em `text-destructive`, «Não foi possível exportar.», detalhe «O Khi não consegue escrever em ~/Documents/Kobo. Escolhe outra pasta.» e o botão Principal «Escolher pasta…» (136 de largura);
+  - as etiquetas «N novos» ficam.
+
+**Ficheiros:**
+- `src/routes/+page.svelte`: o estado do cabeçalho, o erro de exportação e o aviso com a ação;
+- `src/lib/components/ui/library-header/library-header.svelte` e o seu teste: o Erro passa a aceitar título, detalhe e ação (rótulo, variante e `onclick`), sem mudar o erro de sincronização;
+- `src/lib/components/BookDetailsView.svelte` (ou quem trata o export do Detalhe) e o seu teste;
+- `src/lib/stores/library.svelte.ts`: a última exportação da sessão (os caminhos devolvidos pelo `exportLibraryBooks`);
+- `src/lib/menu.ts` e o seu teste: o menu Ficheiro;
+- `src/lib/errors.ts` e o seu teste: título, detalhe e ação por tipo de `ExportFailure`;
+- `src-tauri/capabilities/default.json` só se o `opener:default` não chegar (a 2.5.3 já inclui `allow-reveal-item-in-dir`);
+- `pt.json` e `en.json`;
+- `tests/visual/scenarios.ts`, o mock (`plugin:opener|reveal_item_in_dir`, `pick_export_folder`) e as baselines novas.
+
+**Comportamento:**
+1. **Concluída (Y1):**
+   - com o export bem-sucedido, o cabeçalho continua montado com o estado que tinha antes de exportar e o botão «✓ Exportado» durante 2 s. Só depois sai, com o fade de 150 ms (Movimento 3), e as etiquetas saem no mesmo fade. Hoje desmonta-se no mesmo instante, e o «✓ Exportado» nunca aparece (o teste `header_export_exports_books_with_news` espera isso e muda);
+   - uma sincronização, a troca de leitor ou abrir um livro durante os 2 s acabam a espera, como já acontece com o `exported`;
+   - o aviso «N livros exportados» leva a ação «Mostrar no Finder», que chama o `revealItemInDir` com os caminhos dessa exportação (os ficheiros ficam selecionados no Finder);
+   - o aviso cumpre a Cor 6: pausa com o rato e o foco, `aria-live="polite"`, só fade com Reduzir movimento (o `ui/toast` já o faz; confirmar com teste).
+2. **Com erro, na Biblioteca** (o botão do cabeçalho, a barra e ⌘E):
+   - o cabeçalho passa a Erro, com «Não foi possível exportar.» e o detalhe por tipo:
+     - `folderNotWritable`: «O Khi não consegue escrever em {pasta}. Escolhe outra pasta.», com `~` (`abbreviateHome`), e o botão Principal «Escolher pasta…»;
+     - `diskFull` e os outros: o texto que o `errors.ts` já tem, e o botão Secundário «Tentar de novo», que repete a mesma exportação;
+   - «Escolher pasta…» abre o `pickExportFolder`, grava a pasta no leitor ativo como faz a `ExportPane` (`null` quando é a pasta por omissão) e repete a mesma exportação. Cancelar o seletor deixa o erro;
+   - o erro sai com a exportação seguinte bem-sucedida, a sincronização seguinte, a troca de leitor ou ao abrir um livro;
+   - a sincronização tem prioridade: com `isImporting`, o cabeçalho mostra a sincronização; um erro de sincronização ganha a um de exportação;
+   - o erro de exportação não toca nos «novos» nem no `lastSyncFailed`.
+3. **Com erro, no Detalhe:** o aviso, com `circle-alert`, «Não foi possível exportar para {pasta}.» e a ação «Escolher pasta…» (ou «Tentar de novo»), que faz o mesmo que no cabeçalho.
+4. **Menu Ficheiro**, entre Khi e Edição:
+   - «Mostrar última exportação no Finder», sem atalho; desativado até à primeira exportação da sessão, e depois chama o `revealItemInDir` com os caminhos da última;
+   - a troca de idioma refaz o menu, como os outros.
+5. **Textos:** pt e en novos, comparados com o Figma, com ponto final nas frases.
+
+**Passos:**
+- [ ] **Passo 1:** testes que falham: o cabeçalho fica 2 s com «✓ Exportado» e depois sai; a ação do aviso chama o `revealItemInDir`; o erro de cada tipo no cabeçalho e no Detalhe; «Escolher pasta…» grava e repete; prioridades com a sincronização; menu Ficheiro.
+- [ ] **Passo 2:** a implementação.
+- [ ] **Passo 3:** cenários visuais, em Claro e Escuro, comparados com o Figma: `export-done` (0 a 2 s), `export-done-after` (sem cabeçalho, com o aviso) e `export-error`.
+- [ ] **Passo 4:** gate completo (Vitest, check, build, `test:visual`, `cargo test`, `cargo clippy --all-targets`).
+- [ ] **Passo 5:** review adversarial (Opus), mutações minhas e comparação com o Figma. Commit `feat(export): screen 8, export feedback, error in the header and Show in Finder`.
+
+**Verificar no ecrã (Bruno), com a build dev:**
+- exportar os novos: «✓ Exportado» 2 s, o cabeçalho sai, e o aviso leva ao Finder com os ficheiros selecionados;
+- Ficheiro › «Mostrar última exportação no Finder» depois de exportar, e desativado antes;
+- uma pasta sem permissão de escrita (por exemplo, criada com `chmod a-w`): o erro no cabeçalho, e «Escolher pasta…» grava a pasta e exporta.
 
 ## Fase 6 · Fecho da v2 (tasks a escrever)
 - **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.
