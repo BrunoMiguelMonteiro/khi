@@ -28,6 +28,8 @@ Scenarios (`scenarios.ts`):
 - `first-launch`: the first start (Ecrã 6): no Reader and no Kobo, «Liga o teu Kobo» and the bar with every control greyed.
 - `unknown-kobo`: a Kobo nobody owns connects with Bruno's Library open: «De quem é este Kobo?», the pop-up on Bruno (380 × 212).
 - `unknown-kobo-new-reader`: the same with «Novo leitor…» chosen, the name field focused with «Marta» written (380 × 248).
+- `library-reader-menu`: two Readers (Ecrã 10): the Título-menu «Biblioteca de Bruno ▾» is open, Bruno checked and Ana below (200 wide, 4 px under the title, aligned to its start).
+- `library-other-reader`: Ana chosen in that menu: «Biblioteca de Ana», her six books (`booksAna`), «8 destaques novos em 2 livros · desde 2 nov.» and «Exportar 2 livros».
 - `grid`: Kobo connected, library grid: the window bar, the header with news («N destaques novos em M livros») and the grid (a listbox of cards, one tab stop).
 - `grid-no-news`: the same Library with nothing new: no header, the grid starts 24 px below the bar.
 - `list`: library list view.

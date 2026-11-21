@@ -11,7 +11,7 @@
 export const menuContent = [
 	'z-50 p-1 outline-none',
 	'bg-popover text-popover-foreground',
-	'border-(length:--stroke-border) border-border rounded-menu shadow-sombra-menu',
+	'inset-ring-(length:--stroke-border) inset-ring-border rounded-menu shadow-sombra-menu',
 	'data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-open:motion-reduce:zoom-in-100',
 	'data-open:duration-(--duration-in) data-open:ease-out',
 	'data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-closed:motion-reduce:zoom-out-100',

@@ -12,6 +12,8 @@ export const HOME = '/Users/leitor';
 
 export const reader: Reader = { id: 1, name: 'Bruno', exportPath: null };
 
+export const readerAna: Reader = { id: 2, name: 'Ana', exportPath: null };
+
 export const device: KoboDevice = makeDevice({
 	name: 'Kobo Libra 2',
 	path: '/Volumes/KOBOeReader',
@@ -105,6 +107,29 @@ export const books: Book[] = [
 		]
 	})
 ];
+
+/** The `summary.newSince` of Ana's Library: «desde 2 nov.» (Figma 74:17252). */
+export const newSinceAna = '2026-11-02T10:00:00Z';
+
+const anaHighlights = (book: number, total: number, news: number) =>
+	Array.from({ length: total }, (_, i) => ({
+		id: `a${book}-${i + 1}`,
+		text: `Frase ${i + 1} do livro ${book}.`,
+		dateCreated: '2026-10-20T20:00:00Z',
+		...(i < news ? { isNew: true, syncedSeq: 2 } : {})
+	}));
+
+/** Ana's Library (Ecrã 10, Figma 74:17252): six books, two with news: 8 new highlights in 2 books. */
+export const booksAna: Book[] = [
+	['Memorial do Convento', 'José Saramago', 5, 5],
+	['Terra Sonâmbula', 'Mia Couto', 3, 0],
+	['A Costa dos Murmúrios', 'Lídia Jorge', 4, 0],
+	['A Gorda', 'Isabela Figueiredo', 3, 3],
+	['Os Pescadores', 'Raul Brandão', 2, 0],
+	['Contos Exemplares', 'Sophia de Mello Breyner Andresen', 6, 0]
+].map(([title, author, total, news], i) =>
+	makeBook({ id: 101 + i, title: title as string, author: author as string, dateLastRead: '2026-10-21T21:00:00Z', highlights: anaHighlights(i + 1, total as number, news as number) })
+);
 
 /** The same Library after its books were opened or exported: nothing is new. */
 export const booksWithoutNews: Book[] = books.map((book) => ({

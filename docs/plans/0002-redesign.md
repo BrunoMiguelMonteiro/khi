@@ -2770,12 +2770,24 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 3. **Teclado** (teste de página): Tab até ao Título-menu, Espaço ou ↓ abre o menu, ↓ vai até Ana, Return escolhe-a, e a Biblioteca passa a ser a de Ana. O foco volta ao Título-menu.
 
 **Passos:**
-- [ ] **Passo 1:** o teste do teclado (ponto 3). Se passar à primeira, fica como teste de regressão; diz-o no relatório.
-- [ ] **Passo 2:** os cenários `library-reader-menu` e `library-other-reader`, em 3 temas, comparados com o Figma: posição e largura do menu, marca, título, cabeçalho e contagens.
-- [ ] **Passo 3:** gate completo.
-- [ ] **Passo 4:** review adversarial (Opus), só se mudar código; senão, revisão minha. Depois, comparação com o Figma e commit `test(readers): screen 10, reader menu and another reader's Library`.
+- [x] **Passo 1:** o teste do teclado (ponto 3). Se passar à primeira, fica como teste de regressão; diz-o no relatório.
+- [x] **Passo 2:** os cenários `library-reader-menu` e `library-other-reader`, em 3 temas, comparados com o Figma: posição e largura do menu, marca, título, cabeçalho e contagens.
+- [x] **Passo 3:** gate completo.
+- [x] **Passo 4:** review adversarial (Opus), só se mudar código; senão, revisão minha. Depois, comparação com o Figma e commit `test(readers): screen 10, reader menu and another reader's Library`.
 
 **Verificar no ecrã (Bruno), com a build dev:** se tiveres dois leitores, abre o Título-menu, troca de leitor, e confirma que a Biblioteca, as novidades e o Exportar mudam de acordo.
+
+**Feito (2026-11-21).** Aprovada pelo Bruno («Aprovo a Task 50»). Feita pelo Sonnet e revista por mim. Não houve review adversarial, porque a única mudança de código é uma classe.
+- **Teste do teclado** `reader_menu_by_keyboard_opens_anas_library`: não passou à primeira por causa das asserções. A versão final espera que o foco entre no menu antes do ↓. A app não mudou, e o teste fica como regressão.
+- **Cenários novos:** `library-reader-menu` e `library-other-reader`, em 3 temas. A fixture `booksAna` e a opção `newSinceByReader` do mock dão o «desde 2 nov.» da Ana. O cabeçalho dela bate com o Figma («8 destaques novos em 2 livros», «Exportar 2 livros»).
+- **Diferença corrigida (decisão minha):** o menu media 200 × 58 em vez de 200 × 56, porque o `border` de 1 px somava ao `p-1`. O Figma e o comentário do `menuContent` dizem «1 px border inside». Passou a `inset-ring-(length:--stroke-border) inset-ring-border`. Os itens ficaram a +4 com 192 de largura, e a sombra continua. Vale para todos os menus e listas de Pop-up. Só mudaram as baselines do `library-reader-menu`, porque não há outro cenário com um menu aberto. A mutação que repõe o `border` faz falhar os testes do Menu e do Select.
+- **Gate:**
+  - Vitest: 1101 passam, 1 ignorado;
+  - `npm run check`: 0/0;
+  - build OK;
+  - `test:visual`: 179 passam;
+  - `cargo test`: 179;
+  - `clippy`: os 7 avisos de antes.
 
 ## Fase 6 · Fecho da v2 (tasks a escrever)
 - **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.

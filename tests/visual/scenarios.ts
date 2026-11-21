@@ -8,7 +8,7 @@ import type { Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import type { Language, ThemePreference, ViewMode } from '../../src/lib/bindings';
 import type { MockConfig } from './mock-ipc';
-import { APP_VERSION, HOME, availableUpdate, books, booksCoverTitles, booksDeletable, booksWithoutNews, defaultSettings, device, makeSettings, reader, summary } from './fixtures';
+import { APP_VERSION, HOME, availableUpdate, books, booksAna, booksCoverTitles, booksDeletable, booksWithoutNews, defaultSettings, device, makeSettings, newSinceAna, reader, summary } from './fixtures';
 
 export type ThemeName = 'light' | 'dark-app' | 'system-dark';
 
@@ -54,6 +54,8 @@ export interface Scenario {
 	otherReaderKobo?: boolean;
 	/** A Kobo nobody owns connects while Bruno's Library is open, and Ana is the other Reader: «De quem é este Kobo?». */
 	unownedKobo?: boolean;
+	/** Bruno and Ana both exist, the Kobo is Bruno's, and Ana's Library has her own books (Ecrã 10). */
+	twoReaders?: boolean;
 	/** The Reader exists with no books yet: the first Sync. */
 	emptyLibrary?: boolean;
 	/** `settings`: the Settings window, its own route (`/definicoes`) and size. Default: the main window. */
@@ -109,6 +111,10 @@ export interface Strings {
 	exportDisabledReason: string;
 	syncDisabledReason: string;
 	syncOtherReaderReason: string;
+	/** The title of Bruno's and of Ana's Library (the Título-menu's button), and Ana's header. */
+	titleBruno: string;
+	titleAna: string;
+	newsAna: string;
 	/** The title of the first Sync's centred state, and its text at 12 of 42 books. */
 	syncingTitle: string;
 	syncingText: string;
@@ -171,6 +177,9 @@ const STRINGS: Record<Language, Strings> = {
 		exportDisabledReason: 'Espera pelo fim da sincronização',
 		syncDisabledReason: 'Liga o Kobo para sincronizar',
 		syncOtherReaderReason: 'O Kobo ligado é de Ana',
+		titleBruno: 'Biblioteca de Bruno',
+		titleAna: 'Biblioteca de Ana',
+		newsAna: '8 destaques novos em 2 livros',
 		syncingTitle: 'A sincronizar com o Kobo',
 		syncingText: '12 de 42 livros',
 		tabExport: 'Exportação',
@@ -225,6 +234,9 @@ const STRINGS: Record<Language, Strings> = {
 		exportDisabledReason: 'Wait for the sync to finish',
 		syncDisabledReason: 'Connect your Kobo to sync',
 		syncOtherReaderReason: 'The connected Kobo belongs to Ana',
+		titleBruno: "Bruno's Library",
+		titleAna: "Ana's Library",
+		newsAna: '8 new highlights in 2 books',
 		syncingTitle: 'Syncing with the Kobo',
 		syncingText: '12 of 42 books',
 		tabExport: 'Export',
@@ -653,6 +665,36 @@ export const SCENARIOS: Record<string, Scenario> = {
 			await tooltipOpen(page);
 			await expect(page.locator('[data-slot="tooltip-content"]:not([data-state="closed"])')).toHaveText(text.syncOtherReaderReason);
 			await expect(sync).toHaveAttribute('aria-disabled', 'true');
+		}
+	},
+	'library-reader-menu': {
+		name: 'library-reader-menu',
+		description: 'Two Readers: the Título-menu «Biblioteca de Bruno ▾» is open with Bruno checked and Ana below (Ecrã 10, Figma 74:17138)',
+		withLibrary: true,
+		twoReaders: true,
+		async reach(page, text) {
+			await libraryWithoutKobo(page, text);
+			await bar(page).getByRole('button', { name: text.titleBruno, exact: true }).click();
+			await expect(page.getByRole('menuitemcheckbox', { name: 'Bruno', exact: true })).toBeVisible();
+			await expect(page.getByRole('menuitemcheckbox', { name: 'Bruno', exact: true })).toHaveAttribute('aria-checked', 'true');
+			await expect(page.getByRole('menuitemcheckbox', { name: 'Ana', exact: true })).toHaveAttribute('aria-checked', 'false');
+			await page.mouse.move(0, 0);
+		}
+	},
+	'library-other-reader': {
+		name: 'library-other-reader',
+		description: "Ana is chosen in the Título-menu: «Biblioteca de Ana», her six books, «8 destaques novos em 2 livros» and her Export (Ecrã 10, Figma 74:17252)",
+		withLibrary: true,
+		twoReaders: true,
+		async reach(page, text) {
+			await libraryWithoutKobo(page, text);
+			await bar(page).getByRole('button', { name: text.titleBruno, exact: true }).click();
+			await page.getByRole('menuitemcheckbox', { name: 'Ana', exact: true }).click();
+			await expect(bar(page).getByRole('button', { name: text.titleAna, exact: true })).toBeVisible();
+			await expect(page.getByTestId('book-card')).toHaveCount(booksAna.length);
+			await expect(page.locator('[data-slot="library-header"]')).toContainText(text.newsAna);
+			await expect(page.locator('[data-slot="library-header"]').getByRole('button', { name: text.exportNews, exact: true })).toBeVisible();
+			await page.mouse.move(0, 0);
 		}
 	},
 	list: {
@@ -1263,12 +1305,13 @@ export function mockConfigFor(scenario: Scenario, variant: Variant): MockConfig 
 		defaultSettings: defaultSettings(variant.language),
 		defaultExportPath: `${HOME}/Documents/Kobo`,
 		appVersion: APP_VERSION,
-		readers: scenario.withLibrary ? (scenario.otherReaderKobo || scenario.unownedKobo ? [reader, otherReader] : [reader]) : [],
+		readers: scenario.withLibrary ? (scenario.otherReaderKobo || scenario.unownedKobo || scenario.twoReaders ? [reader, otherReader] : [reader]) : [],
 		lastReader: scenario.withLibrary ? reader.id : null,
 		deviceAtStartup: null,
 		koboOwners: scenario.withLibrary && !scenario.unownedKobo ? { [device.serialNumber!]: scenario.otherReaderKobo ? otherReader.id : reader.id } : {},
-		library: scenario.withLibrary ? { [reader.id]: library, ...(scenario.otherReaderKobo || scenario.unownedKobo ? { [otherReader.id]: [] } : {}) } : {},
+		library: scenario.withLibrary ? { [reader.id]: library, ...(scenario.twoReaders ? { [otherReader.id]: booksAna } : scenario.otherReaderKobo || scenario.unownedKobo ? { [otherReader.id]: [] } : {}) } : {},
 		summary,
+		newSinceByReader: scenario.twoReaders ? { [otherReader.id]: newSinceAna } : undefined,
 		update: scenario.update ? availableUpdate : null,
 		updateFailure: scenario.updateFailure,
 		exportFailure: scenario.exportFailure ? { kind: 'folderNotWritable', folder: `${HOME}/Documents/Kobo` } : undefined,

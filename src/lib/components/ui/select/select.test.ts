@@ -140,10 +140,10 @@ const CONTENT_BINDINGS: Binding[] = [
   { binding: "popover (fill)", utility: "bg-popover", css: "background-color: var(--popover);" },
   {
     binding: "stroke/border (inside)",
-    utility: "border-(length:--stroke-border)",
-    css: "border-width: var(--stroke-border);",
+    utility: "inset-ring-(length:--stroke-border)",
+    css: "inset 0 0 0 var(--stroke-border)",
   },
-  { binding: "border (stroke)", utility: "border-border", css: "border-color: var(--border);" },
+  { binding: "border (stroke)", utility: "inset-ring-border", css: "--tw-inset-ring-color: var(--border);" },
   { binding: "radius/menu", utility: "rounded-menu", css: "border-radius: var(--radius-menu);" },
   {
     binding: "Sombra/Menu (effect style)",
@@ -365,7 +365,7 @@ describe("Select", () => {
     await expectBindings(content, CONTENT_BINDINGS);
     // The shared Menu surface and item (Task 17 reuses them).
     for (const c of menuContent.split(/\s+/)) expect(content.classList.contains(c), c).toBe(true);
-    expect(colourClasses(content)).toEqual(["bg-popover", "border-border", "text-popover-foreground"]);
+    expect(colourClasses(content)).toEqual(["bg-popover", "inset-ring-border", "text-popover-foreground"]);
     // As wide as the trigger at least.
     expect(content.classList.contains("min-w-(--bits-select-anchor-width)")).toBe(true);
     for (const option of options()) {

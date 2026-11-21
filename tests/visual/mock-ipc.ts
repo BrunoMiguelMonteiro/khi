@@ -26,6 +26,8 @@ export interface MockConfig {
 	library: Record<number, LibraryBook_Serialize[]>;
 	/** What `library_summary` answers; `lastSyncAt` only for a Kobo that is the Reader's, as Rust does. */
 	summary: { newSince: string | null; lastSyncAt: string | null };
+	/** A Reader whose «desde» differs from `summary.newSince`: Reader id → that date. */
+	newSinceByReader?: Record<number, string>;
 	/** What `plugin:updater|check` returns: `null` when up to date. */
 	update: unknown;
 	/** `check`: `plugin:updater|check` fails (state 6, «Sem ligação»). `install`: the download works and the install fails (state 7). */
@@ -270,7 +272,7 @@ export function installTauriMock(config: MockConfig): void {
 				return config.lastReader;
 			case 'library_summary': {
 				const ownsKobo = args.koboSerial != null && config.koboOwners[args.koboSerial] === args.readerId;
-				return { newSince: config.summary.newSince, lastSyncAt: ownsKobo ? config.summary.lastSyncAt : null };
+				return { newSince: config.newSinceByReader?.[args.readerId] ?? config.summary.newSince, lastSyncAt: ownsKobo ? config.summary.lastSyncAt : null };
 			}
 			case 'get_library':
 				return config.library[args.readerId] ?? [];

@@ -1541,6 +1541,39 @@ describe('+page · screen 2 · syncing', () => {
 		await waitFor(() => expect(title()).not.toHaveAttribute('aria-disabled', 'true'));
 	});
 
+	it('reader_menu_by_keyboard_opens_anas_library', async () => {
+		const user = userEvent.setup();
+		const anas = [makeBook({ id: 7, title: 'Delta', author: 'D', highlights: [hl('d1')] })];
+		await mockLibrary({
+			books: newBooks(),
+			overrides: { get_library: (args) => ((args as { readerId: number }).readerId === 2 ? structuredClone(anas) : newBooks()) }
+		});
+		render(Page);
+		const title = () => within(bar()!).getByRole('button', { name: "Bruno's Library" });
+		await waitFor(() => expect(options()).toHaveLength(3));
+
+		// Tab reaches the title among the bar's controls
+		for (let stops = 0; stops < 20 && document.activeElement !== title(); stops++) await user.tab();
+		expect(document.activeElement).toBe(title());
+
+		// Space opens the menu; Down goes to Ana; Return chooses her
+		await user.keyboard(' ');
+		await menuItem('Ana');
+		// The focus moves into the menu once it is open (not on the same tick)
+		await waitFor(() => expect(document.activeElement?.closest('[data-slot="dropdown-menu-content"]')).not.toBeNull());
+		for (let presses = 0; presses < 3 && document.activeElement?.textContent?.trim() !== 'Ana'; presses++) await user.keyboard('{ArrowDown}');
+		expect(document.activeElement).toBe(await menuItem('Ana'));
+		await user.keyboard('{Enter}');
+
+		// Her Library is the one on screen, and the focus is back on the title
+		await waitFor(() => expect(library.activeReaderId).toBe(2));
+		const anasTitle = await screen.findByRole('button', { name: "Ana's Library" });
+		await waitFor(() => expect(options()).toHaveLength(1));
+		expect(options()[0]).toHaveTextContent('Delta');
+		await waitFor(() => expect(document.activeElement).toBe(anasTitle));
+		await waitFor(() => expect(menuItems()).toHaveLength(0));
+	});
+
 	const progress = async (done: number, total: number) => {
 		handlers.get('sync-progress')!({ payload: { done, total } });
 		await tick();

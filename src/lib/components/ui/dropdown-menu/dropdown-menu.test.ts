@@ -92,10 +92,10 @@ const CONTENT_BINDINGS: Binding[] = [
   { binding: "popover (fill)", utility: "bg-popover", css: "background-color: var(--popover);" },
   {
     binding: "stroke/border (inside)",
-    utility: "border-(length:--stroke-border)",
-    css: "border-width: var(--stroke-border);",
+    utility: "inset-ring-(length:--stroke-border)",
+    css: "inset 0 0 0 var(--stroke-border)",
   },
-  { binding: "border (stroke)", utility: "border-border", css: "border-color: var(--border);" },
+  { binding: "border (stroke)", utility: "inset-ring-border", css: "--tw-inset-ring-color: var(--border);" },
   { binding: "radius/menu", utility: "rounded-menu", css: "border-radius: var(--radius-menu);" },
   {
     binding: "Sombra/Menu (effect style)",
@@ -178,7 +178,7 @@ describe("DropdownMenu", () => {
     expect(content.getAttribute("role")).toBe("menu");
     await expectBindings(content, CONTENT_BINDINGS);
     for (const c of menuContent.split(/\s+/)) expect(content.classList.contains(c), c).toBe(true);
-    expect(colourClasses(content)).toEqual(["bg-popover", "border-border", "text-popover-foreground"]);
+    expect(colourClasses(content)).toEqual(["bg-popover", "inset-ring-border", "text-popover-foreground"]);
     for (const el of items()) {
       await expectBindings(el, ITEM_BINDINGS);
       for (const c of menuItem.split(/\s+/)) expect(el.classList.contains(c), c).toBe(true);
