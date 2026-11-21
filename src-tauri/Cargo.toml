@@ -45,3 +45,6 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std"
 [dev-dependencies]
 tempfile = "3.10"
 mockall = "0.12"
+
+[profile.release.build-override]
+strip = false
