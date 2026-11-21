@@ -3026,7 +3026,79 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
   - **Correção (2026-11-21):** os `icon_*.png` e o `favicon.png` novos eram de 16 bits por canal, e a app não arrancava («invalid icon: … 32x32 … 2048»), porque o Tauri lê o `icon_32x32.png` como RGBA de 8 bits. Convertidos para 8 bits com `magick -depth 8 PNG32:` (cerca de 0,07 % de píxeis com ±1 de cor). A build dev arranca e abre só a pasta Dev.
   - **Aprovada no ecrã pelo Bruno (2026-11-21):** «Aprovo o ícone».
 
+### Task 55: Inglês dos ecrãs do redesign
+**Decisões** (DECISIONS «Fase 6 · Inglês», 2026-11-21, todas do Bruno com a minha recomendação; levantamento em `khi-ui-redesign/levantamento-ingles.md`):
+- **Maiúsculas (HIG):** title case nos menus, nas opções de menus pop-up (o Ordenar) e nos botões com texto. Sentence case no resto: títulos de alertas e janelas, frases, tooltips e rótulos.
+- **Kobo:** sem artigo nas ações e nos rótulos curtos; «your Kobo» nas frases. Nunca «the Kobo».
+- **Apagar livro:** «… will be permanently removed from the Library.»
+- **Cor de destaque:** «“System” uses the accent color you chose in macOS.»
+- **Só muda o en**, menos as três chaves novas do menu e as reticências ASCII, que levam também pt. O pt da cor de destaque fica apontado no «Visto à margem».
+
+**O que já existe** (levantamento a 2026-11-21):
+- O `en.json` e o `pt.json` têm as mesmas chaves, e todas as 111 chaves novas do redesign são usadas.
+- O `ui.windowBar.sync`, o `delete` e o `sort` são ao mesmo tempo tooltip de um botão com ícone (`window-bar.svelte`) e item de menu (`menu.ts` e `menu-state.ts:61`). O `ui.windowBar.export` é o texto de um botão e de um item de menu.
+- O `menu.ts` ≈ 170 faz `t('settings.title') + '...'`.
+
+**Textos a mudar (en):**
+
+| Chave | Hoje | Passa a |
+|---|---|---|
+| `ui.windowBar.sync` (tooltip) | Sync with the Kobo | Sync with Kobo |
+| **nova** `app.menuSync` (pt «Sincronizar com o Kobo») | — | Sync with Kobo |
+| **nova** `app.menuDelete` (pt «Apagar livro…») | — | Delete Book… |
+| **nova** `app.menuSortBy` (pt «Ordenar por») | — | Sort By |
+| `ui.windowBar.export` (+ `_one`, `_other`) | Export {count} books / Export 1 book | Export {count} Books / Export 1 Book |
+| `screens.library.header.exportBooks` (+ `_one`, `_other`) | Export {count} books / Export 1 book | Export {count} Books / Export 1 Book |
+| `screens.library.header.showOnly` | Show only these | Show Only These |
+| `screens.library.header.retry` | Try again | Try Again |
+| `screens.library.header.chooseFolder` | Choose folder… | Choose Folder… |
+| `screens.library.header.syncing` | Syncing with the Kobo | Syncing with Kobo |
+| `screens.syncingEmpty.title` | Syncing with the Kobo | Syncing with Kobo |
+| `screens.noKobo.subtitle` | … even with the Kobo unplugged. | Your highlights stay in the Library even when your Kobo is unplugged. |
+| `screens.library.titleOf` | {reader}'s Library | {reader}’s Library |
+| `screens.library.sort.title` / `author` | Title (A-Z) / Author (A-Z) | Title (A–Z) / Author (A–Z) |
+| `screens.bookDetails.deleteBookBody` | Its highlights were all removed from the Kobo. The book and its highlights leave the Library for good. | All its highlights were removed from your Kobo. The book and its highlights will be permanently removed from the Library. |
+| `screens.bookDetails.deleteBookError` | Could not delete the book. | Couldn’t delete the book. |
+| `settings.export.folderHelp` | {path} · {name}'s books are exported here. | {path} · {name}’s books are exported here. |
+| `settings.accent.hint` | System uses the accent color set in macOS. | “System” uses the accent color you chose in macOS. |
+| `notifications.syncError` | Could not sync the Kobo | Couldn’t sync your Kobo. |
+| `notifications.openReaderError` | Could not open this reader's Library | Couldn’t open this reader’s Library. |
+| `updates.checking.title` | Checking for Updates… | Checking for updates… |
+| `updates.error.title` | Couldn’t Check for Updates | Couldn’t check for updates. |
+| `updates.installError.title` | Couldn’t Install the Update | Couldn’t install the update. |
+| `updates.available.whatsNew` / `bugFixes` | What’s New / Bug Fixes | What’s new / Bug fixes |
+| `menu.ts`: `settings.title` + `'...'` | Settings... | Settings… (e Definições… em pt) |
+| `app.loading` (en e pt) | Loading... / A carregar... | Loading… / A carregar… |
+| `screens.importing.title` (en e pt) | Syncing highlights... / A sincronizar destaques... | Syncing highlights… / A sincronizar destaques… |
+
+**Comportamento a provar:**
+1. **O menu usa as chaves próprias:** Ficheiro › «Sync with Kobo», Visualização › «Sort By» e Livro › «Delete Book…» vêm de `app.menuSync`, `app.menuSortBy` e `app.menuDelete`, e os tooltips da barra continuam a usar o `ui.windowBar.*`. Os testes do `menu-state` e do `menu` mostram-no em en.
+2. **Regras do texto, num teste de i18n** (`src/lib/i18n/*.test.ts`):
+   - nenhum texto en ou pt tem «...» (exige «…»);
+   - nenhum texto en tem um apóstrofo reto entre letras;
+   - nenhum texto en tem «the Kobo».
+3. **Os textos da tabela** estão no `en.json`, e as três chaves novas estão também no `pt.json` (a paridade pt/en continua garantida pelo teste que já existe).
+4. **Visual:** a suite passa. As baselines que mudarem são todas en; abro os PNG um a um.
+
+**Passos:**
+- [ ] **Passo 1 (TDD):** os testes dos pontos 1 e 2. Vermelho.
+- [ ] **Passo 2:** as chaves novas no `menu.ts` e no `menu-state.ts`, e os textos da tabela. Verde.
+- [ ] **Passo 3:** gate completo. As baselines visuais en atualizam-se com `npm run test:visual:update -- -g <nome>`, só as que mudaram de texto.
+- [ ] **Passo 4 (eu):** review adversarial (Opus), só se o código for além das chaves do menu. Mutações nos testes do ponto 2. Build dev com a app em en: menus, barra, cabeçalho, apagar livro e Definições. Commit `fix(i18n): English copy follows the HIG`.
+
+**Verificar no ecrã (Bruno), com a build dev e a app em inglês:**
+- os menus em title case («Sync with Kobo», «Export 12 Books», «Sort By», «Delete Book…», «Settings…»);
+- os tooltips da barra em sentence case;
+- o cabeçalho com «Try Again» e «Choose Folder…»;
+- o texto novo de Apagar livro.
+
+**Fora desta task** (proposta à parte, depois de confirmar no ecrã): os itens nativos do menu (Undo, Cut, Copy, Paste, Hide Khi, Quit Khi, Minimize, Zoom, Close Window…) têm texto fixo em inglês no muda 0.20 e devem aparecer em inglês com a app em pt. O `PredefinedMenuItem.new` aceita `text`.
+
 ## Visto à margem (não se apaga sem pedido)
+- `LibraryToolbar.svelte` e `ImportingState.svelte` já não são importados por ninguém. Com eles ficam sem uso `screens.library.exportAll`, `exportSelected`, `clearSelection`, `importTitle` e `screens.importing.*`.
+  
+- O pt de `settings.accent.hint` («Sistema usa a cor escolhida no macOS.») tem a mesma ambiguidade que o en tinha.
+  
 - `src/lib/components/LibraryView.svelte.backup` e `date.ts` são código morto.
   
 - O `vite.config.ts` tem um caminho antigo em `server.fs.allow` (`/Users/bruno/Documents/…`).
