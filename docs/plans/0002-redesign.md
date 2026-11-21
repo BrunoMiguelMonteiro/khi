@@ -3008,14 +3008,20 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 3. Os nomes dos ficheiros em `src-tauri/icons/` não mudam, por isso o `tauri.conf.json` fica como está.
 
 **Passos** (sem Sonnet nem review: só troca ficheiros de imagem):
-- [ ] **Passo 1 (eu):** gerar os PNG e o `.ico` a partir do `Khi.png` com `npx tauri icon`, para uma pasta temporária, e copiar só os ficheiros que o `tauri.conf.json` usa.
+- [x] **Passo 1 (eu):** gerar os PNG e o `.ico` a partir do `Khi.png` com `npx tauri icon`, para uma pasta temporária, e copiar só os ficheiros que o `tauri.conf.json` usa.
   - `icon.icns`: o `Khi.icns` do design, que já tem as versões simplificadas.
   - `icon_32x32.png`: o 32 do `.icns` desenhado, e não uma redução.
   - `favicon.png`: trocado também, para ficar coerente.
-- [ ] **Passo 2 (eu):** confirmar com `iconutil` que o `.icns` copiado é o do design. Correr o `npm run test:visual` (179) e a build dev.
-- [ ] **Passo 3 (eu):** ver o ícone no Dock e no Finder (a cache do macOS pode atrasar a troca). Commit `feat(icon): new app icon (khi-desvio-optico)`.
+- [x] **Passo 2 (eu):** confirmar com `iconutil` que o `.icns` copiado é o do design. Correr o `npm run test:visual` (179) e a build dev.
+- [x] **Passo 3 (eu):** ver o ícone no Dock e no Finder (a cache do macOS pode atrasar a troca). Commit `feat(icon): new app icon (khi-desvio-optico)`.
 
 **Verificar no ecrã (Bruno), com a build dev:** o ícone novo aparece no Dock, no Finder e no ⌘Tab, e é nítido nos tamanhos pequenos.
+- **Feito (2026-11-21), à espera do ecrã do Bruno:**
+  - o `icon.icns` é o do design (md5 igual, também dentro da app compilada);
+  - os 10 PNG `icon_*` vêm do próprio `.icns`, por isso o 16 e o 32 são os simplificados;
+  - o `icon.ico` vem do `tauri icon`;
+  - o `favicon.png` é o 128;
+  - visual 179.
 
 ## Visto à margem (não se apaga sem pedido)
 - `src/lib/components/LibraryView.svelte.backup` e `date.ts` são código morto.
