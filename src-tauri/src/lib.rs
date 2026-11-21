@@ -95,6 +95,10 @@ pub fn run() {
             // Register typed events before anything emits them
             builder.mount_events(app);
 
+            // The data folder follows the app identifier: record it before
+            // anything asks for the folder
+            settings::set_app_identifier(&app.config().identifier);
+
             // The persistent Library, shared by the UI commands
             let data_dir = settings::data_dir()?;
             let library = library::Library::open(&data_dir)?;

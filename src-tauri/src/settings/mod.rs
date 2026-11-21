@@ -347,23 +347,40 @@ fn language_from_apple_languages(output: &str) -> Language {
     }
 }
 
-/// Where `data_dir` lives under `home`. Debug builds (`tauri dev`) get
-/// their own folder, so development never touches the installed Khi's
-/// settings or Library.
-fn data_dir_in(home: &Path) -> PathBuf {
-    let folder = if cfg!(debug_assertions) {
+/// The app identifier from the Tauri config, set once in `setup`.
+static APP_IDENTIFIER: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
+/// Records the app identifier; `data_dir` fails until this has run.
+pub fn set_app_identifier(identifier: &str) {
+    let _ = APP_IDENTIFIER.set(identifier.to_string());
+}
+
+/// Where `data_dir` lives under `home`. The `.dev` identifier (`npm run
+/// dev:app` and the Khi Dev build) gets its own folder, so development never
+/// touches the installed Khi's settings or Library. Without an identifier,
+/// or in a debug build without the `.dev` one, there is no answer: it never
+/// falls back to the real folder.
+fn data_dir_for(home: &Path, identifier: Option<&str>, debug: bool) -> Result<PathBuf, SettingsError> {
+    let identifier = identifier.ok_or(SettingsError::IdentifierUnknown)?;
+    let folder = if identifier.ends_with(".dev") {
         "KoboHighlightsExporter Dev"
+    } else if debug {
+        return Err(SettingsError::DebugBuildNeedsDevIdentifier);
     } else {
         "KoboHighlightsExporter"
     };
-    home.join("Library/Application Support").join(folder)
+    Ok(home.join("Library/Application Support").join(folder))
 }
 
 /// The Khi's data folder (`settings.json`, `library.sqlite`, `covers/`),
 /// created if missing.
 pub fn data_dir() -> Result<PathBuf, SettingsError> {
     let home = std::env::var("HOME").map_err(|_| SettingsError::HomeNotFound)?;
-    let dir = data_dir_in(Path::new(&home));
+    let dir = data_dir_for(
+        Path::new(&home),
+        APP_IDENTIFIER.get().map(String::as_str),
+        cfg!(debug_assertions),
+    )?;
     if !dir.exists() {
         fs::create_dir_all(&dir).map_err(SettingsError::IoError)?;
     }
@@ -591,6 +608,10 @@ impl SettingsManager {
 pub enum SettingsError {
     /// Home directory not found
     HomeNotFound,
+    /// The app identifier was not recorded before asking for the data folder
+    IdentifierUnknown,
+    /// A debug build ran with the real identifier, which would open the real folder
+    DebugBuildNeedsDevIdentifier,
     /// IO error
     IoError(std::io::Error),
     /// Parse error
@@ -603,6 +624,11 @@ impl std::fmt::Display for SettingsError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             SettingsError::HomeNotFound => write!(f, "Home directory not found"),
+            SettingsError::IdentifierUnknown => write!(f, "App identifier not known"),
+            SettingsError::DebugBuildNeedsDevIdentifier => write!(
+                f,
+                "A debug build must run with the dev config so it never opens the real data folder: use `npm run dev:app`"
+            ),
             SettingsError::IoError(e) => write!(f, "IO error: {}", e),
             SettingsError::ParseError(e) => write!(f, "Parse error: {}", e),
             SettingsError::SerializeError(e) => write!(f, "Serialize error: {}", e),
@@ -702,16 +728,43 @@ mod tests {
         assert_eq!(manager.settings.export_config.export_path, "/v2/export");
     }
 
+    const DEV: Option<&str> = Some("com.bruno.khi.dev");
+    const REAL: Option<&str> = Some("com.bruno.khi");
+    const SUPPORT: &str = "/h/Library/Application Support/";
+
     #[test]
-    fn debug_builds_use_their_own_data_folder() {
-        let dir = data_dir_in(Path::new("/h"));
-        let expected = if cfg!(debug_assertions) {
-            "/h/Library/Application Support/KoboHighlightsExporter Dev"
-        } else {
-            "/h/Library/Application Support/KoboHighlightsExporter"
-        };
-        assert_eq!(dir, PathBuf::from(expected));
+    fn dev_identifier_uses_the_dev_data_folder_in_any_build() {
+        for debug in [true, false] {
+            let dir = data_dir_for(Path::new("/h"), DEV, debug).unwrap();
+            assert_eq!(dir, PathBuf::from(format!("{SUPPORT}KoboHighlightsExporter Dev")));
+        }
     }
+
+    #[test]
+    fn release_build_with_the_real_identifier_uses_the_real_folder() {
+        let dir = data_dir_for(Path::new("/h"), REAL, false).unwrap();
+        assert_eq!(dir, PathBuf::from(format!("{SUPPORT}KoboHighlightsExporter")));
+    }
+
+    #[test]
+    fn debug_build_without_the_dev_identifier_is_an_error_never_the_real_folder() {
+        let result = data_dir_for(Path::new("/h"), REAL, true);
+        assert!(matches!(result, Err(SettingsError::DebugBuildNeedsDevIdentifier)));
+        assert!(result.unwrap_err().to_string().contains("npm run dev:app"));
+    }
+
+    #[test]
+    fn unknown_identifier_is_an_error_never_the_real_folder() {
+        for debug in [true, false] {
+            assert!(matches!(
+                data_dir_for(Path::new("/h"), None, debug),
+                Err(SettingsError::IdentifierUnknown)
+            ));
+        }
+        // Nothing in the test binary sets the identifier
+        assert!(matches!(data_dir(), Err(SettingsError::IdentifierUnknown)));
+    }
+
     use tempfile::TempDir;
 
     #[test]

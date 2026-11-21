@@ -123,7 +123,7 @@ cd khi
 npm install
 
 # Run in development mode
-npm run tauri dev
+npm run dev:app
 ```
 
 ### Run Tests
