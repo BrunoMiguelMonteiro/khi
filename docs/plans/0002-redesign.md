@@ -2794,6 +2794,8 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 ## Fase 6 · Fecho da v2
 - **Menus:** desenhados na ronda Q-Z (Z1 escolhida). Ver a Task 53.
   
+- **Ícone da app:** o `khi-desvio-optico` (Bruno, 2026-11-21). Ver a Task 54.
+  
 - **Inglês:** os textos dos ecrãs do redesign.
   
 - **Release:**
@@ -2983,6 +2985,37 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 - num livro com todos os destaques removidos, Livro › Apagar livro… abre a confirmação;
 - com dois leitores, Visualização mostra-os e troca de Biblioteca.
 - **Feito (2026-11-21), aprovado no ecrã pelo Bruno:** `src/lib/menu-state.ts` (função pura, 16 testes) e `menu.ts` refeito. A review adversarial encontrou duas falhas, ambas corrigidas: uma tecla mantida repetia o ⌘E e o ⌘R (agora há um intervalo de 300 ms), e a reconstrução do menu depois de mudar de língua podia correr ao mesmo tempo que uma atualização e congelar os estados (agora corre em série, e cada ação confirma o estado antes de agir). 15 mutações dos guardas apanhadas (duas só depois de dois testes novos). Gate: vitest 1131 + 1 skipped, check 0/0, visual 179. Na build dev: o ⌘2 muda a vista pelo menu nativo.
+
+### Task 54: Ícone da app (khi-desvio-optico)
+**Decisões** (Bruno, 2026-11-21):
+- **Ícone novo:** o de `design/khi-desvio-optico/` (raiz do projeto): um Kobo creme, de ecrã escuro, com uma seta verde que tira um destaque.
+- **Tamanhos pequenos:** ficam as versões simplificadas de 16 e 32 px (`Khi-16.svg` e `Khi-32.svg`).
+
+**O que já existe** (levantamento a 2026-11-21):
+- `design/khi-desvio-optico/` tem:
+  - `Khi.svg`;
+  - `Khi.png` (1024 × 1024);
+  - `Khi-16.svg` e `Khi-32.svg`;
+  - `Khi.icns`, que já leva os 10 tamanhos do macOS, com as versões simplificadas no 16 e no 32 (confirmado com `iconutil`).
+- A app usa os ícones da v1, em `src-tauri/icons/`. O `tauri.conf.json` (`bundle.icon`) aponta para:
+  - `icon_32x32.png`, `icon_128x128.png` e `icon_128x128@2x.png`;
+  - `icon.icns` e `icon.ico`.
+- A página tem o `static/favicon.png` (`src/app.html`). Numa app Tauri, a janela não o mostra.
+
+**Comportamento a provar:**
+1. A app compilada mostra o ícone novo no Dock, no Finder, em «Acerca do Khi» e no ⌘Tab.
+2. Os tamanhos pequenos (16 e 32) são os simplificados, não uma redução do grande.
+3. Os nomes dos ficheiros em `src-tauri/icons/` não mudam, por isso o `tauri.conf.json` fica como está.
+
+**Passos** (sem Sonnet nem review: só troca ficheiros de imagem):
+- [ ] **Passo 1 (eu):** gerar os PNG e o `.ico` a partir do `Khi.png` com `npx tauri icon`, para uma pasta temporária, e copiar só os ficheiros que o `tauri.conf.json` usa.
+  - `icon.icns`: o `Khi.icns` do design, que já tem as versões simplificadas.
+  - `icon_32x32.png`: o 32 do `.icns` desenhado, e não uma redução.
+  - `favicon.png`: trocado também, para ficar coerente.
+- [ ] **Passo 2 (eu):** confirmar com `iconutil` que o `.icns` copiado é o do design. Correr o `npm run test:visual` (179) e a build dev.
+- [ ] **Passo 3 (eu):** ver o ícone no Dock e no Finder (a cache do macOS pode atrasar a troca). Commit `feat(icon): new app icon (khi-desvio-optico)`.
+
+**Verificar no ecrã (Bruno), com a build dev:** o ícone novo aparece no Dock, no Finder e no ⌘Tab, e é nítido nos tamanhos pequenos.
 
 ## Visto à margem (não se apaga sem pedido)
 - `src/lib/components/LibraryView.svelte.backup` e `date.ts` são código morto.
