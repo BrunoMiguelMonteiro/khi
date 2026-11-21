@@ -2789,6 +2789,8 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
   - `cargo test`: 179;
   - `clippy`: os 7 avisos de antes.
 
+**Ecrã 10 aprovado a 2026-11-21** (Bruno: «Aprovo o ecrã 10»), pela build dev. Ficam aprovados os 10 ecrãs da Fase 5.
+
 ## Fase 6 · Fecho da v2 (tasks a escrever)
 - **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.
   
