@@ -2397,6 +2397,10 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
   - nomes de leitor duplicados;
   - o piscar da cor de destaque no arranque;
   - o `homeDir()` real, só testado com mock (a confirmar na build dev).
+- **Correções do Bruno na build dev (2026-11-21):**
+  - o título nativo fica escondido (`hidden_title: true`);
+  - os semáforos passam a (20,18), seguindo a regra «Figma + 8» medida na janela principal;
+  - verificado na janela real: botão de fechar em AX top 8, sem título.
 
 ## Fase 6 · Fecho da v2 (tasks a escrever)
 - **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.

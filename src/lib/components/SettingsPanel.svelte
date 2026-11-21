@@ -1,6 +1,6 @@
 <!--
   SettingsPanel: the Settings window (Task 45). A bar of 89 px drawn under the Overlay title bar,
-  whose first row is the native title and the traffic lights and whose second row is the tabs, over
+  whose first row is the traffic lights (the native title is hidden) and whose second row is the tabs, over
   the pane. The window is as tall as the pane (the page measures `frame`); every control writes at
   the moment it changes, so there is no Save, Cancel or Reset.
 -->
@@ -76,7 +76,7 @@
 	data-slot="settings-window"
 	class="bg-background text-foreground"
 >
-	<!-- 89 px: py-2, the first row (the native title and the traffic lights), gap-2, and the tabs -->
+	<!-- 89 px: py-2, the first row (the traffic lights), gap-2, and the tabs -->
 	<div
 		data-slot="settings-bar"
 		data-tauri-drag-region

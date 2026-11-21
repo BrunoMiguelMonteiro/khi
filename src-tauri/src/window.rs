@@ -50,7 +50,7 @@ pub struct SettingsWindowSpec {
     pub width: f64,
     pub height: f64,
     pub title_bar_style: tauri::TitleBarStyle,
-    /// The native title stays in view under the page's bar (the main window hides it).
+    /// The native title is hidden: the page draws the bar. `setTitle` still names the window (Window menu, Mission Control).
     pub hidden_title: bool,
     /// Where the traffic lights go, in points from the window's top left corner.
     pub traffic_light_position: (f64, f64),
@@ -71,10 +71,13 @@ pub fn settings_window_spec(title: String) -> SettingsWindowSpec {
         resizable: false,
         width: 540.0,
         height: 382.0,
-        // The page draws the bar: the native title and the traffic lights share its first row
+        // The page draws the bar under the traffic lights
         title_bar_style: tauri::TitleBarStyle::Overlay,
-        hidden_title: false,
-        traffic_light_position: (20.0, 10.0),
+        hidden_title: true,
+        // The Figma has the lights at (20, 10), but tao does not take y as the distance from the
+        // top: it grows the bar by y and leaves the buttons where they were. Measured on the main
+        // window, config y 28 gives the button at AX top 18, so y = the Figma's y + 8. Not 10.
+        traffic_light_position: (20.0, 18.0),
         minimizable: false,
         maximizable: false,
         visible: false,
@@ -318,11 +321,12 @@ mod tests {
         // 540 wide; the page sets the height to its pane (`setSize`) before showing the window,
         // and this is the first pane's (Exportação, 382)
         assert_eq!((spec.width, spec.height), (540.0, 382.0));
-        // The page draws the bar under the native title and the traffic lights (Task 45)
+        // The page draws the bar under the traffic lights (Task 45)
         assert_eq!(spec.title_bar_style, tauri::TitleBarStyle::Overlay);
-        assert!(!spec.hidden_title, "the native title shows, in the bar's first row");
-        // x 20, y 10: the lights and the title share the bar's first row
-        assert_eq!(spec.traffic_light_position, (20.0, 10.0));
+        assert!(spec.hidden_title, "the native title is hidden; the pane's name is only the window's name");
+        // The Figma has the lights at (20, 10); tao's y is not the distance from the top, so the
+        // config is the Figma's y + 8 (measured on the main window: y 28 puts the button at AX top 18)
+        assert_eq!(spec.traffic_light_position, (20.0, 18.0));
         assert!(!spec.minimizable);
         assert!(!spec.maximizable);
         // Shown by the page once its theme is applied

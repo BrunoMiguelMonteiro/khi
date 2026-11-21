@@ -44,7 +44,7 @@
 		appWindow.close().catch((error) => console.error('Failed to close settings:', error));
 	}
 
-	// The native title is the pane's name, in the language of the window
+	// The window's name (Window menu, Mission Control) is the pane's, in the language of the window; the title itself is hidden
 	$effect(() => {
 		if (!settings.loaded) return;
 		appWindow
