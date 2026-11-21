@@ -2746,6 +2746,37 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 
 **Capas aprovadas a 2026-11-21** (Bruno: «Capas aprovadas»), pela build dev.
 
+### Task 50: Ecrã 10 · Vários leitores (verificação e cenários)
+**Decisões** (ver DECISIONS, «Ecrãs · 10 · Vários leitores» e «Q-M»):
+- **Atalho para trocar de leitor (Bruno, 2026-11-21):** não há. A troca faz-se pelo Título-menu, que já abre pelo teclado. Na Fase 6, a barra de menus pode ter uma lista «Leitor», também sem atalho.
+- **Já decididas:** o Título-menu serve de seletor (R4, componente 22). A Q-M é a M2, com o pop-up «Leitor» no painel Kobo. «Biblioteca de Bruno» fica com 19 caracteres. O Título-menu fica desativado durante a sincronização (Task 38). Com o Kobo de outro leitor ligado, o tooltip diz «O Kobo ligado é de {leitor}» (Task 39).
+
+**O que já existe** (levantamento a 2026-11-21):
+- `ui/title-menu`: com um leitor mostra «Biblioteca» em texto; com vários, um menu com a marca no leitor ativo, 4 px abaixo e alinhado ao início. O botão mostra «Biblioteca de {leitor}»;
+- `settings/KoboPane.svelte`: a M2, com dois ou mais leitores;
+- `UnknownKoboDialog`: o Kobo novo com leitores (ecrã 6, cenário `unknown-kobo`).
+- Ainda não há nenhum cenário visual do menu aberto nem da Biblioteca de outro leitor com livros.
+
+**Figma** (só leitura): menu aberto `74:17138` / `74:17195`; Biblioteca de Ana `74:17252` / `74:17479`, com 6 livros, «8 destaques novos em 2 livros», «desde 2 nov.» e «Exportar 2 livros»; Kobo novo com leitores `74:17706` / `74:17770`; cartão `74:18446`.
+
+**Ficheiros:**
+- `tests/visual/scenarios.ts`, `fixtures.ts` e `README.md`: os cenários novos;
+- `src/routes/page.svelte.test.ts`: o teste do teclado;
+- **qualquer código só se a comparação com o Figma mostrar uma diferença.** Nesse caso, reporta a diferença antes de a corrigir, e o orquestrador decide.
+
+**Comportamento a provar:**
+1. **Menu aberto** (`library-reader-menu`): com Bruno e Ana, o Título-menu «Biblioteca de Bruno ▾» abre a lista com Bruno marcado e Ana por baixo. A lista tem 200 de largura, fica 4 px abaixo do botão e alinha com o início dele.
+2. **Biblioteca de Ana** (`library-other-reader`): depois de escolher Ana no menu, o título passa a «Biblioteca de Ana» e aparecem os livros, o cabeçalho de novidades e o Exportar de Ana, não os de Bruno.
+3. **Teclado** (teste de página): Tab até ao Título-menu, Espaço ou ↓ abre o menu, ↓ vai até Ana, Return escolhe-a, e a Biblioteca passa a ser a de Ana. O foco volta ao Título-menu.
+
+**Passos:**
+- [ ] **Passo 1:** o teste do teclado (ponto 3). Se passar à primeira, fica como teste de regressão; diz-o no relatório.
+- [ ] **Passo 2:** os cenários `library-reader-menu` e `library-other-reader`, em 3 temas, comparados com o Figma: posição e largura do menu, marca, título, cabeçalho e contagens.
+- [ ] **Passo 3:** gate completo.
+- [ ] **Passo 4:** review adversarial (Opus), só se mudar código; senão, revisão minha. Depois, comparação com o Figma e commit `test(readers): screen 10, reader menu and another reader's Library`.
+
+**Verificar no ecrã (Bruno), com a build dev:** se tiveres dois leitores, abre o Título-menu, troca de leitor, e confirma que a Biblioteca, as novidades e o Exportar mudam de acordo.
+
 ## Fase 6 · Fecho da v2 (tasks a escrever)
 - **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.
   
