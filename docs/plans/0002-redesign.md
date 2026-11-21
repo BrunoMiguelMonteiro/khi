@@ -2892,7 +2892,7 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 **Feito (2026-11-21).** Aprovada pelo Bruno («Aprovo a Task 52»). O Sonnet implementou com TDD, e eu revi. Não houve review adversarial, porque só mudaram tokens e CSS.
 - **Onde ficou:** os tokens estão no `app.css`, não no `tokens.css`, porque o `tokens.test.ts` prende o `tokens.css` ao `design/tokens.json`; é o mesmo precedente do `--selection-outline`, da Task 41. O `scrollbar-color` está na `:root`, e o recurso `::-webkit-scrollbar` está dentro do `@supports not`. O build mantém os dois.
 - **Cores do polegar (normal / hover):**
-  - claro: `#C1C1C1` / `#A8A8A8`;
+  - claro: `#D1D1D1` / `#B8B8B8` (o Bruno pediu um pouco mais claro que `#C1C1C1`; 1,5:1);
   - escuro: `#4A4A4A` / `#5C5C5C` (o Bruno achou `#6B6B6B` claro demais; agora tem o mesmo peso do claro, 1,9:1);
   - contraste alto claro: `#8D8D91` / `#6E6E73`;
   - contraste alto escuro: `#A1A1A6` / `#C7C7CC`.

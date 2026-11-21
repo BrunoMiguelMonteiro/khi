@@ -94,13 +94,13 @@
 
 /*
   Task 52: scroll bar thumb. Not Figma variables, so they live here (tokens.css is locked to design/tokens.json).
-  Light (1.8:1, hover 2.4:1) is close to the AppKit legacy scroller; dark #4A4A4A 1.9:1 (hover #5C5C5C 2.5:1) mirrors it. Contrast of the thumb on --background:
+  Light #D1D1D1 1.5:1 (hover #B8B8B8 2.0:1), dark #4A4A4A 1.9:1 (hover #5C5C5C 2.5:1): both kept quiet, as Bruno asked. Contrast of the thumb on --background:
   high contrast light #8D8D91 3.3:1 (hover #6E6E73 5.1:1), high contrast dark #A1A1A6 6.5:1 (hover #C7C7CC 9.9:1).
   scrollbar-color is inherited, so setting it on :root reaches every overflow container.
 */
 :root {
-  --scrollbar-thumb: #C1C1C1;
-  --scrollbar-thumb-hover: #A8A8A8;
+  --scrollbar-thumb: #D1D1D1;
+  --scrollbar-thumb-hover: #B8B8B8;
   scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 .dark {
