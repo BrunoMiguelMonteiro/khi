@@ -755,6 +755,7 @@ describe('Library Store', () => {
 			answer({ export_library_books: ['/x/B1.md'], mark_book_opened: null });
 
 			const result = await library.exportIds([1]);
+			await library.marksSettled();
 
 			expect(result).toEqual(['/x/B1.md']);
 			expect(invoke).toHaveBeenCalledWith('mark_book_opened', { readerId: 9, bookId: 1, seenSeq: 3 });
@@ -782,10 +783,47 @@ describe('Library Store', () => {
 			await library.openReader(9);
 			finishExport();
 			await exporting;
+			await library.marksSettled();
 
 			expect(invoke).toHaveBeenCalledWith('mark_book_opened', { readerId: 9, bookId: 1, seenSeq: 2 });
 			expect(isNewOf(1, 'a')).toBe(false);
 			expect(isNewOf(1, 'z')).toBe(true);
+		});
+
+		it('export_waits_for_the_running_sync_before_marking', async () => {
+			library.setConnectedDevice(kobo);
+			library.connectedReaderId = 9;
+			library.setBooks([bookOf(1, hl('a', true, 2))]);
+			let finishSync!: (r: unknown) => void;
+			let syncOpen = false;
+			vi.mocked(invoke).mockImplementation((cmd: string) => {
+				if (cmd === 'sync_kobo') {
+					syncOpen = true;
+					return new Promise((r) => (finishSync = (v) => ((syncOpen = false), r(v))));
+				}
+				if (cmd === 'get_library') return Promise.resolve([bookOf(1, hl('a', true, 2))]);
+				if (cmd === 'export_library_books') return Promise.resolve(['/x/B1.md']);
+				// Rust's database is busy for the whole Sync
+				if (cmd === 'mark_book_opened') return syncOpen ? Promise.reject('database is locked') : Promise.resolve(null);
+				return Promise.resolve(null);
+			});
+			const syncing = library.sync();
+			await vi.waitFor(() => expect(syncOpen).toBe(true));
+
+			// The export answers at once, with the Sync still open
+			await expect(library.exportIds([1])).resolves.toEqual(['/x/B1.md']);
+			expect(library.isExporting).toBe(false);
+			expect(library.lastExport).toEqual(['/x/B1.md']);
+			await new Promise((r) => setTimeout(r, 0));
+			expect(invoke).not.toHaveBeenCalledWith('mark_book_opened', expect.anything());
+			expect(isNewOf(1, 'a')).toBe(true);
+
+			finishSync({ added: 0 });
+			await syncing;
+			await library.marksSettled();
+
+			expect(invoke).toHaveBeenCalledWith('mark_book_opened', { readerId: 9, bookId: 1, seenSeq: 2 });
+			expect(isNewOf(1, 'a')).toBe(false);
 		});
 
 		it('export_remembers_the_files_of_the_last_export_for_the_session', async () => {
@@ -884,7 +922,7 @@ describe('Library Store', () => {
 			library.summary = null;
 		});
 
-		it('is_exporting_stays_true_until_marks_finish', async () => {
+		it('is_exporting_ends_with_the_export_not_the_marks', async () => {
 			library.setBooks([bookOf(1, hl('a', true, 2))]);
 			let finishMark!: () => void;
 			vi.mocked(invoke).mockImplementation((cmd: string) => {
@@ -895,10 +933,11 @@ describe('Library Store', () => {
 
 			const exporting = library.exportIds([1]);
 			await vi.waitFor(() => expect(invoke).toHaveBeenCalledWith('mark_book_opened', expect.anything()));
-			expect(library.isExporting).toBe(true);
-			finishMark();
+			// The export is over for the caller; only the marks are pending
 			await exporting;
 			expect(library.isExporting).toBe(false);
+			finishMark();
+			await library.marksSettled();
 		});
 
 		it('export_skips_mark_for_books_without_news', async () => {
@@ -906,6 +945,7 @@ describe('Library Store', () => {
 			answer({ export_library_books: ['x'], mark_book_opened: null, library_summary: null });
 
 			await library.exportIds([1, 2]);
+			await library.marksSettled();
 
 			const marks = vi.mocked(invoke).mock.calls.filter(([cmd]) => cmd === 'mark_book_opened');
 			expect(marks).toEqual([['mark_book_opened', { readerId: 9, bookId: 2, seenSeq: 3 }]]);
@@ -938,6 +978,7 @@ describe('Library Store', () => {
 			library.setBooks([bookOf(1, hl('b', true, 3))]);
 			vi.mocked(invoke).mockClear();
 			await library.exportIds([1]);
+			await library.marksSettled();
 			const cmds = vi.mocked(invoke).mock.calls.map(([cmd]) => cmd);
 			expect(cmds.indexOf('library_summary')).toBeGreaterThan(cmds.indexOf('mark_book_opened'));
 		});

@@ -430,7 +430,9 @@ class LibraryStore {
 	/** Exports the books, and a book that is exported stops being new, as when
 	 * it is opened (D1): the snapshot is taken before the export, so a
 	 * highlight that arrives meanwhile stays new. A failed export touches
-	 * nothing; a failed mark is logged and leaves that book new. */
+	 * nothing; a failed mark is logged and leaves that book new. The marks
+	 * wait for a running Sync, as `openBook` does, without holding the export
+	 * back: see `marksSettled`. */
 	async exportIds(bookIds: number[]): Promise<string[]> {
 		if (bookIds.length === 0) throw new Error('No books selected for export');
 		if (this.activeReaderId === null) throw new Error('No reader open');
@@ -444,25 +446,42 @@ class LibraryStore {
 			const exported = await commands.exportLibraryBooks(readerId, bookIds);
 			// Rust answers the files; a stand-in that answers nothing leaves none
 			this.lastExport = exported ?? [];
-			const marked = await Promise.all(
-				seen.map(async ({ bookId, snapshot, seenSeq }) => {
-					try {
-						await commands.markBookOpened(readerId, bookId, seenSeq);
-						return [bookId, snapshot] as const;
-					} catch (error) {
-						console.error('Failed to mark the book as opened:', error);
-						return null;
-					}
-				})
-			);
-			const cleared = new Map(marked.filter((m) => m !== null));
-			if (cleared.size > 0) {
-				this.#clearNew(cleared);
-				await this.loadSummary();
-			}
+			this.#marks = this.#markExported(readerId, seen);
 			return exported;
 		} finally {
 			this.isExporting = false;
+		}
+	}
+
+	/** The marks of the last export, which wait for a running Sync; they never reject. */
+	#marks: Promise<void> = Promise.resolve();
+
+	/** Resolves once the marks of the last export are done. */
+	marksSettled(): Promise<void> {
+		return this.#marks;
+	}
+
+	async #markExported(
+		readerId: number,
+		seen: Array<{ bookId: number; snapshot: Set<string>; seenSeq: number }>
+	): Promise<void> {
+		// Rust's database is busy during a Sync: the mark waits for its end
+		await this.syncEnded();
+		const marked = await Promise.all(
+			seen.map(async ({ bookId, snapshot, seenSeq }) => {
+				try {
+					await commands.markBookOpened(readerId, bookId, seenSeq);
+					return [bookId, snapshot] as const;
+				} catch (error) {
+					console.error('Failed to mark the book as opened:', error);
+					return null;
+				}
+			})
+		);
+		const cleared = new Map(marked.filter((m) => m !== null));
+		if (cleared.size > 0) {
+			this.#clearNew(cleared);
+			await this.loadSummary();
 		}
 	}
 }

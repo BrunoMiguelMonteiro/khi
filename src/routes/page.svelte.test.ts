@@ -3535,6 +3535,7 @@ describe('+page · screen 8 · review fixes (Task 47)', () => {
 
 	it('the_detail_notice_action_does_not_export_while_a_sync_runs_and_the_notice_closes', async () => {
 		const user = userEvent.setup();
+		let endSync!: () => void;
 		await mockLibrary({
 			books: newBooks(),
 			device: kobo,
@@ -3543,7 +3544,7 @@ describe('+page · screen 8 · review fixes (Task 47)', () => {
 				export_library_books: () => {
 					throw { kind: 'diskFull' };
 				},
-				sync_kobo: () => new Promise(() => {})
+				sync_kobo: () => new Promise((resolve) => (endSync = () => resolve({ added: 0, updated: 0, removed: 0, restored: 0, books: 3 })))
 			}
 		});
 		render(Page);
@@ -3561,6 +3562,10 @@ describe('+page · screen 8 · review fixes (Task 47)', () => {
 		await user.click(retry).catch(() => {});
 		await wait(30);
 		expect(calls('export_library_books')).toHaveLength(1);
+
+		// The store keeps a Sync in flight: end it, or it reaches the next tests
+		endSync();
+		await waitFor(() => expect(library.isImporting).toBe(false));
 	});
 
 	it('export_is_refused_while_a_sync_runs_without_an_error', async () => {
