@@ -2856,6 +2856,39 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
   - `cargo test`: 182;
   - `clippy`: os 7 avisos de antes.
 
+### Task 52: Barra de deslocamento mais clara no tema claro
+**Pedido (Bruno, 2026-11-21):** «A scrollbar do tema Light devia ser mais clara.» Captura da Biblioteca com a barra sempre visível (rato ou «Mostrar barras de deslocamento: sempre»): o polegar é cinzento-escuro, mais escuro do que as barras nativas do AppKit.
+
+**O que já existe** (levantamento a 2026-11-21):
+- O código não tem estilo nenhum para a barra (nem `scrollbar-*`, nem `::-webkit-scrollbar`). A que se vê é a do WKWebView.
+- **Há 4 áreas com deslocamento:** `LibraryView.svelte:68`, `dropdown-menu-content`, `select-content` e as notas do `UpdateDialog`. Os tokens estão em `src/lib/styles/tokens.css` (`:root`, `.dark`, `prefers-contrast: more`).
+- **O que a pesquisa encontrou:**
+  - o `scrollbar-color` só existe a partir do Safari 26.2 ([WebKit](https://webkit.org/blog/17640/webkit-features-for-safari-26-2/)). O macOS do Bruno (27.2) já o tem; os macOS 13–15 não;
+  - o `::-webkit-scrollbar` funciona no WKWebView em todas as versões. Foi a solução da app Tauri Handy para este mesmo caso ([PR #2048](https://github.com/cjpais/Handy/pull/2048));
+  - o `color-scheme` não muda a cor;
+  - o Tauri não tem nenhuma opção para isto no macOS ([tauri#6067](https://github.com/tauri-apps/tauri/issues/6067)).
+  - **Por verificar:** as regras `::-webkit-scrollbar` podem tirar ao macOS as barras sobrepostas, que se escondem sozinhas.
+- **Figma:** não há nenhuma barra desenhada. A referência é a barra nativa do AppKit em cada tema.
+
+**Decisões:**
+- **Tokens novos:** `--scrollbar-thumb` e `--scrollbar-thumb-hover` em `:root`, `.dark` e `prefers-contrast: more` (decisão minha). O tema claro fica perto do polegar nativo do AppKit. O escuro e o de contraste alto não podem perder contraste em relação a hoje.
+- **Primeiro caminho:** o `scrollbar-color: var(--scrollbar-thumb) transparent` na raiz.
+- **Caminho de recurso:** as regras `::-webkit-scrollbar`, só dentro de `@supports not (scrollbar-color: red transparent)`, para que o macOS 26.2 ou mais recente nunca as receba.
+- **Se o recurso tirar o esconder automático no macOS 13–15:** decide o Bruno, depois de ver o resultado.
+
+**Comportamento a provar:**
+1. **Raiz:** no tema claro, o `scrollbar-color` resolve para o token claro; no escuro e em `--hc`, para os tokens deles. Prova-se com o teste de CSS (`app-css.test.ts` ou `tokens.test.ts`).
+2. **Recurso:** as regras `::-webkit-scrollbar` existem e estão dentro do `@supports not (scrollbar-color …)`.
+3. **Visual:** a suite inteira passa. Os PNG que mudarem são revistos um a um; o Playwright em headless pode nem desenhar a barra.
+
+**Passos:**
+- [ ] **Passo 1 (TDD):** os testes dos pontos 1 e 2. Vermelho, implementação, verde.
+- [ ] **Passo 2:** tokens e CSS em `tokens.css` e no `app.css` ou `components.css`, onde estiverem as regras globais.
+- [ ] **Passo 3:** gate completo.
+- [ ] **Passo 4 (eu):** build dev; comparar com uma janela do Finder, com «Mostrar barras: sempre» e com «automaticamente», nos 3 temas. Review adversarial só se o CSS for além dos tokens e destas regras. Depois, o commit `fix(theme): lighter scroll bar in light theme`.
+
+**Verificar no ecrã (Bruno), com a build dev:** com o rato ou «Mostrar barras: sempre», a barra da Biblioteca no tema claro tem a mesma claridade que a do Finder, e continua visível no escuro. Com o trackpad e «automaticamente», a barra continua a esconder-se.
+
 ## Visto à margem (não se apaga sem pedido)
 - `src/lib/components/LibraryView.svelte.backup` e `date.ts` são código morto.
   
