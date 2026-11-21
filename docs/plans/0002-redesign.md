@@ -2982,7 +2982,7 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 - ⌘R, ⌘E, ⌘1, ⌘2, ⌘[ e ⌘⌫ fazem o mesmo que antes;
 - num livro com todos os destaques removidos, Livro › Apagar livro… abre a confirmação;
 - com dois leitores, Visualização mostra-os e troca de Biblioteca.
-- **Feito (2026-11-21), à espera do ecrã do Bruno:** `src/lib/menu-state.ts` (função pura, 16 testes) e `menu.ts` refeito. A review adversarial encontrou duas falhas, ambas corrigidas: uma tecla mantida repetia o ⌘E e o ⌘R (agora há um intervalo de 300 ms), e a reconstrução do menu depois de mudar de língua podia correr ao mesmo tempo que uma atualização e congelar os estados (agora corre em série, e cada ação confirma o estado antes de agir). 15 mutações dos guardas apanhadas (duas só depois de dois testes novos). Gate: vitest 1131 + 1 skipped, check 0/0, visual 179. Na build dev: o ⌘2 muda a vista pelo menu nativo.
+- **Feito (2026-11-21), aprovado no ecrã pelo Bruno:** `src/lib/menu-state.ts` (função pura, 16 testes) e `menu.ts` refeito. A review adversarial encontrou duas falhas, ambas corrigidas: uma tecla mantida repetia o ⌘E e o ⌘R (agora há um intervalo de 300 ms), e a reconstrução do menu depois de mudar de língua podia correr ao mesmo tempo que uma atualização e congelar os estados (agora corre em série, e cada ação confirma o estado antes de agir). 15 mutações dos guardas apanhadas (duas só depois de dois testes novos). Gate: vitest 1131 + 1 skipped, check 0/0, visual 179. Na build dev: o ⌘2 muda a vista pelo menu nativo.
 
 ## Visto à margem (não se apaga sem pedido)
 - `src/lib/components/LibraryView.svelte.backup` e `date.ts` são código morto.
