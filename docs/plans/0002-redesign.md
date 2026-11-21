@@ -2692,6 +2692,41 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 
 **Ecrã 9 aprovado a 2026-11-21** (Bruno: «Aprovo o ecrã 9»), pela build dev.
 
+### Task 49: Capa · título na capa pequena e espaço não separável (Q-N)
+**Origem:** a comparação do ecrã 9 com o Figma (2026-11-21) mostrou «O / Retorno» no Detalhe. A Q-N, fechada a 2026-11-18, nunca passou para o plano. Os ecrãs 3, 5 e 9 foram aprovados com a capa pequena a 15/20.
+
+**Decisões** (ver DECISIONS, «Ecrãs · Q-N · Título na capa pequena» e «Espaço não separável nas capas»):
+- **Q-N (Bruno, 2026-11-18): N1.** A capa pequena (96 × 144, no Detalhe) usa «Capa/Título pequeno», Literata Medium a 13/16. A capa grande continua com «Capa/Título», a 15/20.
+- **Espaço não separável:** nos títulos de **todas** as Capas, grandes e pequenas, depois de uma palavra de 1 ou 2 letras, mas só se o par couber na linha. Se não couber, fica o espaço normal. As legendas do Cartão do livro e as Linhas da lista ficam com espaços normais.
+- **Palavras longas:** uma palavra que não caiba sozinha parte com `hyphens: auto` e `lang="pt"`. No Figma o hífen de «Desassos-sego» é manual; no código é o do WebKit, a verificar no ecrã.
+
+**Figma** (só leitura, medido a 2026-11-21):
+- Capa (`63:3281`): margens de 12, intervalo de 4, título em 4 linhas no máximo com reticências, autor numa linha com reticências.
+- Capa do Detalhe no ecrã 9 (`74:16868`): 96 × 144, título 13/16 («O Retorno» numa linha), autor 12/16.
+- A capa grande do Cartão tem 171 × 256, com 147 de largura de texto. A pequena tem 72.
+
+**Ficheiros:**
+- `src/lib/components/ui/cover/cover.svelte` e o seu teste: uma prop `size?: 'md' | 'sm'` (`md` por omissão). O `sm` usa `text-cover-title-sm`, que já existe em `src/lib/styles/typography.css` e nunca foi usado. O título leva `lang="pt"` e `hyphens-auto`;
+- um utilitário novo, por exemplo `src/lib/components/ui/cover/cover-title.ts`, com o seu teste: liga as palavras de 1 ou 2 letras à seguinte com U+00A0 quando o par cabe na largura do texto. Mede com o `canvas.measureText` e a fonte calculada do título. Sem medida possível (jsdom, fonte por carregar), mantém o espaço normal;
+- `src/lib/components/BookDetailsView.svelte`: `size="sm"` na Capa;
+- baselines visuais das capas sem imagem: grelha, Detalhe e ecrã 9, as que mudarem por causa do espaço não separável ou do 13/16.
+
+**Comportamento:**
+1. **Detalhe:** o título da capa sem imagem a 13/16. «O Retorno» e «A Sibila» ficam numa linha.
+2. **Todas as capas sem imagem:** depois de «O», «A», «de», «da», «e»… vem um espaço não separável se o par couber na largura do texto (147 na grande, 72 na pequena); senão, o espaço fica normal. A palavra curta não fica sozinha no fim da linha.
+3. **Palavras longas:** «Desassossego» e «Guarda-Chuvas» partem com hífen na capa pequena em vez de saírem da caixa. Se o WebKit do Tauri não hifenizar, a palavra parte sem hífen (`overflow-wrap: anywhere`) e nunca sai da capa.
+4. **Sem mudanças:** o `aria-hidden` dos textos da capa, o título nas legendas e o texto nas linhas da lista.
+5. **A medida volta a fazer-se** quando a fonte (Literata) acaba de carregar (`document.fonts.ready`) e quando a largura da capa muda.
+
+**Passos:**
+- [ ] **Passo 1:** testes que falham: `size="sm"` dá `text-cover-title-sm`; o utilitário liga «O Retorno» com uma largura folgada e não liga quando o par não cabe; deixa espaços normais sem medida; palavras de 3 letras ficam como estão; títulos com vários pares («O Ano da Morte de Ricardo Reis»); o Detalhe passa `size="sm"`.
+- [ ] **Passo 2:** a implementação.
+- [ ] **Passo 3:** cenários visuais: os do Detalhe e da grelha que já existem, com as baselines regeneradas, e um cenário novo `cover-titles` com os quatro títulos de teste da Q-N («O Retorno», «Desassossego», «Guarda-Chuvas», «O Ano da Morte de Ricardo Reis») em capa grande e pequena, Claro e Escuro. Compara com a secção `78:19221` do Figma.
+- [ ] **Passo 4:** gate completo (Vitest, check, build, `test:visual`, `cargo test`, `cargo clippy --all-targets`). As baselines que mudarem são só as que têm capas sem imagem; justifica cada uma.
+- [ ] **Passo 5:** review adversarial (Opus), mutações minhas e comparação com o Figma. Commit `feat(cover): small cover title and non-breaking short words (Q-N)`.
+
+**Verificar no ecrã (Bruno), com a build dev:** um livro sem capa com o título começado por «O» ou «A» no Detalhe (numa linha, se couber) e, se houver, um título com uma palavra longa (hífen ou corte limpo).
+
 ## Fase 6 · Fecho da v2 (tasks a escrever)
 - **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.
   
