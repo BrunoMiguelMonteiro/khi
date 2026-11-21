@@ -13,10 +13,10 @@
 	import { _ } from '$lib/i18n';
 	import { settings } from '../stores/settings.svelte';
 	import { updater } from '../stores/updater.svelte';
-	import Button from './Button.svelte';
 	import AppearancePane from './settings/AppearancePane.svelte';
 	import ExportPane from './settings/ExportPane.svelte';
 	import KoboPane from './settings/KoboPane.svelte';
+	import UpdatesPane from './settings/UpdatesPane.svelte';
 	import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 
 	interface Props {
@@ -39,7 +39,6 @@
 
 	/** What failed to save, for the user: the pane keeps its old value. */
 	let saveError = $state<string | null>(null);
-	const language = $derived(settings.language);
 
 	const tabs = $derived([
 		{ value: 'kobo', icon: Tablet, label: $_('settings.tabs.kobo') },
@@ -48,25 +47,6 @@
 		{ value: 'updates', icon: CircleArrowDown, label: $_('updates.settings.tab') }
 	] as const);
 	const title = $derived(tabs.find((tab) => tab.value === pane)?.label ?? '');
-
-	/** «Procurada hoje às 17:10.», or the date when it was another day. */
-	function lastCheckedLabel(date: Date | null, lang: string): string {
-		if (!date) return $_('updates.settings.never');
-		const today = new Date().toDateString() === date.toDateString();
-		return today
-			? $_('updates.settings.lastCheckedToday', {
-					time: new Intl.DateTimeFormat(lang, { hour: '2-digit', minute: '2-digit' }).format(date)
-				})
-			: $_('updates.settings.lastCheckedOn', {
-					date: new Intl.DateTimeFormat(lang, { dateStyle: 'medium' }).format(date)
-				});
-	}
-
-	function handleCheckForUpdatesToggle() {
-		settings.setCheckForUpdates(!settings.uiPreferences.checkForUpdates);
-		saveError = null;
-		settings.commit(['uiPreferences.checkForUpdates']).catch(() => (saveError = $_('settings.errors.save')));
-	}
 </script>
 
 <!-- Tabs is the window's frame: the bar and the pane, as tall as they are -->
@@ -100,39 +80,14 @@
 	<TabsContent value="export" class="flex flex-col gap-6 p-6">
 		<ExportPane onerror={(message) => (saveError = message)} />
 	</TabsContent>
-	<!-- Updates: as before; its redesign is Task 46 -->
-	<TabsContent value="updates" class="flex flex-col gap-8 p-6">
-		<section class="flex flex-col gap-1">
-			<label class="flex items-center gap-3 p-2 rounded-md cursor-pointer hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
-				<input
-					type="checkbox"
-					role="switch"
-					data-testid="check-for-updates"
-					checked={settings.uiPreferences.checkForUpdates}
-					onchange={handleCheckForUpdatesToggle}
-					aria-describedby="check-for-updates-hint"
-					class="w-4 h-4 rounded-sm border-neutral-300 text-blue-600 focus:ring-blue-500"
-				/>
-				<span class="text-sm text-neutral-900 dark:text-neutral-100">{$_('updates.settings.auto')}</span>
-			</label>
-			<p id="check-for-updates-hint" class="m-0 pl-9 text-sm text-neutral-500 dark:text-neutral-400">
-				{$_('updates.settings.autoHint')}
-			</p>
-		</section>
-
-		<section class="flex items-center justify-between gap-4 p-2">
-			<div class="flex flex-col gap-1">
-				<span class="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-					{$_('updates.settings.version', { version: updater.currentVersion })}
-				</span>
-				<span class="text-sm text-neutral-500 dark:text-neutral-400" data-testid="last-checked">
-					{lastCheckedLabel(updater.lastChecked, language)}
-				</span>
-			</div>
-			<Button variant="secondary" disabled={updater.state === 'checking'} onclick={() => onCheckNow()}>
-				{$_('updates.settings.checkNow')}
-			</Button>
-		</section>
+	<TabsContent value="updates" class="flex flex-col gap-6 p-6">
+		<UpdatesPane
+			version={updater.currentVersion}
+			lastChecked={updater.lastChecked}
+			busy={updater.busy}
+			onCheckNow={() => onCheckNow()}
+			onerror={(message) => (saveError = message)}
+		/>
 	</TabsContent>
 
 	{#if saveError}

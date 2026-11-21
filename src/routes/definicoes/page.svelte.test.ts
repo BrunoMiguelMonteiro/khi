@@ -35,7 +35,7 @@ vi.mock('@tauri-apps/api/event', () => ({
 vi.mock('$lib/i18n', async () => await vi.importActual('$lib/i18n'));
 
 import { invoke } from '@tauri-apps/api/core';
-import { emit } from '@tauri-apps/api/event';
+import { emit, listen } from '@tauri-apps/api/event';
 import userEvent from '@testing-library/user-event';
 import { flushSync } from 'svelte';
 import { locale } from '$lib/i18n';
@@ -49,7 +49,7 @@ Element.prototype.hasPointerCapture ??= () => false;
 Element.prototype.scrollIntoView ??= () => {};
 
 /** The window's height per pane, as the page would measure it (the Figma's, Task 45). */
-const HEIGHTS: Record<string, number> = { export: 382, appearance: 287, kobo: 243, updates: 200 };
+const HEIGHTS: Record<string, number> = { export: 382, appearance: 287, kobo: 243, updates: 243 };
 
 /** jsdom has no layout: the frame's height is the active pane's, and the observer is driven by hand. */
 const observers = new Set<() => void>();
@@ -487,7 +487,7 @@ describe('/definicoes · window', () => {
 		render(Page);
 		await fireEvent.click(screen.getByRole('tab', { name: 'Updates' }));
 
-		await user.click(await screen.findByTestId('check-for-updates'));
+		await user.click(await screen.findByRole('switch', { name: 'Automatically check for updates' }));
 
 		await waitFor(() => expect(invoke).toHaveBeenCalledWith('update_settings', { patch: { checkForUpdates: false } }));
 		expect(file.uiPreferences.checkForUpdates).toBe(false);
@@ -521,6 +521,103 @@ describe('/definicoes · window', () => {
 
 		expect(emit).toHaveBeenCalledWith('check-for-updates');
 		expect(checkNow).not.toHaveBeenCalled();
+	});
+
+	it('asks the main window for its updater state when it opens, in case it checked before', async () => {
+		render(Page);
+
+		await waitFor(() => expect(emit).toHaveBeenCalledWith('updates-state-request'));
+	});
+
+	it('asks for the updater state only once it listens for the answer', async () => {
+		let register!: (unlisten: () => void) => void;
+		const order: string[] = [];
+		vi.mocked(listen).mockImplementation(((event: string, handler: (event: { payload: unknown }) => void) => {
+			handlers.set(event, handler);
+			if (event !== 'updates-state') return Promise.resolve(() => {});
+			return new Promise<() => void>((resolve) => {
+				register = (unlisten) => {
+					order.push('listening');
+					resolve(unlisten);
+				};
+			});
+		}) as typeof listen);
+		vi.mocked(emit).mockImplementation(((event: string) => {
+			if (event === 'updates-state-request') order.push('request');
+			return Promise.resolve();
+		}) as typeof emit);
+		render(Page);
+		await waitFor(() => expect(handlers.has('updates-state')).toBe(true));
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		// The main window may answer in the instant after the request: nobody is listening yet
+		expect(order).toEqual([]);
+
+		register(() => {});
+		await waitFor(() => expect(order).toEqual(['listening', 'request']));
+	});
+
+	it('a listener for the updater that registers after the page is gone is removed at once', async () => {
+		const late = vi.fn();
+		let register!: (unlisten: () => void) => void;
+		vi.mocked(listen).mockImplementation(((event: string, handler: (event: { payload: unknown }) => void) => {
+			handlers.set(event, handler);
+			if (event !== 'updates-state') return Promise.resolve(() => {});
+			return new Promise<() => void>((resolve) => (register = resolve));
+		}) as typeof listen);
+		const page = render(Page);
+		await waitFor(() => expect(handlers.has('updates-state')).toBe(true));
+		vi.mocked(emit).mockClear();
+
+		page.unmount();
+		register(late);
+		await new Promise((resolve) => setTimeout(resolve, 20));
+
+		expect(late).toHaveBeenCalledOnce();
+		// And it does not ask a window nobody listens in
+		expect(emit).not.toHaveBeenCalledWith('updates-state-request');
+	});
+
+	it('shows what the main window reports: «Checked today at…» and Check Now waiting while it checks', async () => {
+		render(Page);
+		await fireEvent.click(screen.getByRole('tab', { name: 'Updates' }));
+		await waitFor(() => expect(handlers.has('updates-state')).toBe(true));
+		expect(screen.getByText('Not checked yet.')).toBeInTheDocument();
+		const checkNowButton = screen.getByRole('button', { name: 'Check Now' });
+		expect(checkNowButton).not.toHaveAttribute('aria-disabled', 'true');
+
+		const at = new Date();
+		at.setHours(17, 10, 0, 0);
+		handlers.get('updates-state')!({ payload: { state: 'checking', lastChecked: at.toISOString(), busy: true } });
+
+		await waitFor(() => expect(checkNowButton).toHaveAttribute('aria-disabled', 'true'));
+		const time = new Intl.DateTimeFormat('en', { hour: '2-digit', minute: '2-digit' }).format(at);
+		expect(screen.getByText(`Checked today at ${time}.`)).toBeInTheDocument();
+
+		handlers.get('updates-state')!({ payload: { state: 'upToDate', lastChecked: at.toISOString() } });
+		await waitFor(() => expect(checkNowButton).not.toHaveAttribute('aria-disabled', 'true'));
+	});
+
+	it('Check Now waits while the main window runs its silent check on launch, which it shows no dialog for', async () => {
+		render(Page);
+		await fireEvent.click(screen.getByRole('tab', { name: 'Updates' }));
+		await waitFor(() => expect(handlers.has('updates-state')).toBe(true));
+
+		handlers.get('updates-state')!({ payload: { state: 'idle', lastChecked: null, busy: true } });
+
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Check Now' })).toHaveAttribute('aria-disabled', 'true'));
+	});
+
+	it('Check Now clicked while the main window checks asks for nothing', async () => {
+		render(Page);
+		await fireEvent.click(screen.getByRole('tab', { name: 'Updates' }));
+		await waitFor(() => expect(handlers.has('updates-state')).toBe(true));
+		handlers.get('updates-state')!({ payload: { state: 'downloading', lastChecked: null, busy: true } });
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Check Now' })).toHaveAttribute('aria-disabled', 'true'));
+		vi.mocked(emit).mockClear();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Check Now' }));
+
+		expect(emit).not.toHaveBeenCalledWith('check-for-updates');
 	});
 });
 

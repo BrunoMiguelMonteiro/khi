@@ -61,6 +61,10 @@ export interface Scenario {
 	/** `settings`: the window's height, that of its pane (Task 45). The page measures it and sets the size; the harness checks that it did. */
 	windowHeight?: number;
 	update?: boolean;
+	/** The updater fails: `check` (state 6) or the install after a download that worked (state 7). */
+	updateFailure?: 'check' | 'install';
+	/** `console.error`s the app logs on purpose (a failure it shows): each starts with `prefix` and is logged exactly `times` times; the others still fail the test. */
+	expectedConsoleErrors?: { prefix: string; times: number }[];
 	/** Records keyboard focus states by pressing Tab. */
 	focusStops?: number;
 	/** Hover and focus states recorded after the page. */
@@ -113,6 +117,19 @@ export interface Strings {
 	install: string;
 	later: string;
 	checkNow: string;
+	/** The updates switch, and the buttons of the update window's other phases. */
+	autoUpdates: string;
+	skip: string;
+	ok: string;
+	tryAgain: string;
+	restartNow: string;
+	checkingTitle: string;
+	upToDateTitle: string;
+	downloadingTitle: string;
+	downloadingText: string;
+	installedTitle: string;
+	errorTitle: string;
+	installErrorTitle: string;
 }
 
 const STRINGS: Record<Language, Strings> = {
@@ -146,7 +163,19 @@ const STRINGS: Record<Language, Strings> = {
 		syncOnConnect: 'Sincronizar ao ligar',
 		install: 'Instalar e reiniciar',
 		later: 'Mais tarde',
-		checkNow: 'Procurar agora'
+		checkNow: 'Procurar agora',
+		autoUpdates: 'Procurar atualizações automaticamente',
+		skip: 'Saltar esta versão',
+		ok: 'OK',
+		tryAgain: 'Tentar outra vez',
+		restartNow: 'Reiniciar agora',
+		checkingTitle: 'A procurar atualizações…',
+		upToDateTitle: 'Khi está atualizado.',
+		downloadingTitle: 'A descarregar a versão Khi 2.0.0',
+		downloadingText: '4,3 MB de 6,9 MB',
+		installedTitle: 'Khi 2.0.0 está instalado.',
+		errorTitle: 'Não foi possível procurar atualizações',
+		installErrorTitle: 'Não foi possível instalar a atualização'
 	},
 	en: {
 		noKoboTitle: 'Connect your Kobo',
@@ -178,7 +207,19 @@ const STRINGS: Record<Language, Strings> = {
 		syncOnConnect: 'Sync on connect',
 		install: 'Install and Restart',
 		later: 'Later',
-		checkNow: 'Check Now'
+		checkNow: 'Check Now',
+		autoUpdates: 'Automatically check for updates',
+		skip: 'Skip This Version',
+		ok: 'OK',
+		tryAgain: 'Try Again',
+		restartNow: 'Restart Now',
+		checkingTitle: 'Checking for Updates…',
+		upToDateTitle: 'Khi is up to date.',
+		downloadingTitle: 'Downloading Khi 2.0.0',
+		downloadingText: '4.3 MB of 6.9 MB',
+		installedTitle: 'Khi 2.0.0 is installed.',
+		errorTitle: 'Couldn’t Check for Updates',
+		installErrorTitle: 'Couldn’t Install the Update'
 	}
 };
 export const stringsFor = (language: Language) => STRINGS[language];
@@ -323,6 +364,29 @@ async function listView(page: Page, text: Strings) {
 		await expect(lastRead.filter({ hasText: /^(2 out\.|Oct 2)$/ })).toHaveCount(1);
 		await expect(lastRead.filter({ hasText: /^(Há 5 dias|5 days ago)$/ })).toHaveCount(1);
 	}
+}
+
+/** The update window's width, as its layout has it: the box a transform scales (the opening zoom) is not the width. */
+const expectWindowWidth = (page: Page, width: number) =>
+	expect.poll(() => page.getByTestId('update-dialog').evaluate((el) => (el as HTMLElement).offsetWidth)).toBe(width);
+
+/** The silent check at launch has answered. */
+async function launchCheckAnswered(page: Page) {
+	await page.waitForFunction(() => window.__KHI_MOCK__.calls.some((c) => c.cmd === 'plugin:updater|check'));
+}
+
+/** «Procurar atualizações…» (the menu) or Settings' «Procurar agora»: the main window is asked to check. */
+async function askForCheck(page: Page) {
+	await launchCheckAnswered(page);
+	await emitWhenListening(page, 'check-for-updates');
+}
+
+/** The manual check is held: the window stays on «A procurar…». */
+async function holdCheck(page: Page) {
+	await launchCheckAnswered(page);
+	await page.evaluate(() => window.__KHI_MOCK__.hold('plugin:updater|check'));
+	await emitWhenListening(page, 'check-for-updates');
+	await page.waitForFunction(() => window.__KHI_MOCK__.held.includes('plugin:updater|check'));
 }
 
 export const SCENARIOS: Record<string, Scenario> = {
@@ -701,19 +765,20 @@ export const SCENARIOS: Record<string, Scenario> = {
 	},
 	'settings-updates': {
 		name: 'settings-updates',
-		description: 'Settings on the Updates pane, as before inside the new frame: the automatic-check switch and «Check now»',
+		description: 'Settings on the Updates pane (V2): no group heading, the automatic-check switch and «Versão» with «Procurar agora», 540 × 240 (Figma 243)',
 		withLibrary: true,
 		window: 'settings',
-		windowHeight: 289,
+		windowHeight: 240,
 		states: [
-			{ name: 'hover-switch-row', kind: 'hover', target: (p) => p.locator(`${PANE} label:has([data-testid="check-for-updates"])`) },
-			{ name: 'focus-switch', kind: 'focus', target: (p) => p.getByTestId('check-for-updates'), root: 'label' },
-			{ name: 'hover-check-now', kind: 'hover', target: (p, t) => p.getByRole('button', { name: t.checkNow, exact: true }) }
+			{ name: 'hover-switch', kind: 'hover', target: (p, t) => p.getByRole('switch', { name: t.autoUpdates, exact: true }) },
+			{ name: 'focus-switch', kind: 'focus', target: (p, t) => p.getByRole('switch', { name: t.autoUpdates, exact: true }) },
+			{ name: 'hover-secondary-button', kind: 'hover', target: (p, t) => p.getByRole('button', { name: t.checkNow, exact: true }) },
+			{ name: 'focus-secondary-button', kind: 'focus', target: (p, t) => p.getByRole('button', { name: t.checkNow, exact: true }) }
 		],
 		async reach(page, text) {
 			await openTab(page, text.tabUpdates);
-			await expect(page.getByTestId('check-for-updates')).toBeChecked();
-			await expect(page.getByTestId('last-checked')).not.toBeEmpty();
+			await expect(page.getByRole('switch', { name: text.autoUpdates, exact: true })).toBeChecked();
+			await expect(page.getByRole('button', { name: text.checkNow, exact: true })).toBeVisible();
 		}
 	},
 	update: {
@@ -725,12 +790,17 @@ export const SCENARIOS: Record<string, Scenario> = {
 			{ name: 'hover-primary-button', kind: 'hover', target: (p, t) => p.getByRole('button', { name: t.install, exact: true }) },
 			{ name: 'focus-primary-button', kind: 'focus', target: (p, t) => p.getByRole('button', { name: t.install, exact: true }) },
 			{ name: 'hover-secondary-button', kind: 'hover', target: (p, t) => p.getByRole('button', { name: t.later, exact: true }) },
+			{ name: 'hover-link-button', kind: 'hover', target: (p, t) => p.getByRole('button', { name: t.skip, exact: true }) },
+			{ name: 'focus-link-button', kind: 'focus', target: (p, t) => p.getByRole('button', { name: t.skip, exact: true }) },
 			{ name: 'focus-scroll-region', kind: 'focus', target: (p) => p.getByTestId('release-notes') }
 		],
 		async reach(page, text) {
 			await library(page, text);
 			await expect(page.getByTestId('update-dialog')).toBeVisible();
 			await expect(page.getByTestId('release-notes')).toBeVisible();
+			// U3 (Figma 78:20401): 480 wide, the notes box 232 tall
+			await expectWindowWidth(page, 480);
+			await expect.poll(() => page.getByTestId('release-notes').evaluate((el) => (el as HTMLElement).offsetHeight)).toBe(232);
 		}
 	},
 	'library-syncing': {
@@ -825,19 +895,99 @@ export const SCENARIOS: Record<string, Scenario> = {
 	},
 	'update-checking': {
 		name: 'update-checking',
-		description: 'A manual update check in progress: the pulsing progress bar',
+		description: 'A manual update check in progress (state 2): the bar slides a third of its length, and stands still in the middle with reduced motion',
+		withLibrary: true,
+		async reach(page, text, variant) {
+			await library(page, text);
+			await holdCheck(page);
+			const dialog = page.getByTestId('update-dialog');
+			await expect(dialog.getByRole('progressbar')).toBeVisible();
+			await expect(dialog.getByRole('heading', { name: text.checkingTitle })).toBeVisible();
+			await expectWindowWidth(page, 380);
+			await expectAnimation(page, '[data-testid="update-dialog"] [role="progressbar"] > div', variant.reducedMotion !== 'reduce');
+		}
+	},
+	'update-up-to-date': {
+		name: 'update-up-to-date',
+		description: 'A manual update check that finds nothing (state 3): «Khi está atualizado.» and OK',
 		withLibrary: true,
 		async reach(page, text) {
 			await library(page, text);
-			// The silent check at launch has answered: hold the manual one
-			await page.waitForFunction(() => window.__KHI_MOCK__.calls.some((c) => c.cmd === 'plugin:updater|check'));
-			await page.evaluate(() => window.__KHI_MOCK__.hold('plugin:updater|check'));
-			await emitWhenListening(page, 'check-for-updates');
-			await page.waitForFunction(() => window.__KHI_MOCK__.held.includes('plugin:updater|check'));
-			const bar = page.getByTestId('update-dialog').getByRole('progressbar');
-			await expect(bar).toBeVisible();
-			// No `motion-reduce:` here: it pulses with reduced motion too
-			await expectAnimation(page, '[data-testid="update-dialog"] [role="progressbar"] > div', true);
+			await askForCheck(page);
+			const dialog = page.getByTestId('update-dialog');
+			await expect(dialog.getByRole('heading', { name: text.upToDateTitle })).toBeVisible();
+			await expect(dialog.getByRole('button', { name: text.ok, exact: true })).toBeVisible();
+			await expectWindowWidth(page, 380);
+		}
+	},
+	'update-downloading': {
+		name: 'update-downloading',
+		description: 'The download of the new version (state 4): the determinate bar and «4,3 MB de 6,9 MB»',
+		withLibrary: true,
+		update: true,
+		async reach(page, text) {
+			await library(page, text);
+			await expect(page.getByTestId('update-dialog')).toBeVisible();
+			await page.evaluate(() => window.__KHI_MOCK__.hold('plugin:updater|download'));
+			await page.getByRole('button', { name: text.install, exact: true }).dispatchEvent('click');
+			await page.waitForFunction(() => window.__KHI_MOCK__.held.includes('plugin:updater|download'));
+			const dialog = page.getByTestId('update-dialog');
+			await expect(dialog.getByRole('heading', { name: text.downloadingTitle })).toBeVisible();
+			await expect(dialog.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '62');
+			await expect(dialog).toContainText(text.downloadingText);
+			await expectWindowWidth(page, 380);
+		}
+	},
+	'update-installed': {
+		name: 'update-installed',
+		description: 'The update installed while a Sync runs (state 5): Khi restarts when it ends; «Reiniciar agora» and OK',
+		withLibrary: true,
+		update: true,
+		async reach(page, text) {
+			await library(page, text);
+			// Later, a Sync that stays running, and the update asked for again: the restart has to wait
+			await page.getByRole('button', { name: text.later, exact: true }).dispatchEvent('click');
+			await expect(page.getByTestId('update-dialog')).toHaveCount(0);
+			await startSync(page, text);
+			await askForCheck(page);
+			await page.getByRole('button', { name: text.install, exact: true }).dispatchEvent('click');
+			const dialog = page.getByTestId('update-dialog');
+			await expect(dialog.getByRole('heading', { name: text.installedTitle })).toBeVisible();
+			await expect(dialog.getByRole('button', { name: text.restartNow, exact: true })).toBeVisible();
+			await expectWindowWidth(page, 380);
+		}
+	},
+	'update-error': {
+		name: 'update-error',
+		description: 'A manual update check with no connection (state 6): Cancelar and «Tentar outra vez»',
+		withLibrary: true,
+		updateFailure: 'check',
+		// Twice: the silent check on launch fails too (the mock refuses every check), and so does the one asked for
+		expectedConsoleErrors: [{ prefix: 'Failed to check for updates:', times: 2 }],
+		async reach(page, text) {
+			await library(page, text);
+			await askForCheck(page);
+			const dialog = page.getByTestId('update-dialog');
+			await expect(dialog.getByRole('heading', { name: text.errorTitle })).toBeVisible();
+			await expect(dialog.getByRole('button', { name: text.tryAgain, exact: true })).toBeVisible();
+			await expectWindowWidth(page, 380);
+		}
+	},
+	'update-install-error': {
+		name: 'update-install-error',
+		description: 'The install of the new version fails (state 7): the text of the install, Cancelar and «Tentar outra vez»',
+		withLibrary: true,
+		update: true,
+		updateFailure: 'install',
+		expectedConsoleErrors: [{ prefix: 'Failed to install the update:', times: 1 }],
+		async reach(page, text) {
+			await library(page, text);
+			await expect(page.getByTestId('update-dialog')).toBeVisible();
+			await page.getByRole('button', { name: text.install, exact: true }).dispatchEvent('click');
+			const dialog = page.getByTestId('update-dialog');
+			await expect(dialog.getByRole('heading', { name: text.installErrorTitle })).toBeVisible();
+			await expect(dialog.getByRole('button', { name: text.tryAgain, exact: true })).toBeVisible();
+			await expectWindowWidth(page, 380);
 		}
 	}
 };
@@ -895,6 +1045,7 @@ export function mockConfigFor(scenario: Scenario, variant: Variant): MockConfig 
 		library: scenario.withLibrary ? { [reader.id]: library, ...(scenario.otherReaderKobo || scenario.unownedKobo ? { [otherReader.id]: [] } : {}) } : {},
 		summary,
 		update: scenario.update ? availableUpdate : null,
+		updateFailure: scenario.updateFailure,
 		windowLabel: scenario.window ?? 'main'
 	};
 }

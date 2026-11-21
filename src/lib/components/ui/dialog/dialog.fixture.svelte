@@ -10,7 +10,8 @@
 		onOpenChange = () => {},
 		onlink = () => {},
 		focusAction = false,
-		forceMount = false
+		forceMount = false,
+		contentClass = undefined
 	}: {
 		kind?: 'apagar' | 'kobo' | 'sem-campo' | 'campos';
 		onconfirm?: () => void;
@@ -20,6 +21,8 @@
 		focusAction?: boolean;
 		/** Content stays in the DOM when closed, as during the exit animation. */
 		forceMount?: boolean;
+		/** Another class for the window, as the update dialog's 480 px width. */
+		contentClass?: string;
 	} = $props();
 
 	let open = $state(false);
@@ -32,7 +35,7 @@
 {#if kind === 'apagar'}
 	<AlertDialog.Root bind:open {onOpenChange}>
 		<AlertDialog.Trigger>Apagar livro</AlertDialog.Trigger>
-		<AlertDialog.Content {initialFocus} forceMount={forceMount || undefined}>
+		<AlertDialog.Content {initialFocus} class={contentClass} forceMount={forceMount || undefined}>
 			<AlertDialog.Title>Apagar este livro?</AlertDialog.Title>
 			<AlertDialog.Description>
 				Todos os destaques foram removidos do Kobo. O livro e os destaques saem da Biblioteca de vez.
@@ -46,7 +49,7 @@
 {:else}
 	<Dialog.Root bind:open {onOpenChange}>
 		<Dialog.Trigger>Abrir</Dialog.Trigger>
-		<Dialog.Content {initialFocus} forceMount={forceMount || undefined}>
+		<Dialog.Content {initialFocus} class={contentClass} forceMount={forceMount || undefined}>
 			<Dialog.Title>Kobo novo</Dialog.Title>
 			<Dialog.Description>
 				De quem é este Kobo? Os destaques ficam na Biblioteca desse leitor.
@@ -55,6 +58,10 @@
 				<Input aria-label="Nome do leitor" />
 			{:else if kind === 'campos'}
 				<textarea aria-label="Nota"></textarea>
+				<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+				<div role="region" tabindex="0" aria-label="Notas da versão">Notas</div>
+				<!-- svelte-ignore a11y_no_noninteractive_element_to_interactive_role -->
+				<div role="listbox" tabindex="0" aria-label="Lista"></div>
 				<a
 					href="#ajuda"
 					onclick={(e) => {

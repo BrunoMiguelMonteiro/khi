@@ -86,9 +86,19 @@ const isFocusableField = (
   content: HTMLElement,
 ) => !!el && content.contains(el) && el.matches(TEXT_FIELD);
 
+/** Things that answer Return themselves; a focusable that is none of these only scrolls (a notes region). */
+const OWN_RETURN =
+  'button, a, input, textarea, select, summary, [contenteditable]:not([contenteditable="false"]), [role="button"], [role="link"], [role="checkbox"], [role="radio"], [role="switch"], [role="tab"], [role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"], [role="option"], [role="listbox"], [role="combobox"], [role="textbox"], [role="slider"], [role="spinbutton"], [role="menu"], [role="grid"], [role="tree"]';
+
 function returnIsFree(target: EventTarget | null, content: HTMLElement) {
   if (target === content) return true;
-  return target instanceof HTMLInputElement && target.matches(ONE_LINE_FIELD);
+  if (target instanceof HTMLInputElement) return target.matches(ONE_LINE_FIELD);
+  return (
+    target instanceof HTMLElement &&
+    content.contains(target) &&
+    target.hasAttribute("tabindex") &&
+    !target.matches(OWN_RETURN)
+  );
 }
 
 type Options = {

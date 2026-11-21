@@ -288,8 +288,10 @@
     },
     "available": {
       "title": "Khi {version} está disponível.",
+      "body": "Está instalada a versão {current}. Desde então saíram {number} versões. Khi reinicia-se depois de instalar.",
       "body_one": "Está instalada a versão {current}. Desde então saiu uma versão. Khi reinicia-se depois de instalar.",
-      "body_other": "Está instalada a versão {current}. Desde então saíram {count} versões. Khi reinicia-se depois de instalar.",
+      "body_other": "Está instalada a versão {current}. Desde então saíram {number} versões. Khi reinicia-se depois de instalar.",
+      "notesLabel": "Notas da versão",
       "whatsNew": "Novidades",
       "bugFixes": "Correções",
       "skip": "Saltar esta versão",

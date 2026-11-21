@@ -3,7 +3,7 @@
  * through the same capture and `compareWithBaseline` path as the real
  * captures. Runs with every `npm run test:visual`.
  */
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { cpSync, existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { capture } from './harness';
@@ -171,16 +171,35 @@ test('control: a hidden selected-book indicator is detected', async ({ browser }
 	expect(has(blocked, /^screenshot grid-selected--light\.png$/, 'pixels'), 'pixels reported').toBe(true);
 });
 
-test('control: a hidden automatic-update switch is detected', async ({ browser }) => {
+test('control: a transparent automatic-update switch is detected', async ({ browser }) => {
+	// Transparent, not hidden: the harness hovers and focuses the switch itself, so a hidden one could not be reached at all
 	const result = await captureOf(browser, 'settings-updates--light', {
-		injectCss: '[data-testid="check-for-updates"] { visibility: hidden !important; }'
+		injectCss: '[data-slot="settings-pane-updates"] [role="switch"] { opacity: 0 !important; }'
 	});
 	const { blocked } = compareWithBaseline(result, { outputName: 'control--switch-hidden' });
-	expect(has(blocked, /^html .*\[data-testid="check-for-updates"\]/, 'visibility'), 'visibility reported').toBe(true);
-	// Hidden, it can no longer be focused: the state is missing, which nothing can allow
-	expect(blocked.some((d) => d.kind === 'structure' && d.element === 'state focus-switch'), 'missing focus state reported').toBe(true);
-	expect(has(blocked, /^state hover-switch-row: .*\[data-testid="check-for-updates"\]/, 'visibility'), 'hover state reported').toBe(true);
+	expect(has(blocked, /^html .*\[role="switch"\]/, 'opacity'), 'opacity reported').toBe(true);
+	expect(has(blocked, /^state hover-switch: .*\[role="switch"\]/, 'opacity'), 'hover state reported').toBe(true);
+	expect(has(blocked, /^state focus-switch: .*\[role="switch"\]/, 'opacity'), 'focus state reported').toBe(true);
 	expect(has(blocked, /^screenshot settings-updates--light\.png$/, 'pixels'), 'pixels reported').toBe(true);
+});
+
+test('control: a declared state that cannot be reached is reported, and makes the update fail', async ({ browser }) => {
+	const item = captures().find((c) => c.id === 'settings-updates--light');
+	if (!item) throw new Error('no capture settings-updates--light');
+	// The pane itself: it is on screen, but Tab never stops on it
+	const ghost = {
+		name: 'focus-unreachable',
+		kind: 'focus' as const,
+		target: (page: Page) => page.locator('[data-slot="settings-pane-updates"]')
+	};
+	const result = await capture(browser, { ...item, scenario: { ...item.scenario, states: [...(item.scenario.states ?? []), ghost] } });
+
+	expect(result.problems).toEqual([]);
+	// The harness names it, which is what `visual.spec.ts` refuses to write a baseline over
+	expect(result.unreachable).toEqual(['state focus-unreachable: the keyboard never reached the target']);
+	// The reachable states are still recorded and still compare clean
+	expect(result.snapshot.states.map((state) => state.name)).not.toContain('focus-unreachable');
+	expect(compareWithBaseline(result, { outputName: 'control--unreachable' }).diffs).toEqual([]);
 });
 
 test('control: a changed keyframe midpoint is detected', async ({ browser }) => {

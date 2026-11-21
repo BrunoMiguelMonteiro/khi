@@ -293,9 +293,14 @@ export async function capture(browser: Browser, { id, scenario, variant }: Captu
 	await context.route((url) => url.origin !== BASE_URL, (route) => route.abort());
 	const page = await context.newPage();
 	const problems: string[] = [];
+	const expectedSeen = new Map<string, number>();
 	page.on('pageerror', (error) => problems.push(`page error: ${error.message}`));
 	page.on('console', (message) => {
-		if (message.type() === 'error') problems.push(`console.error: ${message.text()}`);
+		if (message.type() !== 'error') return;
+		// The app logs a failure it shows: the scenario names it, and it has to happen
+		const expected = scenario.expectedConsoleErrors?.find((entry) => message.text().startsWith(entry.prefix));
+		if (expected) expectedSeen.set(expected.prefix, (expectedSeen.get(expected.prefix) ?? 0) + 1);
+		else problems.push(`console.error: ${message.text()}`);
 	});
 
 	try {
@@ -357,6 +362,11 @@ export async function capture(browser: Browser, { id, scenario, variant }: Captu
 
 		const mock = await page.evaluate(() => ({ calls: window.__KHI_MOCK__.calls, unknown: window.__KHI_MOCK__.unknown }));
 		if (inSettings) problems.push(...settingsWindowProblems(mock.calls, scenario.windowHeight ?? 0));
+		// Exactly as many times as named: one fewer is a failure that was not shown, one more is a retry or a loop
+		for (const { prefix, times } of scenario.expectedConsoleErrors ?? []) {
+			const seen = expectedSeen.get(prefix) ?? 0;
+			if (seen !== times) problems.push(`console.error «${prefix}» logged ${seen} time(s), expected ${times}`);
+		}
 		for (const call of mock.unknown) problems.push(`unknown IPC call: ${call.cmd} ${JSON.stringify(call.args)}`);
 		return { snapshot: { id, dom: dom!, focus, states, phases: phases! }, screenshot, focusShots, stateShots, unreachable, calls: mock.calls, problems };
 	} finally {

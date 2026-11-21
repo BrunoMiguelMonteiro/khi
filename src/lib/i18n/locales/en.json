@@ -288,8 +288,10 @@
     },
     "available": {
       "title": "Khi {version} is available.",
+      "body": "Version {current} is installed. {number} versions have been released since. Khi restarts after installing.",
       "body_one": "Version {current} is installed. One version has been released since. Khi restarts after installing.",
-      "body_other": "Version {current} is installed. {count} versions have been released since. Khi restarts after installing.",
+      "body_other": "Version {current} is installed. {number} versions have been released since. Khi restarts after installing.",
+      "notesLabel": "Release notes",
       "whatsNew": "What’s New",
       "bugFixes": "Bug Fixes",
       "skip": "Skip This Version",

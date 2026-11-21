@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
-	import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+	import { emit, listen, type UnlistenFn } from '@tauri-apps/api/event';
 	import { getCurrentWindow } from '@tauri-apps/api/window';
 	import { commands, events } from '$lib/bindings';
 	import LibraryView from '$lib/components/LibraryView.svelte';
@@ -19,7 +19,7 @@
 	import type { Book, KoboDevice, SortPreference, ViewMode } from '$lib/types';
 	import { createApplicationMenu } from '$lib/menu';
 	import UpdateDialog from '$lib/components/UpdateDialog.svelte';
-	import { updater } from '$lib/stores/updater.svelte';
+	import { UPDATES_STATE_EVENT, UPDATES_STATE_REQUEST_EVENT, updater } from '$lib/stores/updater.svelte';
 
 	// Sync with store
 	let viewMode = $derived(settings.uiPreferences.libraryViewMode);
@@ -104,6 +104,9 @@
 	let unlistenDeviceDetected: UnlistenFn | undefined;
 	let unlistenDeviceDisconnected: UnlistenFn | undefined;
 	let unlistenCheckForUpdates: UnlistenFn | undefined;
+	let unlistenUpdatesStateRequest: UnlistenFn | undefined;
+	/** The page is gone: a listener that registers after that is removed at once. */
+	let destroyed = false;
 	let unlistenSyncProgress: UnlistenFn | undefined;
 	let unlistenSyncFinished: UnlistenFn | undefined;
 	let unlistenReadersChanged: UnlistenFn | undefined;
@@ -187,13 +190,17 @@
 		updater.restartWhenIdle(isBusy());
 	});
 
+	// The Settings window shows the last check and waits while this one checks: it is told after every change
+	$effect(() => {
+		emit(UPDATES_STATE_EVENT, updater.snapshot()).catch((error) => console.error('Failed to report the updater state:', error));
+	});
+
 	// Sync with store on mount
 	onMount(() => {
 		// Setup event listeners for device monitoring
 		setupDeviceListeners();
 
 		// The traffic lights' room in the bar: measured now; a resize only checks for full screen
-		let destroyed = false;
 		measureTrafficLights();
 		checkFullscreen();
 		getCurrentWindow()
@@ -209,6 +216,7 @@
 			unlistenDeviceDetected?.();
 			unlistenDeviceDisconnected?.();
 			unlistenCheckForUpdates?.();
+			unlistenUpdatesStateRequest?.();
 			unlistenSyncProgress?.();
 			unlistenSyncFinished?.();
 			unlistenReadersChanged?.();
@@ -220,13 +228,30 @@
 	async function setupDeviceListeners() {
 		try {
 			// «Procurar atualizações…» in the native menu, or Settings' «Check Now»:
-			// the dialog is in this window, so it comes in front of Settings
-			unlistenCheckForUpdates = await listen('check-for-updates', () => {
-				getCurrentWindow()
-					.setFocus()
-					.catch((error) => console.error('Failed to focus the main window:', error));
+			// the dialog is in this window, so it comes in front of Settings, minimized or not.
+			// Each step may be refused: the check goes on
+			unlistenCheckForUpdates = await listen('check-for-updates', async () => {
+				const win = getCurrentWindow();
+				for (const [step, bringForward] of [
+					['unminimize', () => win.unminimize()],
+					['show', () => win.show()],
+					['focus', () => win.setFocus()]
+				] as const) {
+					try {
+						await bringForward();
+					} catch (error) {
+						console.error(`Failed to ${step} the main window:`, error);
+					}
+				}
 				updater.checkNow();
 			});
+
+			// Settings opened after a check: it asks where the updater stands
+			const unlistenRequest = await listen(UPDATES_STATE_REQUEST_EVENT, () => {
+				emit(UPDATES_STATE_EVENT, updater.snapshot()).catch((error) => console.error('Failed to report the updater state:', error));
+			});
+			if (destroyed) unlistenRequest();
+			else unlistenUpdatesStateRequest = unlistenRequest;
 
 			// A Reader renamed, or given another folder, in Settings
 			unlistenReadersChanged = await listen('readers-changed', () => {

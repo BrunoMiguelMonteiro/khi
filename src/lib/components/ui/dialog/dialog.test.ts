@@ -50,7 +50,7 @@ const OPENER = {
   campos: "Abrir",
 };
 
-async function setup(kind: Kind, props: { focusAction?: boolean } = {}) {
+async function setup(kind: Kind, props: { focusAction?: boolean; contentClass?: string } = {}) {
   const onconfirm = vi.fn();
   const onOpenChange = vi.fn();
   const onlink = vi.fn();
@@ -448,6 +448,19 @@ describe("Janela modal", () => {
     expect(screen.getByRole("dialog")).toBe(window);
   });
 
+  it("return_on_a_focused_scroll_region_presses_the_default_button_but_a_listbox_keeps_its_own", async () => {
+    // A region that only scrolls has no use for Return (the update window's notes); a listbox does
+    const { user, onconfirm } = await setup("campos");
+    screen.getByRole("region", { name: "Notas da versão" }).focus();
+    await user.keyboard("{Enter}");
+    expect(onconfirm).toHaveBeenCalledOnce();
+
+    onconfirm.mockClear();
+    screen.getByRole("listbox", { name: "Lista" }).focus();
+    await user.keyboard("{Enter}");
+    expect(onconfirm).not.toHaveBeenCalled();
+  });
+
   it("destructive_action_is_secondary_with_destructive_text", async () => {
     await setup("apagar");
     const confirm = screen.getByRole("button", { name: "Apagar" });
@@ -540,6 +553,20 @@ describe("Janela modal", () => {
       expect(
         [...window.classList].filter((c) => /motion-reduce:.*fade/.test(c)),
       ).toEqual([]);
+      cleanup();
+    }
+  });
+
+  it("width_is_380_unless_the_window_is_given_another_class", async () => {
+    // The update dialog's U3 is 480 (Task 46): the class replaces w-95, it does not add to it
+    for (const kind of ["apagar", "kobo"] as const) {
+      const normal = await setup(kind);
+      expect(normal.window).toHaveClass("w-95");
+      cleanup();
+      const wide = await setup(kind, { contentClass: "w-120" });
+      expect(wide.window).toHaveClass("w-120");
+      expect(wide.window).not.toHaveClass("w-95");
+      expect(await ruleOf("w-120")).toContain("width: calc(var(--spacing) * 120);");
       cleanup();
     }
   });

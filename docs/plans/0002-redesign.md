@@ -2403,6 +2403,150 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
   - verificado na janela real: botão de fechar em AX top 8, sem título.
   - depois, a pedido do Bruno: semáforos iguais aos da principal (16,28), verificados em AX `[15,18]` nas duas janelas; separadores pela ordem Kobo, Aparência, Exportação, Atualizações, com Kobo por omissão.
 
+### Task 46: Ecrã 7 · Atualizações (separador V2, janela U3 e estados 2–7)
+**Decisões** (ver DECISIONS):
+- **Q-V (2026-11-18):** V2, o separador «Atualizações» com o Switch e a linha «Versão».
+- **Q-U (2026-11-18):** U3, com o registo de todas as versões desde a instalada, e o fluxo com os estados 2–7 e os seus textos.
+- **Implementação de 2026-11-18:** o `updater` (store, plugin, menu, `release-history.json`) já existe e não muda de comportamento. Esta task muda o desenho e o fio entre janelas.
+- **Q1 (Bruno, 2026-11-21):** entre fases, a janela é a mesma e troca o conteúdo sem animação.
+- **Q2 (Bruno, 2026-11-21):** a barra indeterminada é um segmento a deslizar, parado com Reduzir movimento.
+- **Por omissão:**
+  - o número de versões vai por extenso de dois a dez;
+  - a procura pelas Definições traz a principal para a frente, mesmo minimizada.
+
+**Figma** (só leitura, medido a 2026-11-21):
+- **V2** `78:25710` / Escuro `78:26129`:
+  - janela de 540 × 243, conteúdo de 152 (duas linhas de 51, sem cabeçalho de grupo);
+  - «Procurar atualizações automaticamente», com a ajuda «Uma vez por dia, ao abrir o Khi.» e o Switch;
+  - «Versão 1.3.0», com a ajuda «Procurada hoje às 17:10.» e o Botão secundário «Procurar agora».
+- **U3** `78:20401` / `78:20646`, 480 × 400, `p-6 gap-2`:
+  - título Title 3, «Khi 1.3.0 está disponível.»;
+  - frase em Body;
+  - caixa das notas com 232 px de altura fixa, fundo `muted`, com deslocamento;
+  - em cada versão: «Khi X.Y.Z» em Body Semibold, a data por extenso em 12 e `muted-foreground`, os grupos «Novidades» e «Correções» em 11 Semibold e as listas nativas com recuo pendente;
+  - rodapé: «Saltar esta versão» (Ligação) à esquerda; «Mais tarde» (Secundário) e «Instalar e reiniciar» (Principal) à direita.
+- **Estados com 380 px** (o componente Janela, `ui/dialog`):
+  - **2 · A procurar** `78:23921` / `78:23961`: título e barra indeterminada; Cancelar.
+  - **3 · Khi está atualizado** `78:23969` / `78:24008`: OK.
+  - **4 · A descarregar** `78:24014` / `78:24057`: barra determinada de 6 px (`muted` + `primary`, raio 3) e «4,3 MB de 6,9 MB» em 12; Cancelar.
+  - **5 · Instalado, à espera** `78:24066` / `78:24105`: Reiniciar agora (Secundário) e OK (Principal).
+  - **6 · Sem ligação** `78:24112` / `78:24153`: Cancelar e Tentar outra vez.
+  - **7 · Falha ao instalar** `80:26508` / `80:26716`: igual ao 6, com o texto da instalação.
+
+**Ficheiros:**
+- `src/lib/components/SettingsPanel.svelte`: o conteúdo do separador sai para `settings/UpdatesPane.svelte`, com o seu teste;
+- `src/lib/components/UpdateDialog.svelte`, reescrito sobre `ui/dialog` (ou `ui/alert-dialog`), e o seu teste;
+- `ui/dialog`: uma largura de 480 para a U3, sem mudar os 380 por omissão nem o `UnknownKoboDialog`;
+- `src/lib/stores/updater.svelte.ts`: só o necessário para o fio entre janelas;
+- `src/routes/+page.svelte`, no listener de `check-for-updates`;
+- `src/routes/definicoes/+page.svelte`;
+- `src-tauri/capabilities/default.json` (+ `core:window:allow-unminimize`) e o teste da capability;
+- `pt.json` e `en.json`;
+- `tests/visual/scenarios.ts`, o README e as baselines `settings-updates*` e dos estados da atualização.
+
+**Comportamento:**
+1. **Separador Atualizações** (`UpdatesPane`):
+   - um `FormGroup` sem cabeçalho e duas `FormRow`, como no Kobo;
+   - o Switch grava logo, com `settings.commit(['uiPreferences.checkForUpdates'])`, e um erro mostra o `saveError`, como nos outros painéis;
+   - «Procurar agora» emite `check-for-updates`;
+   - a janela fica com ≈240 de altura.
+2. **Fio entre janelas:**
+   - **na principal:** o `check-for-updates` faz `unminimize`, `show` e `setFocus` antes de procurar;
+   - **depois de cada procura**, a principal emite um evento (por exemplo, `updates-state`) com o estado e a data da última procura;
+   - **nas Definições:**
+     - «Procurada hoje às…» acompanha esse evento;
+     - «Procurar agora» fica desativado enquanto a principal procura ou instala;
+   - **dois cliques** em «Procurar agora» não lançam duas procuras.
+3. **Janela de atualização:**
+   - uma só janela do primeiro ao último estado (Q1):
+     - abre e fecha com o Movimento 4;
+     - entre fases troca o conteúdo sem animação;
+     - na U3 passa a 480 px e volta a 380 nas outras fases;
+   - nenhum botão recebe o foco ao abrir (Q-E);
+   - Return carrega no botão por omissão de cada fase: Instalar e reiniciar, OK, OK, Tentar outra vez;
+   - Esc e ⌘. fazem o mesmo que Cancelar ou Mais tarde, e em «Instalado» o mesmo que OK;
+   - em `installing`, Esc não faz nada e Cancelar fica desativado;
+   - um clique fora da janela não a fecha.
+4. **Barras:**
+   - **determinada:** 6 px, `muted` + `primary`, raio 3, `role="progressbar"` com `aria-valuenow`;
+   - **indeterminada (Q2):**
+     - um segmento de 1/3 a deslizar em ciclo;
+     - com `prefers-reduced-motion`, parado ao meio;
+     - sem `aria-valuenow`.
+5. **Textos:**
+   - comparar `pt.json` e `en.json` com o Figma, com ponto final nos títulos que são frases;
+   - número de versões por extenso de dois a dez, em pt («duas», «três»…) e en («two», «three»…).
+
+**Passos:**
+- [x] **Passo 1:** testes que falham do `UpdatesPane` e do fio entre janelas.
+- [x] **Passo 2:** testes que falham da janela de atualização (fases, larguras, teclado, foco, barras, número por extenso).
+- [x] **Passo 3:** cenários visuais:
+  - `settings-updates`, com a altura medida;
+  - a U3 e os estados 2–7 sobre a Biblioteca;
+  - tudo em Claro e Escuro, comparado com o Figma.
+- [x] **Passo 4:** gate completo (Vitest, check, build, `test:visual`, `cargo test`, `cargo clippy --all-targets`).
+- [x] **Passo 5:** review adversarial (Opus), mutações minhas e comparação com o Figma. Commit `feat(updates): redesign the updates pane and the update dialog`.
+
+**Verificar no ecrã (Bruno), com a build dev:**
+- com a principal minimizada, «Procurar agora» nas Definições traz a principal para a frente, com a janela de atualização;
+- «A procurar…» passa a «Khi está atualizado.» na mesma janela, sem piscar;
+- «Procurada hoje às…» nas Definições muda depois da procura;
+- o segmento desliza, e para com Reduzir movimento;
+- a ponta a ponta, com descarregar, instalar e reiniciar, fica para quando houver uma release real.
+
+**Feito (2026-11-21).** Aprovada pelo Bruno («Aprovo a Task 46»). Implementada pelo Sonnet com TDD; revista pelo Opus (review adversarial independente); mutações minhas.
+- **1.ª ronda:**
+  - `settings/UpdatesPane.svelte` (V2, 240 px de altura);
+  - `UpdateDialog` reescrito sobre `ui/dialog`:
+    - uma só janela, com `w-120` na U3;
+    - montado de `visible` até `onOpenChangeComplete`, para não deslocar os ids do Bits nas baselines da principal;
+    - conteúdo congelado durante o fade;
+  - `ui/progress` novo, com `@keyframes indeterminate-slide` e parado ao meio com `motion-reduce`;
+  - `src/lib/version-count.ts`;
+  - fio entre janelas: `updates-state` e `updates-state-request`, `snapshot`/`adopt`, e `unminimize`, `show` e `setFocus` na principal (+ `core:window:allow-unminimize`);
+  - bug antigo corrigido: faltava a chave base `updates.available.body`;
+  - no harness, `expectedConsoleErrors`.
+- **Review:** 0 blockers, 3 majors e 10 minors.
+  - **Majors corrigidos:**
+    - **M1:** Return com as notas focadas não instalava. Agora `returnIsFree` aceita focáveis que não usam o Return;
+    - **M2 e M3:** o fade congelado e o clique fora não tinham teste que os apanhasse. Ganharam testes que as mutações provam.
+  - **Minors corrigidos:**
+    - o pedido de estado só sai depois do `listen`;
+    - os listeners novos têm a guarda `destroyed`;
+    - a procura silenciosa do arranque conta como ocupada (`busy`);
+    - o `$effect` de foco saiu, porque o FocusScope do Bits já faz esse trabalho;
+    - o ⌘. passou a ser testado com a janela aberta;
+    - `expectedConsoleErrors` conta as ocorrências exatas;
+    - voltou um controlo do caminho `unreachable`;
+    - a região das notas tem nome próprio («Notas da versão»).
+  - **Ficam sem correção:**
+    - m4: «Procurar agora» desativado em `restartPending`, o que é coerente, porque já há versão instalada;
+    - m10: «hoje» depois da meia-noite, como já acontecia antes.
+- **Comparação com o Figma (minha):**
+  - nos estados 2 e 4 faltava o Espaço de 4 px entre o título e a barra. Ficou `mt-3`, e o conteúdo mede 146, 144 e 169, como no Figma;
+  - a U3 com 480 × 400 e as notas com 232 px batem;
+  - o V2 bate.
+- **Mutações minhas:** 12, todas mortas:
+  - largura da U3;
+  - `mt-3` nas duas barras;
+  - `motion-reduce`;
+  - «duas»;
+  - `unminimize`;
+  - `busy` e `silentCheck` (três);
+  - `checking` em `isUpdateBusy`;
+  - `returnIsFree` (duas);
+  - `disabled` do «Procurar agora».
+- **Gate final:**
+  - Vitest: 969 passam, 1 ignorado;
+  - `npm run check`: 0/0;
+  - build OK;
+  - `test:visual`: 140 passam (128 + 12 controlos);
+  - `cargo test`: 179 passam;
+  - `clippy`: os 7 avisos de antes.
+
+  Nenhuma baseline da principal mudou.
+- **Dívida vista, sem tocar:** os outros listeners de `setupDeviceListeners` na principal não têm a guarda `destroyed`.
+
 ## Fase 6 · Fecho da v2 (tasks a escrever)
 - **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.
   

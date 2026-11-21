@@ -28,6 +28,8 @@ export interface MockConfig {
 	summary: { newSince: string | null; lastSyncAt: string | null };
 	/** What `plugin:updater|check` returns: `null` when up to date. */
 	update: unknown;
+	/** `check`: `plugin:updater|check` fails (state 6, «Sem ligação»). `install`: the download works and the install fails (state 7). */
+	updateFailure?: 'check' | 'install';
 	/** The window this page runs in: `main`, or `settings` (the `/definicoes` route). */
 	windowLabel: 'main' | 'settings';
 }
@@ -117,6 +119,23 @@ export function installTauriMock(config: MockConfig): void {
 
 	let nextRid = 1;
 	const UNKNOWN = Symbol('unknown');
+	/** A call that answers with a rejection, as Rust's `Err` does. */
+	const REJECT = Symbol('reject');
+	const rejection = (reason: string) => ({ [REJECT]: reason });
+
+	/** What `Update.download` listens to: a `Channel` whose messages come in order, `Started` then `Progress`. */
+	const channelIndex = new Map<number, number>();
+	function sendDownload(args: Record<string, any>, total: number, done: number) {
+		const channel = args.onEvent as { id: number } | undefined;
+		if (!channel) return;
+		const send = (message: unknown) => {
+			const index = channelIndex.get(channel.id) ?? 0;
+			channelIndex.set(channel.id, index + 1);
+			runCallback(channel.id, { index, message });
+		};
+		send({ event: 'Started', data: { contentLength: total } });
+		send({ event: 'Progress', data: { chunkLength: done } });
+	}
 	type Args = Record<string, any>;
 
 	function handle(cmd: string, args: Args): unknown {
@@ -151,6 +170,7 @@ export function installTauriMock(config: MockConfig): void {
 			case 'plugin:window|destroy':
 			case 'plugin:window|show':
 			case 'plugin:window|set_focus':
+			case 'plugin:window|unminimize':
 				return null;
 			case 'plugin:window|is_fullscreen':
 				return false;
@@ -174,7 +194,14 @@ export function installTauriMock(config: MockConfig): void {
 				// Multicolor, the macOS default: Sistema is the system blue tones, so the baselines keep the app's blue
 				return { name: 'multicolor', light: '#007AFF', dark: '#007AFF' };
 			case 'plugin:updater|check':
+				if (config.updateFailure === 'check') return rejection('offline');
 				return config.update ?? null;
+			case 'plugin:updater|download':
+				// The Figma's 6,9 MB, all of it; the resource of the downloaded bytes
+				sendDownload(args, 6_900_000, 6_900_000);
+				return nextRid++;
+			case 'plugin:updater|install':
+				return config.updateFailure === 'install' ? rejection('install failed') : null;
 			case 'plugin:process|restart':
 				return null;
 
@@ -258,6 +285,8 @@ export function installTauriMock(config: MockConfig): void {
 
 	/** What a held call does before it stalls: a Sync reports some progress, as Rust does mid-way. */
 	function startHeld(cmd: string, args: Args) {
+		// A download that stalls half-way: the Figma's «4,3 MB de 6,9 MB»
+		if (cmd === 'plugin:updater|download') sendDownload(args, 6_900_000, 4_300_000);
 		if (cmd === 'sync_kobo') {
 			const readerId = config.koboOwners[args.device?.serialNumber] ?? null;
 			const total = readerId === null ? 0 : (config.library[readerId] ?? []).length;
@@ -294,6 +323,7 @@ export function installTauriMock(config: MockConfig): void {
 			mock.unknown.push(call);
 			throw `[visual mock] unknown IPC command: ${cmd}`;
 		}
+		if (result && typeof result === 'object' && REJECT in result) throw (result as { [REJECT]: string })[REJECT];
 		return clone(result);
 	}
 

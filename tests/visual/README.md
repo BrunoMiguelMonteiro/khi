@@ -21,7 +21,7 @@ The report is written to `output/report.md`, grouped by capture, then element, t
 
 Only update the baseline on a tree whose visuals you have verified. Run `test:visual` twice afterwards to check that the baseline is stable. Commit `baseline/` together with the change that justifies it.
 
-## Matrix (83 captures + 11 controls)
+## Matrix (128 captures + 12 controls)
 
 Scenarios (`scenarios.ts`):
 
@@ -34,16 +34,24 @@ Scenarios (`scenarios.ts`):
 - `detail`: book detail.
 - `settings-export`, `settings-appearance`, `settings-kobo`, `settings-kobo-readers`, `settings-kobo-none` and `settings-updates`: the Settings window on each pane (tabs in the order Kobo, Aparência, Exportação, Atualizações; Kobo with one Reader, with two Readers (M2) and with none).
 
-  The `settings*` scenarios run in the Settings window: they open `/definicoes` directly, the mock reports window label `settings` (so no `app-ready`, no updater check, no menu), and the viewport is 540 wide (`settings_window_spec` in `src-tauri/src/window.rs`) and as tall as the active pane, which the page measures and sends in `setSize(540, h)`. The scenario's `windowHeight` is that measured height: the harness fails the capture if the page measured another one, if the width is not 540, or if the window was shown before it was sized. The window is not resizable, so `settings-export--*--min` equals `settings-export--*`. Measured against the Figma frames (which include a 1 px outline) the heights are Export 377 (Figma 382), Appearance 285 (287), Kobo one Reader 240 (243), Kobo two Readers 315 (320). The folder help shows the home as `~` and the name field is 160 px, as in the Figma, so no help wraps.
+  The `settings*` scenarios run in the Settings window: they open `/definicoes` directly, the mock reports window label `settings` (so no `app-ready`, no updater check, no menu), and the viewport is 540 wide (`settings_window_spec` in `src-tauri/src/window.rs`) and as tall as the active pane, which the page measures and sends in `setSize(540, h)`. The scenario's `windowHeight` is that measured height: the harness fails the capture if the page measured another one, if the width is not 540, or if the window was shown before it was sized. The window is not resizable, so `settings-export--*--min` equals `settings-export--*`. Measured against the Figma frames (which include a 1 px outline) the heights are Export 377 (Figma 382), Appearance 285 (287), Kobo one Reader 240 (243), Kobo two Readers 315 (320), Updates 240 (243). The folder help shows the home as `~` and the name field is 160 px, as in the Figma, so no help wraps.
 - `grid-selected` / `list-selected`: two books selected (⌘-click on the cards, the checkboxes in the list); the bar's Export counts them.
 - `select-by-box`: one book selected by hovering its card and clicking the selection box with the real pointer (`hover()` then `click()`, not `dispatchEvent`, so `pointer-events` is tested): it selects without opening, and the other covers show their box.
-- `update`: the update dialog.
+- `update`: the update window in its first phase (U3, Figma 78:20401): 480 wide, the notes box 232 tall, «Saltar esta versão» (Ligação), «Mais tarde» and «Instalar e reiniciar».
+- The other phases of the same window, 380 wide, over the Library (the `update*` scenarios reach each one through the app's own flow: the check at launch, `check-for-updates`, the buttons):
+  - `update-checking` (state 2): `plugin:updater|check` held; the bar slides a third of its length, and stands still in the middle with `prefers-reduced-motion`;
+  - `update-up-to-date` (3): the check finds nothing;
+  - `update-downloading` (4): `plugin:updater|download` held after the mock sent `Started` (6,9 MB) and `Progress` (4,3 MB) through the `Channel`: the determinate bar at 62 %;
+  - `update-installed` (5): «Mais tarde», a Sync held, the update asked for again and installed: the restart waits for the Sync;
+  - `update-error` (6): `updateFailure: 'check'`, so `plugin:updater|check` is rejected;
+  - `update-install-error` (7): `updateFailure: 'install'`, so the download works and `plugin:updater|install` is rejected.
+
+  The two failures are logged by the app on purpose; a scenario names them in `expectedConsoleErrors`, which must all be logged, and any other `console.error` still fails the capture.
 - `library-syncing`: a Sync in progress with the Library on screen. `sync_kobo` is held pending (`__KHI_MOCK__.hold`) and `sync-progress` says 12 of 42: the header counts the books, no card has its «N novos» badge, Sync turns (`animation-name` is `spin`, or `none` under reduced motion) and Export is disabled.
 - `library-syncing-tooltip`: the same, with the pointer on Sync and its tooltip open («A sincronizar · 12 de 42 livros», no shortcut).
 - `library-syncing-export-disabled`: the same, with the pointer on Export and the tooltip that says why it waits.
 - `library-empty-syncing`: the first Sync, with no books yet: the centred state with the solid Kobo whose 7 text lines fill with the progress (12 of 42: 2 lines). No header, no «Sem livros».
 - `sync-finished-enters`: the held `sync_kobo` is released (`__KHI_MOCK__.release`): the «novos» header and the badges are on screen, Sync has stopped and Export is back.
-- `update-checking`: an update check in progress (held `plugin:updater|check`), with the pulsing progress bar.
 
 Themes:
 
@@ -54,7 +62,7 @@ Themes:
 All scenarios × all themes, plus:
 
 - `grid` and `settings-export` with `prefers-contrast: more` and with `prefers-reduced-motion: reduce`, each in light and dark-app;
-- `library-syncing`, `library-empty-syncing` and `update-checking` with `prefers-reduced-motion: reduce`, in light and dark-app;
+- `library-syncing`, `library-empty-syncing` and `update-checking` with `prefers-reduced-motion: reduce` (the update bar is still, in the middle), in light and dark-app;
 - `grid`, `list`, `detail`, `settings-export` and `first-launch` at the **minimum window size** (suffix `--min`), in light and dark-app;
 - `grid` in English (light).
 
@@ -102,7 +110,8 @@ Requests to any origin other than the local server are aborted.
   - a reviewed change approved by exact entries passes alone. A style entry with another `after` approves nothing. With an unrelated change on top, the screenshot entry no longer matches and the pixels are reported.
 
   - two selected books with the selection frame and check forced to `opacity: 0` on `grid-selected--light`: opacity and pixels;
-  - the automatic-update switch hidden on `settings-updates--light`: visibility, the hover state, the focus state reported missing, and pixels;
+  - the automatic-update switch made transparent on `settings-updates--light`: opacity, the hover and focus states, and pixels;
+  - a state declared on `settings-updates--light` that Tab never reaches (the pane itself): `unreachable` names it, which `test:visual:update` refuses to write a baseline over;
   - `@keyframes spin` with a midpoint at 10deg on `library-syncing--light`: transform at 25/50/75% only (the first frame is unchanged);
   - a `max-width: 899px` gap change: reported on `grid--light--min`, while `grid--light` shows no difference.
 

@@ -18,6 +18,7 @@
 	import { _ } from '$lib/i18n';
 	import { library } from '$lib/stores/library.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
+	import { UPDATES_STATE_EVENT, UPDATES_STATE_REQUEST_EVENT, updater, type UpdatesStatePayload } from '$lib/stores/updater.svelte';
 
 	const appWindow = getCurrentWindow();
 	/** The window's width, from the Figma; Rust builds it the same (`settings_window_spec`). */
@@ -162,7 +163,20 @@
 		})
 			.then((fn) => (unlistenReaders = fn))
 			.catch((error) => console.error('Failed to listen for the readers:', error));
+		// The updater is the main window's: this one shows its state (the time of the last check, and whether it is busy)
+		let unlistenUpdates: (() => void) | undefined;
+		let destroyed = false;
+		// It may have checked before this window opened: it asks, but only once it listens for the answer
+		listen<UpdatesStatePayload>(UPDATES_STATE_EVENT, (event) => updater.adopt(event.payload))
+			.then((fn) => {
+				if (destroyed) return fn();
+				unlistenUpdates = fn;
+				return emit(UPDATES_STATE_REQUEST_EVENT);
+			})
+			.catch((error) => console.error('Failed to follow the updater state:', error));
 		return () => {
+			destroyed = true;
+			unlistenUpdates?.();
 			unlistenClose?.();
 			unlistenReader?.();
 			unlistenReaders?.();

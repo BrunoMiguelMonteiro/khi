@@ -11,6 +11,8 @@ const mainWindow = vi.hoisted(() => ({
 	label: 'main',
 	setTheme: vi.fn(() => Promise.resolve()),
 	setFocus: vi.fn(() => Promise.resolve()),
+	show: vi.fn(() => Promise.resolve()),
+	unminimize: vi.fn(() => Promise.resolve()),
 	title: vi.fn(() => Promise.resolve('Khi')),
 	setTitle: vi.fn(() => Promise.resolve()),
 	isFullscreen: vi.fn(() => Promise.resolve(false)),
@@ -30,13 +32,16 @@ vi.mock('@tauri-apps/api/event', () => ({
 		handlers.set(event, handler);
 		return Promise.resolve(() => {});
 	}),
-	emit: vi.fn()
+	emit: vi.fn(() => Promise.resolve())
 }));
 vi.mock('@tauri-apps/api/window', () => ({ getCurrentWindow: () => mainWindow }));
+/** The updater plugin's `check`, which the page's store calls: it answers «up to date» unless a test holds it. */
+const pluginCheck = vi.hoisted(() => vi.fn((): Promise<unknown> => Promise.resolve(null)));
+vi.mock('@tauri-apps/plugin-updater', () => ({ check: pluginCheck }));
 vi.mock('$lib/menu', () => ({ createApplicationMenu: vi.fn() }));
 
 import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
+import { emit, listen } from '@tauri-apps/api/event';
 import { settings } from '$lib/stores/settings.svelte';
 import { library } from '$lib/stores/library.svelte';
 import { makeBook, makeDevice, makeHighlight } from '$lib/test-fixtures';
@@ -194,6 +199,10 @@ describe('+page', () => {
 		vi.mocked(invoke).mockReset();
 		handlers.clear();
 		mainWindow.setFocus.mockClear();
+		mainWindow.show.mockClear();
+		mainWindow.unminimize.mockClear();
+		vi.mocked(emit).mockClear();
+		updater.close();
 		resetLibrary();
 	});
 
@@ -288,9 +297,89 @@ describe('+page', () => {
 		// Sent by Settings' «Check Now»: the dialog shows here, so this window comes first
 		handlers.get('check-for-updates')!({ payload: null });
 
+		await waitFor(() => expect(checkNow).toHaveBeenCalled());
 		expect(mainWindow.setFocus).toHaveBeenCalled();
-		expect(checkNow).toHaveBeenCalled();
 		checkNow.mockRestore();
+	});
+
+	it('check_for_updates_unminimizes_shows_and_focuses_before_it_checks', async () => {
+		const order: string[] = [];
+		mainWindow.unminimize.mockImplementationOnce(() => (order.push('unminimize'), Promise.resolve()));
+		mainWindow.show.mockImplementationOnce(() => (order.push('show'), Promise.resolve()));
+		mainWindow.setFocus.mockImplementationOnce(() => (order.push('setFocus'), Promise.resolve()));
+		const checkNow = vi.spyOn(updater, 'checkNow').mockImplementation(() => (order.push('checkNow'), Promise.resolve()));
+		await mockLibrary();
+		render(Page);
+		await waitFor(() => expect(handlers.has('check-for-updates')).toBe(true));
+
+		// Settings' «Check Now» with the main window minimized: the dialog has to be seen
+		handlers.get('check-for-updates')!({ payload: null });
+
+		await waitFor(() => expect(order).toEqual(['unminimize', 'show', 'setFocus', 'checkNow']));
+		checkNow.mockRestore();
+	});
+
+	it('check_for_updates_still_checks_when_the_window_refuses_to_come_forward', async () => {
+		mainWindow.unminimize.mockRejectedValueOnce('denied');
+		mainWindow.show.mockRejectedValueOnce('denied');
+		mainWindow.setFocus.mockRejectedValueOnce('denied');
+		const checkNow = vi.spyOn(updater, 'checkNow').mockResolvedValue();
+		const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
+		await mockLibrary();
+		render(Page);
+		await waitFor(() => expect(handlers.has('check-for-updates')).toBe(true));
+
+		handlers.get('check-for-updates')!({ payload: null });
+
+		await waitFor(() => expect(checkNow).toHaveBeenCalled());
+		expect(logged).toHaveBeenCalledTimes(3);
+		checkNow.mockRestore();
+		logged.mockRestore();
+	});
+
+	it('check_for_updates_twice_at_once_starts_one_check', async () => {
+		await mockLibrary();
+		pluginCheck.mockClear();
+		pluginCheck.mockReturnValueOnce(new Promise(() => {}));
+		render(Page);
+		await waitFor(() => expect(handlers.has('check-for-updates')).toBe(true));
+
+		handlers.get('check-for-updates')!({ payload: null });
+		handlers.get('check-for-updates')!({ payload: null });
+		await waitFor(() => expect(pluginCheck).toHaveBeenCalled());
+
+		expect(pluginCheck).toHaveBeenCalledTimes(1);
+		expect(updater.state).toBe('checking');
+	});
+
+	it('updates_state_goes_to_settings_after_each_change', async () => {
+		await mockLibrary();
+		render(Page);
+		await waitFor(() => expect(handlers.has('check-for-updates')).toBe(true));
+		vi.mocked(emit).mockClear();
+
+		updater.adopt({ state: 'checking', lastChecked: '2026-11-21T17:10:00.000Z', busy: true });
+
+		await waitFor(() =>
+			expect(emit).toHaveBeenCalledWith('updates-state', { state: 'checking', lastChecked: '2026-11-21T17:10:00.000Z', busy: true })
+		);
+		updater.adopt({ state: 'upToDate', lastChecked: '2026-11-21T17:10:00.000Z', busy: false });
+		await waitFor(() =>
+			expect(emit).toHaveBeenLastCalledWith('updates-state', { state: 'upToDate', lastChecked: '2026-11-21T17:10:00.000Z', busy: false })
+		);
+	});
+
+	it('updates_state_request_is_answered_with_the_current_state', async () => {
+		await mockLibrary();
+		render(Page);
+		await waitFor(() => expect(handlers.has('updates-state-request')).toBe(true));
+		updater.adopt({ state: 'upToDate', lastChecked: '2026-11-21T17:10:00.000Z', busy: false });
+		vi.mocked(emit).mockClear();
+
+		// Settings opened after the check
+		handlers.get('updates-state-request')!({ payload: null });
+
+		expect(emit).toHaveBeenCalledWith('updates-state', { state: 'upToDate', lastChecked: '2026-11-21T17:10:00.000Z', busy: false });
 	});
 
 	it('reloads the readers when Settings renamed one', async () => {
@@ -2258,6 +2347,26 @@ describe('+page · traffic lights', () => {
 
 		// The late resize is checked after the stale answer, so full screen wins
 		expect(block()).toBeNull();
+	});
+
+	it('the_updater_state_request_listener_that_registers_after_destroy_is_removed', async () => {
+		const late = vi.fn();
+		let register!: (unlisten: typeof late) => void;
+		const original = vi.mocked(listen).getMockImplementation();
+		vi.mocked(listen).mockImplementation(((event: string, handler: (event: { payload: unknown }) => void) => {
+			handlers.set(event, handler);
+			if (event !== 'updates-state-request') return Promise.resolve(() => {});
+			return new Promise((resolve) => (register = resolve));
+		}) as typeof listen);
+		await mockLibrary({ books: newBooks(), overrides: { traffic_lights_max_x: () => 76 } });
+		const page = render(Page);
+		await waitFor(() => expect(handlers.has('updates-state-request')).toBe(true));
+
+		page.unmount();
+		register(late);
+		await settle();
+		vi.mocked(listen).mockImplementation(original!);
+		expect(late).toHaveBeenCalledTimes(1);
 	});
 
 	it('a_listener_that_registers_after_destroy_is_removed', async () => {
