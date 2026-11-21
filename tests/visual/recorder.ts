@@ -71,7 +71,7 @@ export function recordDom(options: RecordOptions): RecordResult {
 		'font-family', 'font-size', 'font-weight', 'font-style', 'line-height', 'letter-spacing',
 		'text-align', 'text-transform', 'text-decoration-line', 'text-decoration-style',
 		'text-decoration-color', 'text-decoration-thickness', 'text-underline-offset',
-		'text-overflow', 'white-space', 'word-break', 'overflow-wrap', 'text-wrap', '-webkit-line-clamp',
+		'text-overflow', 'white-space', 'word-break', 'overflow-wrap', 'hyphens', '-webkit-hyphens', 'text-wrap', '-webkit-line-clamp',
 		'-webkit-font-smoothing', 'list-style-type', 'list-style-position',
 		'cursor', 'appearance', 'accent-color', 'caret-color', 'object-fit',
 		'transform', 'transform-origin', 'translate', 'scale', 'rotate',

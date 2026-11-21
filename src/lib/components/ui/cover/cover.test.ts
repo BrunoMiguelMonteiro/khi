@@ -6,6 +6,7 @@ import { isInaccessible } from "@testing-library/dom";
 import { tick } from "svelte";
 import { Scanner } from "@tailwindcss/oxide";
 import { compileAppCss } from "$lib/test/css";
+import SizeFixture from "./cover-size.fixture.svelte";
 import { COVER_BG, COVER_TONES, Cover, Thumbnail, coverTone } from "./index";
 
 type Binding = { binding: string; utility: string; css: string };
@@ -184,6 +185,276 @@ describe("coverTone", () => {
       expect(n, tone).toBeGreaterThanOrEqual(50);
       expect(n, tone).toBeLessThanOrEqual(200);
     }
+  });
+});
+
+describe("Cover · title", () => {
+  const NB = "\u00A0";
+  const fonts: string[] = [];
+  const measured = vi.fn();
+  const stubMeasure = (width: number) => {
+    vi.stubGlobal("CanvasRenderingContext2D", class {});
+    vi.spyOn(window, "getComputedStyle").mockReturnValue({
+      fontStyle: "normal",
+      fontWeight: "500",
+      fontSize: "15px",
+      fontFamily: "Literata",
+    } as unknown as CSSStyleDeclaration);
+    const ctx = {
+      font: "",
+      measureText: (text: string) => {
+        fonts.push(ctx.font);
+        measured();
+        return { width: text.length * 7 };
+      },
+    };
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
+      ctx as unknown as RenderingContext,
+    );
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      width,
+    } as DOMRect);
+  };
+  afterEach(() => {
+    fonts.length = 0;
+    measured.mockClear();
+    Reflect.deleteProperty(document, "fonts");
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("size_sm_uses_the_small_title_style", async () => {
+    const sm = render(Cover, { props: { ...BOOK, size: "sm" } });
+    const title = sm.getByText("Os Maias");
+    await expectBindings(title, [
+      {
+        binding: "Capa/Título pequeno",
+        utility: "text-cover-title-sm",
+        css: "font-size: 13px;",
+      },
+    ]);
+    expect(title.classList).not.toContain("text-cover-title");
+    sm.unmount();
+    // md is the default and keeps the large style.
+    const md = render(Cover, { props: { ...BOOK } });
+    expect(md.getByText("Os Maias").classList).toContain("text-cover-title");
+    expect(md.getByText("Os Maias").classList).not.toContain(
+      "text-cover-title-sm",
+    );
+  });
+
+  it("title_is_portuguese_and_never_leaves_the_cover", async () => {
+    const { getByText } = render(Cover, { props: { ...BOOK } });
+    const title = getByText("Os Maias");
+    expect(title.getAttribute("lang")).toBe("pt");
+    expect(title.getAttribute("aria-hidden")).toBe("true");
+    await expectBindings(title, [
+      {
+        binding: "never leaves the cover",
+        utility: "wrap-anywhere",
+        css: "overflow-wrap: anywhere;",
+      },
+    ]);
+    // Not measured (jsdom): no hyphenation.
+    expect(title.classList).toContain("hyphens-manual");
+    expect(title.classList).not.toContain("hyphens-auto");
+    expect(await ruleOf("hyphens-auto")).toContain("hyphens: auto;");
+    expect(await ruleOf("hyphens-manual")).toContain("hyphens: manual;");
+    // The author is a single truncated line: no hyphenation there.
+    expect(getByText("Eça de Queirós").getAttribute("lang")).toBeNull();
+  });
+
+  it("title_hyphenates_only_when_a_word_does_not_fit_alone", async () => {
+    stubMeasure(147);
+    const fits = render(Cover, {
+      props: { ...BOOK, title: "Ensaio sobre a Cegueira" },
+    });
+    await tick();
+    const p = fits.container.querySelector("p")!;
+    expect(p.classList).toContain("hyphens-manual");
+    expect(p.classList).not.toContain("hyphens-auto");
+    fits.unmount();
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      width: 72,
+    } as DOMRect);
+    const long = render(Cover, {
+      props: { ...BOOK, title: "Desassossego" },
+    });
+    await tick();
+    const q = long.container.querySelector("p")!;
+    expect(q.classList).toContain("hyphens-auto");
+    expect(q.classList).not.toContain("hyphens-manual");
+  });
+
+  it("title_measures_in_the_computed_font", async () => {
+    stubMeasure(147);
+    render(Cover, { props: { ...BOOK, title: "O Retorno" } });
+    await tick();
+    expect(fonts.length).toBeGreaterThan(0);
+    expect(new Set(fonts)).toEqual(new Set(["normal 500 15px Literata"]));
+  });
+
+  it("title_shows_the_new_title_after_a_rerender", async () => {
+    stubMeasure(147);
+    const { container, rerender } = render(Cover, {
+      props: { ...BOOK, title: "O Retorno" },
+    });
+    await tick();
+    expect(container.querySelector("p")!.textContent).toBe(`O${NB}Retorno`);
+    await rerender({ title: "A Sibila" });
+    await tick();
+    expect(container.querySelector("p")!.textContent).toBe(`A${NB}Sibila`);
+  });
+
+  it("title_measures_again_when_only_size_changes", async () => {
+    stubMeasure(147);
+    const { container, getByText } = render(SizeFixture);
+    await tick();
+    const p = container.querySelector("p")!;
+    expect(p.textContent).toBe(`O${NB}Retorno`);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      width: 40,
+    } as DOMRect);
+    await fireEvent.click(getByText("small"));
+    await tick();
+    // The same element (not mounted again) is measured again, with no resize or font event.
+    expect(container.querySelector("p")).toBe(p);
+    expect(p.classList).toContain("text-cover-title-sm");
+    expect(p.textContent).toBe("O Retorno");
+  });
+
+  it("title_unmounted_before_the_fonts_are_ready_does_not_measure", async () => {
+    stubMeasure(147);
+    let loaded: () => void = () => {};
+    const ready = new Promise<void>((r) => (loaded = r));
+    Object.defineProperty(document, "fonts", {
+      value: {
+        ready,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      },
+      configurable: true,
+    });
+    const view = render(Cover, { props: { ...BOOK, title: "O Retorno" } });
+    await tick();
+    view.unmount();
+    measured.mockClear();
+    loaded();
+    await ready;
+    await tick();
+    expect(measured).not.toHaveBeenCalled();
+  });
+
+  it("title_measures_again_on_the_fonts_loadingdone_event", async () => {
+    stubMeasure(40);
+    const listeners = new Set<() => void>();
+    Object.defineProperty(document, "fonts", {
+      value: {
+        ready: new Promise(() => {}),
+        addEventListener: (_: string, cb: () => void) => listeners.add(cb),
+        removeEventListener: (_: string, cb: () => void) =>
+          listeners.delete(cb),
+      },
+      configurable: true,
+    });
+    const view = render(Cover, { props: { ...BOOK, title: "O Retorno" } });
+    await tick();
+    expect(listeners.size).toBe(1);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      width: 147,
+    } as DOMRect);
+    listeners.forEach((cb) => cb());
+    await tick();
+    expect(view.container.querySelector("p")!.textContent).toBe(
+      `O${NB}Retorno`,
+    );
+    view.unmount();
+    expect(listeners.size).toBe(0);
+  });
+
+  it("title_keeps_its_text_when_there_is_no_measure", async () => {
+    // jsdom has no canvas: the title is shown as it is.
+    const { container } = render(Cover, {
+      props: { ...BOOK, title: "O Retorno" },
+    });
+    await tick();
+    expect(container.querySelector("p")!.textContent).toBe("O Retorno");
+  });
+
+  it("title_binds_short_words_with_a_non_breaking_space_when_it_can_measure", async () => {
+    stubMeasure(147);
+    const { container } = render(Cover, {
+      props: { ...BOOK, title: "O Retorno" },
+    });
+    await tick();
+    expect(container.querySelector("p")!.textContent).toBe(`O${NB}Retorno`);
+  });
+
+  it("title_keeps_normal_spaces_when_the_pair_does_not_fit", async () => {
+    stubMeasure(40);
+    const { container } = render(Cover, {
+      props: { ...BOOK, title: "O Retorno" },
+    });
+    await tick();
+    expect(container.querySelector("p")!.textContent).toBe("O Retorno");
+  });
+
+  it("title_measures_again_when_the_cover_is_resized", async () => {
+    stubMeasure(147);
+    // Each observer only hears about the elements it observes.
+    const observers: { cb: () => void; seen: Element[] }[] = [];
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        entry = { cb: () => {}, seen: [] as Element[] };
+        constructor(cb: () => void) {
+          this.entry.cb = cb;
+          observers.push(this.entry);
+        }
+        observe(el: Element) {
+          this.entry.seen.push(el);
+        }
+        disconnect() {
+          this.entry.seen.length = 0;
+        }
+      },
+    );
+    const resized = (el: Element) =>
+      observers.filter((o) => o.seen.includes(el)).forEach((o) => o.cb());
+    const { container } = render(Cover, {
+      props: { ...BOOK, title: "O Retorno" },
+    });
+    await tick();
+    const cover = must(slot(container, "cover"), "cover");
+    expect(container.querySelector("p")!.textContent).toBe(`O${NB}Retorno`);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      width: 40,
+    } as DOMRect);
+    resized(cover);
+    await tick();
+    expect(container.querySelector("p")!.textContent).toBe("O Retorno");
+  });
+
+  it("title_measures_again_when_the_fonts_finish_loading", async () => {
+    stubMeasure(40);
+    let loaded: () => void = () => {};
+    const ready = new Promise<void>((r) => (loaded = r));
+    Object.defineProperty(document, "fonts", {
+      value: { ready },
+      configurable: true,
+    });
+    const { container } = render(Cover, {
+      props: { ...BOOK, title: "O Retorno" },
+    });
+    await tick();
+    expect(container.querySelector("p")!.textContent).toBe("O Retorno");
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      width: 147,
+    } as DOMRect);
+    loaded();
+    await ready;
+    await tick();
+    expect(container.querySelector("p")!.textContent).toBe(`O${NB}Retorno`);
   });
 });
 

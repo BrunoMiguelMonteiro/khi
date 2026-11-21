@@ -84,6 +84,7 @@
 	<div class="mx-auto flex max-w-140 flex-col gap-8">
 		<header class="flex items-start gap-6">
 			<Cover
+				size="sm"
 				class="w-24 shrink-0"
 				src={book.coverPath ? convertFileSrc(book.coverPath) : undefined}
 				title={book.title}

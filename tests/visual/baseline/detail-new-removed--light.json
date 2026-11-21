@@ -2,7 +2,7 @@
 "id": "detail-new-removed--light",
 "htmlClass": "light",
 "shots": {
- "detail-new-removed--light.png": "fd4012dc2751090dc36fa6dd33af54b79d9ffeffe50e5702ef03c7c5aac9dba9"
+ "detail-new-removed--light.png": "4c5ec4c3554f2f8dc461929be4a46dedcdcb06ddc07eef75bcd24ad68ec42372"
 },
 "common": {
  "display": "block",
@@ -91,6 +91,8 @@
  "white-space": "normal",
  "word-break": "normal",
  "overflow-wrap": "normal",
+ "hyphens": "manual",
+ "-webkit-hyphens": "manual",
  "text-wrap": "wrap",
  "-webkit-line-clamp": "none",
  "-webkit-font-smoothing": "auto",
@@ -144,8 +146,8 @@
 {"k":"html > body > div > div:1 > main > div[data-testid=\"book-details-view\"] > div","b":[220,84,560,529],"s":{"display":"flex","width":"560px","height":"529px","min-width":"0px","min-height":"0px","max-width":"560px","margin-right":"188px","margin-left":"188px","flex-direction":"column","row-gap":"32px","column-gap":"32px","transform-origin":"280px 264.5px"}},
 {"k":"html > body > div > div:1 > main > div[data-testid=\"book-details-view\"] > div > header","b":[220,84,560,144],"s":{"display":"flex","width":"560px","height":"144px","align-items":"flex-start","row-gap":"24px","column-gap":"24px","transform-origin":"280px 72px"}},
 {"k":"html > body > div > div:1 > main > div[data-testid=\"book-details-view\"] > div > header > div:1","b":[220,84,96,144],"s":{"display":"flex","position":"relative","top":"0px","right":"0px","bottom":"0px","left":"0px","width":"96px","height":"144px","padding-top":"12px","padding-right":"12px","padding-bottom":"12px","padding-left":"12px","flex-direction":"column","flex-shrink":"0","row-gap":"4px","column-gap":"4px","background-color":"rgba(76, 83, 105, 1)","border-top-left-radius":"4px","border-top-right-radius":"4px","border-bottom-right-radius":"4px","border-bottom-left-radius":"4px","transform-origin":"48px 72px"}},
-{"k":"html > body > div > div:1 > main > div[data-testid=\"book-details-view\"] > div > header > div:1 > p{\"O Ano da Morte de Ricardo Reis\"}","b":[232,96,72,80],"s":{"display":"-webkit-box","width":"72px","height":"80px","overflow-x":"hidden","overflow-y":"hidden","color":"rgba(245, 245, 247, 1)","outline-color":"rgba(245, 245, 247, 1)","font-family":"Literata Variable, Georgia, serif","font-size":"15px","font-weight":"500","line-height":"20px","text-decoration-color":"rgba(245, 245, 247, 1)","-webkit-line-clamp":"4","caret-color":"rgba(245, 245, 247, 1)","transform-origin":"36px 40px"}},
-{"k":"html > body > div > div:1 > main > div[data-testid=\"book-details-view\"] > div > header > div:1 > p{\"José Saramago\"}","b":[232,180,72,16],"s":{"width":"72px","height":"16px","overflow-x":"hidden","overflow-y":"hidden","color":"rgba(245, 245, 247, 1)","outline-color":"rgba(245, 245, 247, 1)","font-family":"Literata Variable, Georgia, serif","font-size":"12px","font-style":"italic","line-height":"16px","text-decoration-color":"rgba(245, 245, 247, 1)","text-overflow":"ellipsis","white-space":"nowrap","text-wrap":"nowrap","caret-color":"rgba(245, 245, 247, 1)","transform-origin":"36px 8px"}},
+{"k":"html > body > div > div:1 > main > div[data-testid=\"book-details-view\"] > div > header > div:1 > p{\"O Ano da Morte de Ricardo Reis\"}","b":[232,96,72,64],"s":{"display":"-webkit-box","width":"72px","height":"64px","overflow-x":"hidden","overflow-y":"hidden","color":"rgba(245, 245, 247, 1)","outline-color":"rgba(245, 245, 247, 1)","font-family":"Literata Variable, Georgia, serif","font-size":"13px","font-weight":"500","line-height":"16px","text-decoration-color":"rgba(245, 245, 247, 1)","overflow-wrap":"anywhere","-webkit-line-clamp":"4","caret-color":"rgba(245, 245, 247, 1)","transform-origin":"36px 32px"}},
+{"k":"html > body > div > div:1 > main > div[data-testid=\"book-details-view\"] > div > header > div:1 > p{\"José Saramago\"}","b":[232,164,72,16],"s":{"width":"72px","height":"16px","overflow-x":"hidden","overflow-y":"hidden","color":"rgba(245, 245, 247, 1)","outline-color":"rgba(245, 245, 247, 1)","font-family":"Literata Variable, Georgia, serif","font-size":"12px","font-style":"italic","line-height":"16px","text-decoration-color":"rgba(245, 245, 247, 1)","text-overflow":"ellipsis","white-space":"nowrap","text-wrap":"nowrap","caret-color":"rgba(245, 245, 247, 1)","transform-origin":"36px 8px"}},
 {"k":"html > body > div > div:1 > main > div[data-testid=\"book-details-view\"] > div > header > div:1 > span","b":[220,84,96,144],"s":{"position":"absolute","top":"0px","right":"0px","bottom":"0px","left":"0px","width":"96px","height":"144px","border-top-left-radius":"4px","border-top-right-radius":"4px","border-bottom-right-radius":"4px","border-bottom-left-radius":"4px","box-shadow":"rgba(0, 0, 0, 0.2) 0px 0px 0px 1px inset","transform-origin":"48px 72px"}},
 {"k":"html > body > div > div:1 > main > div[data-testid=\"book-details-view\"] > div > header > div:2","b":[340,84,321.5,73],"s":{"display":"flex","width":"321.328125px","height":"73px","min-width":"0px","flex-direction":"column","row-gap":"8px","column-gap":"8px","transform-origin":"160.664063px 36.5px"}},
 {"k":"html > body > div > div:1 > main > div[data-testid=\"book-details-view\"] > div > header > div:2 > h1{\"O Ano da Morte de Ricardo Reis\"}","b":[340,84,321.5,26],"s":{"width":"321.328125px","height":"26px","color":"rgba(29, 29, 31, 1)","outline-color":"rgba(29, 29, 31, 1)","font-family":"-apple-system, BlinkMacSystemFont, system-ui, sans-serif","font-size":"22px","font-weight":"700","line-height":"26px","text-decoration-color":"rgba(29, 29, 31, 1)","caret-color":"rgba(29, 29, 31, 1)","transform-origin":"160.664063px 13px"}},

@@ -73,6 +73,14 @@ describe('BookDetailsView · header', () => {
     expect(container.querySelector('[data-slot="cover"]')).toHaveTextContent('Minimal Book');
   });
 
+  it('uses the small cover title (13/16) on the 96 px cover', async () => {
+    const book = await open(makeBook({ id: 1, title: 'O Retorno', author: 'Dulce', highlights: [hl('a')] }));
+    const { container } = render(BookDetailsView, { props: { book } });
+    const title = container.querySelector('[data-slot="cover"] p')!;
+    expect(title.classList).toContain('text-cover-title-sm');
+    expect(title.classList).not.toContain('text-cover-title');
+  });
+
   it('has no toolbar of its own, no «show removed» box and no delete window', async () => {
     const book = await open(makeBook({ id: 1, title: 'T', author: 'A', highlights: [hl('a'), hl('b', { removedAt: REMOVED })] }));
     render(BookDetailsView, { props: { book } });

@@ -2719,13 +2719,30 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 5. **A medida volta a fazer-se** quando a fonte (Literata) acaba de carregar (`document.fonts.ready`) e quando a largura da capa muda.
 
 **Passos:**
-- [ ] **Passo 1:** testes que falham: `size="sm"` dá `text-cover-title-sm`; o utilitário liga «O Retorno» com uma largura folgada e não liga quando o par não cabe; deixa espaços normais sem medida; palavras de 3 letras ficam como estão; títulos com vários pares («O Ano da Morte de Ricardo Reis»); o Detalhe passa `size="sm"`.
-- [ ] **Passo 2:** a implementação.
-- [ ] **Passo 3:** cenários visuais: os do Detalhe e da grelha que já existem, com as baselines regeneradas, e um cenário novo `cover-titles` com os quatro títulos de teste da Q-N («O Retorno», «Desassossego», «Guarda-Chuvas», «O Ano da Morte de Ricardo Reis») em capa grande e pequena, Claro e Escuro. Compara com a secção `78:19221` do Figma.
-- [ ] **Passo 4:** gate completo (Vitest, check, build, `test:visual`, `cargo test`, `cargo clippy --all-targets`). As baselines que mudarem são só as que têm capas sem imagem; justifica cada uma.
-- [ ] **Passo 5:** review adversarial (Opus), mutações minhas e comparação com o Figma. Commit `feat(cover): small cover title and non-breaking short words (Q-N)`.
+- [x] **Passo 1:** testes que falham: `size="sm"` dá `text-cover-title-sm`; o utilitário liga «O Retorno» com uma largura folgada e não liga quando o par não cabe; deixa espaços normais sem medida; palavras de 3 letras ficam como estão; títulos com vários pares («O Ano da Morte de Ricardo Reis»); o Detalhe passa `size="sm"`.
+- [x] **Passo 2:** a implementação.
+- [x] **Passo 3:** cenários visuais: os do Detalhe e da grelha que já existem, com as baselines regeneradas, e um cenário novo `cover-titles` com os quatro títulos de teste da Q-N («O Retorno», «Desassossego», «Guarda-Chuvas», «O Ano da Morte de Ricardo Reis») em capa grande e pequena, Claro e Escuro. Compara com a secção `78:19221` do Figma.
+- [x] **Passo 4:** gate completo (Vitest, check, build, `test:visual`, `cargo test`, `cargo clippy --all-targets`). As baselines que mudarem são só as que têm capas sem imagem; justifica cada uma.
+- [x] **Passo 5:** review adversarial (Opus), mutações minhas e comparação com o Figma. Commit `feat(cover): small cover title and non-breaking short words (Q-N)`.
 
 **Verificar no ecrã (Bruno), com a build dev:** um livro sem capa com o título começado por «O» ou «A» no Detalhe (numa linha, se couber) e, se houver, um título com uma palavra longa (hífen ou corte limpo).
+
+**Feito (2026-11-21).** Aprovada pelo Bruno («Aprovo a Task 49»). Implementada pelo Sonnet com TDD, revista pelo Opus (review adversarial independente) e testada com mutações minhas.
+- **Código:** a Capa tem `size` (`md` e `sm`); o Detalhe usa `sm` (13/16). `cover-title.ts` liga as palavras curtas com U+00A0 quando o par cabe (`bindShortWords`) e decide o `hyphenate` (`coverTitle`). A medida é feita num canvas com a fonte calculada e repete-se com `ResizeObserver`, `fonts.ready`, `loadingdone` e a mudança de `size`.
+- **Review adversarial: «rejeitar».** Corrigidos:
+  - **B1:** o `hyphens-auto` em todo o título partia palavras que cabiam («Ensaio sobre a Ce-/gueira» na grelha). Agora só hifeniza quando uma palavra, sozinha, não cabe; caso contrário fica `hyphens: manual`, e o `wrap-anywhere` como rede;
+  - **M1:** o recorder visual não gravava `hyphens`. Acrescentado num passo à parte, sem mudar nenhum PNG;
+  - minors: o cenário passou a usar o Detalhe real em vez de trocar classes no DOM (a troca era desfeita pelo Svelte e gravava capas pequenas a 15 px, visto por mim no PNG); nova medida ao mudar `size`; espaços duplos e nas pontas; `loadingdone`; testes mais exigentes (`ctx.font`, desmontar, `rerender`).
+- **Mutações minhas:** 14. Morrem 12; as outras 2 (palavra com dígito, `observe` da capa) ganharam um teste cada e passaram a morrer.
+- **Baselines:** mudam as 94 com capas sem imagem (só os títulos com palavras curtas ligadas e, no Detalhe, o 13/16), mais a propriedade `hyphens` em todos os JSON. Novos: `cover-titles` (grelha com as capas grandes) e `cover-titles-small-*` (5 Detalhes), em 3 temas.
+- **Capa pequena (PNG):** «O Retorno» numa linha; «Desassos-/sego» e «O Desas-/sossego» com hífen; «Guarda-/Chuvas» no hífen do título; «O Ano / da Morte / de Ricardo / Reis». O hífen é o do WebKit do Playwright; falta ver no Tauri.
+- **Gate final:**
+  - Vitest: 1100 passam, 1 ignorado;
+  - `npm run check`: 0/0;
+  - build OK;
+  - `test:visual`: 173 passam (161 + 12 controlos);
+  - `cargo test`: 179;
+  - `clippy`: os 7 avisos de antes.
 
 ## Fase 6 · Fecho da v2 (tasks a escrever)
 - **Menus:** «Mostrar última exportação no Finder» no menu Ficheiro e o menu Livro. A barra de menus **continua por desenhar**.

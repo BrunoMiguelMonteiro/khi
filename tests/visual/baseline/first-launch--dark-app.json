@@ -91,6 +91,8 @@
  "white-space": "nowrap",
  "word-break": "normal",
  "overflow-wrap": "normal",
+ "hyphens": "manual",
+ "-webkit-hyphens": "manual",
  "text-wrap": "nowrap",
  "-webkit-line-clamp": "none",
  "-webkit-font-smoothing": "auto",

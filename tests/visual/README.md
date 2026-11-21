@@ -21,7 +21,7 @@ The report is written to `output/report.md`, grouped by capture, then element, t
 
 Only update the baseline on a tree whose visuals you have verified. Run `test:visual` twice afterwards to check that the baseline is stable. Commit `baseline/` together with the change that justifies it.
 
-## Matrix (143 captures + 12 controls)
+## Matrix (146 captures + 12 controls)
 
 Scenarios (`scenarios.ts`):
 
@@ -59,6 +59,7 @@ Scenarios (`scenarios.ts`):
 - The delete scenarios (Ecrã 9, Task 48): the Library has «O Retorno» (Dulce Maria Cardoso) first, with its three highlights all removed from the Kobo and one with a note (`booksDeletable`), so the bar has the trash can:
   - `detail-delete`: the pointer on the trash can, 32 × 32 and 4 before Export, and its tooltip «Apagar livro… ⌘⌫» (134 × 24, top at 46 ± 1);
   - `detail-delete-confirm`: the trash can pressed: «Apagar este livro?» 380 × 160 and centred, the focus on the window itself (no button, so no focus ring), «Apagar» in destructive-text.
+- `cover-titles` (Task 49, Q-N): covers with no image and the four Q-N titles twice, library of `booksCoverTitles`. «Capa Grande» is the 171 px cover; «Capa Pequena» is narrowed in the page to 96 px with the 13/16 title (the Detail's cover), so the real component measures again and binds the short words.
 
 Themes:
 

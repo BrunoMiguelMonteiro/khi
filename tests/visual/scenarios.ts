@@ -8,7 +8,7 @@ import type { Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import type { Language, ThemePreference, ViewMode } from '../../src/lib/bindings';
 import type { MockConfig } from './mock-ipc';
-import { APP_VERSION, HOME, availableUpdate, books, booksDeletable, booksWithoutNews, defaultSettings, device, makeSettings, reader, summary } from './fixtures';
+import { APP_VERSION, HOME, availableUpdate, books, booksCoverTitles, booksDeletable, booksWithoutNews, defaultSettings, device, makeSettings, reader, summary } from './fixtures';
 
 export type ThemeName = 'light' | 'dark-app' | 'system-dark';
 
@@ -63,6 +63,8 @@ export interface Scenario {
 	update?: boolean;
 	/** The Library has «O Retorno» first, every highlight of it removed from the Kobo: the detail has the trash can (Ecrã 9). */
 	deletableBook?: boolean;
+	/** The Library is `booksCoverTitles`: the Q-N titles on covers with no image (Task 49). */
+	coverTitles?: boolean;
 	/** The export fails with `folderNotWritable` for `~/Documents/Kobo` (Ecrã 8). */
 	exportFailure?: boolean;
 	/** The updater fails: `check` (state 6) or the install after a download that worked (state 7). */
@@ -558,6 +560,59 @@ export const SCENARIOS: Record<string, Scenario> = {
 		withoutNews: true,
 		reach: library
 	},
+	'cover-titles': {
+		name: 'cover-titles',
+		description: 'Covers with no image and the Q-N titles on the large cover (171) in the grid: non-breaking short words, and no hyphen where every word fits (Task 49, Figma 78:19221)',
+		withLibrary: true,
+		withoutNews: true,
+		coverTitles: true,
+		async reach(page, text) {
+			await connectKobo(page, text);
+			await expect(page.getByTestId('book-card')).toHaveCount(booksCoverTitles.length);
+			const title = (name: string) => page.locator(`[data-testid="book-card"][aria-label^="${name},"] [data-slot="cover"] p`).first();
+			await expect(title('O Retorno')).toHaveText('O\u00A0Retorno');
+			await expect(title('O Desassossego')).toHaveText('O\u00A0Desassossego');
+			await expect(title('Desassossego')).toHaveText('Desassossego');
+			await page.evaluate(() => document.fonts.ready);
+			await page.mouse.move(0, 0);
+		}
+	},
+	// The small cover is the Detail's (96 px, `size="sm"`): the real path, one scenario per title.
+	// «O Desassossego» starts out unbound on the small cover, so nothing here proves a new measure
+	// when only the size changes: that is the unit test with the fixture (cover.test.ts).
+	...Object.fromEntries(
+		[
+			{ key: 'retorno', title: 'O Retorno', shown: 'O\u00A0Retorno', hyphens: 'manual' },
+			{ key: 'desassossego', title: 'Desassossego', shown: 'Desassossego', hyphens: 'auto' },
+			{ key: 'o-desassossego', title: 'O Desassossego', shown: 'O Desassossego', hyphens: 'auto' },
+			{ key: 'guarda-chuvas', title: 'Guarda-Chuvas', shown: 'Guarda-Chuvas', hyphens: 'auto' },
+			{ key: 'ano-ricardo-reis', title: 'O Ano da Morte de Ricardo Reis', shown: 'O\u00A0Ano da\u00A0Morte de\u00A0Ricardo Reis', hyphens: 'manual' }
+		].map(({ key, title, shown, hyphens }): [string, Scenario] => [
+			`cover-titles-small-${key}`,
+			{
+				name: `cover-titles-small-${key}`,
+				description: `The Detail of «${title}» (no cover image): the small cover, title 13/16, ${hyphens === 'auto' ? 'a word that does not fit may be hyphenated' : 'no hyphenation'} (Task 49, Figma 78:19221)`,
+				withLibrary: true,
+				withoutNews: true,
+				coverTitles: true,
+				async reach(page, text) {
+					await connectKobo(page, text);
+					await expect(page.getByTestId('book-card')).toHaveCount(booksCoverTitles.length);
+					await page.locator(`[data-testid="book-card"][aria-label^="${title},"]`).dispatchEvent('click');
+					const view = page.getByTestId('book-details-view');
+					await expect(view.getByRole('heading', { name: title, exact: true })).toBeVisible();
+					const cover = view.locator('[data-slot="cover"] p').first();
+					await expect(cover).toHaveText(shown);
+					await expect(cover).toHaveCSS('font-size', '13px');
+					await expect(cover).toHaveCSS('line-height', '16px');
+					await expect(cover).toHaveCSS('hyphens', hyphens);
+					expect(await view.locator('[data-slot="cover"]').evaluate((el) => (el as HTMLElement).offsetWidth)).toBe(96);
+					await page.evaluate(() => document.fonts.ready);
+					await page.mouse.move(0, 0);
+				}
+			}
+		])
+	),
 	'library-disconnected': {
 		name: 'library-disconnected',
 		description: 'No Kobo, nothing new: no header, Sync disabled, Export enabled because the highlights are stored',
@@ -1202,7 +1257,7 @@ export function captures(): Capture[] {
 }
 
 export function mockConfigFor(scenario: Scenario, variant: Variant): MockConfig {
-	const library = scenario.emptyLibrary ? [] : scenario.deletableBook ? booksDeletable : scenario.withoutNews ? booksWithoutNews : books;
+	const library = scenario.emptyLibrary ? [] : scenario.coverTitles ? booksCoverTitles : scenario.deletableBook ? booksDeletable : scenario.withoutNews ? booksWithoutNews : books;
 	return {
 		settings: makeSettings({ theme: THEMES[variant.theme].app, language: variant.language, viewMode: scenario.viewMode }),
 		defaultSettings: defaultSettings(variant.language),

@@ -154,6 +154,14 @@ export const booksDeletable: Book[] = [
 	...booksWithoutNews.slice(1)
 ];
 
+/**
+ * The Library of the `cover-titles` scenarios (Task 49, Q-N): the four titles of the Q-N plus «O Desassossego» (bound at
+ * 147/15, not at 72/13), none with a cover image. The grid draws them on the large cover; each one's Detail on the small one.
+ */
+export const booksCoverTitles: Book[] = ['O Retorno', 'Desassossego', 'Guarda-Chuvas', 'O Ano da Morte de Ricardo Reis', 'O Desassossego'].map(
+	(title, i) => makeBook({ id: i + 1, title, author: 'Autor de Teste', highlights: [] })
+);
+
 /** What `library_summary` answers: new highlights since 9 Nov, the connected Kobo's last sync at 09:42 (Lisbon, UTC+0). */
 export const summary = { newSince: '2026-11-09T10:00:00Z', lastSyncAt: '2026-11-15T09:42:00Z' };
 
