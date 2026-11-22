@@ -1,5 +1,51 @@
 [
   {
+    "version": "2.0.0",
+    "date": "2026-11-22",
+    "notes": {
+      "en": {
+        "whats_new": [
+          "A new design made for macOS, with light and dark appearance, an accent color of your choice and support for Increase Contrast.",
+          "Your library stays in Khi: books and highlights are there without the Kobo connected, and highlights you delete on the Kobo are kept and marked.",
+          "New highlights since your last sync are marked on the book, and the book view filters them by All, New and With Notes.",
+          "Grid and list views, with sorting and selection of several books to export.",
+          "Use more than one Kobo: each one has its own library and export folder.",
+          "Khi syncs when you connect your Kobo, or when you click Sync, and the library stays on screen while it syncs.",
+          "Notes you wrote on the Kobo appear with their highlights and in the exported Markdown.",
+          "Covers for books bought in the Kobo Store.",
+          "Settings open in their own window (⌘,).",
+          "Khi checks for updates and installs them for you.",
+          "Choose Portuguese or English for the app, its menus and the exported Markdown.",
+          "A new app icon.",
+          "Khi 2 requires macOS 13.3 or later."
+        ],
+        "bug_fixes": [
+          "When an export fails, Khi now says why."
+        ]
+      },
+      "pt": {
+        "whats_new": [
+          "Design novo, mais em conformidade com o macOS, com tema claro e escuro, a cor de realce que escolheres e suporte para Aumentar contraste.",
+          "Biblioteca persistente: os livros e os destaques permanecem mesmo sem o Kobo ligado, e os destaques que apagares no Kobo ficam guardados e assinalados.",
+          "Os destaques novos desde a última sincronização ficam assinalados no livro, e a vista do livro filtra-os por Todos, Novos e Com notas.",
+          "Vista em grelha e em lista, com ordenação e seleção de vários livros para exportar.",
+          "Usa mais do que um Kobo: cada um tem a sua biblioteca e a sua pasta de exportação.",
+          "O Khi sincroniza quando ligas o Kobo, ou quando carregas em Sincronizar, e a biblioteca fica à vista durante a sincronização.",
+          "As notas que escreveste no Kobo aparecem com os destaques e no Markdown exportado.",
+          "Capas dos livros comprados na Kobo Store.",
+          "As Definições abrem numa janela própria (⌘,).",
+          "O Khi agora procura atualizações e instala-as por ti.",
+          "Escolhe português ou inglês para a app, os menus e o Markdown exportado.",
+          "Um ícone novo.",
+          "O Khi 2 precisa do macOS 13.3 ou posterior."
+        ],
+        "bug_fixes": [
+          "Quando uma exportação falha, o Khi diz porquê."
+        ]
+      }
+    }
+  },
+  {
     "version": "1.3.0",
     "date": "2026-02-09",
     "notes": {
