@@ -53,9 +53,9 @@ describe('ExportPane', () => {
 		await show();
 
 		expect(screen.getByRole('heading', { name: 'Files' })).toBeInTheDocument();
-		expect(screen.getByRole('heading', { name: 'Metadata to Include' })).toBeInTheDocument();
+		expect(screen.getByRole('heading', { name: 'Metadata to include' })).toBeInTheDocument();
 		expect(screen.getByText('Export folder')).toBeInTheDocument();
-		expect(screen.getByText('Date Format')).toBeInTheDocument();
+		expect(screen.getByText('Date format')).toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: /save|cancel|reset/i })).toBeNull();
 		expect(screen.queryByText(/library view/i)).toBeNull();
 	});
@@ -80,12 +80,12 @@ describe('ExportPane', () => {
 
 	it('the metadata boxes are three columns of two', async () => {
 		await show();
-		const row = screen.getByRole('group', { name: 'Metadata to Include' });
+		const row = screen.getByRole('group', { name: 'Metadata to include' });
 		const columns = [...row.querySelectorAll('[data-slot="form-row-column"]')];
 
 		const names = columns.map((c) => [...c.querySelectorAll('label')].map((l) => l.textContent?.trim()));
 		expect(names).toEqual([
-			['Author', 'Last Read Date'],
+			['Author', 'Last read date'],
 			['ISBN', 'Language'],
 			['Publisher', 'Description']
 		]);
@@ -122,7 +122,7 @@ describe('ExportPane', () => {
 
 	it('the date format is a pop-up, saved at the moment', async () => {
 		const user = await show();
-		const trigger = screen.getByRole('combobox', { name: 'Date Format' });
+		const trigger = screen.getByRole('combobox', { name: 'Date format' });
 		expect(trigger).toHaveTextContent('ISO 8601 (2025-01-24)');
 
 		await openSelect(user, trigger);

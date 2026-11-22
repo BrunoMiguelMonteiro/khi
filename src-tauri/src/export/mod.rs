@@ -48,12 +48,12 @@ struct Labels {
 const PT: Labels = Labels {
     author: "Autor",
     publisher: "Editora",
-    last_read: "Data de Leitura",
+    last_read: "Data de leitura",
     language: "Idioma",
     note: "Nota",
     months: [
-        "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro",
-        "Outubro", "Novembro", "Dezembro",
+        "janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro",
+        "outubro", "novembro", "dezembro",
     ],
 };
 
@@ -369,7 +369,10 @@ fn format_date(date_str: &str, format: &DateFormat, language: Language) -> Strin
             DateFormat::DdMmYyyy => date.format("%d/%m/%Y").to_string(),
             DateFormat::DdMonthYyyy => {
                 let month_name = labels(language).months[(date.month() - 1) as usize];
-                format!("{:02} {} {}", date.day(), month_name, date.year())
+                match language {
+                    Language::Pt => format!("{} de {} de {}", date.day(), month_name, date.year()),
+                    Language::En => format!("{:02} {} {}", date.day(), month_name, date.year()),
+                }
             }
             DateFormat::Iso8601 => date.format("%Y-%m-%d").to_string(),
         }
@@ -648,7 +651,7 @@ mod tests {
     fn portuguese_markdown_keeps_its_bytes_but_publisher() {
         // What v1 and v2 wrote before the language setting, with «Publisher»
         // now in Portuguese like the other labels
-        let expected = "# Test Book\n\n**Autor**: Test Author\n**ISBN**: 978-1234567890\n**Editora**: Test Publisher\n**Data de Leitura**: 24 Janeiro 2025\n**Idioma**: en\n\nA test book description\n\n---\n\n> First highlight\n\n**Nota:** A thought  \nsecond line\n\nChapter 1 · 25%\n\n> Second highlight\n\nChapter 1 · 50%\n";
+        let expected = "# Test Book\n\n**Autor**: Test Author\n**ISBN**: 978-1234567890\n**Editora**: Test Publisher\n**Data de leitura**: 24 de janeiro de 2025\n**Idioma**: en\n\nA test book description\n\n---\n\n> First highlight\n\n**Nota:** A thought  \nsecond line\n\nChapter 1 · 25%\n\n> Second highlight\n\nChapter 1 · 50%\n";
         assert_eq!(full_markdown(Language::Pt), expected);
     }
 
@@ -656,5 +659,43 @@ mod tests {
     fn english_markdown_has_english_labels_and_months() {
         let expected = "# Test Book\n\n**Author**: Test Author\n**ISBN**: 978-1234567890\n**Publisher**: Test Publisher\n**Last read**: 24 January 2025\n**Language**: en\n\nA test book description\n\n---\n\n> First highlight\n\n**Note:** A thought  \nsecond line\n\nChapter 1 · 25%\n\n> Second highlight\n\nChapter 1 · 50%\n";
         assert_eq!(full_markdown(Language::En), expected);
+    }
+
+    #[test]
+    fn format_date_pt_long_has_de_lowercase_month_and_no_leading_zero() {
+        assert_eq!(
+            format_date("2025-01-24", &DateFormat::DdMonthYyyy, Language::Pt),
+            "24 de janeiro de 2025"
+        );
+        assert_eq!(
+            format_date("2025-01-01", &DateFormat::DdMonthYyyy, Language::Pt),
+            "1 de janeiro de 2025"
+        );
+    }
+
+    #[test]
+    fn format_date_en_long_keeps_zero_padded_day() {
+        assert_eq!(
+            format_date("2025-01-24", &DateFormat::DdMonthYyyy, Language::En),
+            "24 January 2025"
+        );
+        assert_eq!(
+            format_date("2025-01-01", &DateFormat::DdMonthYyyy, Language::En),
+            "01 January 2025"
+        );
+    }
+
+    #[test]
+    fn format_date_other_formats_unchanged() {
+        for language in [Language::Pt, Language::En] {
+            assert_eq!(
+                format_date("2025-01-01", &DateFormat::DdMmYyyy, language),
+                "01/01/2025"
+            );
+            assert_eq!(
+                format_date("2025-01-01", &DateFormat::Iso8601, language),
+                "2025-01-01"
+            );
+        }
     }
 }

@@ -317,7 +317,7 @@ describe('/definicoes · window', () => {
 		it('with a pop-up open only closes the list', async () => {
 			const user = userEvent.setup();
 			render(Page);
-			const trigger = screen.getByRole('combobox', { name: 'Date Format' });
+			const trigger = screen.getByRole('combobox', { name: 'Date format' });
 			trigger.focus();
 			await user.keyboard(' ');
 			await screen.findByRole('listbox', { hidden: true });

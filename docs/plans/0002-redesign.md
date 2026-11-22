@@ -3182,15 +3182,17 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 3. **Visual:** só podem mudar cenários das Definições › Exportação (en pelos rótulos; pt pela opção da data). Abro os PNG um a um.
 
 **Passos:**
-- [ ] **Passo 1 (TDD):** os testes Rust do ponto 1. Vermelho.
-- [ ] **Passo 2:** o `export/mod.rs` (meses, `format_date` em pt, etiqueta) e os quatro textos. Verde.
-- [ ] **Passo 3:** gate completo, com `cargo test` e `cargo clippy` (os 7 avisos de antes).
-- [ ] **Passo 4 (eu):** mutações no `format_date`; build dev e uma exportação de teste na pasta Dev, com a app em pt e em en, para ler o Markdown. Review adversarial só se o código for além do `format_date` e das constantes. Commit `fix(export): Portuguese long date and sentence-case labels`.
+- [x] **Passo 1 (TDD):** os testes Rust do ponto 1. Vermelho.
+- [x] **Passo 2:** o `export/mod.rs` (meses, `format_date` em pt, etiqueta) e os quatro textos. Verde.
+- [x] **Passo 3:** gate completo, com `cargo test` e `cargo clippy` (os 7 avisos de antes).
+- [x] **Passo 4 (eu):** mutações no `format_date`; build dev e uma exportação de teste na pasta Dev, com a app em pt e em en, para ler o Markdown. Review adversarial só se o código for além do `format_date` e das constantes. Commit `fix(export): Portuguese long date and sentence-case labels`.
 
 **Verificar no ecrã (Bruno), com a build dev:**
 - nas Definições › Exportação em en: «Date format», «Metadata to include», «Last read date»;
 - em pt, a opção diz «24 de janeiro de 2025»;
 - um livro exportado em pt tem «**Data de leitura**: 24 de janeiro de 2025».
+
+**Feito (2026-11-22).** Implementado pelo Sonnet. Antes do código, o teste novo do pt e o do Markdown inteiro falhavam; os de en e dos outros formatos já passavam e ficam como regressão. Mudaram o `export/mod.rs` (meses em minúscula, o `format_date` em pt com «de» e sem zero, a etiqueta «Data de leitura») e os quatro textos; o `ExportPane.svelte.test.ts` e o `definicoes/page.svelte.test.ts` seguiram os rótulos novos. Sem review adversarial: o código não passa do `format_date` e das constantes. Gate: `cargo test` verde, clippy com os mesmos 7 avisos, Vitest 1142 passam e 1 ignorado (duas corridas), `npm run check` 0/0, build OK, `test:visual` 179/179. O shuffle falha em testes da verificação de atualizações do `definicoes/page.svelte.test.ts` e no antigo `export_clears_new_of_exported_books`; com o mesmo seed e os ficheiros do HEAD falham os mesmos, por isso são anteriores. Baselines: os 25 JSON das Definições mudaram só no texto do painel Exportação, que está escondido; só os PNG dos cenários `settings-export-*` mudaram, e vi-os um a um. As cinco mutações do coordenador foram apanhadas (dia com zero em pt, sem «de», mês com maiúscula, en com o formato pt, etiqueta em title case). A exportação de teste pela interface fica para a verificação no ecrã; o texto do Markdown já é verificado no `cargo test`.
 
 ## Visto à margem (não se apaga sem pedido)
 - O `getDateFormatLabel` (`settings.svelte.ts`) só é usado nos testes.

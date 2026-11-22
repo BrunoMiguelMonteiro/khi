@@ -175,16 +175,16 @@
       "includeMetadata": "Include book metadata in exports",
       "exportPath": "Export folder",
       "chooseFolder": "Choose folder",
-      "metadataTitle": "Metadata to Include",
+      "metadataTitle": "Metadata to include",
       "metadata": {
         "author": "Author",
         "isbn": "ISBN",
         "publisher": "Publisher",
-        "dateLastRead": "Last Read Date",
+        "dateLastRead": "Last read date",
         "language": "Language",
         "description": "Description"
       },
-      "dateFormat": "Date Format",
+      "dateFormat": "Date format",
       "dateFormats": {
         "dd_mm_yyyy": "DD/MM/YYYY (24/01/2025)",
         "dd_month_yyyy": "24 January 2025",
