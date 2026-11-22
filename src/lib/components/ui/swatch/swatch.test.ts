@@ -134,7 +134,7 @@ describe("SwatchGroup", () => {
     for (const s of swatches.slice(1)) expect(s.getAttribute("aria-checked")).toBe("false");
     await expectBindings(group, GROUP_BINDINGS);
     // The approved text, word for word, in both languages.
-    expect(locale("pt").settings.accent.label).toBe("Cor de destaque");
+    expect(locale("pt").settings.accent.label).toBe("Cor de realce");
     expect(locale("en").settings.accent.label).toBe("Accent color");
   });
 
@@ -155,7 +155,7 @@ describe("SwatchGroup", () => {
     expect([pt.system, ...Object.values(pt.swatches)]).toEqual(NAMES_PT);
     const en = locale("en").settings.accent;
     expect([en.system, ...Object.values(en.swatches)]).toEqual(NAMES_EN);
-    expect(pt.hint).toBe("Sistema usa a cor escolhida no macOS.");
+    expect(pt.hint).toBe("Com “Sistema”, o Khi segue o macOS.");
   });
 
   it("arrows_select", async () => {

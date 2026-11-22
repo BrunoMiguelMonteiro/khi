@@ -3196,7 +3196,8 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 
 ### Task 58: Ajuda da cor de realce em pt
 **Decisões** (DECISIONS «Fase 6 · Ajuda da cor de realce em pt», 2026-11-22, as duas do Bruno com a minha recomendação):
-- **Texto da ajuda:** «Com “Sistema”, o Khi usa a cor de realce escolhida no macOS.» Não abre com o rótulo nu e diz quem usa a cor. As aspas “ ” são as dos textos pt-PT do macOS.
+- **Texto encurtado na implementação (Bruno, 2026-11-22):** o texto aprovado, «Com “Sistema”, o Khi usa a cor de realce escolhida no macOS.», quebrava em duas linhas: a coluna da ajuda só leva cerca de 40 caracteres, por causa das 8 cores ao lado, e o painel passava de 285 para 300 px. «…a cor de realce do macOS.» também quebrava. O Bruno escolheu «Com “Sistema”, o Khi segue o macOS.» (a minha recomendação).
+- **Texto da ajuda:** «Com “Sistema”, o Khi segue o macOS.» Não abre com o rótulo nu e diz quem usa a cor. As aspas “ ” são as dos textos pt-PT do macOS.
 - **Termo:** «Cor de realce», o nome da Apple em pt-PT (`AppearanceIntentsExtension.appex`), no rótulo e na ajuda. Deixa de se confundir com os destaques dos livros. Afasta-se do Figma, que diz «Cor de destaque».
 - **O en não muda.**
 
@@ -3210,7 +3211,7 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 | Onde | Hoje | Passa a |
 |---|---|---|
 | pt `settings.accent.label` | Cor de destaque | Cor de realce |
-| pt `settings.accent.hint` | Sistema usa a cor escolhida no macOS. | Com “Sistema”, o Khi usa a cor de realce escolhida no macOS. |
+| pt `settings.accent.hint` | Sistema usa a cor escolhida no macOS. | Com “Sistema”, o Khi segue o macOS. |
 | comentário do `swatch-group.svelte` | «Cor de destaque» | «Cor de realce» |
 
 **Comportamento a provar:**
@@ -3220,12 +3221,14 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 4. **Visual:** os JSON de todos os `settings-*` podem mudar só no texto da Aparência. Só podem mudar os PNG dos três `settings-appearance-*` (pt). Abro-os um a um.
 
 **Passos:**
-- [ ] **Passo 1 (TDD):** os testes dos pontos 1 a 3. Vermelho.
-- [ ] **Passo 2:** os dois textos no `pt.json` e o comentário. Verde.
-- [ ] **Passo 3:** gate completo (Vitest duas vezes e com shuffle, `check`, build, visual; o Rust não muda).
-- [ ] **Passo 4 (eu):** mutações (ajuda sem aspas; `system` trocado só no `pt.json`; rótulo antigo); build dev em pt; tirar o ponto da ajuda do «Visto à margem». Sem review adversarial: só muda texto. Commit `fix(i18n): Portuguese accent color uses Apple's name and names the System option`.
+- [x] **Passo 1 (TDD):** os testes dos pontos 1 a 3. Vermelho.
+- [x] **Passo 2:** os dois textos no `pt.json` e o comentário. Verde.
+- [x] **Passo 3:** gate completo (Vitest duas vezes e com shuffle, `check`, build, visual; o Rust não muda).
+- [x] **Passo 4 (eu):** mutações (ajuda sem aspas; `system` trocado só no `pt.json`; rótulo antigo); build dev em pt; tirar o ponto da ajuda do «Visto à margem». Sem review adversarial: só muda texto. Commit `fix(i18n): Portuguese accent color uses Apple's name and names the System option`.
 
-**Verificar no ecrã (Bruno), com a build dev em pt:** nas Definições › Aparência, o rótulo «Cor de realce» e a ajuda «Com “Sistema”, o Khi usa a cor de realce escolhida no macOS.», sem cortes.
+**Verificar no ecrã (Bruno), com a build dev em pt:** nas Definições › Aparência, o rótulo «Cor de realce» e a ajuda «Com “Sistema”, o Khi segue o macOS.», sem cortes.
+
+**Feito (2026-11-22).** Implementado pelo Sonnet. Antes do código falharam 4 testes: o rótulo e a ajuda pt no `swatch.test.ts`, a regra nova do `copy-rules.test.ts` em pt (o en já passava) e o nome acessível do grupo no ficheiro novo `swatch-group.pt.test.ts`. Este ficheiro existe porque o `vitest-setup.ts` só carrega o en: faz `vi.unmock("$lib/i18n")` e `locale.set("pt")`. O Sonnet parou no visual quando o texto aprovado passou a duas linhas; o texto final foi decidido com o Bruno. Gate: Vitest 1145 passam e 1 ignorado (duas corridas), `npm run check` 0/0, build OK, `test:visual` 179/179. O Rust não mudou. Os JSON das 25 baselines das Definições mudaram só no texto e no `aria-label` da Aparência. Só os 3 PNG `settings-appearance-*` mudaram, e vi-os um a um: a ajuda numa linha e o painel com 285 px nos três temas. As quatro mutações do coordenador foram apanhadas: ajuda sem aspas, `system` trocado só no `pt.json`, rótulo antigo e aspas retas. O shuffle é mais frágil do que se dizia: os seeds 1 e 5 dão 46 e 31 falhas, quase todas em `src/routes/page.svelte.test.ts`, e com os ficheiros do HEAD dão as mesmas.
 
 ## Visto à margem (não se apaga sem pedido)
 - O `getDateFormatLabel` (`settings.svelte.ts`) só é usado nos testes.
@@ -3233,8 +3236,6 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 - Chaves sem uso com o pt mal capitalizado: `settings.export.defaultFormat` («Formato Padrão»), `export.format.text` («Texto Simples»), e as do `LibraryToolbar` («Exportar Todos», «Limpar Seleção»).
   
 - `LibraryToolbar.svelte` e `ImportingState.svelte` já não são importados por ninguém. Com eles ficam sem uso `screens.library.exportAll`, `exportSelected`, `clearSelection`, `importTitle` e `screens.importing.*`.
-  
-- O pt de `settings.accent.hint` («Sistema usa a cor escolhida no macOS.») tem a mesma ambiguidade que o en tinha.
   
 - `src/lib/components/LibraryView.svelte.backup` e `date.ts` são código morto.
   

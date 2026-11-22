@@ -21,6 +21,13 @@ describe('copy rules', () => {
 		expect(offenders(tree, (v) => v.includes('...'))).toEqual([]);
 	});
 
+	it.each([
+		['en', en],
+		['pt', pt]
+	])('%s: the accent hint names the System option between curly quotes', (_name, tree) => {
+		expect(tree.settings.accent.hint).toContain(`\u201C${tree.settings.accent.system}\u201D`);
+	});
+
 	it('en: no straight apostrophe between letters or after a placeholder, the typographic one is used', () => {
 		expect(offenders(en, (v) => /[\p{L}}]'\p{L}/u.test(v))).toEqual([]);
 	});

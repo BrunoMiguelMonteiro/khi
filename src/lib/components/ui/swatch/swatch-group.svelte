@@ -21,7 +21,7 @@
 		disabled?: boolean;
 		/** Why it is disabled, shown in each swatch's Tooltip (needs a TooltipProvider). */
 		disabledReason?: string;
-		/** The group's accessible name; «Cor de destaque» when omitted. */
+		/** The group's accessible name; «Cor de realce» when omitted. */
 		'aria-label'?: string;
 	};
 </script>
