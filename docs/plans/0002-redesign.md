@@ -3081,10 +3081,10 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 4. **Visual:** a suite passa. As baselines que mudarem são todas en; abro os PNG um a um.
 
 **Passos:**
-- [ ] **Passo 1 (TDD):** os testes dos pontos 1 e 2. Vermelho.
-- [ ] **Passo 2:** as chaves novas no `menu.ts` e no `menu-state.ts`, e os textos da tabela. Verde.
-- [ ] **Passo 3:** gate completo. As baselines visuais en atualizam-se com `npm run test:visual:update -- -g <nome>`, só as que mudaram de texto.
-- [ ] **Passo 4 (eu):** review adversarial (Opus), só se o código for além das chaves do menu. Mutações nos testes do ponto 2. Build dev com a app em en: menus, barra, cabeçalho, apagar livro e Definições. Commit `fix(i18n): English copy follows the HIG`.
+- [x] **Passo 1 (TDD):** os testes dos pontos 1 e 2. Vermelho.
+- [x] **Passo 2:** as chaves novas no `menu.ts` e no `menu-state.ts`, e os textos da tabela. Verde.
+- [x] **Passo 3:** gate completo. As baselines visuais en atualizam-se com `npm run test:visual:update -- -g <nome>`, só as que mudaram de texto.
+- [x] **Passo 4 (eu):** review adversarial (Opus), só se o código for além das chaves do menu. Mutações nos testes do ponto 2. Build dev com a app em en: menus, barra, cabeçalho, apagar livro e Definições. Commit `fix(i18n): English copy follows the HIG`.
 
 **Verificar no ecrã (Bruno), com a build dev e a app em inglês:**
 - os menus em title case («Sync with Kobo», «Export 12 Books», «Sort By», «Delete Book…», «Settings…»);
@@ -3138,10 +3138,10 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 4. **As regras da Task 55** (`copy-rules.test.ts`) continuam a passar.
 
 **Passos:**
-- [ ] **Passo 1 (TDD):** os testes dos pontos 1 e 2. Vermelho.
-- [ ] **Passo 2:** as 15 chaves em `en.json` e `pt.json`, e o `text` em cada `PredefinedMenuItem` do `menu.ts`. Verde.
-- [ ] **Passo 3:** gate completo (Vitest, `check`, build, visual; o Rust não muda).
-- [ ] **Passo 4 (eu):** mutações (tirar o `text` a um item; trocar uma chave); build dev, com a app em pt e em en: os menus Khi, Edição e Janela, e que ⌘Z, ⌘X, ⌘C, ⌘V, ⌘A, ⌘H, ⌘Q, ⌘W e ⌘M continuam a funcionar. Sem review adversarial: só muda texto de menu. Commit `fix(menu): native items follow the app language`.
+- [x] **Passo 1 (TDD):** os testes dos pontos 1 e 2. Vermelho.
+- [x] **Passo 2:** as 15 chaves em `en.json` e `pt.json`, e o `text` em cada `PredefinedMenuItem` do `menu.ts`. Verde.
+- [x] **Passo 3:** gate completo (Vitest, `check`, build, visual; o Rust não muda).
+- [x] **Passo 4 (eu):** mutações (tirar o `text` a um item; trocar uma chave); build dev, com a app em pt e em en: os menus Khi, Edição e Janela, e que ⌘Z, ⌘X, ⌘C, ⌘V, ⌘A, ⌘H, ⌘Q, ⌘W e ⌘M continuam a funcionar. Sem review adversarial: só muda texto de menu. Commit `fix(menu): native items follow the app language`.
 
 **Feito (2026-11-22), aprovado no ecrã pelo Bruno** («Aprovo a Task 56»). Aprovada pelo Bruno («Aprovo a Task 56»). O Sonnet implementou com TDD (3 testes vermelhos antes; o do About guarda o que já existia), e eu revi.
 - **Diff:** os 15 itens com `text: t('app.native.*')`; o About mantém o nome, o copyright e o ícone; 15 chaves em en e pt (o plano dizia 16 por engano).
