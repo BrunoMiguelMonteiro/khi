@@ -3264,6 +3264,31 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 
 **Sem Sonnet nem review adversarial:** não há código da app; só README, notas e verificação.
 
+### Task 60: Ícone com a placa escura
+**Decisões** (DECISIONS «Fase 6 · Ícone com placa escura», 2026-11-22):
+- **Fonte:** `design/khi-caneta/original.webp`, do Bruno. É o desenho da Task 54 com a placa quase preta; as linhas e o marcador não mudam.
+- **Por camadas (Bruno):** o `Khi.icon` mantém o `Marcador.png` e o `Linhas.png`; muda só o gradiente da placa.
+- **Cores (minhas, aprovadas com a task):** `srgb` de `#252c37` em cima a `#13181f` em baixo, medidas na imagem.
+
+**O que já existe** (levantamento a 2026-11-22):
+- `src-tauri/icons/Khi.icon/icon.json`: `linear-gradient` de `0.29,0.33,0.40` a `0.18,0.21,0.26`.
+- O `Assets.car` sai do `scripts/build-app-icon.sh` (`actool`).
+- O `icon.icns`, os 10 `icon_*.png`, o `icon.ico` e o `static/favicon.png` vêm do `design/khi-marcador-imagem/` (`Khi.png`, `Khi.iconset`, `Khi.icns`), todos com a placa ardósia. Não há script que os gere.
+- Armadilha da Task 54: os PNG têm de ser RGBA de 8 bits, senão a app não arranca.
+
+**Comportamento a provar:**
+1. O `icon.json` tem o gradiente novo, e o `Assets.car` é recompilado a partir dele.
+2. O `.icns` tem os 10 tamanhos com a placa nova, e o 16 e o 32 continuam nítidos. O `iconutil` confirma; os PNG `icon_*` vêm do próprio `.icns`, em 8 bits.
+3. As linhas e o marcador são os mesmos: fora da placa, a diferença para os ficheiros antigos é nula.
+4. A build dev arranca, com `CFBundleIconName=Khi` e o `Assets.car` igual ao da fonte.
+
+**Passos:**
+- [ ] **Passo 1 (eu):** gradiente novo no `icon.json`; `scripts/build-app-icon.sh`.
+- [ ] **Passo 2 (eu):** `design/khi-caneta/` com o `Khi.png`, o `Khi.iconset` e o `Khi.icns` novos. Recoloro só a placa dos ficheiros da Task 54, multiplicando cada píxel da placa pela razão entre a cor nova e a antiga, para a sombra do marcador ficar; as linhas e o marcador não se tocam. Previews (512 e os tamanhos pequenos lado a lado) para o Bruno aprovar antes de copiar.
+- [ ] **Passo 3 (eu):** copiar para `src-tauri/icons/` e `static/favicon.png` como na Task 54 (8 bits); `iconutil`; `npm run test:visual`; build dev.
+- [ ] **Passo 4 (Bruno):** o ícone no Dock, no Finder e no ⌘Tab, em claro e escuro.
+- Commit `feat(icon): dark plate`. Sem Sonnet nem review adversarial: só imagens e uma cor.
+
 ## Visto à margem (não se apaga sem pedido)
 - O `getDateFormatLabel` (`settings.svelte.ts`) só é usado nos testes.
   
