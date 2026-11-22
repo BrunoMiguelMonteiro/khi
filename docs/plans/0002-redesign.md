@@ -3230,6 +3230,40 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 
 **Feito (2026-11-22), aprovado no ecrã pelo Bruno** («Aprovo a Task 58»). Implementado pelo Sonnet. Antes do código falharam 4 testes: o rótulo e a ajuda pt no `swatch.test.ts`, a regra nova do `copy-rules.test.ts` em pt (o en já passava) e o nome acessível do grupo no ficheiro novo `swatch-group.pt.test.ts`. Este ficheiro existe porque o `vitest-setup.ts` só carrega o en: faz `vi.unmock("$lib/i18n")` e `locale.set("pt")`. O Sonnet parou no visual quando o texto aprovado passou a duas linhas; o texto final foi decidido com o Bruno. Gate: Vitest 1145 passam e 1 ignorado (duas corridas), `npm run check` 0/0, build OK, `test:visual` 179/179. O Rust não mudou. Os JSON das 25 baselines das Definições mudaram só no texto e no `aria-label` da Aparência. Só os 3 PNG `settings-appearance-*` mudaram, e vi-os um a um: a ajuda numa linha e o painel com 285 px nos três temas. As quatro mutações do coordenador foram apanhadas: ajuda sem aspas, `system` trocado só no `pt.json`, rótulo antigo e aspas retas. O shuffle é mais frágil do que se dizia: os seeds 1 e 5 dão 46 e 31 falhas, quase todas em `src/routes/page.svelte.test.ts`, e com os ficheiros do HEAD dão as mesmas.
 
+### Task 59: Release da v2 (2.0.0)
+**Decisões** (DECISIONS «Fase 6 · Release da v2», 2026-11-22, todas do Bruno com a minha recomendação, salvo a 2):
+- **Versão:** 2.0.0. O redesign e o mínimo de 11.0 para 13.3 deixam Macs de fora.
+- **Updater, antes de publicar:** prova-se de ponta a ponta numa build release «Khi Dev», com uma chave descartável e um endpoint local por `http://`. Não toca na pasta real nem no GitHub.
+- **macOS em pt:** a mesma build abre com `-AppleLanguages '(pt-PT)'`; o sistema não muda.
+- **macOS 13–15:** não se verifica (escolha do Bruno). Risco aceite: os semáforos, a barra de deslocamento e o `.icns` podem ficar diferentes nessas versões.
+- **Notas:** escrevo eu o rascunho pt/en; o Bruno aprova e cola-o no Zed quando o `release.js` o abrir.
+- **`.entire/`:** vai para o `.git/info/exclude` do checkout principal, sem commit.
+- **Intel:** só `aarch64`, como a 1.3.0.
+
+**O que já existe** (levantamento a 2026-11-22):
+- A versão é 1.3.0 nos três ficheiros. A v1.3.0 publicada só tem o DMG, sem updater nem `latest.json`, por isso ninguém chega à 2.0.0 pelo updater, e o updater da 2.0.0 é o único caminho para as seguintes.
+- O `npm run release` (`scripts/release.js`, privado) só existe no checkout principal `kobo-highlights-exporter`, hoje em `feat/updater`. Exige o ramo `main` e a árvore limpa; corre `npm test -- --run` e `cargo test`; muda a versão, assina, notariza, abre as notas no Zed, junta-as ao `release-history.json`, gera o `latest.json` com `khi_releases`, faz commit, tag, push e `gh release create --latest`.
+- Credenciais: Developer ID, a chave da App Store Connect e `~/.tauri/khi-updater.key`, todas fora do repositório.
+- O `origin/main` está 142 commits atrás do `feat/redesign` e tem o updater com o mínimo em 11.0: nada sai do `main` antes do merge.
+- O `README.md` ≈ 32 diz «macOS 11.0 (Big Sur) or later».
+- O `tauri-plugin-updater` 2.14.1 aceita `dangerousInsecureTransportProtocol`.
+
+**Comportamento a provar:**
+1. **Updater:** a Khi Dev 2.0.0 encontra a 2.0.1 local, mostra as notas pt da 2.0.1 vindas do `khi_releases`, descarrega, instala e reinicia; depois do reinício, Sobre o Khi Dev diz 2.0.1. A assinatura é verificada: um `latest.json` com o `.sig` de outro arquivo dá o erro de instalação.
+2. **pt:** com `-AppleLanguages '(pt-PT)'`, os menus nativos, o modal da atualização e as datas aparecem em pt.
+3. **Release:** no GitHub, a v2.0.0 fica marcada como a mais recente, com o DMG, o `Khi.app.tar.gz`, o `.sig` e o `latest.json`; o `latest.json` descarregado de `releases/latest/download/` diz 2.0.0 e tem o `khi_releases` em pt e en; o `spctl` do DMG diz «Notarized Developer ID».
+
+**Passos:**
+- [ ] **Passo 1 (eu, `feat/redesign`):** o `README.md` passa a «macOS 13.3 (Ventura) or later»; commit `docs(readme): require macOS 13.3`. A versão não muda aqui: muda-a o `release.js` no `main`.
+- [ ] **Passo 2 (eu):** rascunho das notas 2.0.0 no formato do `release.js` (`## English › ### What's New / ### Bug Fixes`, `## Português › ### Novidades / ### Correções`), com «macOS 13.3 ou posterior», em `khi-ui-redesign/notas-2.0.0.md` (fora do git). Paragem para o Bruno aprovar o texto.
+- [ ] **Passo 3 (eu):** teste do updater. Chave descartável no scratchpad (a palavra-passe só em variável de ambiente). Duas builds release da Khi Dev com `--config` (versão 2.0.0 e 2.0.1; `pubkey` descartável; endpoint `http://127.0.0.1:<porta>/latest.json`; `dangerousInsecureTransportProtocol`), sem assinatura Apple. Um `latest.json` 2.0.1 com `khi_releases` (as notas do Passo 2 e uma linha de teste), servido por um servidor local. A Khi Dev 2.0.0 fica em `/tmp/khi-run/`, que o updater substitui. A seguir, o caso da assinatura errada. No fim, apago a chave, as builds e o servidor.
+- [ ] **Passo 4 (Bruno):** abre a Khi Dev 2.0.0 em pt (dou-lhe o comando), procura atualizações, instala, confirma 2.0.1 no Sobre; faz o teste do Tab na mesma build.
+- [ ] **Passo 5 (com o «sim» do Bruno):** PR `feat/redesign` → `main`; merge só com novo «sim».
+- [ ] **Passo 6:** junto `.entire/` ao `.git/info/exclude` do checkout principal. O Bruno muda esse checkout para o `main` e faz `git pull` (eu não mudo de ramo) e corre `npm run release -- --version 2.0.0`, com a palavra-passe da chave; cola as notas aprovadas no Zed.
+- [ ] **Passo 7 (eu):** verifico o ponto 3 com `gh release view`, o `latest.json` descarregado e o `spctl` do DMG descarregado. Não abro a app de release: usa o identificador real.
+
+**Sem Sonnet nem review adversarial:** não há código da app; só README, notas e verificação.
+
 ## Visto à margem (não se apaga sem pedido)
 - O `getDateFormatLabel` (`settings.svelte.ts`) só é usado nos testes.
   
