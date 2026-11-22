@@ -29,7 +29,7 @@ Native macOS application to extract highlights from Kobo Libra II and export the
 
 ## System Requirements
 
-- macOS 11.0 (Big Sur) or later
+- macOS 13.3 (Ventura) or later
 - Kobo Libra II (or other compatible Kobo eReader)
 - USB cable to connect Kobo to Mac
 
