@@ -63,14 +63,14 @@ describe('ExportPane', () => {
 	it('help_says_where_the_books_go: the Reader\'s folder, with their name', async () => {
 		await show();
 		expect(
-			await screen.findByText("~/Documents/Kobo Highlights/Bruno · Bruno's books are exported here.")
+			await screen.findByText("~/Documents/Kobo Highlights/Bruno · Bruno’s books are exported here.")
 		).toBeInTheDocument();
 	});
 
 	it('help_with_a_folder_chosen_for_the_Reader', async () => {
 		rust.readers[0].exportPath = '/Volumes/Notes';
 		await show();
-		expect(screen.getByText("/Volumes/Notes · Bruno's books are exported here.")).toBeInTheDocument();
+		expect(screen.getByText("/Volumes/Notes · Bruno’s books are exported here.")).toBeInTheDocument();
 	});
 
 	it('help_without_a_Reader: the base folder', async () => {
@@ -143,7 +143,7 @@ describe('ExportPane', () => {
 		// Not the base folder
 		expect(updates()).toEqual([]);
 		// And the help follows
-		expect(await screen.findByText("/Volumes/Notes · Bruno's books are exported here.")).toBeInTheDocument();
+		expect(await screen.findByText("/Volumes/Notes · Bruno’s books are exported here.")).toBeInTheDocument();
 		// The dialog opened on the folder in use
 		expect(rust.calls).toContainEqual({ cmd: 'pick_export_folder', args: { defaultPath: '/Users/test/Documents/Kobo Highlights/Bruno' } });
 	});
@@ -153,7 +153,7 @@ describe('ExportPane', () => {
 		await show();
 
 		// A path inside the home is abbreviated; one that only starts like it is not
-		expect(await screen.findByText("/Users/test2/Notes · Bruno's books are exported here.")).toBeInTheDocument();
+		expect(await screen.findByText("/Users/test2/Notes · Bruno’s books are exported here.")).toBeInTheDocument();
 	});
 
 	it('without a home folder the help shows the full path', async () => {
@@ -161,7 +161,7 @@ describe('ExportPane', () => {
 		await show();
 
 		expect(
-			await screen.findByText("/Users/test/Documents/Kobo Highlights/Bruno · Bruno's books are exported here.")
+			await screen.findByText("/Users/test/Documents/Kobo Highlights/Bruno · Bruno’s books are exported here.")
 		).toBeInTheDocument();
 	});
 
@@ -172,7 +172,7 @@ describe('ExportPane', () => {
 		const user = await show();
 
 		expect(
-			await screen.findByText("~/Kobo/Kobo- Libra · Kobo: Libra's books are exported here.")
+			await screen.findByText("~/Kobo/Kobo- Libra · Kobo: Libra’s books are exported here.")
 		).toBeInTheDocument();
 
 		// The folder picked is the default one, so it is stored as «follow the name»

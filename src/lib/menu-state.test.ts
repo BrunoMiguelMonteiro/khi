@@ -45,6 +45,10 @@ describe('menuState', () => {
 		expect(menuState(detail, t).items.export.text).toBe('app.menuExportBook');
 	});
 
+	it('sync text is the menu key, not the window bar tooltip', () => {
+		expect(menuState(library, t).items.sync.text).toBe('app.menuSync');
+	});
+
 	it('checks follow the view and the sort', () => {
 		const s = menuState({ ...library, viewMode: 'list', sortBy: 'author' }, t).items;
 		expect([s['view-grid'].checked, s['view-list'].checked]).toEqual([false, true]);

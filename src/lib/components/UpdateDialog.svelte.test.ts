@@ -115,15 +115,15 @@ describe('UpdateDialog', () => {
 			expect(within(notes).getByText(new Intl.DateTimeFormat('en', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date('2026-02-08T00:00:00')))).toBeInTheDocument();
 		});
 
-		it('the items are native lists with a hanging indent, under «What’s New» and «Bug Fixes»', async () => {
+		it('the items are native lists with a hanging indent, under «What’s new» and «Bug fixes»', async () => {
 			show('available');
 
 			const notes = await screen.findByTestId('release-notes');
 			const lists = notes.querySelectorAll('ul');
 			expect(lists).toHaveLength(4);
 			for (const list of lists) expect(list).toHaveClass('list-outside', 'list-disc');
-			expect(within(notes).getAllByText('What’s New')).toHaveLength(2);
-			expect(within(notes).getAllByText('Bug Fixes')).toHaveLength(2);
+			expect(within(notes).getAllByText('What’s new')).toHaveLength(2);
+			expect(within(notes).getAllByText('Bug fixes')).toHaveLength(2);
 			expect(within(lists[0]).getByRole('listitem')).toHaveTextContent('New in 1.3.0');
 		});
 	});
@@ -159,7 +159,7 @@ describe('UpdateDialog', () => {
 
 		it('changes the content with no animation of its own', async () => {
 			show('checking');
-			await screen.findByRole('heading', { name: 'Checking for Updates…' });
+			await screen.findByRole('heading', { name: 'Checking for updates…' });
 
 			updater.state = 'upToDate';
 			await screen.findByRole('heading', { name: 'Khi is up to date.' });
@@ -179,7 +179,7 @@ describe('UpdateDialog', () => {
 
 			updater.update = null;
 			updater.state = 'checking';
-			expect(await screen.findByRole('heading', { name: 'Checking for Updates…' })).toBeInTheDocument();
+			expect(await screen.findByRole('heading', { name: 'Checking for updates…' })).toBeInTheDocument();
 		});
 
 		it('while it fades out it keeps the phase it had: the U3 stays 480 wide with its title', async () => {
@@ -224,7 +224,7 @@ describe('UpdateDialog', () => {
 		it('2 · Checking: a bar with no value, and Cancel', async () => {
 			show('checking');
 
-			await screen.findByRole('heading', { name: 'Checking for Updates…' });
+			await screen.findByRole('heading', { name: 'Checking for updates…' });
 			const bar = screen.getByRole('progressbar');
 			expect(bar).not.toHaveAttribute('aria-valuenow');
 			// The Figma «Espaço» (4 px, with 8 px on each side) puts the bar 12 px lower than the window's gap does
@@ -282,7 +282,7 @@ describe('UpdateDialog', () => {
 		it('6 · No connection: the check’s text, Cancel and Try Again', async () => {
 			show('error');
 
-			expect(await screen.findByRole('heading', { name: 'Couldn’t Check for Updates' })).toBeInTheDocument();
+			expect(await screen.findByRole('heading', { name: 'Couldn’t check for updates.' })).toBeInTheDocument();
 			expect(screen.getByText('Check your internet connection and try again.')).toBeInTheDocument();
 			expect(button('Try Again')).toHaveAttribute('data-dialog-default');
 			expect(button('Cancel')).not.toHaveAttribute('data-dialog-default');
@@ -292,9 +292,9 @@ describe('UpdateDialog', () => {
 			updater.errorKind = 'install';
 			show('error');
 
-			expect(await screen.findByText('Couldn’t Install the Update')).toBeInTheDocument();
+			expect(await screen.findByText('Couldn’t install the update.')).toBeInTheDocument();
 			expect(screen.getByText('Khi 1.3.0 wasn’t installed. Check your internet connection and try again.')).toBeInTheDocument();
-			expect(screen.queryByText('Couldn’t Check for Updates')).not.toBeInTheDocument();
+			expect(screen.queryByText('Couldn’t check for updates.')).not.toBeInTheDocument();
 		});
 	});
 
@@ -363,7 +363,7 @@ describe('UpdateDialog', () => {
 		it('gets the focus back when a phase takes away the button that had it', async () => {
 			const user = userEvent.setup();
 			show('checking');
-			await screen.findByRole('heading', { name: 'Checking for Updates…' });
+			await screen.findByRole('heading', { name: 'Checking for updates…' });
 			await user.tab();
 			expect(button('Cancel')).toHaveFocus();
 
@@ -399,7 +399,7 @@ describe('UpdateDialog', () => {
 			expect(dismiss).toHaveBeenCalledOnce();
 
 			updater.state = 'error';
-			await screen.findByRole('heading', { name: 'Couldn’t Check for Updates' });
+			await screen.findByRole('heading', { name: 'Couldn’t check for updates.' });
 			await fireEvent.keyDown(windowEl(), { key: 'Enter' });
 			expect(retry).toHaveBeenCalledOnce();
 			vi.restoreAllMocks();

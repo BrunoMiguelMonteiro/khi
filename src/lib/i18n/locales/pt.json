@@ -4,7 +4,7 @@
     "title": "Khi - Kobo Highlights Exporter",
     "menuEdit": "Edição",
     "menuWindow": "Janela",
-    "loading": "A carregar...",
+    "loading": "A carregar…",
     "koboDevice": "Leitor Kobo",
     "menuFile": "Ficheiro",
     "menuRevealLastExport": "Mostrar última exportação no Finder",
@@ -13,7 +13,10 @@
     "menuViewGrid": "Ver em grelha",
     "menuViewList": "Ver em lista",
     "menuExportBook": "Exportar livro",
-    "menuBackToLibrary": "Voltar à Biblioteca"
+    "menuBackToLibrary": "Voltar à Biblioteca",
+    "menuSync": "Sincronizar com o Kobo",
+    "menuDelete": "Apagar livro…",
+    "menuSortBy": "Ordenar por"
   },
   "screens": {
     "noKobo": {
@@ -24,7 +27,7 @@
       "title": "A sincronizar com o Kobo"
     },
     "importing": {
-      "title": "A sincronizar destaques...",
+      "title": "A sincronizar destaques…",
       "progress": "{done} de {total} livros"
     },
     "library": {

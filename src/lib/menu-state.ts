@@ -58,7 +58,7 @@ export function menuState(s: MenuStateInput, t: MessageFormatter): MenuState {
 	const items: Record<string, MenuItemState> = {
 		sync: {
 			enabled: keys && (inLibrary || (noDevice && s.declinedKobo)) && s.canSync && !s.isImporting,
-			text: t('ui.windowBar.sync')
+			text: t('app.menuSync')
 		},
 		export: {
 			enabled: keys && (inLibrary || s.inDetail) && !s.isImporting,

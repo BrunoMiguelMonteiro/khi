@@ -20,7 +20,7 @@ describe("EmptyStateNoDevice · screen 6 · first start", () => {
     ).toBeTruthy();
     expect(
       screen.getByText(
-        "Your highlights stay in the Library even with the Kobo unplugged.",
+        "Your highlights stay in the Library even when your Kobo is unplugged.",
       ),
     ).toBeTruthy();
   });

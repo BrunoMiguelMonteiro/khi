@@ -167,7 +167,7 @@ async function buildApplicationMenu(t: MessageFormatter, activeReaderId: () => n
         // App Menu (macOS: Khi)
         const settingsItem = await MenuItem.new({
             id: 'settings',
-            text: t('settings.title') + '...',
+            text: t('settings.title') + '…',
             accelerator: 'CmdOrCtrl+,',
             action: () => {
                 // Settings live in their own window (one only), opened by Rust
@@ -237,7 +237,7 @@ async function buildApplicationMenu(t: MessageFormatter, activeReaderId: () => n
         await setRevealLastExportEnabled(lastExport().length > 0);
         const syncItem = await MenuItem.new({
             id: 'sync',
-            text: t('ui.windowBar.sync'),
+            text: t('app.menuSync'),
             accelerator: 'CmdOrCtrl+R',
             enabled: false,
             action: guarded('sync', () => actions.sync())
@@ -304,7 +304,7 @@ async function buildApplicationMenu(t: MessageFormatter, activeReaderId: () => n
             sortItems.push(item);
             nextRefs.set(`sort-${sort}`, item);
         }
-        const sortMenu = await Submenu.new({ text: t('ui.windowBar.sort'), items: sortItems });
+        const sortMenu = await Submenu.new({ text: t('app.menuSortBy'), items: sortItems });
         const viewMenu = await Submenu.new({
             text: t('app.menuView'),
             items: [gridItem, listItem, await PredefinedMenuItem.new({ item: 'Separator' }), sortMenu]
@@ -320,7 +320,7 @@ async function buildApplicationMenu(t: MessageFormatter, activeReaderId: () => n
         });
         const deleteItem = await MenuItem.new({
             id: 'delete',
-            text: t('ui.windowBar.delete'),
+            text: t('app.menuDelete'),
             accelerator: 'CmdOrCtrl+Backspace',
             enabled: false,
             action: guarded('delete', () => actions.deleteBook())

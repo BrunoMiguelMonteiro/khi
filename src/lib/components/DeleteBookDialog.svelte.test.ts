@@ -29,7 +29,7 @@ describe('DeleteBookDialog · screen 9', () => {
 		await screen.findByRole('alertdialog');
 		expect(dialog()).toHaveAccessibleName('Delete this book?');
 		expect(dialog()).toHaveAccessibleDescription(
-			'Its highlights were all removed from the Kobo. The book and its highlights leave the Library for good.'
+			'All its highlights were removed from your Kobo. The book and its highlights will be permanently removed from the Library.'
 		);
 		expect(dialog()).toHaveAttribute('aria-modal', 'true');
 	});
@@ -153,7 +153,7 @@ describe('DeleteBookDialog · screen 9', () => {
 			deleteBookTitle: 'Delete this book?',
 			deleteBookConfirm: 'Delete',
 			cancel: 'Cancel',
-			deleteBookError: 'Could not delete the book.'
+			deleteBookError: 'Couldn’t delete the book.'
 		});
 	});
 });

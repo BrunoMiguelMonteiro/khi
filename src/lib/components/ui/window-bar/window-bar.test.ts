@@ -60,11 +60,11 @@ afterEach(() => vi.useRealTimers());
 describe("WindowBar", () => {
   it("library_has_title_view_sort_sync_export_in_order", async () => {
     const { bar } = renderBar();
-    const title = screen.getByRole("button", { name: "Ana's Library" });
+    const title = screen.getByRole("button", { name: "Ana’s Library" });
     const view = screen.getByRole("radiogroup", { name: "View" });
     const sort = screen.getByRole("button", { name: "Sort by" });
-    const sync = screen.getByRole("button", { name: "Sync with the Kobo" });
-    const exportButton = screen.getByRole("button", { name: "Export 3 books" });
+    const sync = screen.getByRole("button", { name: "Sync with Kobo" });
+    const exportButton = screen.getByRole("button", { name: "Export 3 Books" });
     const order = controls(bar);
     const at = (el: HTMLElement) => order.indexOf(el);
     expect([title, view, sort, sync, exportButton].map(at)).toEqual(
@@ -106,8 +106,8 @@ describe("WindowBar", () => {
       ),
     ];
     expect(rows.map((r) => r.textContent?.trim())).toEqual([
-      "Title (A-Z)",
-      "Author (A-Z)",
+      "Title (A–Z)",
+      "Author (A–Z)",
       "Recently Read",
       "Highlight Count",
     ]);
@@ -130,7 +130,7 @@ describe("WindowBar", () => {
       onback,
     });
     const back = screen.getByRole("button", { name: "Back" });
-    const exportButton = screen.getByRole("button", { name: "Export 1 book" });
+    const exportButton = screen.getByRole("button", { name: "Export 1 Book" });
     expect(back.querySelector("svg.lucide-chevron-left")).not.toBeNull();
     expect(back.compareDocumentPosition(exportButton)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
@@ -139,7 +139,7 @@ describe("WindowBar", () => {
     expect(screen.queryByRole("radiogroup")).toBeNull();
     expect(screen.queryByRole("button", { name: "Sort by" })).toBeNull();
     expect(
-      screen.queryByRole("button", { name: "Sync with the Kobo" }),
+      screen.queryByRole("button", { name: "Sync with Kobo" }),
     ).toBeNull();
     expect(bar.textContent).not.toContain("Library");
     await user.click(back);
@@ -151,7 +151,7 @@ describe("WindowBar", () => {
     expect(del.querySelector("svg.lucide-trash-2")).not.toBeNull();
     expect(
       del.compareDocumentPosition(
-        screen.getByRole("button", { name: "Export 1 book" }),
+        screen.getByRole("button", { name: "Export 1 Book" }),
       ),
     ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
@@ -172,9 +172,9 @@ describe("WindowBar", () => {
       "Lista",
     ]);
     expect(locale("en").ui.windowBar).toMatchObject({
-      sync: "Sync with the Kobo",
-      export_one: "Export 1 book",
-      export_other: "Export {count} books",
+      sync: "Sync with Kobo",
+      export_one: "Export 1 Book",
+      export_other: "Export {count} Books",
       back: "Back",
       delete: "Delete book…",
       sort: "Sort by",
@@ -185,8 +185,8 @@ describe("WindowBar", () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     renderBar({ screen: "library", canDelete: true });
     const library: [string, string][] = [
-      ["Sync with the Kobo", "Sync with the Kobo ⌘R"],
-      ["Export 3 books", "Export 3 books ⌘E"],
+      ["Sync with Kobo", "Sync with Kobo ⌘R"],
+      ["Export 3 Books", "Export 3 Books ⌘E"],
       ["Sort by", "Sort by"],
       ["View as grid", "Grid ⌘1"],
       ["View as list", "List ⌘2"],
@@ -213,7 +213,7 @@ describe("WindowBar", () => {
     for (const [name, text] of [
       ["Back", "Back ⌘["],
       ["Delete book…", "Delete book… ⌘⌫"],
-      ["Export 3 books", "Export 3 books ⌘E"],
+      ["Export 3 Books", "Export 3 Books ⌘E"],
     ]) {
       const el = screen.getByRole("button", { name });
       await user.hover(el);
@@ -356,7 +356,7 @@ describe("WindowBar window chrome", () => {
 describe("WindowBar sync", () => {
   const spinner = () =>
     screen
-      .getByRole("button", { name: "Sync with the Kobo" })
+      .getByRole("button", { name: "Sync with Kobo" })
       .querySelector("svg") as SVGElement;
   const spins = () =>
     [...spinner().closest("button")!.classList].some((c) =>
@@ -453,7 +453,7 @@ describe("WindowBar sync", () => {
 
   it("spin_is_1s_linear_and_off_with_reduced_motion", async () => {
     renderBar({ syncing: true });
-    const button = screen.getByRole("button", { name: "Sync with the Kobo" });
+    const button = screen.getByRole("button", { name: "Sync with Kobo" });
     const classes = [...button.classList];
     expect(classes).toContain("[&_svg]:animate-spin");
     expect(classes).toContain("motion-reduce:[&_svg]:animate-none");
@@ -467,7 +467,7 @@ describe("WindowBar sync", () => {
   it("disabled_sync_is_inert_and_explains_itself", async () => {
     const onsync = vi.fn();
     renderBar({ onsync, syncDisabledReason: "Connect the Kobo to sync" });
-    const button = screen.getByRole("button", { name: "Sync with the Kobo" });
+    const button = screen.getByRole("button", { name: "Sync with Kobo" });
     await expectDisabledInert({
       control: button,
       read: () => button.getAttribute("aria-disabled"),
@@ -481,7 +481,7 @@ describe("WindowBar sync", () => {
     const onsync = vi.fn();
     renderBar({ onsync });
     await user.click(
-      screen.getByRole("button", { name: "Sync with the Kobo" }),
+      screen.getByRole("button", { name: "Sync with Kobo" }),
     );
     expect(onsync).toHaveBeenCalledTimes(1);
   });
@@ -503,7 +503,7 @@ describe("WindowBar while syncing (Task 38)", () => {
     // The Library
     const onexport = vi.fn();
     const first = renderBar({ onexport, exportDisabledReason: REASON });
-    const button = screen.getByRole("button", { name: "Export 3 books" });
+    const button = screen.getByRole("button", { name: "Export 3 Books" });
     await expectDisabledInert({
       control: button,
       read: () => button.getAttribute("aria-disabled"),
@@ -520,7 +520,7 @@ describe("WindowBar while syncing (Task 38)", () => {
       onexport: onexportDetail,
       exportDisabledReason: REASON,
     });
-    const detailButton = screen.getByRole("button", { name: "Export 1 book" });
+    const detailButton = screen.getByRole("button", { name: "Export 1 Book" });
     await expectDisabledInert({
       control: detailButton,
       read: () => detailButton.getAttribute("aria-disabled"),
@@ -561,7 +561,7 @@ describe("WindowBar while syncing (Task 38)", () => {
     const onexport = vi.fn();
     renderBar({ onexport });
     await userEvent.setup().click(
-      screen.getByRole("button", { name: "Export 3 books" }),
+      screen.getByRole("button", { name: "Export 3 Books" }),
     );
     expect(onexport).toHaveBeenCalledTimes(1);
   });
@@ -569,10 +569,10 @@ describe("WindowBar while syncing (Task 38)", () => {
   it("sync_tooltip_shows_progress_without_shortcut", async () => {
     vi.useFakeTimers();
     renderBar({ syncing: true, syncProgress: { done: 12, total: 42 } });
-    const sync = screen.getByRole("button", { name: "Sync with the Kobo" });
+    const sync = screen.getByRole("button", { name: "Sync with Kobo" });
     // Sync stays enabled while it turns
     expect(sync.getAttribute("aria-disabled")).toBeNull();
-    expect(await tooltipOf("Sync with the Kobo")).toBe(
+    expect(await tooltipOf("Sync with Kobo")).toBe(
       "Syncing · 12 of 42 books",
     );
     document.body.innerHTML = "";
@@ -581,15 +581,15 @@ describe("WindowBar while syncing (Task 38)", () => {
   it("sync_tooltip_without_total_says_only_syncing", async () => {
     vi.useFakeTimers();
     renderBar({ syncing: true, syncProgress: { done: 0, total: 0 } });
-    expect(await tooltipOf("Sync with the Kobo")).toBe("Syncing");
+    expect(await tooltipOf("Sync with Kobo")).toBe("Syncing");
     document.body.innerHTML = "";
   });
 
   it("sync_tooltip_is_back_to_the_name_and_shortcut_after_the_sync", async () => {
     vi.useFakeTimers();
     renderBar({ syncing: false, syncProgress: { done: 12, total: 42 } });
-    expect(await tooltipOf("Sync with the Kobo")).toBe(
-      "Sync with the Kobo ⌘R",
+    expect(await tooltipOf("Sync with Kobo")).toBe(
+      "Sync with Kobo ⌘R",
     );
     document.body.innerHTML = "";
   });
@@ -624,7 +624,7 @@ describe("WindowBar with no Reader open (Task 44 · first start)", () => {
     for (const radio of screen.getAllByRole("radio")) {
       expect(radio.hasAttribute("data-disabled")).toBe(true);
     }
-    for (const name of ["Sort by", "Sync with the Kobo", /^Export \d+ books?$/]) {
+    for (const name of ["Sort by", "Sync with Kobo", /^Export \d+ Books?$/]) {
       const button = screen.getByRole("button", { name });
       expect(button.getAttribute("aria-disabled")).toBe("true");
     }
@@ -646,16 +646,16 @@ describe("WindowBar with no Reader open (Task 44 · first start)", () => {
 
   it("sync_exempt_keeps_sync_up_to_its_own_reason_while_disabled", () => {
     renderBar({ disabled: true, syncExempt: true });
-    const sync = screen.getByRole("button", { name: "Sync with the Kobo" });
+    const sync = screen.getByRole("button", { name: "Sync with Kobo" });
     expect(sync.getAttribute("aria-disabled")).toBeNull();
-    for (const name of ["Sort by", "Export 3 books"]) {
+    for (const name of ["Sort by", "Export 3 Books"]) {
       expect(screen.getByRole("button", { name }).getAttribute("aria-disabled")).toBe("true");
     }
   });
 
   it("sync_exempt_still_obeys_its_reason", () => {
     renderBar({ disabled: true, syncExempt: true, syncDisabledReason: "Connect the Kobo to sync" });
-    expect(screen.getByRole("button", { name: "Sync with the Kobo" }).getAttribute("aria-disabled")).toBe("true");
+    expect(screen.getByRole("button", { name: "Sync with Kobo" }).getAttribute("aria-disabled")).toBe("true");
   });
 
   it("disabled_sort_and_actions_do_nothing", async () => {
@@ -664,8 +664,8 @@ describe("WindowBar with no Reader open (Task 44 · first start)", () => {
     const onexport = vi.fn();
     renderBar({ disabled: true, onsync, onexport });
     await user.click(screen.getByRole("button", { name: "Sort by" }));
-    await user.click(screen.getByRole("button", { name: "Sync with the Kobo" }));
-    await user.click(screen.getByRole("button", { name: "Export 3 books" }));
+    await user.click(screen.getByRole("button", { name: "Sync with Kobo" }));
+    await user.click(screen.getByRole("button", { name: "Export 3 Books" }));
     await settle();
     expect(screen.queryByRole("menu")).toBeNull();
     expect(onsync).not.toHaveBeenCalled();
@@ -674,7 +674,7 @@ describe("WindowBar with no Reader open (Task 44 · first start)", () => {
 
   it("enabled_by_default", () => {
     renderBar();
-    for (const name of ["Sort by", "Sync with the Kobo", "Export 3 books"]) {
+    for (const name of ["Sort by", "Sync with Kobo", "Export 3 Books"]) {
       expect(
         screen.getByRole("button", { name }).getAttribute("aria-disabled"),
       ).toBeNull();

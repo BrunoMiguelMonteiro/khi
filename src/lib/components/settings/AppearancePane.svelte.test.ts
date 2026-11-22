@@ -46,7 +46,7 @@ describe('AppearancePane', () => {
 		expect(screen.queryByRole('heading')).toBeNull();
 		expect(screen.getByText('Theme')).toBeInTheDocument();
 		expect(screen.getByText('Accent color')).toBeInTheDocument();
-		expect(screen.getByText('System uses the accent color set in macOS.')).toBeInTheDocument();
+		expect(screen.getByText('“System” uses the accent color you chose in macOS.')).toBeInTheDocument();
 		expect(screen.getByText('Language')).toBeInTheDocument();
 		expect(screen.getByText('Also used in the exported Markdown.')).toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: /save|cancel|reset/i })).toBeNull();

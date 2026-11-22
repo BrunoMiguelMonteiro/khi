@@ -206,7 +206,7 @@ const menuItems = () => [...document.querySelectorAll<HTMLElement>('[data-slot="
 /** The Sync button is disabled with aria-disabled, so the Kobo is known once it is not. */
 const syncReady = () =>
 	waitFor(() =>
-		expect(within(bar()!).getByRole('button', { name: 'Sync with the Kobo' })).not.toHaveAttribute('aria-disabled', 'true')
+		expect(within(bar()!).getByRole('button', { name: 'Sync with Kobo' })).not.toHaveAttribute('aria-disabled', 'true')
 	);
 /** An option of the open pop-up, by its text. The Library's grid is a listbox too, so the pop-up is found by its own slot. */
 async function pickOption(user: ReturnType<typeof userEvent.setup>, name: string) {
@@ -253,11 +253,11 @@ describe('+page', () => {
 		render(Page);
 
 		// The readers live in the Title menu of the bar, no longer in a select
-		await user.click(await screen.findByRole('button', { name: "Bruno's Library" }));
+		await user.click(await screen.findByRole('button', { name: "Bruno’s Library" }));
 		await user.click(await menuItem('Ana'));
 
 		// The error is a toast, no longer the inline notification
-		const toast = await screen.findByText("Could not open this reader's Library");
+		const toast = await screen.findByText("Couldn’t open this reader’s Library.");
 		expect(toast.closest('[data-slot="toaster"]')).not.toBeNull();
 	});
 
@@ -279,7 +279,7 @@ describe('+page', () => {
 		render(Page);
 
 		await user.click(await screen.findByRole('button', { name: 'Sort by' }));
-		await user.click(await menuItem('Author (A-Z)'));
+		await user.click(await menuItem('Author (A–Z)'));
 
 		// Only the sort: the rest of the file is not this window's to write
 		expect(invoke).toHaveBeenCalledWith('update_settings', { patch: { librarySort: 'author', librarySortReversed: false } });
@@ -419,13 +419,13 @@ describe('+page', () => {
 		const list = structuredClone(readers);
 		await mockLibrary({ list });
 		render(Page);
-		await screen.findByRole('button', { name: "Bruno's Library" });
+		await screen.findByRole('button', { name: "Bruno’s Library" });
 		await waitFor(() => expect(handlers.has('readers-changed')).toBe(true));
 
 		list[0].name = 'Bruno M.';
 		handlers.get('readers-changed')!({ payload: null });
 
-		expect(await screen.findByRole('button', { name: "Bruno M.'s Library" })).toBeInTheDocument();
+		expect(await screen.findByRole('button', { name: "Bruno M.’s Library" })).toBeInTheDocument();
 	});
 });
 
@@ -445,7 +445,7 @@ describe('+page · screen 1', () => {
 		// The Title menu is plain text with no Reader; the other four are greyed, none hidden
 		expect(inBar.getByRole('heading', { name: 'Library' })).toBeInTheDocument();
 		for (const radio of inBar.getAllByRole('radio')) expect(radio).toBeDisabled();
-		for (const name of ['Sort by', 'Sync with the Kobo', /^Export \d+ books?$/]) {
+		for (const name of ['Sort by', 'Sync with Kobo', /^Export \d+ Books?$/]) {
 			expect(inBar.getByRole('button', { name })).toHaveAttribute('aria-disabled', 'true');
 		}
 
@@ -475,7 +475,7 @@ describe('+page · screen 1', () => {
 		const view = render(Page);
 		await waitFor(() => expect(options()).toHaveLength(3));
 		expect(bar()).not.toBeNull();
-		expect(within(bar()!).getByRole('button', { name: 'Sync with the Kobo' })).toBeInTheDocument();
+		expect(within(bar()!).getByRole('button', { name: 'Sync with Kobo' })).toBeInTheDocument();
 
 		// importing: the bar stays, with the library controls
 		library.isImporting = true;
@@ -493,7 +493,7 @@ describe('+page · screen 1', () => {
 		await waitFor(() => expect(screen.getByTestId('book-details-view')).toBeInTheDocument());
 		expect(bar()).not.toBeNull();
 		expect(within(bar()!).getByRole('button', { name: 'Back' })).toBeInTheDocument();
-		expect(within(bar()!).getByRole('button', { name: 'Export 1 book' })).toBeInTheDocument();
+		expect(within(bar()!).getByRole('button', { name: 'Export 1 Book' })).toBeInTheDocument();
 		// Not the library's controls
 		expect(within(bar()!).queryByRole('radiogroup', { name: 'View' })).toBeNull();
 		// The bar is outside <main>, so the traffic lights never sit over stale content
@@ -541,9 +541,9 @@ describe('+page · screen 1', () => {
 		await waitFor(() => expect(header()!.dataset.state).toBe('novos'));
 		expect(message()).toBe('3 new highlights in 2 books');
 		expect(detail()).toBe('since Nov 9');
-		expect(screen.getByRole('button', { name: 'Export 2 books' })).toBeInTheDocument();
-		// «Show only these» waits for its design: the page passes no handler
-		expect(screen.queryByRole('button', { name: 'Show only these' })).toBeNull();
+		expect(screen.getByRole('button', { name: 'Export 2 Books' })).toBeInTheDocument();
+		// «Show Only These» waits for its design: the page passes no handler
+		expect(screen.queryByRole('button', { name: 'Show Only These' })).toBeNull();
 		view.unmount();
 
 		// New highlights but no `newSince`: no date
@@ -649,7 +649,7 @@ describe('+page · screen 1', () => {
 		await user.click(options()[1]);
 		await user.keyboard('{/Meta}');
 
-		await user.click(within(header()!).getByRole('button', { name: 'Export 2 books' }));
+		await user.click(within(header()!).getByRole('button', { name: 'Export 2 Books' }));
 
 		await waitFor(() => expect(invoke).toHaveBeenCalledWith('export_library_books', { readerId: 1, bookIds: [1, 3] }));
 		// The user's own selection is not touched by it
@@ -690,7 +690,7 @@ describe('+page · screen 1', () => {
 
 		// The header comes back with the news that are left, not with «✓ Exported»
 		await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
-		expect(within(header()!).getByRole('button', { name: 'Export 1 book' })).toBeInTheDocument();
+		expect(within(header()!).getByRole('button', { name: 'Export 1 Book' })).toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: '✓ Exported' })).toBeNull();
 	});
 
@@ -710,14 +710,14 @@ describe('+page · screen 1', () => {
 		render(Page);
 		await syncReady();
 
-		await user.click(within(bar()!).getByRole('button', { name: 'Sync with the Kobo' }));
+		await user.click(within(bar()!).getByRole('button', { name: 'Sync with Kobo' }));
 
 		await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
-		expect(screen.getAllByRole('alert').some((a) => a.textContent?.includes('Could not sync the Kobo'))).toBe(true);
+		expect(screen.getAllByRole('alert').some((a) => a.textContent?.includes('Couldn’t sync your Kobo.'))).toBe(true);
 		// The error is the header's: no toast for it
 		expect(document.querySelector('[data-slot="toaster"]')?.textContent?.trim()).toBe('');
 
-		await user.click(screen.getByRole('button', { name: 'Try again' }));
+		await user.click(screen.getByRole('button', { name: 'Try Again' }));
 
 		await waitFor(() => expect(attempts).toBe(2));
 		await waitFor(() => expect(header()?.dataset.state).not.toBe('erro'));
@@ -755,7 +755,7 @@ describe('+page · review fixes', () => {
 		await press('e');
 		await waitFor(() => expect(library.isExporting).toBe(true));
 		await press('e');
-		await user.click(within(bar()!).getByRole('button', { name: 'Export 3 books' }));
+		await user.click(within(bar()!).getByRole('button', { name: 'Export 3 Books' }));
 
 		expect(calls('export_library_books')).toHaveLength(1);
 	});
@@ -768,7 +768,7 @@ describe('+page · review fixes', () => {
 		library.isImporting = true;
 		await tick();
 
-		await user.click(within(bar()!).getByRole('button', { name: 'Export 3 books' }));
+		await user.click(within(bar()!).getByRole('button', { name: 'Export 3 Books' }));
 		await press('e');
 
 		expect(calls('export_library_books')).toHaveLength(0);
@@ -804,14 +804,14 @@ describe('+page · review fixes', () => {
 			vi.spyOn(console, 'error').mockImplementation(() => {});
 			render(Page);
 			await syncReady();
-			await user.click(within(bar()!).getByRole('button', { name: 'Sync with the Kobo' }));
+			await user.click(within(bar()!).getByRole('button', { name: 'Sync with Kobo' }));
 			await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
 			return user;
 		}
 
 		it('error_resets_when_the_kobo_disconnects', async () => {
 			await failedSync();
-			expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+			expect(screen.getByRole('button', { name: 'Try Again' })).toBeInTheDocument();
 
 			handlers.get('device-disconnected')!({ payload: null });
 
@@ -821,7 +821,7 @@ describe('+page · review fixes', () => {
 		it('error_resets_when_another_reader_opens', async () => {
 			const user = await failedSync();
 
-			await user.click(await screen.findByRole('button', { name: "Bruno's Library" }));
+			await user.click(await screen.findByRole('button', { name: "Bruno’s Library" }));
 			await user.click(await menuItem('Ana'));
 
 			await waitFor(() => expect(header()?.dataset.state).not.toBe('erro'));
@@ -829,14 +829,14 @@ describe('+page · review fixes', () => {
 
 		it('retry_needs_a_kobo_that_can_sync', async () => {
 			await failedSync();
-			expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+			expect(screen.getByRole('button', { name: 'Try Again' })).toBeInTheDocument();
 
 			// The Reader's Kobo is no longer the one connected: Sync is disabled, so there is nothing to retry
 			library.connectedReaderId = 2;
 			await tick();
 
 			expect(header()?.dataset.state).toBe('erro');
-			expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+			expect(screen.queryByRole('button', { name: 'Try Again' })).toBeNull();
 		});
 	});
 
@@ -862,7 +862,7 @@ describe('+page · review fixes', () => {
 		await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
 		expect(options().length).toBeGreaterThan(0);
 		expect(library.canSync).toBe(true);
-		expect(within(bar()!).getByRole('button', { name: 'Sync with the Kobo' })).not.toHaveAttribute('aria-disabled', 'true');
+		expect(within(bar()!).getByRole('button', { name: 'Sync with Kobo' })).not.toHaveAttribute('aria-disabled', 'true');
 	});
 
 	it('back_returns_focus_to_opened_book', async () => {
@@ -903,8 +903,8 @@ describe('+page · sync on connect', () => {
 		render(Page);
 
 		await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
-		expect(screen.getAllByRole('alert').some((a) => a.textContent?.includes('Could not sync the Kobo'))).toBe(true);
-		expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+		expect(screen.getAllByRole('alert').some((a) => a.textContent?.includes('Couldn’t sync your Kobo.'))).toBe(true);
+		expect(screen.getByRole('button', { name: 'Try Again' })).toBeInTheDocument();
 		vi.mocked(console.error).mockRestore();
 	});
 });
@@ -924,7 +924,7 @@ describe('+page · screen 2 · syncing', () => {
 		for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
 		await tick();
 	};
-	const syncButton = () => within(bar()!).getByRole('button', { name: 'Sync with the Kobo' });
+	const syncButton = () => within(bar()!).getByRole('button', { name: 'Sync with Kobo' });
 	const press = (key: string) => fireEvent.keyDown(window, { key, code: `Key${key.toUpperCase()}`, metaKey: true });
 	const message = () => header()!.querySelector('[data-slot="library-header-message"]')!.textContent!.trim();
 	const detail = () => header()!.querySelector('[data-slot="library-header-detail"]')?.textContent?.trim();
@@ -1011,7 +1011,7 @@ describe('+page · screen 2 · syncing', () => {
 
 		// The books have news, but the Sync wins: no «novos» header with its buttons
 		await waitFor(() => expect(header()?.dataset.state).toBe('aSincronizar'));
-		expect(message()).toBe('Syncing with the Kobo');
+		expect(message()).toBe('Syncing with Kobo');
 		expect(detail()).toBe('· 12 of 42 books');
 		expect(within(header()!).queryByRole('button')).toBeNull();
 	});
@@ -1146,7 +1146,7 @@ describe('+page · screen 2 · syncing', () => {
 			await waitFor(() => expect(readAnas).toBeTypeOf('function'));
 			await settle();
 			expect(screen.getByTestId('book-details-view')).toBeInTheDocument();
-			expect(within(bar()!).getByRole('button', { name: 'Export 1 book' })).toHaveAttribute('aria-disabled', 'true');
+			expect(within(bar()!).getByRole('button', { name: 'Export 1 Book' })).toHaveAttribute('aria-disabled', 'true');
 
 			readAnas!();
 			await waitFor(() => expect(library.activeReaderId).toBe(2));
@@ -1192,7 +1192,7 @@ describe('+page · screen 2 · syncing', () => {
 		expect(screen.queryByTestId('book-details-view')).toBeNull();
 		expect(library.viewingBookId).toBeNull();
 		expect(library.selectedBookIds).toEqual([]);
-		expect(await screen.findByRole('button', { name: "Ana's Library" })).toBeInTheDocument();
+		expect(await screen.findByRole('button', { name: "Ana’s Library" })).toBeInTheDocument();
 		await waitFor(() => expect(header()?.dataset.state).toBe('aSincronizar'));
 		expect(options().map((o) => o.textContent)).toEqual([expect.stringContaining('Delta')]);
 
@@ -1281,7 +1281,7 @@ describe('+page · screen 2 · syncing', () => {
 		expect(library.selectedBookIds).toEqual([1]);
 
 		// Ana's books happen to have the same ids: the selection is still not hers
-		await user.click(await screen.findByRole('button', { name: "Bruno's Library" }));
+		await user.click(await screen.findByRole('button', { name: "Bruno’s Library" }));
 		await user.click(await menuItem('Ana'));
 
 		await waitFor(() => expect(library.activeReaderId).toBe(2));
@@ -1436,7 +1436,7 @@ describe('+page · screen 2 · syncing', () => {
 		expect(header()!.dataset.state).toBe(stateBefore);
 		expect(header()!.textContent).toBe(headerBefore);
 		expect(header()!.textContent).not.toContain('Exported');
-		expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Try Again' })).toBeNull();
 		sync.mockRestore();
 	});
 
@@ -1465,18 +1465,18 @@ describe('+page · screen 2 · syncing', () => {
 		await user.click(syncButton());
 		await waitFor(() => expect(library.isImporting).toBe(true));
 		await settle();
-		expect(announcer().textContent!.trim()).toBe('Syncing with the Kobo');
+		expect(announcer().textContent!.trim()).toBe('Syncing with Kobo');
 		// The header keeps no polite region of its own: one source of truth
 		expect(document.querySelector('main')!.querySelectorAll('[aria-live], [role="status"]')).toHaveLength(0);
 		for (const done of [1, 2, 3]) await progress(done, 3);
 		await settle();
-		expect(rec.seen).toEqual(['Syncing with the Kobo']);
+		expect(rec.seen).toEqual(['Syncing with Kobo']);
 
 		release();
 		await waitFor(() => expect(library.isImporting).toBe(false));
 		await settle();
 		expect(announcer().textContent!.trim()).toBe('3 new highlights in 2 books');
-		expect(rec.seen).toEqual(['Syncing with the Kobo', '3 new highlights in 2 books']);
+		expect(rec.seen).toEqual(['Syncing with Kobo', '3 new highlights in 2 books']);
 		rec.stop();
 	});
 
@@ -1493,10 +1493,10 @@ describe('+page · screen 2 · syncing', () => {
 		await settle();
 		// The same node, mounted before: the W2 state brings no region of its own
 		expect(announcer()).toBe(el);
-		expect(el.textContent!.trim()).toBe('Syncing with the Kobo');
+		expect(el.textContent!.trim()).toBe('Syncing with Kobo');
 		expect(document.querySelector('main')!.querySelectorAll('[aria-live], [role="status"]')).toHaveLength(0);
 		await progress(12, 42);
-		expect(el.textContent!.trim()).toBe('Syncing with the Kobo');
+		expect(el.textContent!.trim()).toBe('Syncing with Kobo');
 
 		release();
 		await waitFor(() => expect(library.isImporting).toBe(false));
@@ -1520,7 +1520,7 @@ describe('+page · screen 2 · syncing', () => {
 		await settle();
 		// The error is the alert's; the polite region does not repeat it or announce an outcome
 		expect(announcer().textContent!.trim()).toBe('');
-		expect(document.querySelector('[role="alert"]')!.textContent).toContain('Could not sync the Kobo');
+		expect(document.querySelector('[role="alert"]')!.textContent).toContain('Couldn’t sync your Kobo.');
 		vi.mocked(console.error).mockRestore();
 	});
 
@@ -1530,7 +1530,7 @@ describe('+page · screen 2 · syncing', () => {
 		await mockLibrary({ books: newBooks(), device: kobo, overrides: { sync_kobo } });
 		render(Page);
 		await syncReady();
-		const title = () => within(bar()!).getByRole('button', { name: "Bruno's Library" });
+		const title = () => within(bar()!).getByRole('button', { name: "Bruno’s Library" });
 		expect(title()).not.toHaveAttribute('aria-disabled', 'true');
 
 		await user.click(syncButton());
@@ -1562,7 +1562,7 @@ describe('+page · screen 2 · syncing', () => {
 			overrides: { get_library: (args) => ((args as { readerId: number }).readerId === 2 ? structuredClone(anas) : newBooks()) }
 		});
 		render(Page);
-		const title = () => within(bar()!).getByRole('button', { name: "Bruno's Library" });
+		const title = () => within(bar()!).getByRole('button', { name: "Bruno’s Library" });
 		await waitFor(() => expect(options()).toHaveLength(3));
 
 		// Tab reaches the title among the bar's controls
@@ -1580,7 +1580,7 @@ describe('+page · screen 2 · syncing', () => {
 
 		// Her Library is the one on screen, and the focus is back on the title
 		await waitFor(() => expect(library.activeReaderId).toBe(2));
-		const anasTitle = await screen.findByRole('button', { name: "Ana's Library" });
+		const anasTitle = await screen.findByRole('button', { name: "Ana’s Library" });
 		await waitFor(() => expect(options()).toHaveLength(1));
 		expect(options()[0]).toHaveTextContent('Delta');
 		await waitFor(() => expect(document.activeElement).toBe(anasTitle));
@@ -1594,7 +1594,7 @@ describe('+page · screen 2 · syncing', () => {
 	const syncingState = () => document.querySelector<HTMLElement>('[data-testid="syncing-state"]');
 	const filledLines = () => syncingState()!.querySelectorAll('svg line[data-filled]').length;
 	const badges = () => document.querySelectorAll('[data-slot="badge"]');
-	const exportButton = () => within(bar()!).getByRole('button', { name: /^Export \d+ books?$/ });
+	const exportButton = () => within(bar()!).getByRole('button', { name: /^Export \d+ Books?$/ });
 
 	it('header_hides_count_before_total_known', async () => {
 		const user = userEvent.setup();
@@ -1607,7 +1607,7 @@ describe('+page · screen 2 · syncing', () => {
 		await user.click(syncButton());
 		await waitFor(() => expect(header()?.dataset.state).toBe('aSincronizar'));
 
-		expect(message()).toBe('Syncing with the Kobo');
+		expect(message()).toBe('Syncing with Kobo');
 		expect(detail()).toBeUndefined();
 		expect(header()!.textContent).not.toContain('0 of 0');
 	});
@@ -1633,7 +1633,7 @@ describe('+page · screen 2 · syncing', () => {
 		// Announced by the page's own always-mounted region, not by a region that mounts with its text
 		expect(state).not.toHaveAttribute('role');
 		expect(state.closest('[aria-live]')).toBeNull();
-		expect(within(state).getByRole('heading', { name: 'Syncing with the Kobo' })).toBeInTheDocument();
+		expect(within(state).getByRole('heading', { name: 'Syncing with Kobo' })).toBeInTheDocument();
 		const count = screen.getByText('12 of 42 books');
 		expect(count.tagName).toBe('P');
 		expect(state.contains(count)).toBe(true);
@@ -1668,7 +1668,7 @@ describe('+page · screen 2 · syncing', () => {
 		await waitFor(() => expect(syncingState()).not.toBeNull());
 
 		// No paragraph at all, and the old sentence never comes back
-		expect(within(syncingState()!).getByRole('heading', { name: 'Syncing with the Kobo' })).toBeInTheDocument();
+		expect(within(syncingState()!).getByRole('heading', { name: 'Syncing with Kobo' })).toBeInTheDocument();
 		expect(syncingState()!.querySelector('p')).toBeNull();
 		expect(syncingState()!.textContent).not.toContain('appear here');
 		expect(syncingState()!.textContent).not.toMatch(/\d+ of \d+ book/);
@@ -1752,7 +1752,7 @@ describe('+page · screen 2 · syncing', () => {
 		// ...and in a book too
 		await user.click(options()[1]);
 		await waitFor(() => expect(screen.getByTestId('book-details-view')).toBeInTheDocument());
-		const detailExport = within(bar()!).getByRole('button', { name: 'Export 1 book' });
+		const detailExport = within(bar()!).getByRole('button', { name: 'Export 1 Book' });
 		expect(detailExport).toHaveAttribute('aria-disabled', 'true');
 		await user.click(detailExport);
 		expect(calls('export_library_books')).toHaveLength(0);
@@ -1760,7 +1760,7 @@ describe('+page · screen 2 · syncing', () => {
 		release();
 		await waitFor(() => expect(library.isImporting).toBe(false));
 		await settle();
-		expect(within(bar()!).getByRole('button', { name: 'Export 1 book' })).not.toHaveAttribute('aria-disabled', 'true');
+		expect(within(bar()!).getByRole('button', { name: 'Export 1 Book' })).not.toHaveAttribute('aria-disabled', 'true');
 	});
 
 	it('new_badges_are_hidden_while_syncing_and_come_back_after', async () => {
@@ -1788,7 +1788,7 @@ describe('+page · screen 2 · syncing', () => {
 		await mockLibrary({ books: newBooks(), device: kobo, overrides: { sync_kobo } });
 		render(Page);
 		await syncReady();
-		const title = () => within(bar()!).getByRole('button', { name: "Bruno's Library" });
+		const title = () => within(bar()!).getByRole('button', { name: "Bruno’s Library" });
 
 		// The menu was open when the Sync on connect began: it closes, so no reader can be chosen in it
 		await user.click(title());
@@ -1890,7 +1890,7 @@ describe('+page · screen 2 · syncing', () => {
 		expect(states[0]).toBe('erro');
 		expect(states.slice(1)).toEqual(['aSincronizar']);
 		expect(header()).toBeNull();
-		expect(screen.queryAllByRole('alert').some((a) => a.textContent?.includes('Could not sync the Kobo'))).toBe(false);
+		expect(screen.queryAllByRole('alert').some((a) => a.textContent?.includes('Couldn’t sync your Kobo.'))).toBe(false);
 		vi.mocked(console.error).mockRestore();
 	});
 
@@ -1933,7 +1933,7 @@ describe('+page · screen 2 · syncing', () => {
 		render(Page);
 		await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
 		await waitFor(() => expect(handlers.has('device-detected')).toBe(true));
-		await user.click(within(header()!).getByRole('button', { name: 'Export 2 books' }));
+		await user.click(within(header()!).getByRole('button', { name: 'Export 2 Books' }));
 		await waitFor(() => expect(calls('mark_book_opened')).toHaveLength(2));
 
 		const recording = recordHeader();
@@ -1949,7 +1949,7 @@ describe('+page · screen 2 · syncing', () => {
 
 		// The header of the new news offers their export, never «✓ Exported» of the old one
 		expect(recording.stop().exportedShown).toBe(false);
-		expect(within(header()!).getByRole('button', { name: 'Export 1 book' })).toBeInTheDocument();
+		expect(within(header()!).getByRole('button', { name: 'Export 1 Book' })).toBeInTheDocument();
 	});
 });
 
@@ -2054,7 +2054,7 @@ describe('+page · shortcuts', () => {
 		expect(calls('sync_kobo')).toHaveLength(0);
 		expect(calls('update_settings')).toHaveLength(0);
 		expect(calls('export_library_books')).toHaveLength(0);
-		expect(within(bar()!).getByRole('button', { name: 'Sync with the Kobo' })).toHaveAttribute('aria-disabled', 'true');
+		expect(within(bar()!).getByRole('button', { name: 'Sync with Kobo' })).toHaveAttribute('aria-disabled', 'true');
 	});
 
 	it('shortcuts_ignored_in_text_field_and_modal', async () => {
@@ -2113,8 +2113,8 @@ describe('+page · screen 3 · no Kobo', () => {
 		for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
 		await tick();
 	};
-	const syncButton = () => within(bar()!).getByRole('button', { name: 'Sync with the Kobo' });
-	const exportButton = () => within(bar()!).getByRole('button', { name: /^Export \d+ books?$/ });
+	const syncButton = () => within(bar()!).getByRole('button', { name: 'Sync with Kobo' });
+	const exportButton = () => within(bar()!).getByRole('button', { name: /^Export \d+ Books?$/ });
 	const press = (key: string) => fireEvent.keyDown(window, { key, code: `Key${key.toUpperCase()}`, metaKey: true });
 	/** The reason a disabled Sync gives: it is in aria-describedby once the button has focus. */
 	const syncReason = async () => {
@@ -2258,7 +2258,7 @@ describe('+page · screen 4 · list', () => {
 		const user = userEvent.setup();
 
 		await user.click(await screen.findByRole('button', { name: 'Sort by' }));
-		await user.click(await menuItem('Title (A-Z)'));
+		await user.click(await menuItem('Title (A–Z)'));
 
 		expect(settings.uiPreferences.librarySortReversed).toBe(false);
 		expect(titles()).toEqual(['Alpha', 'Beta', 'Delta', 'Gamma']);
@@ -2360,11 +2360,11 @@ describe('+page · traffic lights', () => {
 		mainWindow.isFullscreen.mockImplementation(() => Promise.resolve(true));
 		await mockLibrary({ books: newBooks(), overrides: { traffic_lights_max_x: () => 76 } });
 		render(Page);
-		await screen.findByRole('button', { name: "Bruno's Library" });
+		await screen.findByRole('button', { name: "Bruno’s Library" });
 
 		// No traffic lights in full screen: the title starts at the bar's px-4, with no gap before it
 		await waitFor(() => expect(block()).toBeNull());
-		expect(within(bar()!.firstElementChild as HTMLElement).getByRole('button', { name: "Bruno's Library" })).toBeInTheDocument();
+		expect(within(bar()!.firstElementChild as HTMLElement).getByRole('button', { name: "Bruno’s Library" })).toBeInTheDocument();
 
 		// Leaving full screen resizes the window, which measures again
 		mainWindow.isFullscreen.mockImplementation(() => Promise.resolve(false));
@@ -2663,7 +2663,7 @@ describe('+page · screen 6 · whose Kobo is this', () => {
 		await tick();
 	};
 	const dialog = () => screen.queryByTestId('unknown-kobo-dialog');
-	const syncButton = () => within(bar()!).getByRole('button', { name: 'Sync with the Kobo' });
+	const syncButton = () => within(bar()!).getByRole('button', { name: 'Sync with Kobo' });
 	const cancel = async () => {
 		await userEvent.setup().click(within(await screen.findByTestId('unknown-kobo-dialog')).getByRole('button', { name: 'Cancel' }));
 		await waitFor(() => expect(dialog()).toBeNull());
@@ -2980,7 +2980,7 @@ describe('+page · screen 8 · export done and failed (Task 47)', () => {
 			render(Page);
 			await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
 
-			await user.click(headerButton('Export 2 books'));
+			await user.click(headerButton('Export 2 Books'));
 
 			const done = await within(header()!).findByRole('button', { name: '✓ Exported' });
 			expect(done).toBeInTheDocument();
@@ -3000,7 +3000,7 @@ describe('+page · screen 8 · export done and failed (Task 47)', () => {
 			await mockLibrary({ books: newBooks(), summary: withNews, overrides: { export_library_books: () => FILES } });
 			render(Page);
 			await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
-			await user.click(headerButton('Export 2 books'));
+			await user.click(headerButton('Export 2 Books'));
 			await within(header()!).findByRole('button', { name: '✓ Exported' });
 
 			await user.click(options()[0]);
@@ -3026,10 +3026,10 @@ describe('+page · screen 8 · export done and failed (Task 47)', () => {
 			});
 			render(Page);
 			await syncReady();
-			await user.click(headerButton('Export 2 books'));
+			await user.click(headerButton('Export 2 Books'));
 			await within(header()!).findByRole('button', { name: '✓ Exported' });
 
-			await user.click(within(bar()!).getByRole('button', { name: 'Sync with the Kobo' }));
+			await user.click(within(bar()!).getByRole('button', { name: 'Sync with Kobo' }));
 
 			await waitFor(() => expect(calls('sync_kobo')).toHaveLength(1));
 			await waitFor(() => expect(library.isImporting).toBe(false));
@@ -3041,7 +3041,7 @@ describe('+page · screen 8 · export done and failed (Task 47)', () => {
 			await mockLibrary({ books: newBooks(), summary: withNews, overrides: { export_library_books: () => FILES } });
 			render(Page);
 			await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
-			await user.click(headerButton('Export 2 books'));
+			await user.click(headerButton('Export 2 Books'));
 			await within(header()!).findByRole('button', { name: '✓ Exported' });
 
 			await library.openReader(2);
@@ -3050,7 +3050,7 @@ describe('+page · screen 8 · export done and failed (Task 47)', () => {
 		});
 
 		it.each([
-			['the header', async (user: ReturnType<typeof userEvent.setup>) => user.click(headerButton('Export 2 books'))],
+			['the header', async (user: ReturnType<typeof userEvent.setup>) => user.click(headerButton('Export 2 Books'))],
 			['the bar (⌘E)', async () => press('e')]
 		])('toast_shows_in_finder_with_the_files_of_the_export (%s)', async (_from, exportNow) => {
 			const user = userEvent.setup();
@@ -3088,7 +3088,7 @@ describe('+page · screen 8 · export done and failed (Task 47)', () => {
 
 	describe('failed in the Library', () => {
 		it.each([
-			['the header', async (user: ReturnType<typeof userEvent.setup>) => user.click(headerButton('Export 2 books'))],
+			['the header', async (user: ReturnType<typeof userEvent.setup>) => user.click(headerButton('Export 2 Books'))],
 			['the bar (⌘E)', async () => press('e')]
 		])('folder_not_writable_goes_to_the_header (%s)', async (_from, exportNow) => {
 			const user = userEvent.setup();
@@ -3105,8 +3105,8 @@ describe('+page · screen 8 · export done and failed (Task 47)', () => {
 			expect(header()!.querySelector('[data-slot="library-header-detail"]')?.textContent?.trim()).toBe(
 				'Khi can’t write to ~/Documents/Kobo. Choose another folder.'
 			);
-			expect(headerButton('Choose folder…')).toBeInTheDocument();
-			expect(within(header()!).queryByRole('button', { name: 'Try again' })).toBeNull();
+			expect(headerButton('Choose Folder…')).toBeInTheDocument();
+			expect(within(header()!).queryByRole('button', { name: 'Try Again' })).toBeNull();
 			expect(alertText()).toContain('Couldn’t export.');
 			// In the header, not in a toast; the news and the Sync's error are not touched
 			expect(document.querySelector('[data-slot="toaster"]')?.textContent?.trim()).toBe('');
@@ -3125,12 +3125,12 @@ describe('+page · screen 8 · export done and failed (Task 47)', () => {
 			render(Page);
 			await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
 			// A selection that exists stays out of the header's export
-			await user.click(headerButton('Export 2 books'));
+			await user.click(headerButton('Export 2 Books'));
 			await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
 			expect(header()!.querySelector('[data-slot="library-header-detail"]')?.textContent?.trim()).toBe('The disk is full.');
 
 			rust.state.works = true;
-			await user.click(headerButton('Try again'));
+			await user.click(headerButton('Try Again'));
 
 			await waitFor(() => expect(calls('export_library_books')).toHaveLength(2));
 			expect(calls('export_library_books')[1][1]).toEqual({ readerId: 1, bookIds: [1, 3] });
@@ -3155,11 +3155,11 @@ describe('+page · screen 8 · export done and failed (Task 47)', () => {
 			render(Page);
 			await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
 
-			await user.click(headerButton('Export 2 books'));
+			await user.click(headerButton('Export 2 Books'));
 
 			await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
 			expect(header()!.querySelector('[data-slot="library-header-detail"]')).toBeNull();
-			expect(headerButton('Try again')).toBeInTheDocument();
+			expect(headerButton('Try Again')).toBeInTheDocument();
 			// Never the raw error
 			expect(document.body.textContent).not.toContain('os error 13');
 		});
@@ -3185,7 +3185,7 @@ describe('+page · screen 8 · export done and failed (Task 47)', () => {
 			await press('e');
 			await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
 
-			await user.click(headerButton('Choose folder…'));
+			await user.click(headerButton('Choose Folder…'));
 
 			await waitFor(() => expect(calls('export_library_books')).toHaveLength(2));
 			expect(invoke).toHaveBeenCalledWith('pick_export_folder', { defaultPath: FOLDER });
@@ -3217,7 +3217,7 @@ describe('+page · screen 8 · export done and failed (Task 47)', () => {
 			await press('e');
 			await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
 
-			await user.click(headerButton('Choose folder…'));
+			await user.click(headerButton('Choose Folder…'));
 
 			await waitFor(() => expect(invoke).toHaveBeenCalledWith('set_reader_export_path', { readerId: 1, path: null }));
 		});
@@ -3235,7 +3235,7 @@ describe('+page · screen 8 · export done and failed (Task 47)', () => {
 			await press('e');
 			await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
 
-			await user.click(headerButton('Choose folder…'));
+			await user.click(headerButton('Choose Folder…'));
 
 			await waitFor(() => expect(calls('pick_export_folder')).toHaveLength(1));
 			await new Promise((r) => setTimeout(r, 30));
@@ -3255,7 +3255,7 @@ describe('+page · screen 8 · export done and failed (Task 47)', () => {
 
 			library.lastSyncFailed = true;
 			await waitFor(() =>
-				expect(header()!.querySelector('[data-slot="library-header-message"]')?.textContent?.trim()).toBe('Could not sync the Kobo')
+				expect(header()!.querySelector('[data-slot="library-header-message"]')?.textContent?.trim()).toBe('Couldn’t sync your Kobo.')
 			);
 
 			library.isImporting = true;
@@ -3279,7 +3279,7 @@ describe('+page · screen 8 · export done and failed (Task 47)', () => {
 			await press('e');
 			await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
 
-			await user.click(within(bar()!).getByRole('button', { name: 'Sync with the Kobo' }));
+			await user.click(within(bar()!).getByRole('button', { name: 'Sync with Kobo' }));
 
 			await waitFor(() => expect(calls('sync_kobo')).toHaveLength(1));
 			await waitFor(() => expect(library.isImporting).toBe(false));
@@ -3364,7 +3364,7 @@ describe('+page · screen 8 · export done and failed (Task 47)', () => {
 			expect(await screen.findByText('Couldn’t export to ~/Documents/Kobo.')).toBeInTheDocument();
 			const toast = document.querySelector('[data-slot="toast"]')!;
 			expect(toast.querySelector('svg')?.getAttribute('class')).toContain('circle-alert');
-			await user.click(await toastAction('Choose folder…'));
+			await user.click(await toastAction('Choose Folder…'));
 
 			// The same export: this book alone
 			await waitFor(() => expect(calls('export_library_books')).toHaveLength(2));
@@ -3387,7 +3387,7 @@ describe('+page · screen 8 · export done and failed (Task 47)', () => {
 
 			expect(await screen.findByText('Couldn’t export: the disk is full.')).toBeInTheDocument();
 			rust.state.works = true;
-			await user.click(await toastAction('Try again'));
+			await user.click(await toastAction('Try Again'));
 
 			await waitFor(() => expect(calls('export_library_books')).toHaveLength(2));
 			expect(await screen.findByText('1 book exported')).toBeInTheDocument();
@@ -3451,12 +3451,12 @@ describe('+page · screen 8 · review fixes (Task 47)', () => {
 		render(Page);
 		await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
 
-		await user.dblClick(headerButton('Export 2 books'));
+		await user.dblClick(headerButton('Export 2 Books'));
 		await wait(100);
 
 		expect(calls('export_library_books')).toHaveLength(1);
 		expect(header()?.dataset.state).toBe('novos');
-		expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Try Again' })).toBeNull();
 	});
 
 	it('clicking_the_exported_check_does_nothing', async () => {
@@ -3464,7 +3464,7 @@ describe('+page · screen 8 · review fixes (Task 47)', () => {
 		await mockLibrary({ books: newBooks(), summary: withNews, overrides: { export_library_books: () => FILES } });
 		render(Page);
 		await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
-		await user.click(headerButton('Export 2 books'));
+		await user.click(headerButton('Export 2 Books'));
 		const done = await within(header()!).findByRole('button', { name: '✓ Exported' });
 
 		await user.click(done);
@@ -3472,7 +3472,7 @@ describe('+page · screen 8 · review fixes (Task 47)', () => {
 
 		expect(calls('export_library_books')).toHaveLength(1);
 		expect(header()?.dataset.state).toBe('novos');
-		expect(within(header()!).queryByRole('button', { name: 'Try again' })).toBeNull();
+		expect(within(header()!).queryByRole('button', { name: 'Try Again' })).toBeNull();
 	});
 
 	it('an_export_pending_when_the_reader_changes_shows_nothing_in_the_new_reader_if_it_fails', async () => {
@@ -3506,7 +3506,7 @@ describe('+page · screen 8 · review fixes (Task 47)', () => {
 		await syncReady();
 		await press('e');
 		await waitFor(() => expect(library.isExporting).toBe(true));
-		await user.click(within(bar()!).getByRole('button', { name: 'Sync with the Kobo' }));
+		await user.click(within(bar()!).getByRole('button', { name: 'Sync with Kobo' }));
 		await waitFor(() => expect(library.isImporting).toBe(true));
 
 		control.reject({ kind: 'diskFull' });
@@ -3525,7 +3525,7 @@ describe('+page · screen 8 · review fixes (Task 47)', () => {
 		await mockLibrary({ books: newBooks(), summary: withNews, overrides: { export_library_books: answer } });
 		render(Page);
 		await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
-		await user.click(headerButton('Export 2 books'));
+		await user.click(headerButton('Export 2 Books'));
 		await waitFor(() => expect(library.isExporting).toBe(true));
 
 		await library.openReader(2);
@@ -3571,7 +3571,7 @@ describe('+page · screen 8 · review fixes (Task 47)', () => {
 		await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
 		await press('e');
 		await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
-		const retry = headerButton('Try again');
+		const retry = headerButton('Try Again');
 
 		// The reader changes behind the error (store only: the page's own switch also clears it)
 		library.activeReaderId = 2;
@@ -3600,7 +3600,7 @@ describe('+page · screen 8 · review fixes (Task 47)', () => {
 		await user.click(options()[0]);
 		await waitFor(() => expect(screen.getByTestId('book-details-view')).toBeInTheDocument());
 		await press('e');
-		const retry = await screen.findByRole('button', { name: 'Try again' });
+		const retry = await screen.findByRole('button', { name: 'Try Again' });
 
 		void library.sync();
 		await waitFor(() => expect(library.isImporting).toBe(true));
@@ -3640,9 +3640,9 @@ describe('+page · screen 8 · review fixes (Task 47)', () => {
 		});
 		render(Page);
 		await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
-		await user.click(headerButton('Export 2 books'));
+		await user.click(headerButton('Export 2 Books'));
 		await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
-		await waitFor(() => expect(document.activeElement).toBe(headerButton('Try again')));
+		await waitFor(() => expect(document.activeElement).toBe(headerButton('Try Again')));
 	});
 
 	it('focus_elsewhere_stays_where_it_was_when_the_export_fails', async () => {
@@ -3660,7 +3660,7 @@ describe('+page · screen 8 · review fixes (Task 47)', () => {
 		await press('e');
 		await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
 		await wait(30);
-		expect(document.activeElement).not.toBe(headerButton('Try again'));
+		expect(document.activeElement).not.toBe(headerButton('Try Again'));
 	});
 
 	it('an_export_error_in_a_header_that_was_not_there_is_announced_and_not_twice_when_it_was', async () => {
@@ -3717,7 +3717,7 @@ describe('+page · screen 8 · review fixes (Task 47)', () => {
 		await press('e');
 
 		expect(await screen.findByText('Couldn’t export: the disk is full.')).toBeInTheDocument();
-		expect(header()!.querySelector('[data-slot="library-header-message"]')?.textContent?.trim()).toBe('Could not sync the Kobo');
+		expect(header()!.querySelector('[data-slot="library-header-message"]')?.textContent?.trim()).toBe('Couldn’t sync your Kobo.');
 		// Gone from the header when the Sync error is
 		library.lastSyncFailed = false;
 		await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
@@ -3773,7 +3773,7 @@ describe('+page · screen 8 · review fixes (Task 47)', () => {
 		await waitFor(() => expect(header()?.dataset.state).toBe('novos'));
 		await press('e');
 		await waitFor(() => expect(header()?.dataset.state).toBe('erro'));
-		await user.click(headerButton('Choose folder…'));
+		await user.click(headerButton('Choose Folder…'));
 		await waitFor(() => expect(calls('pick_export_folder')).toHaveLength(1));
 
 		await library.openReader(2);
@@ -3810,7 +3810,7 @@ describe('+page · screen 9 · delete a book (Task 48)', () => {
 	const trash = () => within(bar()!).queryByRole('button', { name: 'Delete book…' });
 	const windowOpen = () => screen.queryByRole('alertdialog');
 	const detailOpen = () => screen.queryByTestId('book-details-view') !== null;
-	const toastText = 'Could not delete the book.';
+	const toastText = 'Couldn’t delete the book.';
 
 	/** Rust's side: `delete_book` forgets the book, `get_library` answers what is left. */
 	function rust(overrides: Record<string, (args: unknown) => unknown> = {}, initial = books()) {

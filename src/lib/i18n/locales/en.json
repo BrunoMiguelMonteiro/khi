@@ -4,7 +4,7 @@
     "title": "Khi - Kobo Highlights Exporter",
     "menuEdit": "Edit",
     "menuWindow": "Window",
-    "loading": "Loading...",
+    "loading": "Loading…",
     "koboDevice": "Kobo e-reader device",
     "menuFile": "File",
     "menuRevealLastExport": "Show Last Export in Finder",
@@ -13,18 +13,21 @@
     "menuViewGrid": "View as Grid",
     "menuViewList": "View as List",
     "menuExportBook": "Export Book",
-    "menuBackToLibrary": "Back to Library"
+    "menuBackToLibrary": "Back to Library",
+    "menuSync": "Sync with Kobo",
+    "menuDelete": "Delete Book…",
+    "menuSortBy": "Sort By"
   },
   "screens": {
     "noKobo": {
       "title": "Connect your Kobo",
-      "subtitle": "Your highlights stay in the Library even with the Kobo unplugged."
+      "subtitle": "Your highlights stay in the Library even when your Kobo is unplugged."
     },
     "syncingEmpty": {
-      "title": "Syncing with the Kobo"
+      "title": "Syncing with Kobo"
     },
     "importing": {
-      "title": "Syncing highlights...",
+      "title": "Syncing highlights…",
       "progress": "{done} of {total} books"
     },
     "library": {
@@ -36,23 +39,23 @@
         "inBooks_one": "in 1 book",
         "inBooks_other": "in {count} books",
         "since": "since {date}",
-        "showOnly": "Show only these",
-        "exportBooks": "Export {count} books",
-        "exportBooks_one": "Export 1 book",
-        "exportBooks_other": "Export {count} books",
+        "showOnly": "Show Only These",
+        "exportBooks": "Export {count} Books",
+        "exportBooks_one": "Export 1 Book",
+        "exportBooks_other": "Export {count} Books",
         "exporting": "Exporting…",
         "exported": "✓ Exported",
-        "syncing": "Syncing with the Kobo",
+        "syncing": "Syncing with Kobo",
         "syncProgress": "{done} of {count} books",
         "syncProgress_one": "{done} of 1 book",
         "syncProgress_other": "{done} of {count} books",
         "noNews": "No new highlights",
         "syncedAt": "synced at {time}",
-        "retry": "Try again",
-        "chooseFolder": "Choose folder…"
+        "retry": "Try Again",
+        "chooseFolder": "Choose Folder…"
       },
       "title": "Library",
-      "titleOf": "{reader}'s Library",
+      "titleOf": "{reader}’s Library",
       "exportAll": "Export All",
       "exportSelected": "Export Selected",
       "clearSelection": "Clear Selection",
@@ -85,8 +88,8 @@
       "gridViewLabel": "Grid view",
       "listViewLabel": "List view",
       "sort": {
-        "title": "Title (A-Z)",
-        "author": "Author (A-Z)",
+        "title": "Title (A–Z)",
+        "author": "Author (A–Z)",
         "recent": "Recently Read",
         "count": "Highlight Count"
       },
@@ -112,10 +115,10 @@
       "withNotes": "With notes",
       "noChapter": "No chapter",
       "deleteBookTitle": "Delete this book?",
-      "deleteBookBody": "Its highlights were all removed from the Kobo. The book and its highlights leave the Library for good.",
+      "deleteBookBody": "All its highlights were removed from your Kobo. The book and its highlights will be permanently removed from the Library.",
       "deleteBookConfirm": "Delete",
       "cancel": "Cancel",
-      "deleteBookError": "Could not delete the book."
+      "deleteBookError": "Couldn’t delete the book."
     }
   },
   "book": {
@@ -172,7 +175,7 @@
       },
       "filesGroup": "Files",
       "choose": "Choose…",
-      "folderHelp": "{path} · {name}'s books are exported here.",
+      "folderHelp": "{path} · {name}’s books are exported here.",
       "folderHelpNoReader": "{path} · Books are exported here."
     },
     "appearance": {
@@ -215,7 +218,7 @@
     },
     "accent": {
       "label": "Accent color",
-      "hint": "System uses the accent color set in macOS.",
+      "hint": "“System” uses the accent color you chose in macOS.",
       "system": "System",
       "swatches": {
         "azulTinta": "Ink blue",
@@ -264,8 +267,8 @@
     "booksExported": "{count} books exported",
     "booksExported_one": "1 book exported",
     "booksExported_other": "{count} books exported",
-    "syncError": "Could not sync the Kobo",
-    "openReaderError": "Could not open this reader's Library",
+    "syncError": "Couldn’t sync your Kobo.",
+    "openReaderError": "Couldn’t open this reader’s Library.",
     "createReaderError": "Couldn’t create the reader",
     "associateKoboError": "Couldn’t assign this Kobo to the reader",
     "showInFinder": "Show in Finder",
@@ -305,14 +308,14 @@
       "body_one": "Version {current} is installed. One version has been released since. Khi restarts after installing.",
       "body_other": "Version {current} is installed. {number} versions have been released since. Khi restarts after installing.",
       "notesLabel": "Release notes",
-      "whatsNew": "What’s New",
-      "bugFixes": "Bug Fixes",
+      "whatsNew": "What’s new",
+      "bugFixes": "Bug fixes",
       "skip": "Skip This Version",
       "later": "Later",
       "install": "Install and Restart"
     },
     "checking": {
-      "title": "Checking for Updates…",
+      "title": "Checking for updates…",
       "cancel": "Cancel"
     },
     "upToDate": {
@@ -333,13 +336,13 @@
       "ok": "OK"
     },
     "error": {
-      "title": "Couldn’t Check for Updates",
+      "title": "Couldn’t check for updates.",
       "body": "Check your internet connection and try again.",
       "cancel": "Cancel",
       "retry": "Try Again"
     },
     "installError": {
-      "title": "Couldn’t Install the Update",
+      "title": "Couldn’t install the update.",
       "body": "Khi {version} wasn’t installed. Check your internet connection and try again."
     },
     "settings": {
@@ -355,14 +358,14 @@
   },
   "ui": {
     "windowBar": {
-      "sync": "Sync with the Kobo",
+      "sync": "Sync with Kobo",
       "syncing": "Syncing",
       "syncingProgress": "Syncing · {done} of {count} books",
       "syncingProgress_one": "Syncing · {done} of 1 book",
       "syncingProgress_other": "Syncing · {done} of {count} books",
-      "export": "Export {count} books",
-      "export_one": "Export 1 book",
-      "export_other": "Export {count} books",
+      "export": "Export {count} Books",
+      "export_one": "Export 1 Book",
+      "export_other": "Export {count} Books",
       "back": "Back",
       "delete": "Delete book…",
       "sort": "Sort by"

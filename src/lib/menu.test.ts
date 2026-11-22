@@ -76,6 +76,19 @@ describe('application menu', () => {
 		expect(emit).not.toHaveBeenCalledWith('open-settings');
 	});
 
+	it('menu_settings_text_ends_with_an_ellipsis_character', async () => {
+		await createApplicationMenu(t);
+		expect(made.items.find((o) => o.id === 'settings')?.text).toBe('Definições\u2026');
+	});
+
+	it('sync_sort_and_delete_use_the_menu_keys_not_the_window_bar_ones', async () => {
+		await createApplicationMenu(t);
+		expect(made.items.find((o) => o.id === 'sync')?.text).toBe('app.menuSync');
+		expect(made.items.find((o) => o.id === 'delete')?.text).toBe('app.menuDelete');
+		const sort = made.submenus.find((o) => o.items.some((i: Options) => i.id === 'sort-title'));
+		expect(sort?.text).toBe('app.menuSortBy');
+	});
+
 	it('menu_has_close_window', async () => {
 		await createApplicationMenu(t);
 		const windowMenu = made.submenus.find((o) => o.text === 'Janela');

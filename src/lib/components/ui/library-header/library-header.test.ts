@@ -64,9 +64,9 @@ describe("LibraryHeader text", () => {
       ).textContent?.trim(),
     ).toBe("since Nov 9");
     expect(
-      screen.getByRole("button", { name: "Show only these" }),
+      screen.getByRole("button", { name: "Show Only These" }),
     ).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Export 3 books" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Export 3 Books" })).toBeTruthy();
     unmount();
 
     renderHeader({ ...NOVOS, highlights: 1, books: 1 });
@@ -75,7 +75,7 @@ describe("LibraryHeader text", () => {
         .querySelector('[data-slot="library-header-message"]')
         ?.textContent?.trim(),
     ).toBe("1 new highlight in 1 book");
-    expect(screen.getByRole("button", { name: "Export 1 book" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Export 1 Book" })).toBeTruthy();
   });
 
   it("novos_without_since_omits_date", () => {
@@ -92,18 +92,18 @@ describe("LibraryHeader text", () => {
     expect(
       container.querySelector('[data-slot="library-header-detail"]'),
     ).toBeNull();
-    expect(screen.getByRole("button", { name: "Export 3 books" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Export 3 Books" })).toBeTruthy();
   });
 
   it("show_only_hidden_without_handler", () => {
     const { unmount } = renderHeader(NOVOS);
-    expect(screen.queryByRole("button", { name: "Show only these" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Export 3 books" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Show Only These" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Export 3 Books" })).toBeTruthy();
     unmount();
 
     renderHeader(NOVOS, { onShowOnly: vi.fn() });
     expect(
-      screen.getByRole("button", { name: "Show only these" }),
+      screen.getByRole("button", { name: "Show Only These" }),
     ).toBeTruthy();
   });
 
@@ -117,7 +117,7 @@ describe("LibraryHeader text", () => {
       container
         .querySelector('[data-slot="library-header-message"]')
         ?.textContent?.trim(),
-    ).toBe("Syncing with the Kobo");
+    ).toBe("Syncing with Kobo");
     expect(
       container
         .querySelector('[data-slot="library-header-detail"]')
@@ -132,7 +132,7 @@ describe("LibraryHeader text", () => {
       container
         .querySelector('[data-slot="library-header-message"]')
         ?.textContent?.trim(),
-    ).toBe("Syncing with the Kobo");
+    ).toBe("Syncing with Kobo");
     // No «· 0 of 0 books»: the Kobo has not said how many there are
     expect(
       container.querySelector('[data-slot="library-header-detail"]'),
@@ -190,10 +190,10 @@ describe("LibraryHeader error", () => {
       { onRetry },
     );
     const alert = screen.getByRole("alert");
-    expect(alert.textContent).toContain("Could not sync the Kobo");
+    expect(alert.textContent).toContain("Couldn’t sync your Kobo.");
     expect(alert.textContent).toContain("Could not read the Kobo");
     // Only the error text is announced: the button is outside the alert.
-    const retry = screen.getByRole("button", { name: "Try again" });
+    const retry = screen.getByRole("button", { name: "Try Again" });
     expect(alert.contains(retry)).toBe(false);
     expect(alert.querySelector("button")).toBeNull();
     const icon = container.querySelector(
@@ -206,18 +206,18 @@ describe("LibraryHeader error", () => {
         ?.classList.contains("text-muted-foreground"),
     ).toBe(true);
     expect(onRetry).not.toHaveBeenCalled();
-    await user.click(screen.getByRole("button", { name: "Try again" }));
+    await user.click(screen.getByRole("button", { name: "Try Again" }));
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
   it("retry_hidden_without_handler", () => {
     const { unmount } = renderHeader({ kind: "erro", message: "x" });
-    expect(screen.getByRole("alert").textContent).toContain("Could not sync");
-    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+    expect(screen.getByRole("alert").textContent).toContain("Couldn’t sync");
+    expect(screen.queryByRole("button", { name: "Try Again" })).toBeNull();
     unmount();
 
     renderHeader({ kind: "erro", message: "x" }, { onRetry: vi.fn() });
-    expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Try Again" })).toBeTruthy();
   });
 
   it("alert_region_persists_and_fills_on_the_transition_to_error", async () => {
@@ -232,7 +232,7 @@ describe("LibraryHeader error", () => {
       state: { kind: "erro", message: "Could not read the Kobo" },
     });
     expect(screen.getByRole("alert")).toBe(alert);
-    expect(alert.textContent).toContain("Could not sync the Kobo");
+    expect(alert.textContent).toContain("Couldn’t sync your Kobo.");
     expect(alert.textContent).toContain("Could not read the Kobo");
     expect(alert.querySelector("button")).toBeNull();
     await rerender({ state: NOVOS });
@@ -254,10 +254,10 @@ describe("LibraryHeader actions", () => {
     const onShowOnly = vi.fn();
     const onExport = vi.fn();
     renderHeader(NOVOS, { onShowOnly, onExport });
-    await user.click(screen.getByRole("button", { name: "Show only these" }));
+    await user.click(screen.getByRole("button", { name: "Show Only These" }));
     expect(onShowOnly).toHaveBeenCalledTimes(1);
     expect(onExport).not.toHaveBeenCalled();
-    await user.click(screen.getByRole("button", { name: "Export 3 books" }));
+    await user.click(screen.getByRole("button", { name: "Export 3 Books" }));
     expect(onExport).toHaveBeenCalledTimes(1);
     expect(onShowOnly).toHaveBeenCalledTimes(1);
   });
@@ -268,7 +268,7 @@ describe("LibraryHeader actions", () => {
     vi.useFakeTimers();
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     renderHeader(NOVOS, { onExport: vi.fn() });
-    await user.click(screen.getByRole("button", { name: "Export 3 books" }));
+    await user.click(screen.getByRole("button", { name: "Export 3 Books" }));
     const button = screen.getByRole("button", { name: "Exporting…" });
     expect(button.getAttribute("aria-disabled")).toBe("true");
     await vi.advanceTimersByTimeAsync(501);
@@ -276,7 +276,7 @@ describe("LibraryHeader actions", () => {
     await vi.advanceTimersByTimeAsync(1990);
     expect(screen.getByRole("button", { name: "✓ Exported" })).toBe(button);
     await vi.advanceTimersByTimeAsync(20);
-    expect(screen.getByRole("button", { name: "Export 3 books" })).toBe(button);
+    expect(screen.getByRole("button", { name: "Export 3 Books" })).toBe(button);
   });
 
   it("exporting_wins_over_a_stale_exported", async () => {
@@ -303,7 +303,7 @@ describe("LibraryHeader actions", () => {
     await vi.advanceTimersByTimeAsync(1000);
     expect(screen.getByRole("button", { name: "✓ Exported" })).toBeTruthy();
     await vi.advanceTimersByTimeAsync(1100);
-    expect(screen.getByRole("button", { name: "Export 3 books" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Export 3 Books" })).toBeTruthy();
   });
 });
 
@@ -417,7 +417,7 @@ describe("LibraryHeader export error (Task 47)", () => {
       "Khi can’t write to ~/Documents/Kobo. Choose another folder.",
     );
     // The action stands in for the Sync retry: one button, not two
-    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Try Again" })).toBeNull();
     const button = screen.getByRole("button", { name: "Choose Folder…" });
     expect(button.className).toContain("bg-primary");
     await userEvent.setup().click(button);
@@ -428,7 +428,7 @@ describe("LibraryHeader export error (Task 47)", () => {
     expect(alert.textContent).toContain("Couldn’t export.");
     expect(alert.textContent).toContain("Choose another folder.");
     expect(alert.contains(button)).toBe(false);
-    expect(alert.textContent).not.toContain("Could not sync the Kobo");
+    expect(alert.textContent).not.toContain("Couldn’t sync your Kobo.");
   });
 
   it("export_error_secondary_action_is_a_secondary_button", () => {
@@ -436,17 +436,17 @@ describe("LibraryHeader export error (Task 47)", () => {
       kind: "erro",
       title: "Couldn’t export.",
       message: "",
-      action: { label: "Try again", variant: "secundario", onclick: vi.fn() },
+      action: { label: "Try Again", variant: "secundario", onclick: vi.fn() },
     });
-    expect(screen.getByRole("button", { name: "Try again" }).className).toContain("border-input-strong");
+    expect(screen.getByRole("button", { name: "Try Again" }).className).toContain("border-input-strong");
     expect(document.querySelector('[data-slot="library-header-detail"]')).toBeNull();
   });
 
   it("sync_error_keeps_its_title_and_retry", async () => {
     const onRetry = vi.fn();
     renderHeader({ kind: "erro", message: "" }, { onRetry });
-    expect(document.querySelector('[data-slot="library-header-message"]')?.textContent?.trim()).toBe("Could not sync the Kobo");
-    await userEvent.setup().click(screen.getByRole("button", { name: "Try again" }));
+    expect(document.querySelector('[data-slot="library-header-message"]')?.textContent?.trim()).toBe("Couldn’t sync your Kobo.");
+    await userEvent.setup().click(screen.getByRole("button", { name: "Try Again" }));
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 });
