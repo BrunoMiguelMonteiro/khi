@@ -3283,9 +3283,9 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 4. A build dev arranca, com `CFBundleIconName=Khi` e o `Assets.car` igual ao da fonte.
 
 **Passos:**
-- [ ] **Passo 1 (eu):** gradiente novo no `icon.json`; `scripts/build-app-icon.sh`.
-- [ ] **Passo 2 (eu):** `design/khi-caneta/` com o `Khi.png`, o `Khi.iconset` e o `Khi.icns` novos. Recoloro só a placa dos ficheiros da Task 54, multiplicando cada píxel da placa pela razão entre a cor nova e a antiga, para a sombra do marcador ficar; as linhas e o marcador não se tocam. Previews (512 e os tamanhos pequenos lado a lado) para o Bruno aprovar antes de copiar.
-- [ ] **Passo 3 (eu):** copiar para `src-tauri/icons/` e `static/favicon.png` como na Task 54 (8 bits); `iconutil`; `npm run test:visual`; build dev.
+- [x] **Passo 1 (eu):** gradiente novo no `icon.json`; `scripts/build-app-icon.sh`.
+- [x] **Passo 2 (eu):** `design/khi-caneta/` com o `Khi.png`, o `Khi.iconset` e o `Khi.icns` novos. Recoloro só a placa dos ficheiros da Task 54, multiplicando cada píxel da placa pela razão entre a cor nova e a antiga, para a sombra do marcador ficar; as linhas e o marcador não se tocam. Previews (512 e os tamanhos pequenos lado a lado) para o Bruno aprovar antes de copiar.
+- [x] **Passo 3 (eu):** copiar para `src-tauri/icons/` e `static/favicon.png` como na Task 54 (8 bits); `iconutil`; `npm run test:visual`; build dev.
 - [ ] **Passo 4 (Bruno):** o ícone no Dock, no Finder e no ⌘Tab, em claro e escuro.
 - Commit `feat(icon): dark plate`. Sem Sonnet nem review adversarial: só imagens e uma cor.
 
