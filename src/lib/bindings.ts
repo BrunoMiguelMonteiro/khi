@@ -15,8 +15,11 @@ export const commands = {
 	validateExportPath: (path: string) => __TAURI_INVOKE<boolean>("validate_export_path", { path }),
 	/**  Load application settings from disk */
 	loadSettings: () => __TAURI_INVOKE<AppSettings_Serialize>("load_settings"),
-	/**  Save application settings to disk */
-	saveSettings: (settings: AppSettings_Deserialize) => __TAURI_INVOKE<null>("save_settings", { settings }),
+	/**
+	 *  Writes `patch` over the settings file as it is now and returns the result.
+	 *  Every window follows it through `settings-changed` (the main one and Settings).
+	 */
+	updateSettings: (patch: SettingsPatch_Deserialize) => __TAURI_INVOKE<AppSettings_Serialize>("update_settings", { patch }),
 	/**  Reset settings to defaults */
 	resetSettings: () => __TAURI_INVOKE<AppSettings_Serialize>("reset_settings"),
 	/**  Open a folder picker dialog to select export directory */
@@ -31,14 +34,49 @@ export const commands = {
 	lastReader: () => __TAURI_INVOKE<number | null>("last_reader"),
 	getLibrary: (readerId: number) => __TAURI_INVOKE<LibraryBook_Serialize[]>("get_library", { readerId }),
 	deleteBook: (readerId: number, bookId: number) => __TAURI_INVOKE<null>("delete_book", { readerId, bookId }),
+	/**  Marks the book seen up to `seen_seq`, the highest `syncedSeq` loaded (D1). */
+	markBookOpened: (readerId: number, bookId: number, seenSeq: number) => __TAURI_INVOKE<null>("mark_book_opened", { readerId, bookId, seenSeq }),
+	/**  New highlights since when, and the connected Kobo's last sync. */
+	librarySummary: (readerId: number, koboSerial: string | null) => __TAURI_INVOKE<LibrarySummary_Serialize>("library_summary", { readerId, koboSerial }),
 	/**  Exports with the Export settings (R22), into the Reader's folder (R21). */
 	exportLibraryBooks: (readerId: number, bookIds: number[]) => __TAURI_INVOKE<string[]>("export_library_books", { readerId, bookIds }),
 	setReaderExportPath: (readerId: number, path: string | null) => __TAURI_INVOKE<null>("set_reader_export_path", { readerId, path }),
+	/**
+	 *  The folder the Reader's exports go to now, as the export itself decides it (R21): Settings
+	 *  shows it and compares a chosen folder with it.
+	 */
+	readerExportFolder: (readerId: number) => __TAURI_INVOKE<string>("reader_export_folder", { readerId }),
+	/**
+	 *  The folder the Reader's exports go to when it has none of its own: Settings compares the folder
+	 *  chosen with it, and stores «the default» as no folder.
+	 */
+	readerDefaultExportFolder: (readerId: number) => __TAURI_INVOKE<string>("reader_default_export_folder", { readerId }),
 	/**
 	 *  Syncs the connected Kobo into its Reader's Library, emitting
 	 *  `sync-progress` per book and `sync-finished` at the end.
 	 */
 	syncKobo: (device: KoboDevice_Deserialize) => __TAURI_INVOKE<SyncReport>("sync_kobo", { device }),
+	/**  Reads the system accent. AppKit is main-thread only, so the read hops to the main thread. */
+	getSystemAccent: () => __TAURI_INVOKE<SystemAccent>("get_system_accent"),
+	/**
+	 *  Brings the Settings window forward, or opens it: there is only ever one.
+	 *  `reader_id` is the Reader the main window has open; an open Settings
+	 *  window gets it as `settings-reader`.
+	 *  Async, because a sync command that builds a window can deadlock.
+	 */
+	openSettings: (title: string, readerId: number | null) => __TAURI_INVOKE<null>("open_settings", { title, readerId }),
+	/**  The Reader to show in Settings; `None` means the last one opened (R5). */
+	settingsReader: () => __TAURI_INVOKE<number | null>("settings_reader"),
+	/**
+	 *  Where the traffic lights end, in points from the window's left edge: the
+	 *  WindowBar leaves this much, less its own `px-4`, for them (redesign Task
+	 *  36b). Their size and spacing change between macOS versions, so they are
+	 *  measured, never assumed. `None` without the buttons or a native window,
+	 *  and off macOS.
+	 *  Async: it runs off the main thread, so waiting there for AppKit never
+	 *  blocks the event loop.
+	 */
+	trafficLightsMaxX: () => __TAURI_INVOKE<number | null>("traffic_lights_max_x"),
 };
 
 /** Events */
@@ -47,9 +85,19 @@ export const events = {
 	deviceDisconnected: makeEvent<DeviceDisconnectedEvent, DeviceDisconnectedEvent>("device-disconnected"),
 	syncFinished: makeEvent<SyncFinished, SyncFinished>("sync-finished"),
 	syncProgress: makeEvent<SyncProgress, SyncProgress>("sync-progress"),
+	systemAccentChanged: makeEvent<SystemAccent, SystemAccent>("system-accent-changed"),
 };
 
 /* Types */
+/**
+ *  The accent colour chosen in Settings: Sistema follows macOS; the others are the swatches of
+ *  `design/accent-tones.json`, named as `SwatchName` in `src/lib/accent/accent.ts`.
+ */
+export type AccentChoice = "system" | "azul-tinta" | "verde-folha" | "turquesa" | "laranja" | "amarelo" | "rosa" | "violeta";
+
+/**  The System Settings accent, named as in `design/accent-tones.json` (`sistema`). */
+export type AccentName = "multicolor" | "grafite" | "vermelho" | "laranja" | "amarelo" | "verde" | "azul" | "roxo" | "rosa";
+
 /**  Application settings structure */
 export type AppSettings = AppSettings_Serialize | AppSettings_Deserialize;
 
@@ -209,6 +257,10 @@ export type LibraryHighlight_Deserialize = {
 	containerPath?: string | null,
 	removedAt?: string | null,
 	chapterProgress?: number | null,
+	/**  Arrived in a sync after the book was last opened (D1). */
+	isNew: boolean,
+	/**  The sync that brought it; `None` for the Reader's first sync. */
+	syncedSeq?: number | null,
 };
 
 export type LibraryHighlight_Serialize = {
@@ -220,6 +272,34 @@ export type LibraryHighlight_Serialize = {
 	containerPath: string | null,
 	removedAt: string | null,
 	chapterProgress: number | null,
+	/**  Arrived in a sync after the book was last opened (D1). */
+	isNew: boolean,
+	/**  The sync that brought it; `None` for the Reader's first sync. */
+	syncedSeq: number | null,
+};
+
+/**
+ *  What the Library header says about the Reader: new highlights since when,
+ *  and when the connected Kobo last synced.
+ */
+export type LibrarySummary = LibrarySummary_Serialize | LibrarySummary_Deserialize;
+
+/**
+ *  What the Library header says about the Reader: new highlights since when,
+ *  and when the connected Kobo last synced.
+ */
+export type LibrarySummary_Deserialize = {
+	newSince?: string | null,
+	lastSyncAt?: string | null,
+};
+
+/**
+ *  What the Library header says about the Reader: new highlights since when,
+ *  and when the connected Kobo last synced.
+ */
+export type LibrarySummary_Serialize = {
+	newSince: string | null,
+	lastSyncAt: string | null,
 };
 
 export type MetadataConfig = MetadataConfig_Serialize | MetadataConfig_Deserialize;
@@ -264,6 +344,89 @@ export type Reader_Serialize = {
 	exportPath: string | null,
 };
 
+/**  A pane of the Settings window. */
+export type SettingsPane = 
+/**  The first tab: where the window opens when no pane was stored. */
+"kobo" | "appearance" | "export" | "updates";
+
+/**
+ *  What one window changes in the settings file: a field per leaf it edits,
+ *  left out when it is not changed. The rest of the file stays as it is, so
+ *  the main window (sort, view) and Settings never undo each other's saves.
+ * 
+ *  Flat, named after the leaf (`theme` for `uiPreferences.theme`): every
+ *  leaf name is unique in `AppSettings`, and the bindings stay one level deep.
+ */
+export type SettingsPatch = SettingsPatch_Serialize | SettingsPatch_Deserialize;
+
+/**
+ *  What one window changes in the settings file: a field per leaf it edits,
+ *  left out when it is not changed. The rest of the file stays as it is, so
+ *  the main window (sort, view) and Settings never undo each other's saves.
+ * 
+ *  Flat, named after the leaf (`theme` for `uiPreferences.theme`): every
+ *  leaf name is unique in `AppSettings`, and the bindings stay one level deep.
+ */
+export type SettingsPatch_Deserialize = {
+	/**  `exportConfig.exportPath` */
+	exportPath?: string | null,
+	/**  `exportConfig.metadata`, the whole object */
+	metadata?: MetadataConfig_Deserialize | null,
+	/**  `exportConfig.dateFormat` */
+	dateFormat?: DateFormat | null,
+	language?: Language | null,
+	/**  `uiPreferences.theme` */
+	theme?: ThemePreference_Deserialize | null,
+	/**  `uiPreferences.libraryViewMode` */
+	libraryViewMode?: ViewMode_Deserialize | null,
+	/**  `uiPreferences.librarySort` */
+	librarySort?: SortPreference_Deserialize | null,
+	/**  `uiPreferences.librarySortReversed` */
+	librarySortReversed?: boolean | null,
+	/**  `uiPreferences.syncOnConnect` */
+	syncOnConnect?: boolean | null,
+	/**  `uiPreferences.checkForUpdates` */
+	checkForUpdates?: boolean | null,
+	/**  `uiPreferences.settingsPane` */
+	settingsPane?: SettingsPane | null,
+	/**  `uiPreferences.accentColor` */
+	accentColor?: AccentChoice | null,
+};
+
+/**
+ *  What one window changes in the settings file: a field per leaf it edits,
+ *  left out when it is not changed. The rest of the file stays as it is, so
+ *  the main window (sort, view) and Settings never undo each other's saves.
+ * 
+ *  Flat, named after the leaf (`theme` for `uiPreferences.theme`): every
+ *  leaf name is unique in `AppSettings`, and the bindings stay one level deep.
+ */
+export type SettingsPatch_Serialize = {
+	/**  `exportConfig.exportPath` */
+	exportPath?: string | null,
+	/**  `exportConfig.metadata`, the whole object */
+	metadata?: MetadataConfig_Serialize | null,
+	/**  `exportConfig.dateFormat` */
+	dateFormat?: DateFormat | null,
+	language?: Language | null,
+	/**  `uiPreferences.theme` */
+	theme?: ThemePreference_Serialize | null,
+	/**  `uiPreferences.libraryViewMode` */
+	libraryViewMode?: ViewMode_Serialize | null,
+	/**  `uiPreferences.librarySort` */
+	librarySort?: SortPreference_Serialize | null,
+	/**  `uiPreferences.librarySortReversed` */
+	librarySortReversed?: boolean | null,
+	/**  `uiPreferences.syncOnConnect` */
+	syncOnConnect?: boolean | null,
+	/**  `uiPreferences.checkForUpdates` */
+	checkForUpdates?: boolean | null,
+	/**  `uiPreferences.settingsPane` */
+	settingsPane?: SettingsPane | null,
+	/**  `uiPreferences.accentColor` */
+	accentColor?: AccentChoice | null,
+};
+
 /**  Sort preference for library */
 export type SortPreference = SortPreference_Serialize | SortPreference_Deserialize;
 
@@ -291,6 +454,16 @@ export type SyncReport = {
 	books: number,
 };
 
+/**
+ *  The system accent: its name and `controlAccentColor` in sRGB under Aqua (`light`) and Dark
+ *  Aqua (`dark`), as `#RRGGBB`. Returned by `get_system_accent` and sent with the change event.
+ */
+export type SystemAccent = {
+	name: AccentName,
+	light: string,
+	dark: string,
+};
+
 /**  Theme preference */
 export type ThemePreference = ThemePreference_Serialize | ThemePreference_Deserialize;
 
@@ -309,6 +482,10 @@ export type UiPreferences_Deserialize = {
 	theme: ThemePreference_Deserialize,
 	/**  Whether to look for a new version once a day, when Khi opens. */
 	checkForUpdates?: boolean,
+	/**  The Settings pane that was open last, reopened with the window. */
+	settingsPane?: SettingsPane,
+	/**  The accent colour: the macOS one (`system`) or one of the seven swatches. */
+	accentColor?: AccentChoice,
 } & ((({
 	/**  Window width */
 	windowWidth: number,
@@ -346,6 +523,12 @@ export type UiPreferences_Deserialize = {
 	/**  Sort preference for library */
 	library_sort: SortPreference_Deserialize,
 }) extends infer T extends object ? { [K in keyof T]: { [P in keyof T as P extends K ? P : never]: T[P] } & { [P in keyof T as P extends K ? never : P]?: never } }[keyof T] & object : never)) & ({
+	/**  The sort runs against its natural direction (the column header was clicked on the active column) */
+	librarySortReversed?: boolean,
+} & {
+	/**  The sort runs against its natural direction (the column header was clicked on the active column) */
+	library_sort_reversed?: boolean,
+}) & ({
 	/**
 	 *  Whether to sync automatically when a known Kobo is connected (R23).
 	 *  Old files stored it as `autoImportOnConnect`.
@@ -387,6 +570,8 @@ export type UiPreferences_Serialize = {
 	libraryViewMode: ViewMode_Serialize,
 	/**  Sort preference for library */
 	librarySort: SortPreference_Serialize,
+	/**  The sort runs against its natural direction (the column header was clicked on the active column) */
+	librarySortReversed: boolean,
 	/**
 	 *  Whether to sync automatically when a known Kobo is connected (R23).
 	 *  Old files stored it as `autoImportOnConnect`.
@@ -394,6 +579,10 @@ export type UiPreferences_Serialize = {
 	syncOnConnect: boolean,
 	/**  Whether to look for a new version once a day, when Khi opens. */
 	checkForUpdates: boolean,
+	/**  The Settings pane that was open last, reopened with the window. */
+	settingsPane: SettingsPane,
+	/**  The accent colour: the macOS one (`system`) or one of the seven swatches. */
+	accentColor: AccentChoice,
 };
 
 /**  View mode for library */

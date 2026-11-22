@@ -1,237 +1,120 @@
 <script lang="ts">
-    import type { Book, Highlight } from "../types";
-    import HighlightItem from "./HighlightItem.svelte";
-    import Button from "./Button.svelte";
-    import Modal from "./Modal.svelte";
-    import { library } from "../stores/library.svelte";
-    import { _ } from "$lib/i18n";
-    import { exportErrorMessage } from "$lib/errors";
-    import { getBookGradient } from "$lib/utils/gradients";
-    import { FileDown, Trash2 } from "lucide-svelte";
-    import { convertFileSrc } from "@tauri-apps/api/core";
+	import { untrack } from 'svelte';
+	import { convertFileSrc } from '@tauri-apps/api/core';
+	import { _ } from '$lib/i18n';
+	import { library } from '$lib/stores/library.svelte';
+	import type { Book } from '$lib/types';
+	import { Cover } from './ui/cover';
+	import { Highlight } from './ui/highlight';
+	import { Segmented } from './ui/segmented';
 
-    interface Props {
-        book: Book;
-        onClose?: () => void;
-        onNotification?: (message: string, type: 'success' | 'error') => void;
-    }
+	type Filter = 'all' | 'new' | 'withNotes';
 
-    let { book, onClose, onNotification }: Props = $props();
+	let { book }: { book: Book } = $props();
 
-    // Removed highlights stay visible unless the user hides them (R18)
-    let showRemoved = $state(true);
-    const hasRemoved = $derived(book.highlights.some((h) => h.removedAt !== null));
-    const visibleHighlights = $derived(
-        showRemoved ? book.highlights : book.highlights.filter((h) => h.removedAt === null),
-    );
-    // A book can only be deleted once nothing of it is left on the Kobo (R19)
-    const canDelete = $derived(
-        book.highlights.length > 0 && book.highlights.every((h) => h.removedAt !== null),
-    );
-    let confirmingDelete = $state(false);
+	let scroller = $state<HTMLElement>();
+	let filter = $state<Filter>('all');
 
-    async function handleDelete() {
-        confirmingDelete = false;
-        try {
-            await library.deleteBook(book.id);
-            onClose?.();
-        } catch (error) {
-            console.error("[BookDetailsView] Delete failed:", error);
-            onNotification?.($_("screens.bookDetails.deleteBookError"), "error");
-        }
-    }
+	const isRemoved = (h: Book['highlights'][number]) => h.removedAt !== null;
+	const hasNote = (h: Book['highlights'][number]) => (h.annotation?.trim() ?? '') !== '';
+	// The marks are the ones the book had when it was opened; never `isNew`, which the store clears.
+	const marked = (h: Book['highlights'][number]) => library.viewingNewIds.has(h.id) && !isRemoved(h);
 
-    function getInitials(title: string): string {
-        return title
-            .split(" ")
-            .slice(0, 2)
-            .map((word) => word.charAt(0).toUpperCase())
-            .join("");
-    }
+	const total = $derived(book.highlights.length);
+	const newCount = $derived(book.highlights.filter(marked).length);
+	const removedCount = $derived(book.highlights.filter(isRemoved).length);
+	const notesCount = $derived(book.highlights.filter(hasNote).length);
+	const counts = $derived<Record<Filter, number>>({ all: total, new: newCount, withNotes: notesCount });
+	// A filter with nothing to show is disabled: the view leaves it for good, so a count that comes back later does not pull the list there.
+	$effect.pre(() => {
+		if (counts[filter] === 0) filter = 'all';
+	});
+	const active = $derived<Filter>(counts[filter] > 0 ? filter : 'all');
+	const shown = $derived(
+		active === 'new' ? book.highlights.filter(marked) : active === 'withNotes' ? book.highlights.filter(hasNote) : book.highlights
+	);
+	const summary = $derived(
+		[
+			$_('book.highlightsCount', { count: total }),
+			newCount > 0 ? $_('book.newCount', { count: newCount }) : null,
+			removedCount > 0 ? $_('book.removedCount', { count: removedCount }) : null
+		]
+			.filter(Boolean)
+			.join(' · ')
+	);
 
-    async function handleExport() {
-        try {
-            // Same command and settings as the toolbar export (R22)
-            const filePaths = await library.exportIds([book.id]);
+	// WKWebView has no overflow-anchor: when highlights enter above the visible text, scrollTop is raised by
+	// how far the first visible one moved. At the top there is nothing above to keep, so what enters is seen.
+	let anchors: { el: HTMLElement; top: number }[] = [];
+	const visible = () => {
+		if (!scroller) return [];
+		const edge = scroller.getBoundingClientRect().top;
+		return [...scroller.querySelectorAll<HTMLElement>('[data-slot="highlight"]')]
+			.map((el) => ({ el, rect: el.getBoundingClientRect() }))
+			.filter(({ rect }) => rect.bottom > edge)
+			.map(({ el, rect }) => ({ el, top: rect.top - edge }));
+	};
+	$effect.pre(() => {
+		void shown;
+		anchors = untrack(() => (scroller && scroller.scrollTop > 0 ? visible() : []));
+	});
+	$effect(() => {
+		void shown;
+		untrack(() => {
+			const before = anchors;
+			anchors = [];
+			// The first visible one still in the list; if it left (removed, filtered out), the next one stands in
+			const anchor = before.find(({ el }) => el.isConnected);
+			if (!anchor || !scroller) return;
+			const moved = anchor.el.getBoundingClientRect().top - scroller.getBoundingClientRect().top - anchor.top;
+			if (moved !== 0) scroller.scrollTop += moved;
+		});
+	});
 
-            console.log("[BookDetailsView] Export successful:", filePaths);
-            onNotification?.($_('notifications.exportSuccess'), 'success');
-        } catch (error) {
-            console.error("[BookDetailsView] Export failed:", error);
-            onNotification?.(exportErrorMessage(error), 'error');
-        }
-    }
+	function changeFilter() {
+		if (scroller) scroller.scrollTop = 0;
+	}
 </script>
 
-<div
-    class="flex flex-col h-full bg-white dark:bg-neutral-900"
-    data-testid="book-details-view"
->
-    <!-- Toolbar -->
-    <div
-        class="sticky top-0 z-20 flex justify-between items-center px-6 py-3 bg-neutral-100 dark:bg-neutral-800 border-t border-b border-neutral-200 dark:border-neutral-700"
-    >
-        <Button
-            variant="ghost"
-            onclick={onClose}
-            ariaLabel={$_("screens.bookDetails.back")}
-        >
-            {#snippet icon()}
-                <svg
-                    class="w-4 h-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                >
-                    <path
-                        d="M19 12H5"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                    />
-                    <path
-                        d="M12 19l-7-7 7-7"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                    />
-                </svg>
-            {/snippet}
-            {$_("screens.bookDetails.back")}
-        </Button>
+<!--
+	Ecrãs · 5 · Detalhe do livro (Figma 71:10560). A column of 560, 32 from the top; the bar above is
+	the WindowBar's (Back, Export). The gap of 48 between highlights belongs to this list (Q-H).
+-->
+<div bind:this={scroller} data-testid="book-details-view" class="h-full overflow-y-auto bg-background px-8 pt-8 pb-16 scroll-pt-8">
+	<div class="mx-auto flex max-w-140 flex-col gap-8">
+		<header class="flex items-start gap-6">
+			<Cover
+				size="sm"
+				class="w-24 shrink-0"
+				src={book.coverPath ? convertFileSrc(book.coverPath) : undefined}
+				title={book.title}
+				author={book.author?.trim() || undefined}
+				bookId={book.id}
+			/>
+			<div class="flex min-w-0 flex-col gap-2">
+				<h1 class="text-title-1 text-foreground">{book.title}</h1>
+				<p class="text-body text-muted-foreground">{book.author?.trim() || $_('screens.bookDetails.unknownAuthor')}</p>
+				<p data-testid="book-details-counts" class="text-callout text-tertiary-foreground">{summary}</p>
+			</div>
+		</header>
 
-        <div class="flex items-center gap-3">
-            {#if canDelete}
-                <Button variant="ghost" onclick={() => (confirmingDelete = true)}>
-                    {#snippet icon()}
-                        <Trash2 size={16} />
-                    {/snippet}
-                    {$_("screens.bookDetails.deleteBook")}
-                </Button>
-            {/if}
-            <Button variant="ghost" onclick={handleExport}>
-                {#snippet icon()}
-                    <FileDown size={16} />
-                {/snippet}
-                {$_("screens.bookDetails.exportMarkdown")}
-            </Button>
-        </div>
-    </div>
-
-    <!-- Content (Scrollable) -->
-    <div class="flex-1 overflow-y-auto">
-        <div
-            class="flex gap-6 max-w-4xl mx-auto mb-12 px-6 py-8 bg-transparent max-sm:flex-col max-sm:items-center max-sm:text-center"
-        >
-            <div
-                class="w-32 h-48 shrink-0 rounded-lg overflow-hidden shadow-md max-sm:w-24 max-sm:h-36"
-            >
-                {#if book.coverPath}
-                    <img
-                        src={convertFileSrc(book.coverPath)}
-                        alt=""
-                        class="w-full h-full object-cover"
-                    />
-                {:else}
-                    <div
-                        class="w-full h-full flex items-center justify-center bg-gradient-to-br {getBookGradient(
-                            String(book.id),
-                        )}"
-                    >
-                        <span
-                            class="text-3xl font-bold text-white drop-shadow-md"
-                            >{getInitials(book.title)}</span
-                        >
-                    </div>
-                {/if}
-            </div>
-
-            <div class="flex-1 flex flex-col gap-2 min-w-0">
-                <h1
-                    class="m-0 mb-2 text-3xl font-semibold leading-tight text-neutral-900 dark:text-neutral-100"
-                >
-                    {book.title}
-                </h1>
-                <p
-                    class="m-0 mb-4 text-lg text-neutral-600 dark:text-neutral-400"
-                >
-                    {book.author || $_("screens.bookDetails.unknownAuthor")}
-                </p>
-                <p class="m-0 text-sm text-neutral-500 dark:text-neutral-500">
-                    {$_("book.highlightsCount", { count: book.highlights.length })}
-                </p>
-            </div>
-        </div>
-
-        <div class="max-w-4xl mx-auto px-6">
-            {#if book.highlights.length === 0}
-                <div
-                    class="flex flex-col items-center justify-center gap-4 py-16 text-center text-neutral-500 dark:text-neutral-400"
-                    data-testid="book-details-empty"
-                >
-                    <svg
-                        class="w-12 h-12 opacity-50"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                        aria-hidden="true"
-                    >
-                        <path
-                            d="M7 7h10M7 12h10M7 17h10"
-                            stroke="currentColor"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                        />
-                    </svg>
-                    <p class="m-0 text-base">
-                        {$_("screens.bookDetails.noHighlights")}
-                    </p>
-                </div>
-            {:else}
-                {#if hasRemoved}
-                    <label
-                        class="flex items-center gap-2 mb-6 text-sm text-neutral-600 dark:text-neutral-400"
-                    >
-                        <input
-                            type="checkbox"
-                            data-testid="show-removed"
-                            bind:checked={showRemoved}
-                        />
-                        {$_("screens.bookDetails.showRemoved")}
-                    </label>
-                {/if}
-                <div
-                    class="flex flex-col gap-8 pb-16"
-                    data-testid="highlights-list"
-                >
-                    {#each visibleHighlights as highlight (highlight.id)}
-                        <HighlightItem {highlight} />
-                    {/each}
-                </div>
-            {/if}
-        </div>
-    </div>
+		{#if total > 0}
+			<Segmented
+				class="self-start"
+				label={$_('ui.segmented.label')}
+				bind:value={() => active, (v) => (filter = v as Filter)}
+				onValueChange={changeFilter}
+				segments={[
+					{ value: 'all', label: $_('ui.segmented.all'), count: total },
+					{ value: 'new', label: $_('ui.segmented.new'), count: newCount, emptyReason: $_('ui.segmented.noNew') },
+					{ value: 'withNotes', label: $_('ui.segmented.withNotes'), count: notesCount, emptyReason: $_('ui.segmented.noNotes') }
+				]}
+			/>
+			<div data-testid="highlights-list" class="mt-4 flex flex-col gap-12">
+				{#each shown as highlight (highlight.id)}
+					<Highlight {highlight} isNew={library.viewingNewIds.has(highlight.id)} />
+				{/each}
+			</div>
+		{/if}
+	</div>
 </div>
-
-<Modal
-    isOpen={confirmingDelete}
-    onClose={() => (confirmingDelete = false)}
-    title={$_("screens.bookDetails.deleteBookTitle")}
->
-    {#snippet content()}
-        <p class="m-0 text-sm text-neutral-600 dark:text-neutral-400">
-            {$_("screens.bookDetails.deleteBookBody")}
-        </p>
-    {/snippet}
-    {#snippet footer()}
-        <Button variant="secondary" onclick={() => (confirmingDelete = false)}>
-            {$_("screens.bookDetails.cancel")}
-        </Button>
-        <span data-testid="confirm-delete-book" class="contents">
-            <Button onclick={handleDelete}>{$_("screens.bookDetails.deleteBookConfirm")}</Button>
-        </span>
-    {/snippet}
-</Modal>

@@ -1,26 +1,12 @@
 mod common;
 
-use common::{hl, kobo_book, library_conn, snapshot, BOOK_A, BOOK_B};
+use common::{hl, kobo_book, library_conn, no_cover, no_progress, setup, snapshot, BOOK_A, BOOK_B, KOBO_A, KOBO_B};
 use khi_lib::covers::CoverExtractor;
-use khi_lib::library::{Library, LibraryError};
+use khi_lib::library::LibraryError;
 use khi_lib::models::{KoboBook, KoboHighlight};
 use rusqlite::OptionalExtension;
 use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::path::PathBuf;
 use tempfile::TempDir;
-
-const KOBO_A: &str = "SERIAL-A";
-const KOBO_B: &str = "SERIAL-B";
-
-/// A Library with one Reader that owns both Kobos.
-fn setup() -> (TempDir, Library, u32) {
-    let dir = TempDir::new().unwrap();
-    let lib = Library::open(dir.path()).unwrap();
-    let reader = lib.create_reader("Bruno").unwrap();
-    lib.associate_kobo(KOBO_A, reader.id).unwrap();
-    lib.associate_kobo(KOBO_B, reader.id).unwrap();
-    (dir, lib, reader.id)
-}
 
 #[derive(Debug, PartialEq)]
 struct Row {
@@ -68,12 +54,6 @@ fn book_titles(dir: &TempDir) -> Vec<String> {
         .unwrap()
         .collect::<rusqlite::Result<Vec<String>>>()
         .unwrap()
-}
-
-fn no_progress(_: u32, _: u32) {}
-
-fn no_cover(_: &KoboBook) -> Option<PathBuf> {
-    None
 }
 
 fn book_id(dir: &TempDir) -> u32 {

@@ -3,9 +3,10 @@ pub mod library;
 use crate::device::DeviceDetector;
 use crate::covers::CoverExtractor;
 use crate::models::KoboDevice;
-use crate::settings::{AppSettings, SettingsManager};
+use crate::settings::{AppSettings, SettingsManager, SettingsPatch};
 use std::path::PathBuf;
-use tauri::Manager;
+use std::sync::Mutex;
+use tauri::{Emitter, Manager};
 
 /// Scan for connected Kobo devices
 #[tauri::command]
@@ -77,28 +78,54 @@ pub fn get_default_settings() -> AppSettings {
     AppSettings::default()
 }
 
-/// Save application settings to disk
+/// One write of the settings file at a time: each reads the file, applies
+/// its patch and saves it, so two windows saving together keep both changes.
+static SETTINGS_WRITE: Mutex<()> = Mutex::new(());
+
+/// Writes `patch` over the settings file as it is now and returns the result.
+/// Every window follows it through `settings-changed` (the main one and Settings).
 #[tauri::command]
 #[specta::specta]
-pub fn save_settings(settings: AppSettings) -> Result<(), String> {
-    save_settings_with(settings_manager()?, settings)
+pub async fn update_settings(
+    app: tauri::AppHandle,
+    patch: SettingsPatch,
+) -> Result<AppSettings, String> {
+    // Off the main thread: a save can retry for a few hundred ms
+    tauri::async_runtime::spawn_blocking(move || {
+        update_settings_with(settings_manager, patch, |saved| {
+            if let Err(e) = app.emit("settings-changed", saved) {
+                log::error!("Failed to emit settings-changed: {}", e);
+            }
+        })
+    })
+    .await
+    .map_err(|e| format!("Settings task failed: {}", e))?
 }
 
-fn save_settings_with(mut manager: SettingsManager, settings: AppSettings) -> Result<(), String> {
-    // Update all settings fields
-    *manager.get_mut() = settings;
-
+/// Under the lock: opens the file, applies `patch`, saves, then calls
+/// `notify` with what was saved. A failed save notifies nothing.
+fn update_settings_with(
+    open: impl FnOnce() -> Result<SettingsManager, String>,
+    patch: SettingsPatch,
+    notify: impl FnOnce(&AppSettings),
+) -> Result<AppSettings, String> {
+    let _write = SETTINGS_WRITE.lock().unwrap_or_else(|e| e.into_inner());
+    let mut manager = open()?;
+    patch.apply_to(manager.get_mut());
     manager
         .save()
         .map_err(|e| format!("Failed to save settings: {}", e))?;
-
-    Ok(())
+    let saved = manager.get().clone();
+    // Still under the lock: the events arrive in the order of the writes
+    notify(&saved);
+    Ok(saved)
 }
 
 /// Reset settings to defaults
 #[tauri::command]
 #[specta::specta]
 pub fn reset_settings() -> Result<AppSettings, String> {
+    let _write = SETTINGS_WRITE.lock().unwrap_or_else(|e| e.into_inner());
     reset_settings_with(settings_manager()?)
 }
 
@@ -187,23 +214,114 @@ mod tests {
     }
 
     #[test]
-    fn test_save_settings_roundtrip() {
+    fn patches_from_both_windows_survive() {
         let dir = tempfile::TempDir::new().unwrap();
+        let open = || Ok(temp_manager(&dir));
+
+        // The main window changes the sort, then Settings the theme
+        let sort = SettingsPatch {
+            library_sort: Some(crate::settings::SortPreference::Author),
+            ..Default::default()
+        };
+        update_settings_with(open, sort, |_| {}).unwrap();
+        let theme = SettingsPatch {
+            theme: Some(crate::settings::ThemePreference::Dark),
+            ..Default::default()
+        };
+        let saved = update_settings_with(open, theme, |_| {}).unwrap();
+
+        let file = temp_manager(&dir).get().clone();
+        assert_eq!(file, saved);
+        assert_eq!(file.ui_preferences.library_sort, crate::settings::SortPreference::Author);
+        assert_eq!(file.ui_preferences.theme, crate::settings::ThemePreference::Dark);
+        // What no patch named is the file's, untouched
+        let mut expected = AppSettings::default();
+        expected.ui_preferences.library_sort = crate::settings::SortPreference::Author;
+        expected.ui_preferences.theme = crate::settings::ThemePreference::Dark;
+        expected.language = file.language;
+        assert_eq!(file, expected);
+    }
+
+    #[test]
+    fn patch_sets_every_leaf_it_names() {
         let mut settings = AppSettings::default();
-        settings.export_config.metadata.author = false;
-        settings.ui_preferences.theme = crate::settings::ThemePreference::Dark;
+        let metadata = crate::models::MetadataConfig {
+            author: false,
+            isbn: false,
+            publisher: false,
+            date_last_read: false,
+            language: false,
+            description: true,
+        };
+        SettingsPatch {
+            export_path: Some("/tmp/out".into()),
+            metadata: Some(metadata.clone()),
+            date_format: Some(crate::models::DateFormat::Iso8601),
+            language: Some(crate::models::Language::Pt),
+            theme: Some(crate::settings::ThemePreference::Light),
+            library_view_mode: Some(crate::settings::ViewMode::List),
+            library_sort: Some(crate::settings::SortPreference::HighlightCount),
+            library_sort_reversed: Some(true),
+            sync_on_connect: Some(false),
+            check_for_updates: Some(false),
+            settings_pane: Some(crate::settings::SettingsPane::Kobo),
+            accent_color: Some(crate::settings::AccentChoice::Rosa),
+        }
+        .apply_to(&mut settings);
 
-        save_settings_with(temp_manager(&dir), settings.clone()).unwrap();
+        assert_eq!(settings.export_config.export_path, "/tmp/out");
+        assert_eq!(settings.export_config.metadata, metadata);
+        assert_eq!(settings.export_config.date_format, crate::models::DateFormat::Iso8601);
+        assert_eq!(settings.language, crate::models::Language::Pt);
+        assert_eq!(settings.ui_preferences.theme, crate::settings::ThemePreference::Light);
+        assert_eq!(settings.ui_preferences.library_view_mode, crate::settings::ViewMode::List);
+        assert!(settings.ui_preferences.library_sort_reversed);
+        assert_eq!(
+            settings.ui_preferences.library_sort,
+            crate::settings::SortPreference::HighlightCount
+        );
+        assert!(!settings.ui_preferences.sync_on_connect);
+        assert!(!settings.ui_preferences.check_for_updates);
+        assert_eq!(settings.ui_preferences.settings_pane, crate::settings::SettingsPane::Kobo);
+        assert_eq!(settings.ui_preferences.accent_color, crate::settings::AccentChoice::Rosa);
+        // Window size is never in a patch
+        assert_eq!(settings.ui_preferences.window_width, AppSettings::default().ui_preferences.window_width);
+    }
 
-        assert_eq!(temp_manager(&dir).get(), &settings);
+    #[test]
+    fn failed_patch_does_not_notify() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let theme = SettingsPatch {
+            theme: Some(crate::settings::ThemePreference::Dark),
+            ..Default::default()
+        };
+
+        let mut announced = Vec::new();
+        update_settings_with(|| Ok(temp_manager(&dir)), theme.clone(), |saved| {
+            // Saved by now: the event never runs ahead of the file
+            assert_eq!(temp_manager(&dir).get(), saved);
+            announced.push(saved.clone());
+        })
+        .unwrap();
+        assert_eq!(announced.len(), 1);
+        assert_eq!(announced[0].ui_preferences.theme, crate::settings::ThemePreference::Dark);
+
+        // A folder that cannot be created (its parent is a file): no event
+        let blocker = dir.path().join("not-a-folder");
+        std::fs::write(&blocker, "").unwrap();
+        let broken = || Ok(SettingsManager::with_path(blocker.join("settings.json")).unwrap());
+        let mut failed = 0;
+        let result = update_settings_with(broken, theme, |_| failed += 1);
+        assert!(result.is_err());
+        assert_eq!(failed, 0);
     }
 
     #[test]
     fn test_reset_settings() {
         let dir = tempfile::TempDir::new().unwrap();
-        let mut changed = AppSettings::default();
-        changed.ui_preferences.theme = crate::settings::ThemePreference::Dark;
-        save_settings_with(temp_manager(&dir), changed).unwrap();
+        let mut changed = temp_manager(&dir);
+        changed.get_mut().ui_preferences.theme = crate::settings::ThemePreference::Dark;
+        changed.save().unwrap();
 
         let settings = reset_settings_with(temp_manager(&dir)).unwrap();
 

@@ -1,17 +1,28 @@
 <script lang="ts">
-	import type { Book } from '../types';
-	import BookCard from './BookCard.svelte';
-	import BookListItem from './BookListItem.svelte';
+	import type { Snippet } from 'svelte';
+	import type { Book, SortPreference } from '../types';
 	import Button from './Button.svelte';
 	import { _ } from '$lib/i18n';
-	import { getBookGradient } from '$lib/utils/gradients';
+	import { LibraryGrid } from './ui/library-grid';
+	import { LibraryList } from './ui/library-list';
 
 	interface Props {
 		books: Book[];
 		selectedBookIds: number[];
 		viewMode: 'grid' | 'list';
 		onSelectionChange: (selectedIds: number[]) => void;
-		onBookClick?: (book: Book, event: MouseEvent) => void;
+		/** A click or Enter on a book, in the grid and in the list. */
+		onBookOpen?: (book: Book) => void;
+		/** The book whose option takes focus on arrival: the one just closed in the detail. */
+		initialActiveId?: number | null;
+		/** The Library header, at the top of the scrolling area. */
+		header?: Snippet;
+		/** A Sync is running: the cards hide their «N novos» badges. */
+		hideNew?: boolean;
+		/** The sort the list's column headers show, and the direction. */
+		sort: SortPreference;
+		reversed: boolean;
+		onSortChange: (sort: SortPreference) => void;
 		onBooksImport?: () => void;
 		isImporting?: boolean;
 		importProgress?: { currentBook: string; percentage: number };
@@ -22,60 +33,17 @@
 		selectedBookIds,
 		viewMode,
 		onSelectionChange,
-		onBookClick,
+		onBookOpen,
+		initialActiveId = null,
+		header,
+		hideNew = false,
+		sort,
+		reversed,
+		onSortChange,
 		onBooksImport,
 		isImporting = false,
 		importProgress
 	}: Props = $props();
-
-	let lastSelectedIndex = $state(-1);
-	let hoveredBookId = $state<number | null>(null);
-
-	function isSelected(bookId: number): boolean {
-		return selectedBookIds.includes(bookId);
-	}
-
-	function handleBookClick(book: Book, index: number, event: MouseEvent) {
-		event.preventDefault();
-
-		const isCtrlOrCmd = event.ctrlKey || event.metaKey;
-		const isShift = event.shiftKey;
-
-		if (isShift && lastSelectedIndex !== -1) {
-			// Range selection
-			const start = Math.min(lastSelectedIndex, index);
-			const end = Math.max(lastSelectedIndex, index);
-			const rangeIds = books.slice(start, end + 1).map((b) => b.id);
-
-			// Merge with existing selection if Ctrl/Cmd is held
-			if (isCtrlOrCmd) {
-				const newSelection = [...new Set([...selectedBookIds, ...rangeIds])];
-				onSelectionChange(newSelection);
-			} else {
-				onSelectionChange(rangeIds);
-			}
-		} else if (isCtrlOrCmd) {
-			// Toggle selection
-			toggleSelection(book, index);
-		} else {
-			// Single selection / Open details
-			if (onBookClick) {
-				onBookClick(book, event);
-			} else {
-				onSelectionChange([book.id]);
-			}
-			lastSelectedIndex = index;
-		}
-	}
-
-	function toggleSelection(book: Book, index: number) {
-		if (isSelected(book.id)) {
-			onSelectionChange(selectedBookIds.filter((id) => id !== book.id));
-		} else {
-			onSelectionChange([...selectedBookIds, book.id]);
-		}
-		lastSelectedIndex = index;
-	}
 </script>
 
 {#if isImporting && importProgress}
@@ -97,8 +65,9 @@
 	</div>
 {/if}
 
-<div class="flex-1 overflow-y-auto">
-	<div class="mx-auto px-6 py-8 transition-all {viewMode === 'list' ? 'w-full' : 'max-w-7xl'} max-sm:px-4">
+<div class="flex-1 overflow-y-auto scroll-pt-9">
+	<div class="flex flex-col gap-6 p-6">
+		{@render header?.()}
 		{#if books.length === 0}
 		<div class="flex flex-col items-center justify-center gap-4 py-16 px-8 text-center" data-testid="empty-state">
 			<div class="w-16 h-16 text-neutral-300 dark:text-neutral-600">
@@ -145,43 +114,26 @@
 			{/if}
 		</div>
 	{:else if viewMode === 'grid'}
-		<div
-			class="grid gap-6"
-			style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));"
-			data-testid="books-grid"
-			role="list"
-			aria-label={$_('screens.library.booksListLabel')}
-		>
-			{#each books as book, index (book.id)}
-				<div role="listitem">
-					<BookCard
-						{book}
-						gradient={getBookGradient(String(book.id))}
-						isSelected={isSelected(book.id)}
-						isHovered={hoveredBookId === book.id}
-						onClick={(e) => handleBookClick(book, index, e)}
-						onToggleSelection={() => toggleSelection(book, index)}
-						onMouseEnter={() => (hoveredBookId = book.id)}
-						onMouseLeave={() => (hoveredBookId = null)}
-					/>
-				</div>
-			{/each}
-		</div>
+		<LibraryGrid
+			{books}
+			{selectedBookIds}
+			{onSelectionChange}
+			{initialActiveId}
+			{hideNew}
+			onOpen={(book) => onBookOpen?.(book)}
+		/>
 	{:else}
-		<!-- List view -->
-		<div class="flex flex-col gap-2" data-testid="books-list" role="list" aria-label={$_('screens.library.booksListLabel')}>
-			{#each books as book, index (book.id)}
-				<div role="listitem">
-					<BookListItem
-						{book}
-						gradient={getBookGradient(String(book.id))}
-						isSelected={isSelected(book.id)}
-						onToggleSelect={() => toggleSelection(book, index)}
-						onClick={(e) => handleBookClick(book, index, e)}
-					/>
-				</div>
-			{/each}
-		</div>
+		<LibraryList
+			{books}
+			{selectedBookIds}
+			{onSelectionChange}
+			{initialActiveId}
+			{hideNew}
+			{sort}
+			{reversed}
+			{onSortChange}
+			onOpen={(book) => onBookOpen?.(book)}
+		/>
 	{/if}
 </div>
 </div>

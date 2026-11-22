@@ -21,6 +21,8 @@ export function makeHighlight(fields: HighlightInput): Highlight {
 		chapterProgress: null,
 		containerPath: null,
 		removedAt: null,
+		isNew: false,
+		syncedSeq: null,
 		...fields
 	};
 }

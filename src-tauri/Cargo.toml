@@ -35,6 +35,16 @@ specta = { version = "=2.0.0-rc.28", features = ["derive"] }
 specta-typescript = "=0.0.15"
 tauri-specta = { version = "=2.0.0-rc.28", features = ["derive", "typescript"] }
 
+# System accent colour (src/system_accent.rs) and the traffic lights (src/window.rs): the versions Tauri already brings in Cargo.lock.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6.5"
+block2 = "0.6.2"
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "block2", "NSString", "NSUserDefaults", "NSNotification", "NSObject", "NSOperation", "NSDictionary", "NSValue"] }
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "block2", "objc2-core-foundation", "NSColor", "NSColorSpace", "NSAppearance", "NSResponder", "NSWindow", "NSView", "NSControl", "NSButton"] }
+
 [dev-dependencies]
 tempfile = "3.10"
 mockall = "0.12"
+
+[profile.release.build-override]
+strip = false

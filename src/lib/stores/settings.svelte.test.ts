@@ -46,8 +46,11 @@ const MOCK_DEFAULTS: AppSettings = {
     showOnboarding: true,
     libraryViewMode: 'grid',
     librarySort: 'title',
+    librarySortReversed: false,
     syncOnConnect: true,
-    checkForUpdates: true
+    checkForUpdates: true,
+    settingsPane: 'export',
+    accentColor: 'system'
   },
   language: 'en',
   version: '0.1.0'
@@ -132,6 +135,14 @@ describe('Settings Store - UI Preferences Actions', () => {
 		expect(settings.uiPreferences.librarySort).toBe('highlight_count');
 	});
 
+	it('should reset the sort direction when the criterion is chosen', () => {
+		settings.setSortReversed(true);
+		expect(settings.uiPreferences.librarySortReversed).toBe(true);
+
+		settings.setSortPreference('author');
+		expect(settings.uiPreferences.librarySortReversed).toBe(false);
+	});
+
 	it('should update window size', () => {
 		settings.setWindowSize(1920, 1080);
 
@@ -195,8 +206,11 @@ describe('Settings Store - Settings Management', () => {
 				showOnboarding: false,
 				libraryViewMode: 'list' as ViewMode,
 				librarySort: 'author' as SortPreference,
+				librarySortReversed: false,
 				syncOnConnect: true,
-				checkForUpdates: true
+				checkForUpdates: true,
+				settingsPane: 'export',
+				accentColor: 'system'
 			},
 			language: 'en',
 			version: '0.1.0'
@@ -257,30 +271,6 @@ describe('Settings Store - Tauri Integration', () => {
 		expect(locale.set).toHaveBeenLastCalledWith('pt');
 	});
 
-	it('closing without saving puts back the saved language', async () => {
-		mockedInvoke.mockResolvedValueOnce({ ...MOCK_DEFAULTS, language: 'en' });
-		await settings.load();
-		settings.setLanguage('pt');
-
-		settings.revertUnsavedLanguage();
-		flushSync();
-
-		expect(settings.state.language).toBe('en');
-		expect(locale.set).toHaveBeenLastCalledWith('en');
-	});
-
-	it('a saved language stays after closing', async () => {
-		mockedInvoke.mockResolvedValueOnce({ ...MOCK_DEFAULTS, language: 'en' });
-		await settings.load();
-		settings.setLanguage('pt');
-		mockedInvoke.mockResolvedValueOnce(undefined);
-		await settings.save();
-
-		settings.revertUnsavedLanguage();
-
-		expect(settings.state.language).toBe('pt');
-	});
-
 	it('should load settings from Tauri', async () => {
 		const mockSettings: AppSettings = {
 			exportConfig: {
@@ -303,8 +293,11 @@ describe('Settings Store - Tauri Integration', () => {
 				showOnboarding: false,
 				libraryViewMode: 'list',
 				librarySort: 'author',
+				librarySortReversed: false,
 				syncOnConnect: false,
-				checkForUpdates: true
+				checkForUpdates: true,
+				settingsPane: 'export',
+				accentColor: 'system'
 			},
 			language: 'en',
 			version: '0.1.0'
@@ -331,56 +324,6 @@ describe('Settings Store - Tauri Integration', () => {
 		expect(settings.error).toBe('Failed to load');
 		// Should have fallen back to defaults
 		expect(settings.exportConfig.exportPath).toBe('~/Documents/Kobo Highlights');
-	});
-
-	it('should save settings to Tauri', async () => {
-		mockedInvoke.mockResolvedValueOnce(undefined);
-
-		await settings.save();
-
-		expect(mockedInvoke).toHaveBeenCalledWith('save_settings', {
-			settings: expect.any(Object)
-		});
-	});
-
-	it('sends syncOnConnect: false when "Sincronizar ao ligar" is off', async () => {
-		mockedInvoke.mockResolvedValueOnce(undefined);
-
-		settings.setSyncOnConnect(false);
-		await settings.save();
-
-		const payload = mockedInvoke.mock.calls.at(-1)?.[1] as { settings: AppSettings };
-		expect(mockedInvoke.mock.calls.at(-1)?.[0]).toBe('save_settings');
-		expect(payload.settings.uiPreferences.syncOnConnect).toBe(false);
-		expect(payload.settings.uiPreferences).not.toHaveProperty('autoImportOnConnect');
-		expect(payload.settings).not.toHaveProperty('lastImport');
-	});
-
-	it('should handle save settings error', async () => {
-		mockedInvoke.mockRejectedValueOnce(new Error('Failed to save'));
-
-		await expect(settings.save()).rejects.toThrow('Failed to save');
-		expect(settings.error).toBe('Failed to save');
-	});
-
-	it('should reset and save settings', async () => {
-		mockedInvoke.mockClear();
-    mockedInvoke.mockImplementation((cmd) => {
-      if (cmd === 'get_default_settings') return Promise.resolve(MOCK_DEFAULTS);
-      if (cmd === 'save_settings') return Promise.resolve(undefined);
-      return Promise.resolve({});
-    });
-
-		// Modify settings first
-		await settings.setTheme('dark');
-
-		await settings.resetAndSave();
-
-		// Should be reset to defaults
-		expect(settings.uiPreferences.theme).toBe('system');
-		expect(mockedInvoke).toHaveBeenCalledWith('save_settings', {
-			settings: expect.any(Object)
-		});
 	});
 });
 
@@ -422,7 +365,56 @@ describe('Settings Store - Loading State', () => {
           if (cmd === 'get_default_settings') resolve(MOCK_DEFAULTS);
 					// Check loading is true during the call
 					expect(settings.isLoading).toBe(true);
-					setTimeout(() => resolve({}), 10);
+					setTimeout(() => resolve(structuredClone(MOCK_DEFAULTS)), 10);
+				})
+		);
+
+		const promise = settings.load();
+		await promise;
+
+		expect(settings.isLoading).toBe(false);
+	});
+});
+
+describe('Settings Store - Helper Functions', () => {
+	it('should return correct sort labels', () => {
+		expect(getSortLabel('title')).toBe('Title');
+		expect(getSortLabel('author')).toBe('Author');
+		expect(getSortLabel('date_last_read')).toBe('Date Read');
+		expect(getSortLabel('highlight_count')).toBe('Highlight Count');
+	});
+
+	it('should return correct view mode labels', () => {
+		expect(getViewModeLabel('grid')).toBe('Grid');
+		expect(getViewModeLabel('list')).toBe('List');
+	});
+
+	it('should return correct theme labels', () => {
+		expect(getThemeLabel('system')).toBe('System');
+		expect(getThemeLabel('light')).toBe('Light');
+		expect(getThemeLabel('dark')).toBe('Dark');
+	});
+
+	it('should return correct date format labels', () => {
+		expect(getDateFormatLabel('dd_mm_yyyy')).toBe('DD/MM/YYYY (24/01/2025)');
+		expect(getDateFormatLabel('dd_month_yyyy')).toBe('24 January 2025');
+		expect(getDateFormatLabel('iso8601')).toBe('ISO 8601 (2025-01-24)');
+	});
+});
+
+describe('Settings Store - Loading State', () => {
+	beforeEach(() => {
+		mockedInvoke.mockClear();
+	});
+
+	it('should set loading state during load', async () => {
+		mockedInvoke.mockImplementation(
+			(cmd) =>
+				new Promise((resolve) => {
+          if (cmd === 'get_default_settings') resolve(MOCK_DEFAULTS);
+					// Check loading is true during the call
+					expect(settings.isLoading).toBe(true);
+					setTimeout(() => resolve(structuredClone(MOCK_DEFAULTS)), 10);
 				})
 		);
 
@@ -432,15 +424,4 @@ describe('Settings Store - Loading State', () => {
 		expect(settings.isLoading).toBe(false);
 	});
 
-	it('should set loading state during save', async () => {
-		mockedInvoke.mockResolvedValueOnce(undefined);
-
-		const promise = settings.save();
-
-		expect(settings.isLoading).toBe(true);
-
-		await promise;
-
-		expect(settings.isLoading).toBe(false);
-	});
 });

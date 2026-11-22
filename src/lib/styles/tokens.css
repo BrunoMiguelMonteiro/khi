@@ -1,0 +1,311 @@
+/*
+  Design tokens from the Figma variables (design/tokens.json, resolved per mode).
+  Names follow the Figma WEB code syntax: var(--<name>), with "/" written as "-".
+  Not used by the old UI yet (redesign Task 2); components adopt them in Phase 5.
+*/
+
+:root {
+  --background: #FFFFFF;
+  --foreground: #1D1D1F;
+  --card: #F5F5F7;
+  --card-foreground: #1D1D1F;
+  --popover: #FFFFFF;
+  --popover-foreground: #1D1D1F;
+  --primary: #0066D6;
+  --primary-foreground: #FFFFFF;
+  --primary-hover: #005BBF;
+  --primary-pressed: #0050A8;
+  --primary-tint: #E0ECFE;
+  --primary-tint-foreground: #0666D4;
+  --link: #0066D6;
+  --secondary: #FFFFFF;
+  --secondary-foreground: #1D1D1F;
+  --accent: #F2F2F7;
+  --accent-foreground: #1D1D1F;
+  --accent-pressed: #E5E5EA;
+  --muted: #E9E9EB;
+  --muted-foreground: #48484A;
+  --tertiary-foreground: #535358;
+  --segmented-selected: #FFFFFF;
+  --destructive: #FF3B30;
+  --border: #E5E5EA;
+  --input: #C7C7CC;
+  --ring: #0066D6;
+  --highlight-line: #C7C7CC;
+  --highlight-line-new: #48484A;
+  --disabled: #F5F5F7;
+  --disabled-border: #E5E5EA;
+  --disabled-foreground: #8E8E92;
+  --primary-disabled: #E5E5EA;
+  --toolbar-icon-disabled: #C7C7CC;
+  --cover-foreground: #F5F5F7;
+  --cover-border: #00000033;
+  --cover-verde: #415949;
+  --cover-ardosia: #485563;
+  --cover-castanho: #5F5145;
+  --cover-ameixa: #674B5D;
+  --cover-azul: #4C5369;
+  --cover-oliva: #50563F;
+  --cover-petroleo: #405858;
+  --cover-tijolo: #664E4A;
+  --swatch-azul-tinta: #2C5A8C;
+  --swatch-verde-folha: #3FA34D;
+  --swatch-turquesa: #1FA5A0;
+  --swatch-laranja: #F07A2A;
+  --swatch-amarelo: #F2C230;
+  --swatch-rosa: #E8559A;
+  --swatch-violeta: #9866EC;
+  --tooltip: #1D1D1F;
+  --tooltip-foreground: #FFFFFF;
+  --tooltip-secondary-foreground: #B5B5BB;
+  --tooltip-border: #1D1D1F;
+  --disabled-mark: #FFFFFF;
+  --switch-thumb: #FFFFFF;
+  --destructive-text: #D70015;
+  --segmented-selected-count: #535358;
+  --scrim: #00000026;
+  --input-strong: #C7C7CC;
+  --switch-on: #0066D6;
+  --contrast-outline: #00000000;
+  --contrast-outline-tint: #00000000;
+  --contrast-outline-primary: #00000000;
+  --contrast-outline-strong: #00000000;
+  --ring-opacity: 0.5;
+
+  --size-control: 28px;
+  --size-segment: 24px;
+  --size-toolbar-button: 32px;
+  --size-toolbar: 52px;
+  --size-form-row: 40px;
+  --size-icon: 16px;
+  --size-icon-sm: 12px;
+  --size-icon-lg: 20px;
+  --stroke-border: 1px;
+  --stroke-highlight-line: 2px;
+  --stroke-ring: 3px;
+  --stroke-swatch: 2px;
+
+  --duration-hover: 120ms;
+  --duration-tooltip: 125ms;
+  --duration-out: 150ms;
+  --duration-in: 200ms;
+  --duration-reveal: 250ms;
+  --duration-toast-in: 300ms;
+  --duration-spin: 1000ms;
+  --delay-tooltip: 500ms;
+  --hold-exported: 2000ms;
+  --hold-toast: 4000ms;
+  --distance-enter: 8px;
+  --scale-modal-from: 0.97;
+}
+
+.dark {
+  --background: #1E1E1E;
+  --foreground: #F5F5F7;
+  --card: #2A2A2C;
+  --card-foreground: #F5F5F7;
+  --popover: #2C2C2E;
+  --popover-foreground: #F5F5F7;
+  --primary: #62A6FF;
+  --primary-foreground: #051A36;
+  --primary-hover: #7FB6FF;
+  --primary-pressed: #9CC6FF;
+  --primary-tint: #1B3659;
+  --primary-tint-foreground: #569FFD;
+  --link: #569FFD;
+  --secondary: #1E1E1E;
+  --secondary-foreground: #F5F5F7;
+  --accent: #2C2C2E;
+  --accent-foreground: #F5F5F7;
+  --accent-pressed: #3A3A3C;
+  --muted: #3A3A3C;
+  --muted-foreground: #C7C7CC;
+  --tertiary-foreground: #B5B5BB;
+  --segmented-selected: #636366;
+  --destructive: #FF453A;
+  --border: #3A3A3C;
+  --input: #48484A;
+  --ring: #569FFD;
+  --highlight-line: #636366;
+  --highlight-line-new: #C7C7CC;
+  --disabled: #1E1E1E;
+  --disabled-border: #3A3A3C;
+  --disabled-foreground: #636366;
+  --primary-disabled: #2C2C2E;
+  --toolbar-icon-disabled: #48484A;
+  --cover-foreground: #F5F5F7;
+  --cover-border: #FFFFFF33;
+  --cover-verde: #415949;
+  --cover-ardosia: #485563;
+  --cover-castanho: #5F5145;
+  --cover-ameixa: #674B5D;
+  --cover-azul: #4C5369;
+  --cover-oliva: #50563F;
+  --cover-petroleo: #405858;
+  --cover-tijolo: #664E4A;
+  --swatch-azul-tinta: #8DB6E8;
+  --swatch-verde-folha: #3FA34D;
+  --swatch-turquesa: #1FA5A0;
+  --swatch-laranja: #F07A2A;
+  --swatch-amarelo: #F2C230;
+  --swatch-rosa: #E8559A;
+  --swatch-violeta: #9866EC;
+  --tooltip: #3A3A3C;
+  --tooltip-foreground: #F5F5F7;
+  --tooltip-secondary-foreground: #E5E5EA;
+  --tooltip-border: #48484A;
+  --disabled-mark: #FFFFFF;
+  --switch-thumb: #FFFFFF;
+  --destructive-text: #FF6961;
+  --segmented-selected-count: #E5E5EA;
+  --scrim: #00000026;
+  --input-strong: #48484A;
+  --switch-on: #62A6FF;
+  --contrast-outline: #00000000;
+  --contrast-outline-tint: #00000000;
+  --contrast-outline-primary: #00000000;
+  --contrast-outline-strong: #00000000;
+}
+
+/*
+  Increased contrast, from the Figma modes (design/tokens.json): :root holds the variables
+  where «Claro · Contraste» (90:0) differs from «Claro»; .dark holds those plus the ones
+  where «Escuro · Contraste» (90:1) differs from «Escuro», with the Escuro · Contraste
+  values, because this :root also matches <html class="dark"> after the base .dark.
+  Guarded by contrast_block_is_figma_mode_diff and contrast_effective_palettes_are_figma_modes.
+*/
+@media (prefers-contrast: more) {
+  :root {
+    --border: #8D8D91;
+    --highlight-line: #8D8D91;
+    --highlight-line-new: #1D1D1F;
+    --disabled-foreground: #636366;
+    --input-strong: #858589;
+    --contrast-outline: #8D8D91;
+    --contrast-outline-tint: #0666D4;
+    --contrast-outline-primary: #FFFFFF;
+    --contrast-outline-strong: #858589;
+  }
+
+  .dark {
+    --border: #757579;
+    --highlight-line: #757579;
+    --highlight-line-new: #F5F5F7;
+    --disabled-foreground: #8E8E92;
+    --input-strong: #838387;
+    --switch-on: #0A84FF;
+    --contrast-outline: #757579;
+    --contrast-outline-tint: #569FFD;
+    --contrast-outline-primary: #051A36;
+    --contrast-outline-strong: #838387;
+  }
+}
+
+/* Review Focus 5 (D6): entrances become fades only; fade durations stay. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --distance-enter: 0px;
+  }
+}
+
+/*
+  static: emitted in :root even when no utility uses them, so var(--radius-control)
+  works in plain CSS. --ease-out and --ease-in-out replace the Tailwind defaults.
+*/
+@theme static {
+  --radius-control: 6px;
+  --radius-group: 8px;
+  --radius-menu: 10px;
+  --radius-cover: 4px;
+  --radius-badge: 8px;
+  --radius-checkbox: 3px;
+  --radius-segment: 4px;
+  --radius-thumb: 2px;
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-hover: cubic-bezier(0.25, 0.1, 0.25, 1);
+
+  /* Figma effect styles (design/effects.json); not variables, so not in tokens.json. Same in both modes. */
+  --shadow-sombra-segmento: 0 1px 2px rgb(0 0 0 / 0.12);
+  --shadow-sombra-menu: 0 8px 24px rgb(0 0 0 / 0.16);
+  --shadow-sombra-janela: 0 8px 24px rgb(0 0 0 / 0.18);
+  --shadow-sombra-aviso: 0 4px 16px rgb(0 0 0 / 0.14);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-pressed: var(--primary-pressed);
+  --color-primary-tint: var(--primary-tint);
+  --color-primary-tint-foreground: var(--primary-tint-foreground);
+  --color-link: var(--link);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-pressed: var(--accent-pressed);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-tertiary-foreground: var(--tertiary-foreground);
+  --color-segmented-selected: var(--segmented-selected);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-highlight-line: var(--highlight-line);
+  --color-highlight-line-new: var(--highlight-line-new);
+  --color-disabled: var(--disabled);
+  --color-disabled-border: var(--disabled-border);
+  --color-disabled-foreground: var(--disabled-foreground);
+  --color-primary-disabled: var(--primary-disabled);
+  --color-toolbar-icon-disabled: var(--toolbar-icon-disabled);
+  --color-cover-foreground: var(--cover-foreground);
+  --color-cover-border: var(--cover-border);
+  --color-cover-verde: var(--cover-verde);
+  --color-cover-ardosia: var(--cover-ardosia);
+  --color-cover-castanho: var(--cover-castanho);
+  --color-cover-ameixa: var(--cover-ameixa);
+  --color-cover-azul: var(--cover-azul);
+  --color-cover-oliva: var(--cover-oliva);
+  --color-cover-petroleo: var(--cover-petroleo);
+  --color-cover-tijolo: var(--cover-tijolo);
+  --color-swatch-azul-tinta: var(--swatch-azul-tinta);
+  --color-swatch-verde-folha: var(--swatch-verde-folha);
+  --color-swatch-turquesa: var(--swatch-turquesa);
+  --color-swatch-laranja: var(--swatch-laranja);
+  --color-swatch-amarelo: var(--swatch-amarelo);
+  --color-swatch-rosa: var(--swatch-rosa);
+  --color-swatch-violeta: var(--swatch-violeta);
+  --color-tooltip: var(--tooltip);
+  --color-tooltip-foreground: var(--tooltip-foreground);
+  --color-tooltip-secondary-foreground: var(--tooltip-secondary-foreground);
+  --color-tooltip-border: var(--tooltip-border);
+  --color-disabled-mark: var(--disabled-mark);
+  --color-switch-thumb: var(--switch-thumb);
+  --color-destructive-text: var(--destructive-text);
+  --color-segmented-selected-count: var(--segmented-selected-count);
+  --color-scrim: var(--scrim);
+  --color-input-strong: var(--input-strong);
+  --color-switch-on: var(--switch-on);
+  --color-contrast-outline: var(--contrast-outline);
+  --color-contrast-outline-tint: var(--contrast-outline-tint);
+  --color-contrast-outline-primary: var(--contrast-outline-primary);
+  --color-contrast-outline-strong: var(--contrast-outline-strong);
+
+  --spacing-control: var(--size-control);
+  --spacing-segment: var(--size-segment);
+  --spacing-toolbar-button: var(--size-toolbar-button);
+  --spacing-toolbar: var(--size-toolbar);
+  --spacing-form-row: var(--size-form-row);
+  --spacing-icon: var(--size-icon);
+  --spacing-icon-sm: var(--size-icon-sm);
+  --spacing-icon-lg: var(--size-icon-lg);
+}

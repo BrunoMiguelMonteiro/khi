@@ -2,22 +2,77 @@
   "app": {
     "name": "Khi",
     "title": "Khi - Kobo Highlights Exporter",
-    "menuEdit": "Editar",
-    "close": "Fechar",
-    "loading": "A carregar...",
-    "koboDevice": "Leitor Kobo"
+    "menuEdit": "Edição",
+    "menuWindow": "Janela",
+    "loading": "A carregar…",
+    "koboDevice": "Leitor Kobo",
+    "menuFile": "Ficheiro",
+    "menuRevealLastExport": "Mostrar última exportação no Finder",
+    "menuView": "Visualização",
+    "menuBook": "Livro",
+    "menuViewGrid": "Ver em grelha",
+    "menuViewList": "Ver em lista",
+    "menuExportBook": "Exportar livro",
+    "menuBackToLibrary": "Voltar à Biblioteca",
+    "menuSync": "Sincronizar com o Kobo",
+    "menuDelete": "Apagar livro…",
+    "menuSortBy": "Ordenar por",
+    "native": {
+      "about": "Acerca do Khi",
+      "services": "Serviços",
+      "hide": "Ocultar o Khi",
+      "hideOthers": "Ocultar outras aplicações",
+      "showAll": "Mostrar tudo",
+      "quit": "Sair do Khi",
+      "closeWindow": "Fechar janela",
+      "undo": "Desfazer",
+      "redo": "Refazer",
+      "cut": "Cortar",
+      "copy": "Copiar",
+      "paste": "Colar",
+      "selectAll": "Selecionar tudo",
+      "minimize": "Minimizar",
+      "maximize": "Aumentar/reduzir"
+    }
   },
   "screens": {
     "noKobo": {
-      "title": "Nenhum Kobo ligado",
-      "subtitle": "Liga o teu Kobo para ver os teus destaques"
+      "title": "Liga o teu Kobo",
+      "subtitle": "Os destaques ficam guardados na Biblioteca, mesmo com o Kobo desligado."
+    },
+    "syncingEmpty": {
+      "title": "A sincronizar com o Kobo"
     },
     "importing": {
-      "title": "A sincronizar destaques...",
+      "title": "A sincronizar destaques…",
       "progress": "{done} de {total} livros"
     },
     "library": {
+      "header": {
+        "newHighlights": "{count} destaques novos",
+        "newHighlights_one": "1 destaque novo",
+        "newHighlights_other": "{count} destaques novos",
+        "inBooks": "em {count} livros",
+        "inBooks_one": "em 1 livro",
+        "inBooks_other": "em {count} livros",
+        "since": "desde {date}",
+        "showOnly": "Mostrar só estes",
+        "exportBooks": "Exportar {count} livros",
+        "exportBooks_one": "Exportar 1 livro",
+        "exportBooks_other": "Exportar {count} livros",
+        "exporting": "A exportar…",
+        "exported": "✓ Exportado",
+        "syncing": "A sincronizar com o Kobo",
+        "syncProgress": "{done} de {count} livros",
+        "syncProgress_one": "{done} de 1 livro",
+        "syncProgress_other": "{done} de {count} livros",
+        "noNews": "Sem destaques novos",
+        "syncedAt": "sincronizado às {time}",
+        "retry": "Tentar de novo",
+        "chooseFolder": "Escolher pasta…"
+      },
       "title": "Biblioteca",
+      "titleOf": "Biblioteca de {reader}",
       "exportAll": "Exportar Todos",
       "exportSelected": "Exportar Selecionados",
       "clearSelection": "Limpar Seleção",
@@ -43,6 +98,9 @@
       "noBooksSubtitle": "Liga o teu Kobo e sincroniza os teus destaques",
       "selectAllTitle": "Selecionar todos (Ctrl+A)",
       "sync": "Sincronizar",
+      "syncDisabledReason": "Liga o Kobo para sincronizar",
+      "syncOtherReaderReason": "O Kobo ligado é de {reader}",
+      "exportDisabledReason": "Espera pelo fim da sincronização",
       "viewMode": "Modo de vista",
       "gridViewLabel": "Vista em grelha",
       "listViewLabel": "Vista em lista",
@@ -51,6 +109,12 @@
         "author": "Autor (A-Z)",
         "recent": "Lidos recentemente",
         "count": "N.º de destaques"
+      },
+      "columns": {
+        "title": "Título",
+        "author": "Autor",
+        "highlights": "Destaques",
+        "lastRead": "Última leitura"
       },
       "booksListLabel": "Lista de livros"
     },
@@ -61,13 +125,11 @@
       "noHighlights": "Não existem destaques disponíveis para este livro",
       "page": "Página {number}",
       "chapter": "Capítulo {number}",
-      "showRemoved": "Mostrar removidos",
-      "deleteBook": "Apagar livro",
       "deleteBookTitle": "Apagar este livro?",
       "deleteBookBody": "Todos os destaques foram removidos do Kobo. O livro e os destaques saem da Biblioteca de vez.",
       "deleteBookConfirm": "Apagar",
       "cancel": "Cancelar",
-      "deleteBookError": "Não foi possível apagar o livro",
+      "deleteBookError": "Não foi possível apagar o livro.",
       "active": "Ativos",
       "excluded": "Excluídos",
       "lastRead": "Última leitura",
@@ -80,6 +142,13 @@
     "highlightsCount": "{count} destaques",
     "highlightsCount_one": "1 destaque",
     "highlightsCount_other": "{count} destaques",
+    "newCount": "{count} novos",
+    "newCount_one": "1 novo",
+    "newCount_other": "{count} novos",
+    "removedCount": "{count} removidos do Kobo",
+    "removedCount_one": "1 removido do Kobo",
+    "removedCount_other": "{count} removidos do Kobo",
+    "unknownAuthor": "Autor desconhecido",
     "select": "Selecionar",
     "deselect": "Deselecionar",
     "noHighlights": "Este livro não tem destaques",
@@ -91,25 +160,22 @@
     "copied": "Copiado!",
     "copyError": "Erro ao copiar",
     "removedFromKobo": "Removido do Kobo",
+    "new": "novo",
+    "newBadge": "Novo",
+    "withNote": "com nota",
     "note": "Nota",
     "excludeTitle": "Excluir da exportação",
     "includeTitle": "Incluir na exportação"
   },
   "settings": {
     "title": "Definições",
+    "windowTitle": "Definições",
     "export": {
-      "tab": "Exportação",
       "defaultFormat": "Formato Padrão",
       "includeMetadata": "Incluir metadados do livro nas exportações",
       "exportPath": "Pasta de exportação",
       "chooseFolder": "Escolher pasta",
-      "path": "Caminho",
-      "browse": "Escolher",
-      "browseLabel": "Escolher a pasta de exportação",
-      "folderHint": "Os ficheiros Markdown são guardados nesta pasta.",
-      "readerFolderHint": "Os livros de {name} são exportados para esta pasta.",
       "metadataTitle": "Metadados a incluir",
-      "metadataHint": "Escolhe os metadados a incluir nos ficheiros exportados.",
       "metadata": {
         "author": "Autor",
         "isbn": "ISBN",
@@ -121,19 +187,20 @@
       "dateFormat": "Formato da data",
       "dateFormats": {
         "dd_mm_yyyy": "DD/MM/AAAA (24/01/2025)",
-        "dd_month_yyyy": "24 Janeiro 2025",
+        "dd_month_yyyy": "24 de janeiro de 2025",
         "iso8601": "ISO 8601 (2025-01-24)"
-      }
+      },
+      "filesGroup": "Ficheiros",
+      "choose": "Escolher…",
+      "folderHelp": "{path} · os livros de {name} vão para aqui.",
+      "folderHelpNoReader": "{path} · os livros exportados vão para aqui."
     },
     "appearance": {
-      "tab": "Aparência",
       "theme": "Tema",
       "themeLight": "Claro",
       "themeDark": "Escuro",
       "themeAuto": "Automático (segue o sistema)",
       "viewMode": "Modo de visualização padrão",
-      "viewModeGrid": "Grelha",
-      "viewModeList": "Lista",
       "sortBy": "Ordenar por",
       "sortByTitle": "Título",
       "sortByAuthor": "Autor",
@@ -144,34 +211,49 @@
         "en": "English",
         "pt": "Português"
       },
-      "themeSystem": "Sistema",
-      "viewModeTitle": "Vista da Biblioteca"
+      "themeSystem": "Sistema"
     },
     "actions": {
-      "save": "Guardar",
-      "cancel": "Cancelar",
-      "reset": "Repor padrões",
-      "saveChanges": "Guardar alterações"
+      "save": "Guardar"
     },
-    "close": "Fechar definições",
-    "tabs": "Separadores das definições",
+    "tabs": {
+      "label": "Separadores das definições",
+      "export": "Exportação",
+      "appearance": "Aparência",
+      "kobo": "Kobo"
+    },
     "reader": {
       "title": "Leitor",
       "name": "Nome"
     },
     "device": {
-      "title": "Ligação do Kobo",
-      "syncOnConnectHint": "Sincroniza a Biblioteca quando ligas um Kobo conhecido.",
       "syncOnConnect": "Sincronizar ao ligar"
-    },
-    "confirm": {
-      "reset": "Repor as definições por defeito?",
-      "unsaved": "Tens alterações por guardar. Sair sem guardar?"
     },
     "errors": {
       "save": "Erro ao guardar as definições",
-      "reset": "Erro ao repor as definições",
       "renameReader": "Não foi possível mudar o nome do leitor"
+    },
+    "accent": {
+      "label": "Cor de realce",
+      "hint": "Com “Sistema”, o Khi segue o macOS.",
+      "system": "Sistema",
+      "swatches": {
+        "azulTinta": "Azul-tinta",
+        "verdeFolha": "Verde-folha",
+        "turquesa": "Turquesa",
+        "laranja": "Laranja",
+        "amarelo": "Amarelo",
+        "rosa": "Rosa",
+        "violeta": "Violeta"
+      }
+    },
+    "kobo": {
+      "readerName": "Nome do leitor",
+      "readerNameHelp": "Aparece no título com dois ou mais leitores.",
+      "syncOnConnectHelp": "Sincroniza quando ligas um Kobo conhecido.",
+      "readerPickHelp": "O leitor cujo nome queres mudar.",
+      "nameHelp": "Aparece no título da Biblioteca.",
+      "syncOnConnectAllHelp": "Vale para todos os leitores: sincroniza quando ligas um Kobo conhecido."
     }
   },
   "export": {
@@ -199,10 +281,15 @@
   "notifications": {
     "exportSuccess": "Exportação concluída com sucesso",
     "exportError": "Erro ao exportar destaques",
+    "booksExported": "{count} livros exportados",
+    "booksExported_one": "1 livro exportado",
+    "booksExported_other": "{count} livros exportados",
     "syncError": "Erro ao sincronizar o Kobo",
     "openReaderError": "Erro ao abrir a Biblioteca deste leitor",
     "createReaderError": "Não foi possível criar o leitor",
-    "associateKoboError": "Não foi possível associar este Kobo ao leitor"
+    "associateKoboError": "Não foi possível associar este Kobo ao leitor",
+    "showInFinder": "Mostrar no Finder",
+    "showInFinderError": "Não foi possível mostrar a exportação no Finder."
   },
   "errors": {
     "noDevice": "Nenhum dispositivo Kobo encontrado",
@@ -211,17 +298,21 @@
     "exportPathInvalid": "Caminho de exportação inválido",
     "generic": "Ocorreu um erro",
     "export": {
-      "folderNotWritable": "Não foi possível exportar para {folder}. Verifica se o disco está ligado ou escolhe outra pasta nas Definições.",
-      "diskFull": "Não foi possível exportar: o disco está cheio."
+      "diskFull": "Não foi possível exportar: o disco está cheio.",
+      "title": "Não foi possível exportar.",
+      "folderNotWritableDetail": "O Khi não consegue escrever em {folder}. Escolhe outra pasta.",
+      "folderNotWritableToast": "Não foi possível exportar para {folder}.",
+      "diskFullDetail": "O disco está cheio."
     }
   },
   "readers": {
     "label": "Leitor",
-    "unknownKoboTitle": "Kobo novo",
-    "unknownKoboSubtitle": "De quem é este Kobo? Os destaques ficam na Biblioteca desse leitor.",
-    "existing": "Leitores existentes",
-    "newReader": "Novo leitor",
-    "newReaderName": "Nome do leitor",
+    "unknownKoboTitle": "De quem é este Kobo?",
+    "unknownKoboSubtitle": "Os destaques ficam na Biblioteca de quem escolheres.",
+    "choose": "Escolher",
+    "newReaderOption": "Novo leitor…",
+    "name": "Nome",
+    "cancel": "Cancelar",
     "create": "Criar leitor"
   },
   "updates": {
@@ -230,8 +321,10 @@
     },
     "available": {
       "title": "Khi {version} está disponível.",
+      "body": "Está instalada a versão {current}. Desde então saíram {number} versões. Khi reinicia-se depois de instalar.",
       "body_one": "Está instalada a versão {current}. Desde então saiu uma versão. Khi reinicia-se depois de instalar.",
-      "body_other": "Está instalada a versão {current}. Desde então saíram {count} versões. Khi reinicia-se depois de instalar.",
+      "body_other": "Está instalada a versão {current}. Desde então saíram {number} versões. Khi reinicia-se depois de instalar.",
+      "notesLabel": "Notas da versão",
       "whatsNew": "Novidades",
       "bugFixes": "Correções",
       "skip": "Saltar esta versão",
@@ -278,6 +371,36 @@
       "lastCheckedOn": "Procurada a {date}.",
       "never": "Ainda não procurada.",
       "checkNow": "Procurar agora"
+    }
+  },
+  "ui": {
+    "windowBar": {
+      "sync": "Sincronizar com o Kobo",
+      "syncing": "A sincronizar",
+      "syncingProgress": "A sincronizar · {done} de {count} livros",
+      "syncingProgress_one": "A sincronizar · {done} de 1 livro",
+      "syncingProgress_other": "A sincronizar · {done} de {count} livros",
+      "export": "Exportar {count} livros",
+      "export_one": "Exportar 1 livro",
+      "export_other": "Exportar {count} livros",
+      "back": "Voltar",
+      "delete": "Apagar livro…",
+      "sort": "Ordenar por"
+    },
+    "viewGroup": {
+      "label": "Vista",
+      "grid": "Ver em grelha",
+      "list": "Ver em lista",
+      "gridTooltip": "Grelha",
+      "listTooltip": "Lista"
+    },
+    "segmented": {
+      "label": "Mostrar",
+      "all": "Todos",
+      "new": "Novos",
+      "withNotes": "Com notas",
+      "noNew": "Não há destaques novos neste livro",
+      "noNotes": "Não há destaques com notas neste livro"
     }
   }
 }

@@ -29,6 +29,27 @@ export interface ReleaseNotes {
 	bugFixes: string[];
 }
 
+/** While an update downloads, installs or waits to restart, a check does nothing. */
+const BUSY_STATES: UpdaterState[] = ['downloading', 'installing', 'installed', 'restartPending'];
+
+/** The main window owns the updater: after each change it tells the Settings window with this event. */
+export const UPDATES_STATE_EVENT = 'updates-state';
+/** Settings asks for the state when it opens, in case the main window checked before it was there. */
+export const UPDATES_STATE_REQUEST_EVENT = 'updates-state-request';
+
+/** What the event carries: a Date does not survive it, so the time is text. */
+export interface UpdatesStatePayload {
+	state: UpdaterState;
+	lastChecked: string | null;
+	/** Includes the silent check on launch, which has no state of its own. */
+	busy: boolean;
+}
+
+/** Settings' «Check Now» waits while the main window checks, downloads, installs or waits to restart. */
+export function isUpdateBusy(state: UpdaterState): boolean {
+	return state === 'checking' || BUSY_STATES.includes(state);
+}
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 const LAST_CHECKED_KEY = 'khi.updates.lastChecked';
 const SKIPPED_VERSION_KEY = 'khi.updates.skippedVersion';
@@ -98,10 +119,32 @@ class UpdaterStore {
 	/** Bumped by every new action, so a cancelled one drops its late result. */
 	private run = 0;
 	private manual = false;
+	/** The check on launch shows nothing (the state stays `idle`), but «Check Now» still has to wait for it. */
+	private silentCheck = $state(false);
+	/** The `run` of the silent check, to clear the flag when that one ends, whoever came after it. */
+	private silentRun = 0;
 
 	constructor() {
 		const saved = readStorage(LAST_CHECKED_KEY);
 		const date = saved ? new Date(saved) : null;
+		this.lastChecked = date && !isNaN(date.getTime()) ? date : null;
+	}
+
+	/** A check, a download, an install or a restart on its way: a new check has to wait. */
+	get busy(): boolean {
+		return isUpdateBusy(this.state) || this.silentCheck;
+	}
+
+	/** For the Settings window. */
+	snapshot(): UpdatesStatePayload {
+		return { state: this.state, lastChecked: this.lastChecked ? this.lastChecked.toISOString() : null, busy: this.busy };
+	}
+
+	/** In the Settings window: what the main window reported. That window never runs the flow, so this only shows it. */
+	adopt(payload: UpdatesStatePayload) {
+		this.state = payload.state;
+		this.silentCheck = payload.busy && !isUpdateBusy(payload.state);
+		const date = payload.lastChecked ? new Date(payload.lastChecked) : null;
 		this.lastChecked = date && !isNaN(date.getTime()) ? date : null;
 	}
 
@@ -127,8 +170,14 @@ class UpdaterStore {
 	}
 
 	private async check(manual: boolean): Promise<void> {
+		// An update on its way in (menu, Settings or launch): a new check would
+		// drop it, as `run` cancels the download. One already checking answers
+		// the second request too (a double click on «Check Now»)
+		if (isUpdateBusy(this.state)) return;
 		const run = ++this.run;
 		this.manual = manual;
+		this.silentCheck = !manual;
+		this.silentRun = manual ? 0 : run;
 		if (manual) this.state = 'checking';
 		try {
 			const update = await check();
@@ -149,6 +198,8 @@ class UpdaterStore {
 			console.error('Failed to check for updates:', error);
 			this.errorKind = 'check';
 			this.state = manual ? 'error' : 'idle';
+		} finally {
+			if (this.silentRun === run) this.silentCheck = false;
 		}
 	}
 

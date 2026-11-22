@@ -1,5 +1,12 @@
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: vi.fn()
+}));
+
+import { invoke } from '@tauri-apps/api/core';
+import { commands } from './bindings';
 
 /**
  * Contract Tests
@@ -54,6 +61,16 @@ describe('Backend Contract Compliance', () => {
     tsValues.forEach(value => {
       expect(value).toMatch(snakeCaseRegex);
     });
+  });
+
+  it('markBookOpened sends readerId, bookId and seenSeq', async () => {
+    await commands.markBookOpened(1, 2, 3);
+    expect(invoke).toHaveBeenCalledWith('mark_book_opened', { readerId: 1, bookId: 2, seenSeq: 3 });
+  });
+
+  it('librarySummary sends readerId and koboSerial', async () => {
+    await commands.librarySummary(1, 'SERIAL-A');
+    expect(invoke).toHaveBeenCalledWith('library_summary', { readerId: 1, koboSerial: 'SERIAL-A' });
   });
 
 });

@@ -7,14 +7,14 @@
 
 use crate::covers::{self, CoverExtractor};
 use crate::db::kobo::KoboDatabase;
-use crate::library::{KoboInfo, Library, LibraryBook, LibraryError, Reader, SyncReport};
+use crate::library::{KoboInfo, Library, LibraryBook, LibraryError, LibrarySummary, Reader, SyncReport};
 use crate::models::{ExportConfig, KoboDevice, Language};
 use crate::settings::{data_dir, SettingsManager};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Instant;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_specta::Event;
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type, Event)]
@@ -80,6 +80,13 @@ where
 
 fn err(e: impl std::fmt::Display) -> String {
     e.to_string()
+}
+
+/// A Reader was created, renamed or given another folder: every window reloads the Readers.
+fn readers_changed(app: &AppHandle) {
+    if let Err(e) = app.emit("readers-changed", ()) {
+        log::warn!("Could not emit readers-changed: {}", e);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -170,13 +177,18 @@ pub async fn list_readers(app: AppHandle) -> Result<Vec<Reader>, String> {
 #[tauri::command]
 #[specta::specta]
 pub async fn create_reader(app: AppHandle, name: String) -> Result<Reader, String> {
-    with_library(app, move |lib| lib.create_reader(name.trim()).map_err(err)).await
+    let reader = with_library(app.clone(), move |lib| lib.create_reader(name.trim()).map_err(err)).await?;
+    // An open Settings window shows the new Reader at once (Task 45)
+    readers_changed(&app);
+    Ok(reader)
 }
 
 #[tauri::command]
 #[specta::specta]
 pub async fn rename_reader(app: AppHandle, id: u32, name: String) -> Result<(), String> {
-    with_library(app, move |lib| lib.rename_reader(id, name.trim()).map_err(err)).await
+    with_library(app.clone(), move |lib| lib.rename_reader(id, name.trim()).map_err(err)).await?;
+    readers_changed(&app);
+    Ok(())
 }
 
 #[tauri::command]
@@ -212,6 +224,29 @@ pub async fn delete_book(app: AppHandle, reader_id: u32, book_id: u32) -> Result
     with_library(app, move |lib| lib.delete_book(reader_id, book_id).map_err(err)).await
 }
 
+/// Marks the book seen up to `seen_seq`, the highest `syncedSeq` loaded (D1).
+#[tauri::command]
+#[specta::specta]
+pub async fn mark_book_opened(
+    app: AppHandle,
+    reader_id: u32,
+    book_id: u32,
+    seen_seq: u32,
+) -> Result<(), String> {
+    with_library(app, move |lib| lib.mark_book_opened(reader_id, book_id, seen_seq).map_err(err)).await
+}
+
+/// New highlights since when, and the connected Kobo's last sync.
+#[tauri::command]
+#[specta::specta]
+pub async fn library_summary(
+    app: AppHandle,
+    reader_id: u32,
+    kobo_serial: Option<String>,
+) -> Result<LibrarySummary, String> {
+    with_library(app, move |lib| lib.library_summary(reader_id, kobo_serial.as_deref()).map_err(err)).await
+}
+
 /// Exports with the Export settings (R22), into the Reader's folder (R21).
 #[tauri::command]
 #[specta::specta]
@@ -237,6 +272,48 @@ pub async fn export_library_books(
     })
 }
 
+/// The folder the Reader's exports go to: the one chosen for it, or `base/<safe Reader name>`.
+pub fn reader_export_folder_with(library: &Library, reader_id: u32, base: &str) -> Result<String, String> {
+    library
+        .export_dir(reader_id, base)
+        .map(|dir| dir.to_string_lossy().into_owned())
+        .map_err(err)
+}
+
+/// `base/<safe Reader name>`: where the exports go when no folder was chosen for the Reader.
+pub fn reader_default_export_folder_with(library: &Library, reader_id: u32, base: &str) -> Result<String, String> {
+    let readers = library.list_readers().map_err(err)?;
+    let reader = readers.iter().find(|r| r.id == reader_id).ok_or("Reader not found")?;
+    Ok(std::path::Path::new(base)
+        .join(crate::library::safe_dir_name(&reader.name))
+        .to_string_lossy()
+        .into_owned())
+}
+
+/// The folder the Reader's exports go to when it has none of its own: Settings compares the folder
+/// chosen with it, and stores «the default» as no folder.
+#[tauri::command]
+#[specta::specta]
+pub async fn reader_default_export_folder(app: AppHandle, reader_id: u32) -> Result<String, String> {
+    with_library(app, move |lib| {
+        let base = SettingsManager::new().map_err(err)?.get().export_config.export_path.clone();
+        reader_default_export_folder_with(lib, reader_id, &base)
+    })
+    .await
+}
+
+/// The folder the Reader's exports go to now, as the export itself decides it (R21): Settings
+/// shows it and compares a chosen folder with it.
+#[tauri::command]
+#[specta::specta]
+pub async fn reader_export_folder(app: AppHandle, reader_id: u32) -> Result<String, String> {
+    with_library(app, move |lib| {
+        let base = SettingsManager::new().map_err(err)?.get().export_config.export_path.clone();
+        reader_export_folder_with(lib, reader_id, &base)
+    })
+    .await
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn set_reader_export_path(
@@ -244,10 +321,12 @@ pub async fn set_reader_export_path(
     reader_id: u32,
     path: Option<String>,
 ) -> Result<(), String> {
-    with_library(app, move |lib| {
+    with_library(app.clone(), move |lib| {
         lib.set_reader_export_path(reader_id, path.as_deref()).map_err(err)
     })
-    .await
+    .await?;
+    readers_changed(&app);
+    Ok(())
 }
 
 /// Syncs the connected Kobo into its Reader's Library, emitting

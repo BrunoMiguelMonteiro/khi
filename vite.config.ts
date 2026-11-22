@@ -1,12 +1,13 @@
 import { defineConfig } from 'vitest/config';
 import { sveltekit } from '@sveltejs/kit/vite';
+import tailwindcss from '@tailwindcss/vite';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-	plugins: [sveltekit()],
+	plugins: [tailwindcss(), sveltekit()],
 	test: {
 		include: ['src/**/*.{test,spec}.{js,ts}'],
 		environment: 'jsdom',
@@ -20,8 +21,7 @@ export default defineConfig({
 		fs: {
 			allow: [
 				'.',
-				'../node_modules',
-				'/Users/bruno/Documents/khi-project/kobo-highlights-exporter/node_modules'
+				'../node_modules'
 			]
 		}
 	}

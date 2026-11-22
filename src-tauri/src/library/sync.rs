@@ -18,6 +18,8 @@ pub struct SyncReport {
     pub books: u32,
 }
 
+const META_SYNC_SEQ: &str = "sync_seq";
+
 fn has_text(h: &KoboHighlight) -> bool {
     !h.text.trim().is_empty()
 }
@@ -34,12 +36,20 @@ impl Library {
         mut progress: impl FnMut(u32, u32),
     ) -> Result<SyncReport> {
         let reader_id = self.kobo(serial)?.ok_or(LibraryError::NotFound)?.reader_id;
-        let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+        let now = (self.clock)().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
 
         let merge_started = std::time::Instant::now();
         // IMMEDIATE takes the write lock up front, so a concurrent writer can
         // never invalidate this transaction's snapshot halfway (WAL).
         let tx = self.conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        // Both inside the transaction: a sync that fails keeps neither.
+        let seq = next_sync_seq(&tx)?;
+        let first_sync: bool = tx.query_row(
+            "SELECT COUNT(*) = 0 FROM highlights WHERE reader_id = ?1",
+            [reader_id],
+            |r| r.get(0),
+        )?;
+        let inserted_as = (!first_sync).then_some((seq, now.as_str()));
         let mut report = SyncReport::default();
         let mut seen: HashSet<&str> = HashSet::new();
         let mut synced: Vec<(u32, &KoboBook)> = Vec::new();
@@ -50,7 +60,7 @@ impl Library {
             if let Some(book_id) = upsert_book(&tx, reader_id, book, !highlights.is_empty())? {
                 for h in highlights {
                     seen.insert(h.bookmark_id.as_str());
-                    upsert_highlight(&tx, reader_id, book_id, serial, h, &mut report)?;
+                    upsert_highlight(&tx, reader_id, book_id, serial, h, inserted_as, &mut report)?;
                 }
                 report.books += 1;
                 synced.push((book_id, book));
@@ -145,15 +155,37 @@ fn upsert_book(tx: &Transaction, reader_id: u32, book: &KoboBook, has_highlights
     Ok(Some(book_id))
 }
 
+/// Takes the next number in `meta('sync_seq')`. Every sync gets one, the
+/// Reader's first included.
+fn next_sync_seq(tx: &Transaction) -> Result<i64> {
+    let current: Option<i64> = tx
+        .query_row(
+            "SELECT CAST(value AS INTEGER) FROM meta WHERE key = ?1",
+            [META_SYNC_SEQ],
+            |r| r.get(0),
+        )
+        .optional()?;
+    let next = current.unwrap_or(0) + 1;
+    tx.execute(
+        "INSERT INTO meta (key, value) VALUES (?1, ?2)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        params![META_SYNC_SEQ, next.to_string()],
+    )?;
+    Ok(next)
+}
+
 /// R8: new highlights are inserted with their origin Kobo; existing ones take
 /// the Kobo's text, note, chapter and progress. Only the origin Kobo clears a
-/// removal mark (Review Focus 1).
+/// removal mark (Review Focus 1). `inserted_as` (this sync's number and
+/// «now», `None` on the Reader's first sync) is written on a real insert
+/// only: an update or a restore never touches it.
 fn upsert_highlight(
     tx: &Transaction,
     reader_id: u32,
     book_id: u32,
     serial: &str,
     h: &KoboHighlight,
+    inserted_as: Option<(i64, &str)>,
     report: &mut SyncReport,
 ) -> Result<()> {
     let existing: Option<(Option<String>, Option<String>)> = tx
@@ -165,13 +197,16 @@ fn upsert_highlight(
         .optional()?;
 
     let Some((origin, removed_at)) = existing else {
+        let (synced_seq, synced_at) = inserted_as.unzip();
         tx.execute(
             "INSERT INTO highlights (reader_id, bookmark_id, book_id, kobo_serial, text, annotation,
-             chapter_title, chapter_progress, container_path, date_created, date_modified)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+             chapter_title, chapter_progress, container_path, date_created, date_modified,
+             synced_seq, synced_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
             params![
                 reader_id, h.bookmark_id, book_id, serial, h.text, h.annotation,
-                h.chapter_title, h.chapter_progress, h.container_path, h.date_created, h.date_modified
+                h.chapter_title, h.chapter_progress, h.container_path, h.date_created, h.date_modified,
+                synced_seq, synced_at
             ],
         )?;
         report.added += 1;

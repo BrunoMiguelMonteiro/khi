@@ -52,7 +52,7 @@
 >
     <button
         type="button"
-        class="absolute top-2 left-2 w-6 h-6 bg-transparent border-none cursor-pointer z-10 flex items-center justify-center p-0 focus:outline-none"
+        class="absolute top-2 left-2 w-6 h-6 bg-transparent border-none cursor-pointer z-10 flex items-center justify-center p-0 focus:outline-hidden"
         onclick={(e) => {
             e.stopPropagation();
             onToggleSelection?.();
@@ -87,11 +87,11 @@
 
     <button
         type="button"
-        class="flex flex-col items-start gap-0 p-0 w-full h-full bg-none border-none cursor-pointer text-left font-inherit text-inherit m-0 focus:outline-none"
+        class="flex flex-col items-start gap-0 p-0 w-full h-full bg-none border-none cursor-pointer text-left font-inherit text-inherit m-0 focus:outline-hidden"
         onclick={onClick}
     >
         <div
-            class="relative w-full pb-[150%] rounded-lg overflow-hidden shadow-sm ring-1 ring-neutral-200 dark:ring-neutral-700"
+            class="relative w-full pb-[150%] rounded-lg overflow-hidden shadow-xs ring-1 ring-neutral-200 dark:ring-neutral-700"
         >
             {#if book.coverPath}
                 <img
@@ -102,7 +102,7 @@
                 />
             {:else}
                 <div
-                    class="absolute inset-0 w-full h-full flex items-center justify-center bg-gradient-to-br {gradient}"
+                    class="absolute inset-0 w-full h-full flex items-center justify-center bg-linear-to-br {gradient}"
                 >
                     <span class="text-xl font-bold text-white drop-shadow-md"
                         >{getInitials(book.title)}</span

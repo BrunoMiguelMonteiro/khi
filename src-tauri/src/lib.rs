@@ -6,6 +6,7 @@ pub mod export;
 pub mod library;
 pub mod models;
 pub mod settings;
+pub mod system_accent;
 pub mod utils;
 pub mod window;
 
@@ -26,7 +27,7 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         commands::get_default_settings,
         commands::validate_export_path,
         commands::load_settings,
-        commands::save_settings,
+        commands::update_settings,
         commands::reset_settings,
         commands::pick_export_folder,
         commands::clear_cover_cache,
@@ -38,15 +39,24 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         commands::library::last_reader,
         commands::library::get_library,
         commands::library::delete_book,
+        commands::library::mark_book_opened,
+        commands::library::library_summary,
         commands::library::export_library_books,
         commands::library::set_reader_export_path,
+        commands::library::reader_export_folder,
+        commands::library::reader_default_export_folder,
         commands::library::sync_kobo,
+        system_accent::get_system_accent,
+        window::open_settings,
+        window::settings_reader,
+        window::traffic_lights_max_x,
     ])
     .events(collect_events![
         DeviceDetectedEvent,
         DeviceDisconnectedEvent,
         commands::library::SyncProgress,
-        commands::library::SyncFinished
+        commands::library::SyncFinished,
+        system_accent::SystemAccent
     ])
     // Errors are thrown, not typed in the commands: listed so the frontend
     // knows the shape of a failed export
@@ -73,9 +83,21 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(builder.invoke_handler())
+        .manage(window::SettingsWindowLock::default())
+        .manage(window::SettingsReader::default())
+        // ⌘W or the red button on the main window quits, Settings included
+        .on_window_event(|window, event| {
+            if window::exits_app(window.label(), event) {
+                window.app_handle().exit(0);
+            }
+        })
         .setup(move |app| {
             // Register typed events before anything emits them
             builder.mount_events(app);
+
+            // The data folder follows the app identifier: record it before
+            // anything asks for the folder
+            settings::set_app_identifier(&app.config().identifier);
 
             // The persistent Library, shared by the UI commands
             let data_dir = settings::data_dir()?;
@@ -84,6 +106,9 @@ pub fn run() {
 
             // Show window only after frontend signals ready (prevents white flash)
             window::setup_window_show(app);
+
+            // Follow the macOS accent colour (setup runs on the main thread)
+            system_accent::observe(app.handle().clone());
 
             // Start device monitoring
             let app_handle = app.handle().clone();

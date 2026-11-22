@@ -3,21 +3,76 @@
     "name": "Khi",
     "title": "Khi - Kobo Highlights Exporter",
     "menuEdit": "Edit",
-    "close": "Close",
-    "loading": "Loading...",
-    "koboDevice": "Kobo e-reader device"
+    "menuWindow": "Window",
+    "loading": "Loading…",
+    "koboDevice": "Kobo e-reader device",
+    "menuFile": "File",
+    "menuRevealLastExport": "Show Last Export in Finder",
+    "menuView": "View",
+    "menuBook": "Book",
+    "menuViewGrid": "View as Grid",
+    "menuViewList": "View as List",
+    "menuExportBook": "Export Book",
+    "menuBackToLibrary": "Back to Library",
+    "menuSync": "Sync with Kobo",
+    "menuDelete": "Delete Book…",
+    "menuSortBy": "Sort By",
+    "native": {
+      "about": "About Khi",
+      "services": "Services",
+      "hide": "Hide Khi",
+      "hideOthers": "Hide Others",
+      "showAll": "Show All",
+      "quit": "Quit Khi",
+      "closeWindow": "Close Window",
+      "undo": "Undo",
+      "redo": "Redo",
+      "cut": "Cut",
+      "copy": "Copy",
+      "paste": "Paste",
+      "selectAll": "Select All",
+      "minimize": "Minimize",
+      "maximize": "Zoom"
+    }
   },
   "screens": {
     "noKobo": {
-      "title": "No Kobo connected",
-      "subtitle": "Connect your Kobo to view your highlights"
+      "title": "Connect your Kobo",
+      "subtitle": "Your highlights stay in the Library even when your Kobo is unplugged."
+    },
+    "syncingEmpty": {
+      "title": "Syncing with Kobo"
     },
     "importing": {
-      "title": "Syncing highlights...",
+      "title": "Syncing highlights…",
       "progress": "{done} of {total} books"
     },
     "library": {
+      "header": {
+        "newHighlights": "{count} new highlights",
+        "newHighlights_one": "1 new highlight",
+        "newHighlights_other": "{count} new highlights",
+        "inBooks": "in {count} books",
+        "inBooks_one": "in 1 book",
+        "inBooks_other": "in {count} books",
+        "since": "since {date}",
+        "showOnly": "Show Only These",
+        "exportBooks": "Export {count} Books",
+        "exportBooks_one": "Export 1 Book",
+        "exportBooks_other": "Export {count} Books",
+        "exporting": "Exporting…",
+        "exported": "✓ Exported",
+        "syncing": "Syncing with Kobo",
+        "syncProgress": "{done} of {count} books",
+        "syncProgress_one": "{done} of 1 book",
+        "syncProgress_other": "{done} of {count} books",
+        "noNews": "No new highlights",
+        "syncedAt": "synced at {time}",
+        "retry": "Try Again",
+        "chooseFolder": "Choose Folder…"
+      },
       "title": "Library",
+      "titleOf": "{reader}’s Library",
       "exportAll": "Export All",
       "exportSelected": "Export Selected",
       "clearSelection": "Clear Selection",
@@ -43,14 +98,23 @@
       "koboConnected": "Kobo connected",
       "koboDisconnected": "Kobo disconnected",
       "sync": "Sync",
+      "syncDisabledReason": "Connect your Kobo to sync",
+      "syncOtherReaderReason": "The connected Kobo belongs to {reader}",
+      "exportDisabledReason": "Wait for the sync to finish",
       "viewMode": "View mode",
       "gridViewLabel": "Grid view",
       "listViewLabel": "List view",
       "sort": {
-        "title": "Title (A-Z)",
-        "author": "Author (A-Z)",
+        "title": "Title (A–Z)",
+        "author": "Author (A–Z)",
         "recent": "Recently Read",
         "count": "Highlight Count"
+      },
+      "columns": {
+        "title": "Title",
+        "author": "Author",
+        "highlights": "Highlights",
+        "lastRead": "Last read"
       },
       "booksListLabel": "Book list"
     },
@@ -67,19 +131,24 @@
       "excluded": "Excluded",
       "withNotes": "With notes",
       "noChapter": "No chapter",
-      "showRemoved": "Show removed",
-      "deleteBook": "Delete book",
       "deleteBookTitle": "Delete this book?",
-      "deleteBookBody": "Its highlights were all removed from the Kobo. The book and its highlights leave the Library for good.",
+      "deleteBookBody": "All its highlights were removed from your Kobo. The book and its highlights will be permanently removed from the Library.",
       "deleteBookConfirm": "Delete",
       "cancel": "Cancel",
-      "deleteBookError": "Could not delete the book"
+      "deleteBookError": "Couldn’t delete the book."
     }
   },
   "book": {
     "highlightsCount": "{count} highlights",
     "highlightsCount_one": "1 highlight",
     "highlightsCount_other": "{count} highlights",
+    "newCount": "{count} new",
+    "newCount_one": "1 new",
+    "newCount_other": "{count} new",
+    "removedCount": "{count} removed from Kobo",
+    "removedCount_one": "1 removed from Kobo",
+    "removedCount_other": "{count} removed from Kobo",
+    "unknownAuthor": "Unknown author",
     "noHighlights": "No highlights",
     "select": "Select",
     "deselect": "Deselect",
@@ -93,47 +162,45 @@
     "copied": "Copied!",
     "copyError": "Copy failed",
     "removedFromKobo": "Removed from Kobo",
+    "new": "new",
+    "newBadge": "New",
+    "withNote": "with note",
     "note": "Note"
   },
   "settings": {
     "title": "Settings",
+    "windowTitle": "Settings",
     "export": {
-      "tab": "Export",
       "defaultFormat": "Default Format",
       "includeMetadata": "Include book metadata in exports",
       "exportPath": "Export folder",
       "chooseFolder": "Choose folder",
-      "path": "Path",
-      "browse": "Browse",
-      "browseLabel": "Browse for export folder",
-      "folderHint": "Markdown files will be saved in this folder.",
-      "readerFolderHint": "{name}'s books are exported to this folder.",
-      "metadataTitle": "Metadata to Include",
-      "metadataHint": "Select which metadata to include in the exported files.",
+      "metadataTitle": "Metadata to include",
       "metadata": {
         "author": "Author",
         "isbn": "ISBN",
         "publisher": "Publisher",
-        "dateLastRead": "Last Read Date",
+        "dateLastRead": "Last read date",
         "language": "Language",
         "description": "Description"
       },
-      "dateFormat": "Date Format",
+      "dateFormat": "Date format",
       "dateFormats": {
         "dd_mm_yyyy": "DD/MM/YYYY (24/01/2025)",
         "dd_month_yyyy": "24 January 2025",
         "iso8601": "ISO 8601 (2025-01-24)"
-      }
+      },
+      "filesGroup": "Files",
+      "choose": "Choose…",
+      "folderHelp": "{path} · {name}’s books are exported here.",
+      "folderHelpNoReader": "{path} · Books are exported here."
     },
     "appearance": {
-      "tab": "Appearance",
       "theme": "Theme",
       "themeLight": "Light",
       "themeDark": "Dark",
       "themeAuto": "Auto (follows system)",
       "viewMode": "Default view mode",
-      "viewModeGrid": "Grid",
-      "viewModeList": "List",
       "sortBy": "Sort by",
       "sortByTitle": "Title",
       "sortByAuthor": "Author",
@@ -144,34 +211,49 @@
         "en": "English",
         "pt": "Português"
       },
-      "themeSystem": "System",
-      "viewModeTitle": "Library View Mode"
+      "themeSystem": "System"
     },
     "actions": {
-      "save": "Save",
-      "cancel": "Cancel",
-      "reset": "Reset to defaults",
-      "saveChanges": "Save Changes"
+      "save": "Save"
     },
-    "close": "Close settings",
-    "tabs": "Settings tabs",
+    "tabs": {
+      "label": "Settings tabs",
+      "export": "Export",
+      "appearance": "Appearance",
+      "kobo": "Kobo"
+    },
     "reader": {
       "title": "Reader",
       "name": "Name"
     },
     "device": {
-      "title": "Device Connection",
-      "syncOnConnectHint": "Sync the Library when a known Kobo is connected.",
       "syncOnConnect": "Sync on connect"
-    },
-    "confirm": {
-      "reset": "Are you sure you want to reset to default settings?",
-      "unsaved": "You have unsaved changes. Do you want to exit without saving?"
     },
     "errors": {
       "save": "Error saving settings",
-      "reset": "Error resetting settings",
       "renameReader": "Couldn’t rename the reader"
+    },
+    "accent": {
+      "label": "Accent color",
+      "hint": "“System” uses the accent color you chose in macOS.",
+      "system": "System",
+      "swatches": {
+        "azulTinta": "Ink blue",
+        "verdeFolha": "Leaf green",
+        "turquesa": "Turquoise",
+        "laranja": "Orange",
+        "amarelo": "Yellow",
+        "rosa": "Pink",
+        "violeta": "Violet"
+      }
+    },
+    "kobo": {
+      "readerName": "Reader name",
+      "readerNameHelp": "Shown in the title with two or more readers.",
+      "syncOnConnectHelp": "Syncs when you connect a known Kobo.",
+      "readerPickHelp": "The reader whose name you want to change.",
+      "nameHelp": "Shown in the Library title.",
+      "syncOnConnectAllHelp": "Applies to every reader: syncs when you connect a known Kobo."
     }
   },
   "export": {
@@ -199,10 +281,15 @@
   "notifications": {
     "exportSuccess": "Export completed successfully",
     "exportError": "Error exporting highlights",
-    "syncError": "Could not sync the Kobo",
-    "openReaderError": "Could not open this reader's Library",
+    "booksExported": "{count} books exported",
+    "booksExported_one": "1 book exported",
+    "booksExported_other": "{count} books exported",
+    "syncError": "Couldn’t sync your Kobo.",
+    "openReaderError": "Couldn’t open this reader’s Library.",
     "createReaderError": "Couldn’t create the reader",
-    "associateKoboError": "Couldn’t assign this Kobo to the reader"
+    "associateKoboError": "Couldn’t assign this Kobo to the reader",
+    "showInFinder": "Show in Finder",
+    "showInFinderError": "Couldn’t show the export in Finder."
   },
   "errors": {
     "noDevice": "No Kobo device found",
@@ -211,17 +298,21 @@
     "exportPathInvalid": "Invalid export path",
     "generic": "An error occurred",
     "export": {
-      "folderNotWritable": "Couldn’t export to {folder}. Check that the disk is connected, or choose another folder in Settings.",
-      "diskFull": "Couldn’t export: the disk is full."
+      "diskFull": "Couldn’t export: the disk is full.",
+      "title": "Couldn’t export.",
+      "folderNotWritableDetail": "Khi can’t write to {folder}. Choose another folder.",
+      "folderNotWritableToast": "Couldn’t export to {folder}.",
+      "diskFullDetail": "The disk is full."
     }
   },
   "readers": {
     "label": "Reader",
-    "unknownKoboTitle": "New Kobo",
-    "unknownKoboSubtitle": "Whose Kobo is this? Its highlights go to that reader's Library.",
-    "existing": "Existing readers",
-    "newReader": "New reader",
-    "newReaderName": "Reader name",
+    "unknownKoboTitle": "Whose Kobo is this?",
+    "unknownKoboSubtitle": "Highlights go to the Library of whoever you choose.",
+    "choose": "Choose",
+    "newReaderOption": "New reader…",
+    "name": "Name",
+    "cancel": "Cancel",
     "create": "Create reader"
   },
   "updates": {
@@ -230,16 +321,18 @@
     },
     "available": {
       "title": "Khi {version} is available.",
+      "body": "Version {current} is installed. {number} versions have been released since. Khi restarts after installing.",
       "body_one": "Version {current} is installed. One version has been released since. Khi restarts after installing.",
-      "body_other": "Version {current} is installed. {count} versions have been released since. Khi restarts after installing.",
-      "whatsNew": "What’s New",
-      "bugFixes": "Bug Fixes",
+      "body_other": "Version {current} is installed. {number} versions have been released since. Khi restarts after installing.",
+      "notesLabel": "Release notes",
+      "whatsNew": "What’s new",
+      "bugFixes": "Bug fixes",
       "skip": "Skip This Version",
       "later": "Later",
       "install": "Install and Restart"
     },
     "checking": {
-      "title": "Checking for Updates…",
+      "title": "Checking for updates…",
       "cancel": "Cancel"
     },
     "upToDate": {
@@ -260,13 +353,13 @@
       "ok": "OK"
     },
     "error": {
-      "title": "Couldn’t Check for Updates",
+      "title": "Couldn’t check for updates.",
       "body": "Check your internet connection and try again.",
       "cancel": "Cancel",
       "retry": "Try Again"
     },
     "installError": {
-      "title": "Couldn’t Install the Update",
+      "title": "Couldn’t install the update.",
       "body": "Khi {version} wasn’t installed. Check your internet connection and try again."
     },
     "settings": {
@@ -278,6 +371,36 @@
       "lastCheckedOn": "Checked on {date}.",
       "never": "Not checked yet.",
       "checkNow": "Check Now"
+    }
+  },
+  "ui": {
+    "windowBar": {
+      "sync": "Sync with Kobo",
+      "syncing": "Syncing",
+      "syncingProgress": "Syncing · {done} of {count} books",
+      "syncingProgress_one": "Syncing · {done} of 1 book",
+      "syncingProgress_other": "Syncing · {done} of {count} books",
+      "export": "Export {count} Books",
+      "export_one": "Export 1 Book",
+      "export_other": "Export {count} Books",
+      "back": "Back",
+      "delete": "Delete book…",
+      "sort": "Sort by"
+    },
+    "viewGroup": {
+      "label": "View",
+      "grid": "View as grid",
+      "list": "View as list",
+      "gridTooltip": "Grid",
+      "listTooltip": "List"
+    },
+    "segmented": {
+      "label": "Show",
+      "all": "All",
+      "new": "New",
+      "withNotes": "With notes",
+      "noNew": "No new highlights in this book",
+      "noNotes": "No highlights with notes in this book"
     }
   }
 }

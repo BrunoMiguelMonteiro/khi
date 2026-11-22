@@ -1,0 +1,160 @@
+{
+  "_meta": {
+    "source": "Figma KHI (nU5CnQTJobxVE8mHMr7iZL), getLocalTextStylesAsync, exportado só de leitura em 2026-11-18",
+    "count": 13,
+    "conversions": [
+      "px sem unidade; letterSpacing 0 em todos; sem variáveis ligadas",
+      "family 'system' = SF Pro Text/Display no Figma; no código usa a fonte do sistema (-apple-system), que muda Text/Display sozinha a 20 pt",
+      "family 'literata' = Literata embutida; no Figma opsz fixo em 12, no código font-optical-sizing: auto (descrição do Leitura/Destaque)",
+      "nome da utilidade: text-<chave>"
+    ],
+    "exceptions": [
+      "São 13, não 11: Interface/Callout Medium e Interface/Body Semibold foram acrescentados depois do plano (Callout Medium confirmado pelo Bruno em 2026-11-17)"
+    ]
+  },
+  "styles": {
+    "title-1": {
+      "figma": "Interface/Title 1",
+      "family": "system",
+      "figmaFont": "SF Pro Display Bold",
+      "fontWeight": 700,
+      "fontStyle": "normal",
+      "fontSize": 22,
+      "lineHeight": 26,
+      "letterSpacing": 0,
+      "description": "Título do livro no detalhe. Tipo 1."
+    },
+    "title-3": {
+      "figma": "Interface/Title 3",
+      "family": "system",
+      "figmaFont": "SF Pro Text Semibold",
+      "fontWeight": 600,
+      "fontStyle": "normal",
+      "fontSize": 15,
+      "lineHeight": 20,
+      "letterSpacing": 0,
+      "description": "Título da janela; mensagem da faixa de novos. Tipo 1 e Biblioteca 4."
+    },
+    "body": {
+      "figma": "Interface/Body",
+      "family": "system",
+      "figmaFont": "SF Pro Text Regular",
+      "fontWeight": 400,
+      "fontStyle": "normal",
+      "fontSize": 13,
+      "lineHeight": 16,
+      "letterSpacing": 0,
+      "description": "Texto de interface e controlos. Tipo 1."
+    },
+    "body-medium": {
+      "figma": "Interface/Body Medium",
+      "family": "system",
+      "figmaFont": "SF Pro Text Medium",
+      "fontWeight": 500,
+      "fontStyle": "normal",
+      "fontSize": 13,
+      "lineHeight": 16,
+      "letterSpacing": 0,
+      "description": "Título do livro na lista; ligações. Tipo 1."
+    },
+    "body-semibold": {
+      "figma": "Interface/Body Semibold",
+      "family": "system",
+      "figmaFont": "SF Pro Text Semibold",
+      "fontWeight": 600,
+      "fontStyle": "normal",
+      "fontSize": 13,
+      "lineHeight": 16,
+      "letterSpacing": 0,
+      "description": "Cabeçalho dos grupos de formulário (Definições)."
+    },
+    "callout": {
+      "figma": "Interface/Callout",
+      "family": "system",
+      "figmaFont": "SF Pro Text Regular",
+      "fontWeight": 400,
+      "fontStyle": "normal",
+      "fontSize": 12,
+      "lineHeight": 15,
+      "letterSpacing": 0,
+      "description": "Metadados: autor, página, data. Tipo 1."
+    },
+    "callout-medium": {
+      "figma": "Interface/Callout Medium",
+      "family": "system",
+      "figmaFont": "SF Pro Text Medium",
+      "fontWeight": 500,
+      "fontStyle": "normal",
+      "fontSize": 12,
+      "lineHeight": 15,
+      "letterSpacing": 0,
+      "description": "Rótulo do segmento escolhido (Detalhe 3)."
+    },
+    "subheadline": {
+      "figma": "Interface/Subheadline",
+      "family": "system",
+      "figmaFont": "SF Pro Text Regular",
+      "fontWeight": 400,
+      "fontStyle": "normal",
+      "fontSize": 11,
+      "lineHeight": 14,
+      "letterSpacing": 0,
+      "description": "Tooltips. Tipo 1."
+    },
+    "subheadline-semibold": {
+      "figma": "Interface/Subheadline Semibold",
+      "family": "system",
+      "figmaFont": "SF Pro Text Semibold",
+      "fontWeight": 600,
+      "fontStyle": "normal",
+      "fontSize": 11,
+      "lineHeight": 14,
+      "letterSpacing": 0,
+      "description": "Etiquetas e contagens. Tipo 1."
+    },
+    "reading": {
+      "figma": "Leitura/Destaque",
+      "family": "literata",
+      "figmaFont": "Literata Regular",
+      "fontWeight": 400,
+      "fontStyle": "normal",
+      "fontSize": 16,
+      "lineHeight": 24,
+      "letterSpacing": 0,
+      "description": "Texto dos destaques; tamanho ótico automático no código. Tipo 2."
+    },
+    "cover-title": {
+      "figma": "Capa/Título",
+      "family": "literata",
+      "figmaFont": "Literata Medium",
+      "fontWeight": 500,
+      "fontStyle": "normal",
+      "fontSize": 15,
+      "lineHeight": 20,
+      "letterSpacing": 0,
+      "description": "Título nas capas sem imagem, até 4 linhas. Capas 1."
+    },
+    "cover-title-sm": {
+      "figma": "Capa/Título pequeno",
+      "family": "literata",
+      "figmaFont": "Literata Medium",
+      "fontWeight": 500,
+      "fontStyle": "normal",
+      "fontSize": 13,
+      "lineHeight": 16,
+      "letterSpacing": 0,
+      "description": "Título da Capa gerada a 96 × 144 (cabeçalho do Detalhe). Q-N: N1."
+    },
+    "cover-author": {
+      "figma": "Capa/Autor",
+      "family": "literata",
+      "figmaFont": "Literata Italic",
+      "fontWeight": 400,
+      "fontStyle": "italic",
+      "fontSize": 12,
+      "lineHeight": 16,
+      "letterSpacing": 0,
+      "description": "Autor nas capas sem imagem, uma linha. Capas 1."
+    }
+  }
+}

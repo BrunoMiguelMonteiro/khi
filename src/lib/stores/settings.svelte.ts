@@ -10,8 +10,11 @@
  * This store uses the Backend (Rust) as the Single Source of Truth for defaults.
  */
 
-import { commands } from "../bindings";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { commands, type SettingsPatch_Deserialize as SettingsPatch } from "../bindings";
 import { locale } from "$lib/i18n";
+import { applyAccent, getSystemAccent, listenSystemAccent, type SystemAccent } from "$lib/accent/accent";
+import { currentWindowLabel } from "$lib/window";
 import type {
   AppSettings,
   ExportConfig,
@@ -21,6 +24,73 @@ import type {
   ViewMode,
   SortPreference,
 } from "../types";
+import type { AccentChoice, SettingsPane } from "../bindings";
+
+/**
+ * What the Settings window edits (the fields of `SettingsPanel`), by leaf:
+ * the rest of the file belongs to the main window (view, sort, window size).
+ * Every leaf it writes is here, so a `settings-changed` from the main window
+ * cannot undo a choice still on its way to Rust.
+ */
+export const SETTINGS_WINDOW_FIELDS = [
+  "exportConfig.exportPath",
+  "exportConfig.metadata",
+  "exportConfig.dateFormat",
+  "language",
+  "uiPreferences.theme",
+  "uiPreferences.accentColor",
+  "uiPreferences.settingsPane",
+  "uiPreferences.syncOnConnect",
+  "uiPreferences.checkForUpdates",
+] as const;
+
+const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+
+function read(settings: AppSettings, path: string): unknown {
+  return path.split(".").reduce<any>((node, key) => node?.[key], settings);
+}
+
+function write(settings: AppSettings, path: string, value: unknown) {
+  const keys = path.split(".");
+  const last = keys.pop()!;
+  const parent = keys.reduce<any>((node, key) => node[key], settings);
+  parent[last] = copy(value);
+}
+
+function same(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (!a || !b || typeof a !== "object" || typeof b !== "object") return false;
+  const keys = Object.keys(a);
+  return (
+    keys.length === Object.keys(b).length &&
+    keys.every((key) => same((a as any)[key], (b as any)[key]))
+  );
+}
+
+/** A copy of `target` with `fields` taken from `source`. */
+function withFields(
+  target: AppSettings,
+  source: AppSettings,
+  fields: readonly string[],
+): AppSettings {
+  const out = copy(target);
+  for (const path of fields) write(out, path, read(source, path));
+  return out;
+}
+
+/**
+ * The patch that writes `fields` as they are in `source`. Each leaf goes by
+ * its own name (`uiPreferences.theme` → `theme`), as `SettingsPatch` in Rust.
+ */
+export function patchOf(source: AppSettings, fields: readonly string[]): SettingsPatch {
+  const patch: Record<string, unknown> = {};
+  for (const path of fields) {
+    const value = read(source, path);
+    // A leaf the settings do not have is left out, as Rust's `None`
+    if (value !== undefined) patch[path.split(".").pop()!] = copy(value);
+  }
+  return patch as SettingsPatch;
+}
 
 /**
  * Initial empty state to satisfy TypeScript before Rust provides actual values.
@@ -48,8 +118,11 @@ function createInitialState(): AppSettings {
       showOnboarding: true,
       libraryViewMode: "grid",
       librarySort: "title",
+      librarySortReversed: false,
       syncOnConnect: true,
       checkForUpdates: true,
+      settingsPane: "kobo",
+      accentColor: "system",
     },
     language: "en",
     version: "0.1.0",
@@ -113,8 +186,18 @@ export function applyTheme(
 class SettingsStore {
   state = $state<AppSettings>(createInitialState());
   isLoading = $state(false);
-  /** The language on disk, which the export uses; see revertUnsavedLanguage. */
-  private savedLanguage: Language | null = null;
+  /** The settings have been read once, from the file or from Rust's defaults. */
+  loaded = $state(false);
+  /** The accent chosen in System Settings, for the «Sistema» accent. */
+  systemAccent = $state<SystemAccent>({ name: "multicolor", light: "#007AFF", dark: "#007AFF" });
+  /** The OS is dark, for the theme that follows it. */
+  private systemDark = $state(false);
+  /** `main` or `settings`: each window has its own store (see initialize). */
+  private windowLabel = "main";
+  /** The file as this window last knew it: loaded, saved or announced. */
+  private saved: AppSettings | null = null;
+  private unlistenChanges: UnlistenFn | null = null;
+  private unlistenAccent: (() => void) | null = null;
   error = $state<string | null>(null);
 
   // Derived state for easier access
@@ -136,6 +219,24 @@ class SettingsStore {
       $effect(() => {
         const language = this.state.language;
         if (language) locale.set(language);
+      });
+      // The OS appearance, for the accent of a theme that follows it
+      $effect(() => {
+        if (typeof window === "undefined" || !window.matchMedia) return;
+        const query = window.matchMedia("(prefers-color-scheme: dark)");
+        this.systemDark = query.matches;
+        const update = (event: { matches: boolean }) => (this.systemDark = event.matches);
+        query.addEventListener("change", update);
+        return () => query.removeEventListener("change", update);
+      });
+      // The accent's tones, for Claro or Escuro: inline values beat `.dark`, so
+      // they are written again whenever the mode, the choice or macOS changes
+      $effect(() => {
+        if (typeof document === "undefined") return;
+        const prefs = this.state.uiPreferences;
+        if (!prefs?.accentColor) return;
+        const dark = prefs.theme === "dark" || (prefs.theme !== "light" && this.systemDark);
+        applyAccent(prefs.accentColor, this.systemAccent, dark ? "escuro" : "claro");
       });
     });
   }
@@ -196,22 +297,31 @@ class SettingsStore {
     this.state.language = language;
   }
 
-  /** Settings closed without Save: the interface goes back to the saved
-   * language, the one the exported Markdown is written in. */
-  revertUnsavedLanguage() {
-    if (this.savedLanguage) this.state.language = this.savedLanguage;
-  }
-
   setTheme(theme: ThemePreference) {
     this.state.uiPreferences.theme = theme;
+  }
+
+  setAccentColor(accent: AccentChoice) {
+    this.state.uiPreferences.accentColor = accent;
+  }
+
+  /** The Settings pane open last, reopened with the window. */
+  setSettingsPane(pane: SettingsPane) {
+    this.state.uiPreferences.settingsPane = pane;
   }
 
   setViewMode(mode: ViewMode) {
     this.state.uiPreferences.libraryViewMode = mode;
   }
 
+  /** A new criterion starts in its natural direction. */
   setSortPreference(sort: SortPreference) {
     this.state.uiPreferences.librarySort = sort;
+    this.state.uiPreferences.librarySortReversed = false;
+  }
+
+  setSortReversed(reversed: boolean) {
+    this.state.uiPreferences.librarySortReversed = reversed;
   }
 
   setWindowSize(width: number, height: number) {
@@ -253,7 +363,7 @@ class SettingsStore {
     try {
       const loadedSettings = await commands.loadSettings();
       this.state = loadedSettings;
-      this.savedLanguage = loadedSettings.language;
+      this.saved = copy(loadedSettings);
       // $effect will apply theme automatically when state changes
     } catch (err) {
       console.error("Failed to load settings:", err);
@@ -263,43 +373,93 @@ class SettingsStore {
       await this.resetSettings();
     } finally {
       this.isLoading = false;
+      this.loaded = true;
     }
   }
 
   /**
-   * Save settings to disk via Tauri
+   * Writes only `patch` over the file, in Rust and under its lock; every
+   * window then gets the file as `settings-changed`, the writer included.
+   * The answer is only for the error and the file it returns: it is not
+   * applied, because it can arrive after a newer event (the events leave Rust
+   * under the lock, so they arrive in order; an answer has no such order).
    */
-  async save() {
-    this.isLoading = true;
-    this.error = null;
+  async persist(patch: SettingsPatch): Promise<AppSettings> {
+    return commands.updateSettings(patch);
+  }
 
+  /**
+   * Writes `fields` as they are in the state now, at the moment a control
+   * changes them (the Settings window has no Save). The state is never taken
+   * from the answer: a second choice made meanwhile is the newer one, and
+   * Rust's lock keeps the writes in order. If Rust refuses, the fields go
+   * back to what the file has and the error is kept.
+   */
+  async commit(fields: readonly string[]): Promise<void> {
+    this.error = null;
     try {
-      await commands.saveSettings(this.state);
-      this.savedLanguage = this.state.language;
+      await this.persist(patchOf(this.state, fields));
     } catch (err) {
       console.error("Failed to save settings:", err);
-      this.error =
-        err instanceof Error ? err.message : "Failed to save settings";
+      this.error = typeof err === "string" ? err : err instanceof Error ? err.message : "Failed to save settings";
+      if (this.saved) for (const path of fields) write(this.state, path, read(this.saved, path));
       throw err;
-    } finally {
-      this.isLoading = false;
     }
-  }
-
-  /**
-   * Reset settings to defaults and save
-   */
-  async resetAndSave() {
-    await this.resetSettings();
-    await this.save();
   }
 
   /**
    * Initialize settings on app startup
    */
   async initialize() {
+    this.windowLabel = currentWindowLabel();
     await this.load();
     // $effect in constructor will handle theme setup automatically
+    await this.listenForChanges();
+    await this.followSystemAccent();
+  }
+
+  /** «Sistema» is the accent in System Settings, now and when it changes. */
+  private async followSystemAccent() {
+    try {
+      const current = await getSystemAccent();
+      if (current) this.systemAccent = current;
+      this.unlistenAccent?.();
+      this.unlistenAccent = await listenSystemAccent((accent) => (this.systemAccent = accent));
+    } catch (err) {
+      console.error("Failed to follow the system accent:", err);
+    }
+  }
+
+  /** Rust emits `settings-changed` with the file after every save. */
+  private async listenForChanges() {
+    this.unlistenChanges?.();
+    try {
+      this.unlistenChanges = await listen<AppSettings>("settings-changed", (event) =>
+        this.applySaved(event.payload),
+      );
+    } catch (err) {
+      console.error("Failed to listen for settings changes:", err);
+    }
+  }
+
+  /**
+   * The main window takes only the Settings fields this save changed, so its
+   * own view mode and sort stay. The Settings window keeps its unsaved draft
+   * and takes the rest.
+   */
+  private applySaved(saved: AppSettings) {
+    const base = this.saved;
+    if (this.windowLabel === "settings") {
+      const touched = base
+        ? SETTINGS_WINDOW_FIELDS.filter((path) => !same(read(this.state, path), read(base, path)))
+        : [];
+      this.state = withFields(saved, this.state, touched);
+    } else {
+      for (const path of SETTINGS_WINDOW_FIELDS) {
+        if (!base || !same(read(saved, path), read(base, path))) write(this.state, path, read(saved, path));
+      }
+    }
+    this.saved = copy(saved);
   }
 
 }

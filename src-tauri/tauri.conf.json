@@ -19,7 +19,10 @@
         "minHeight": 600,
         "center": true,
         "visible": false,
-        "theme": null
+        "theme": null,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": { "x": 16, "y": 28 }
       }
     ],
     "security": {
@@ -48,9 +51,12 @@
     ],
     "macOS": {
       "frameworks": [],
-      "minimumSystemVersion": "11.0",
+      "minimumSystemVersion": "13.3",
       "signingIdentity": null,
-      "entitlements": "Entitlements.plist"
+      "entitlements": "Entitlements.plist",
+      "files": {
+        "Resources/Assets.car": "icons/Assets.car"
+      }
     },
     "category": "Productivity",
     "shortDescription": "Export Kobo highlights to Markdown",

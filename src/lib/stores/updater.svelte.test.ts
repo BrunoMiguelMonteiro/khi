@@ -195,9 +195,163 @@ describe('updater', () => {
 		expect(relaunch).toHaveBeenCalledTimes(1);
 	});
 
+	it('check_does_not_abort_download', async () => {
+		const { updater } = await freshStore();
+		let finish!: () => void;
+		const update = fakeUpdate();
+		update.download.mockImplementation(async (onEvent: (e: unknown) => void) => {
+			onEvent({ event: 'Started', data: { contentLength: 100 } });
+			await new Promise<void>((resolve) => (finish = resolve));
+			onEvent({ event: 'Progress', data: { chunkLength: 100 } });
+		});
+		check.mockResolvedValue(update);
+		await updater.checkNow();
+		const installing = updater.install(() => false);
+		expect(updater.state).toBe('downloading');
+		check.mockClear();
+
+		// «Check for Updates…» in the menu, or «Check Now» in Settings, mid-download
+		await updater.checkNow();
+		expect(check).not.toHaveBeenCalled();
+		expect(updater.state).toBe('downloading');
+
+		finish();
+		await installing;
+		expect(updater.progress).toEqual({ done: 100, total: 100 });
+		expect(update.install).toHaveBeenCalled();
+		expect(relaunch).toHaveBeenCalledTimes(1);
+	});
+
+	it('check_keeps_an_installed_update', async () => {
+		const { updater } = await freshStore();
+		check.mockResolvedValue(fakeUpdate());
+		await updater.checkNow();
+		await updater.install(() => true);
+		check.mockClear();
+
+		await updater.checkNow();
+		expect(updater.state).toBe('installed');
+		updater.dismissInstalled();
+		await updater.checkNow();
+		expect(updater.state).toBe('restartPending');
+		expect(check).not.toHaveBeenCalled();
+
+		// The restart it waits for still happens
+		await updater.restartWhenIdle(false);
+		expect(relaunch).toHaveBeenCalledTimes(1);
+	});
+
 	it('never restarts when no update was installed', async () => {
 		const { updater } = await freshStore();
 		await updater.restartWhenIdle(false);
 		expect(relaunch).not.toHaveBeenCalled();
+	});
+
+	it('two manual checks at once make one check: a double click on «Check Now»', async () => {
+		const { updater } = await freshStore();
+		let answer: (value: unknown) => void = () => {};
+		check.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+
+		const first = updater.checkNow();
+		const second = updater.checkNow();
+		answer(null);
+		await Promise.all([first, second]);
+
+		expect(check).toHaveBeenCalledTimes(1);
+		expect(updater.state).toBe('upToDate');
+	});
+
+	it('a launch check does not start while a manual one is on screen', async () => {
+		const { updater } = await freshStore();
+		let answer: (value: unknown) => void = () => {};
+		check.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+
+		const manual = updater.checkNow();
+		await updater.checkOnLaunch(true);
+		answer(null);
+		await manual;
+
+		expect(check).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('updater · between windows', () => {
+	it('«busy» is checking, downloading, installing and waiting to restart, not the dialogs the user answers', async () => {
+		const { isUpdateBusy } = await freshStore();
+
+		const busy = (['idle', 'checking', 'upToDate', 'available', 'downloading', 'installing', 'installed', 'restartPending', 'error'] as const).filter(
+			isUpdateBusy
+		);
+
+		expect(busy).toEqual(['checking', 'downloading', 'installing', 'installed', 'restartPending']);
+	});
+
+	it('reports its state and when it last checked as text, which an event can carry', async () => {
+		const { updater } = await freshStore();
+		check.mockResolvedValue(null);
+		expect(updater.snapshot()).toEqual({ state: 'idle', lastChecked: null, busy: false });
+
+		await updater.checkNow();
+
+		const snapshot = updater.snapshot();
+		expect(snapshot.state).toBe('upToDate');
+		expect(snapshot.lastChecked).toBe(updater.lastChecked!.toISOString());
+	});
+
+	it('the silent check on launch counts as busy in the snapshot, though it shows nothing', async () => {
+		const { updater } = await freshStore();
+		let answer!: (update: null) => void;
+		check.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+
+		const launch = updater.checkOnLaunch(true);
+
+		expect(updater.state).toBe('idle');
+		expect(updater.snapshot()).toMatchObject({ state: 'idle', busy: true });
+		expect(updater.busy).toBe(true);
+		answer(null);
+		await launch;
+		expect(updater.snapshot()).toMatchObject({ state: 'idle', busy: false });
+		expect(updater.busy).toBe(false);
+	});
+
+	it('the silent check that fails stops counting as busy too', async () => {
+		const { updater } = await freshStore();
+		check.mockRejectedValue(new Error('offline'));
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+
+		await updater.checkOnLaunch(true);
+
+		expect(updater.busy).toBe(false);
+	});
+
+	it('is busy in the snapshot while it downloads, and a window that adopts a silent check is busy too', async () => {
+		const { updater } = await freshStore();
+		updater.state = 'downloading';
+		expect(updater.snapshot().busy).toBe(true);
+
+		updater.adopt({ state: 'idle', lastChecked: null, busy: true });
+		expect(updater.busy).toBe(true);
+		updater.adopt({ state: 'idle', lastChecked: null, busy: false });
+		expect(updater.busy).toBe(false);
+	});
+
+	it('takes the state another window reports, with the date turned back into a Date', async () => {
+		const { updater } = await freshStore();
+
+		updater.adopt({ state: 'checking', lastChecked: '2026-11-21T17:10:00.000Z', busy: true });
+
+		expect(updater.state).toBe('checking');
+		expect(updater.lastChecked).toEqual(new Date('2026-11-21T17:10:00.000Z'));
+		updater.adopt({ state: 'idle', lastChecked: null, busy: false });
+		expect(updater.lastChecked).toBeNull();
+	});
+
+	it('ignores a date it cannot read', async () => {
+		const { updater } = await freshStore();
+		updater.adopt({ state: 'idle', lastChecked: '2026-11-21T17:10:00.000Z', busy: false });
+
+		updater.adopt({ state: 'idle', lastChecked: 'not a date', busy: false });
+
+		expect(updater.lastChecked).toBeNull();
 	});
 });

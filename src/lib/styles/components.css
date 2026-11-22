@@ -1,0 +1,31 @@
+/*
+  Utilities shared by the Phase 2 components (src/lib/components/ui/).
+
+  focus-ring: an outline, not a box-shadow, so it keeps the shadow-sombra-* shadows and the
+  contrast-more:inset-ring borders. Use focus-visible:focus-ring on the focused element, or
+  group-focus-visible/<name>:focus-ring when another element paints the ring.
+*/
+@utility focus-ring {
+  outline: var(--stroke-ring) solid
+    color-mix(in srgb, var(--ring) calc(var(--ring-opacity) * 100%), transparent);
+  outline-offset: 0;
+}
+
+/*
+  Barra de progresso indeterminada (Q2, Task 46): a segment of a third slides across the track in a
+  loop. `translate`, not `transform`, because Tailwind's translate-x-* utilities (the segment's resting
+  place under Reduzir movimento) set `translate`: from -100% of the segment's width (off the left
+  edge) to 300% (off the right edge of a track three segments wide).
+*/
+@keyframes indeterminate-slide {
+  from {
+    translate: -100% 0;
+  }
+  to {
+    translate: 300% 0;
+  }
+}
+
+@utility animate-indeterminate {
+  animation: indeterminate-slide 1.4s ease-in-out infinite;
+}

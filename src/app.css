@@ -1,4 +1,219 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss' source(none);
+@import './lib/styles/tokens.css';
+@import './lib/styles/typography.css';
+@import 'tw-animate-css';
+@import './lib/styles/shadcn-variants.css';
+@import './lib/styles/components.css';
+@source './**/*.{html,js,svelte,ts}';
+/* Tests and the test helpers name classes (and words like `static`); scanning them could emit unused
+   CSS or hide a class a component lacks. */
+@source not './**/*.test.ts';
+@source not './lib/test/**';
 
+@custom-variant dark (&:where(.dark, .dark *));
+/* v3 selector: specificity 0,3,0 so group-hover:opacity-100 beats disabled:opacity-50 */
+@custom-variant group-hover (.group:hover &);
+
+@theme {
+  --color-neutral-50: #F9FAFB;
+  --color-neutral-100: #F3F4F6;
+  --color-neutral-200: #E5E7EB;
+  --color-neutral-300: #D1D5DB;
+  --color-neutral-400: #9CA3AF;
+  --color-neutral-500: #6B7280;
+  --color-neutral-600: #525252;
+  --color-neutral-700: #404040;
+  --color-neutral-800: #262626;
+  --color-neutral-900: #171717;
+  --color-neutral-950: #0A0A0A;
+
+  /* Tailwind v3 values of the default-palette shades the old UI uses; v4's oklch palette differs slightly. */
+  --color-red-50: #fef2f2;
+  --color-red-200: #fecaca;
+  --color-red-400: #f87171;
+  --color-red-600: #dc2626;
+  --color-red-700: #b91c1c;
+  --color-red-800: #991b1b;
+  --color-red-900: #7f1d1d;
+  --color-orange-400: #fb923c;
+  --color-orange-600: #ea580c;
+  --color-amber-400: #fbbf24;
+  --color-amber-700: #b45309;
+  --color-green-400: #4ade80;
+  --color-green-500: #22c55e;
+  --color-green-600: #16a34a;
+  --color-teal-400: #2dd4bf;
+  --color-teal-600: #0d9488;
+  --color-blue-400: #60a5fa;
+  --color-blue-500: #3b82f6;
+  --color-blue-600: #2563eb;
+  --color-indigo-400: #818cf8;
+  --color-indigo-600: #4f46e5;
+  --color-purple-400: #c084fc;
+  --color-purple-600: #9333ea;
+  --color-pink-400: #f472b6;
+  --color-pink-600: #db2777;
+}
+
+/*
+  Tailwind v3 parity for the old UI (redesign Task 1). Each rule below restores
+  a v3 default that v4 changed, so the computed styles stay identical. They go
+  away as the old components are replaced (redesign Phase 5).
+*/
+@theme {
+  --font-sans:
+    ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    'Segoe UI Symbol', 'Noto Color Emoji';
+  --radius-full: 9999px;
+}
+
+/* Task 37: the selection box on a cover (Figma E1). Over the cover, so the same in both themes. */
+@theme static {
+  --color-selection-box: rgb(0 0 0 / 0.1);
+  --color-selection-box-hover: rgb(0 0 0 / 0.3);
+  --shadow-selection-box: inset 0 0 0 2px #fff, 0 0 4px rgb(0 0 0 / 0.35), 0 1px 2px rgb(0 0 0 / 0.2);
+}
+
+/*
+  Task 41: the empty selection box in the list (Figma M2). The values are the Figma variables neutral/300 and neutral/400
+  (#8E8E92, #636366), not the --color-neutral-300/400 above. Measured: Light 3.26:1 on background and 5.37:1 on accent;
+  Dark 5.11:1 and 4.27:1. Written after tokens.css, so .dark wins over :root on <html class="dark">.
+*/
+:root {
+  --selection-outline: #8E8E92;
+  --selection-outline-hover: #636366;
+}
+.dark {
+  --selection-outline: #8E8E92;
+  --selection-outline-hover: #8E8E92;
+}
+@theme inline {
+  --color-selection-outline: var(--selection-outline);
+  --color-selection-outline-hover: var(--selection-outline-hover);
+}
+
+/*
+  Task 52: scroll bar thumb. Not Figma variables, so they live here (tokens.css is locked to design/tokens.json).
+  Light #D1D1D1 1.5:1 (hover #B8B8B8 2.0:1), dark #4A4A4A 1.9:1 (hover #5C5C5C 2.5:1): both kept quiet, as Bruno asked. Contrast of the thumb on --background:
+  high contrast light #8D8D91 3.3:1 (hover #6E6E73 5.1:1), high contrast dark #A1A1A6 6.5:1 (hover #C7C7CC 9.9:1).
+  scrollbar-color is inherited, so setting it on :root reaches every overflow container.
+*/
+:root {
+  --scrollbar-thumb: #D1D1D1;
+  --scrollbar-thumb-hover: #B8B8B8;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+.dark {
+  --scrollbar-thumb: #4A4A4A;
+  --scrollbar-thumb-hover: #5C5C5C;
+}
+@media (prefers-contrast: more) {
+  :root {
+    --scrollbar-thumb: #8D8D91;
+    --scrollbar-thumb-hover: #6E6E73;
+  }
+  .dark {
+    --scrollbar-thumb: #A1A1A6;
+    --scrollbar-thumb-hover: #C7C7CC;
+  }
+}
+
+/* Only WebKit without scrollbar-color (before Safari 26.2); newer macOS keeps its native overlay behaviour. */
+@supports not (scrollbar-color: red transparent) {
+  ::-webkit-scrollbar {
+    width: 15px;
+    height: 15px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb);
+    border-radius: 9999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+    min-height: 32px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover);
+  }
+}
+
+@theme inline {
+  --drop-shadow-md: 0 4px 3px rgb(0 0 0 / 0.07), 0 2px 2px rgb(0 0 0 / 0.06);
+}
+
+@layer base {
+  /* v3 default border colour (gray-200) instead of v4's currentcolor. */
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-neutral-200, currentcolor);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    opacity: 1;
+    color: var(--color-neutral-400);
+  }
+
+  button,
+  [role='button'] {
+    cursor: pointer;
+  }
+
+  :disabled {
+    cursor: default;
+  }
+}
+
+/* v3 transition property lists (v4 adds outline-color, gradient stops and translate/scale/rotate). */
+@utility transition-colors {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+}
+
+@utility transition-transform {
+  transition-property: transform;
+}
+
+/* v3 outline-none: a transparent 2px outline, not outline-style: none. */
+@utility outline-hidden {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+
+/* v3 gradients: sRGB interpolation and no explicit stop positions. */
+@utility bg-linear-to-br {
+  background-image: linear-gradient(to bottom right, var(--tw-gradient-from), var(--tw-gradient-to));
+}
+
+/* v3 translate and scale went through transform; v4 uses the translate and scale properties. */
+@utility translate-y-0 {
+  transform: translateY(0);
+  translate: initial;
+}
+
+@utility -translate-y-0.5 {
+  transform: translateY(-0.125rem);
+  translate: initial;
+}
+
+@utility scale-105 {
+  transform: scale(1.05);
+  scale: initial;
+}
+
+/*
+  v3 opacity modifiers were plain rgb() with alpha; v4 mixes in oklab, which
+  WebKit composites 1 unit differently on this light hover background.
+  :not(:where(.dark, .dark *)) keeps dark:hover:bg-neutral-800/40 winning.
+*/
+@layer utilities {
+  @media (hover: hover) {
+    .hover\:bg-neutral-100\/70:hover:not(:where(.dark, .dark *)) {
+      background-color: rgb(243 244 246 / 0.7);
+    }
+  }
+}

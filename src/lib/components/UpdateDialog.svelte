@@ -1,11 +1,17 @@
 <!--
-  UpdateDialog: the update flow (Q-U · U3 and states 2–6).
-  Renders nothing while the updater is idle or waiting to restart.
+  UpdateDialog: the update flow (Q-U · U3 and states 2–7), on the Janela modal (ui/dialog).
+  One window from the first phase to the last (Q1): it opens and closes with Movimento 4, and between
+  phases only its content changes, with no animation, and its width: 480 in the U3 (Figma 78:20401),
+  380 in the others (78:23921…80:26508). Renders nothing while the updater is idle or waiting to restart.
 -->
 <script lang="ts">
+	import type { Update } from '@tauri-apps/plugin-updater';
 	import { _, locale } from '$lib/i18n';
-	import Button from './Button.svelte';
-	import { updater, releasesSince } from '../stores/updater.svelte';
+	import { versionCountWord } from '$lib/version-count';
+	import { updater, releasesSince, type UpdaterState } from '../stores/updater.svelte';
+	import { Button } from './ui/button';
+	import * as Dialog from './ui/dialog';
+	import { Progress } from './ui/progress';
 
 	interface Props {
 		/** Whether an export or Sync is running: then the restart waits. */
@@ -14,11 +20,29 @@
 
 	let { isBusy }: Props = $props();
 
-	const phase = $derived(updater.state);
-	const update = $derived(updater.update);
+	const visible = $derived(updater.state !== 'idle' && updater.state !== 'restartPending');
+
+	// The window exists, and takes its Bits UI ids, only from the first phase until it has finished closing:
+	// the page lives for hours and the update flow runs once a day at most
+	let mounted = $state(false);
+	$effect.pre(() => {
+		if (visible) mounted = true;
+	});
+
+	// The window fades out after the updater has gone idle, which also empties it: it keeps showing the
+	// phase it had, so the U3 does not shrink to 380 and show nothing while it closes
+	let last = $state.raw<{ phase: UpdaterState; update: Update | null }>({ phase: 'checking', update: null });
+	$effect.pre(() => {
+		if (visible) last = { phase: updater.state, update: updater.update };
+	});
+	const phase = $derived(visible ? updater.state : last.phase);
+	const update = $derived(visible ? updater.update : last.update);
+
 	const lang = $derived($locale ?? 'en');
 	const releases = $derived(update ? releasesSince(update.rawJson, update.currentVersion, lang) : []);
-	const visible = $derived(phase !== 'idle' && phase !== 'restartPending');
+	const count = $derived(Math.max(releases.length, 1));
+	// In English the number opens its sentence
+	const number = $derived(versionCountWord(count, lang, { sentenceStart: lang === 'en' }));
 
 	function formatDate(iso: string): string {
 		const date = new Date(`${iso}T00:00:00`);
@@ -34,205 +58,126 @@
 		updater.progress.total ? Math.min(100, (updater.progress.done / updater.progress.total) * 100) : null
 	);
 
-	let dialog = $state<HTMLDivElement>();
-
-	// As in macOS, no button takes focus when the dialog opens (Q-E): the dialog
-	// itself does, so focus never stays behind it, and Return presses the default
-	// button. Runs again when a phase removes the focused button.
-	$effect(() => {
-		void phase;
-		if (dialog && !dialog.contains(document.activeElement)) dialog.focus();
-	});
-
-	/** The trailing, prominent button of each phase. */
-	function pressDefault() {
-		if (phase === 'available') updater.install(isBusy);
-		else if (phase === 'upToDate') updater.close();
-		else if (phase === 'installed') updater.dismissInstalled();
-		else if (phase === 'error') updater.retry();
-	}
-
-	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'Enter') {
-			// A focused button answers Return itself
-			const target = event.target as Node | null;
-			if (!dialog?.contains(target) || target instanceof HTMLButtonElement) return;
-			event.preventDefault();
-			pressDefault();
-			return;
-		}
-		if (event.key !== 'Escape') return;
-		// Settings may be open underneath: Escape closes only this dialog
-		event.stopPropagation();
-		if (phase === 'checking' || phase === 'upToDate' || phase === 'available' || phase === 'error' || phase === 'downloading') {
-			updater.close();
-		} else if (phase === 'installed') {
-			updater.dismissInstalled();
-		}
+	/** Esc, ⌘., Cancel and Later: «Installed» is answered as OK, and while it installs nothing closes. */
+	function cancel() {
+		if (phase === 'installing') return;
+		if (phase === 'installed') updater.dismissInstalled();
+		else updater.close();
 	}
 </script>
 
-<svelte:window onkeydowncapture={visible ? handleKeydown : undefined} />
-
-{#if visible}
-	<div
-		bind:this={dialog}
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 outline-none"
-		role="alertdialog"
-		tabindex="-1"
-		aria-modal="true"
-		aria-labelledby="update-title"
-		aria-describedby={phase === 'checking' ? undefined : 'update-body'}
+{#if mounted}
+<Dialog.Root
+	bind:open={() => visible, (isOpen) => !isOpen && cancel()}
+	onOpenChangeComplete={(isOpen) => {
+		if (!isOpen && !visible) mounted = false;
+	}}
+>
+	<!-- As in macOS no button takes focus on opening (Q-E): Bits' focus scope puts it on the window itself, and
+	     takes it back there when a phase removes the focused button (tested) -->
+	<Dialog.Content
 		data-testid="update-dialog"
+		class={phase === 'available' ? 'w-120' : undefined}
+		interactOutsideBehavior="ignore"
+		onEscapeKeydown={(event) => phase === 'installing' && event.preventDefault()}
 	>
 		{#if phase === 'available' && update}
-			<div class="w-full max-w-lg rounded-xl bg-white dark:bg-neutral-900 p-6 shadow-xl flex flex-col gap-4">
-				<div class="flex flex-col gap-2">
-					<h2 id="update-title" class="m-0 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-						{$_('updates.available.title', { version: update.version })}
-					</h2>
-					<p id="update-body" class="m-0 text-sm text-neutral-700 dark:text-neutral-300">
-						{$_('updates.available.body', { current: update.currentVersion, count: Math.max(releases.length, 1) })}
-					</p>
-				</div>
+			<Dialog.Title id="update-title">{$_('updates.available.title', { version: update.version })}</Dialog.Title>
+			<Dialog.Description>
+				{$_('updates.available.body', { current: update.currentVersion, count, number })}
+			</Dialog.Description>
 
-				{#if releases.length > 0}
-					<!-- Scrollable regions must be focusable so keyboard users can scroll them (axe: scrollable-region-focusable). -->
-					<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-					<div
-						class="max-h-72 overflow-y-auto rounded-lg bg-neutral-100 dark:bg-neutral-800 px-5 py-4 flex flex-col gap-5"
-						data-testid="release-notes"
-						role="region"
-						aria-labelledby="update-title"
-						tabindex="0"
-					>
-						{#each releases as release (release.version)}
-							<section class="flex flex-col gap-3">
-								<h3 class="m-0 flex items-baseline gap-2 text-sm">
-									<span class="font-semibold text-neutral-900 dark:text-neutral-100">Khi {release.version}</span>
-									{#if release.date}
-										<span class="font-normal text-neutral-500 dark:text-neutral-400">{formatDate(release.date)}</span>
-									{/if}
-								</h3>
-								{#if release.whatsNew.length > 0}
+			{#if releases.length > 0}
+				<!-- Scrollable regions must be focusable so keyboard users can scroll them (axe: scrollable-region-focusable). -->
+				<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+				<div
+					class="flex h-58 flex-col gap-4 overflow-y-auto rounded-group bg-muted p-4 outline-none focus-visible:focus-ring"
+					data-testid="release-notes"
+					role="region"
+					aria-label={$_("updates.available.notesLabel")}
+					tabindex="0"
+				>
+					{#each releases as release (release.version)}
+						<section class="flex flex-col gap-2">
+							<h3 class="m-0 flex items-baseline gap-2">
+								<span class="text-body-semibold text-foreground">Khi {release.version}</span>
+								{#if release.date}
+									<span class="text-callout text-muted-foreground">{formatDate(release.date)}</span>
+								{/if}
+							</h3>
+							{#each [{ title: $_('updates.available.whatsNew'), items: release.whatsNew }, { title: $_('updates.available.bugFixes'), items: release.bugFixes }] as group (group.title)}
+								{#if group.items.length > 0}
 									<div class="flex flex-col gap-1">
-										<h4 class="m-0 text-xs font-semibold text-neutral-600 dark:text-neutral-400">{$_('updates.available.whatsNew')}</h4>
-										<ul class="m-0 pl-5 list-disc text-sm text-neutral-800 dark:text-neutral-200 flex flex-col gap-1">
-											{#each release.whatsNew as item}<li>{item}</li>{/each}
+										<h4 class="m-0 text-subheadline-semibold text-muted-foreground">{group.title}</h4>
+										<ul class="m-0 flex list-outside list-disc flex-col gap-1 pl-5 text-body text-foreground">
+											{#each group.items as item}<li>{item}</li>{/each}
 										</ul>
 									</div>
 								{/if}
-								{#if release.bugFixes.length > 0}
-									<div class="flex flex-col gap-1">
-										<h4 class="m-0 text-xs font-semibold text-neutral-600 dark:text-neutral-400">{$_('updates.available.bugFixes')}</h4>
-										<ul class="m-0 pl-5 list-disc text-sm text-neutral-800 dark:text-neutral-200 flex flex-col gap-1">
-											{#each release.bugFixes as item}<li>{item}</li>{/each}
-										</ul>
-									</div>
-								{/if}
-							</section>
-						{/each}
-					</div>
-				{/if}
-
-				<div class="flex items-center justify-between gap-3 pt-2">
-					<Button variant="ghost" onclick={() => updater.skip()}>{$_('updates.available.skip')}</Button>
-					<div class="flex gap-3">
-						<Button variant="secondary" onclick={() => updater.close()}>{$_('updates.available.later')}</Button>
-						<Button onclick={() => updater.install(isBusy)}>{$_('updates.available.install')}</Button>
-					</div>
+							{/each}
+						</section>
+					{/each}
 				</div>
-			</div>
-		{:else}
-			<div class="w-full max-w-sm rounded-xl bg-white dark:bg-neutral-900 p-5 shadow-xl flex flex-col gap-4">
-				{#if phase === 'checking'}
-					<h2 id="update-title" class="m-0 text-base font-semibold text-neutral-900 dark:text-neutral-100">
-						{$_('updates.checking.title')}
-					</h2>
-					<div class="h-1.5 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700" role="progressbar" aria-labelledby="update-title">
-						<div class="h-full w-1/3 rounded-full bg-blue-600 animate-pulse"></div>
-					</div>
-					<div class="flex justify-end">
-						<Button variant="secondary" onclick={() => updater.close()}>{$_('updates.checking.cancel')}</Button>
-					</div>
-				{:else if phase === 'upToDate'}
-					<div class="flex flex-col gap-1">
-						<h2 id="update-title" class="m-0 text-base font-semibold text-neutral-900 dark:text-neutral-100">
-							{$_('updates.upToDate.title')}
-						</h2>
-						<p id="update-body" class="m-0 text-sm text-neutral-700 dark:text-neutral-300">
-							{$_('updates.upToDate.body', { version: updater.currentVersion })}
-						</p>
-					</div>
-					<div class="flex justify-end">
-						<Button onclick={() => updater.close()}>{$_('updates.upToDate.ok')}</Button>
-					</div>
-				{:else if (phase === 'downloading' || phase === 'installing') && update}
-					<h2 id="update-title" class="m-0 text-base font-semibold text-neutral-900 dark:text-neutral-100">
-						{$_('updates.downloading.title', { version: update.version })}
-					</h2>
-					<div class="flex flex-col gap-1">
-						<div
-							class="h-1.5 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700"
-							role="progressbar"
-							aria-labelledby="update-title"
-							aria-valuemin={0}
-							aria-valuemax={100}
-							aria-valuenow={percent !== null ? Math.round(percent) : undefined}
-						>
-							<div
-								class="h-full rounded-full bg-blue-600 transition-[width] duration-200 {percent === null ? 'w-1/3 animate-pulse' : ''}"
-								style={percent !== null ? `width: ${percent}%` : undefined}
-							></div>
-						</div>
-						<p id="update-body" class="m-0 text-xs text-neutral-600 dark:text-neutral-400 tabular-nums">
-							{#if phase === 'installing'}
-								{$_('updates.downloading.installing')}
-							{:else if updater.progress.total}
-								{$_('updates.downloading.progress', {
-									done: formatMegabytes(updater.progress.done),
-									total: formatMegabytes(updater.progress.total)
-								})}
-							{:else}
-								{formatMegabytes(updater.progress.done)}
-							{/if}
-						</p>
-					</div>
-					<div class="flex justify-end">
-						<Button variant="secondary" disabled={phase === 'installing'} onclick={() => updater.close()}>
-							{$_('updates.downloading.cancel')}
-						</Button>
-					</div>
-				{:else if phase === 'installed' && update}
-					<div class="flex flex-col gap-1">
-						<h2 id="update-title" class="m-0 text-base font-semibold text-neutral-900 dark:text-neutral-100">
-							{$_('updates.installed.title', { version: update.version })}
-						</h2>
-						<p id="update-body" class="m-0 text-sm text-neutral-700 dark:text-neutral-300">
-							{$_('updates.installed.body')}
-						</p>
-					</div>
-					<div class="flex justify-end gap-3">
-						<Button variant="secondary" onclick={() => updater.restartNow()}>{$_('updates.installed.restartNow')}</Button>
-						<Button onclick={() => updater.dismissInstalled()}>{$_('updates.installed.ok')}</Button>
-					</div>
-				{:else if phase === 'error'}
-					<div class="flex flex-col gap-1">
-						<h2 id="update-title" class="m-0 text-base font-semibold text-neutral-900 dark:text-neutral-100">
-							{updater.errorKind === 'install' ? $_('updates.installError.title') : $_('updates.error.title')}
-						</h2>
-						<p id="update-body" class="m-0 text-sm text-neutral-700 dark:text-neutral-300">
-							{updater.errorKind === 'install' && update
-								? $_('updates.installError.body', { version: update.version })
-								: $_('updates.error.body')}
-						</p>
-					</div>
-					<div class="flex justify-end gap-3">
-						<Button variant="secondary" onclick={() => updater.close()}>{$_('updates.error.cancel')}</Button>
-						<Button onclick={() => updater.retry()}>{$_('updates.error.retry')}</Button>
-					</div>
+			{/if}
+
+			<Dialog.Footer class="justify-between">
+				<Button variant="ligacao" onclick={() => updater.skip()}>{$_('updates.available.skip')}</Button>
+				<div class="flex gap-2">
+					<Dialog.Close>{$_('updates.available.later')}</Dialog.Close>
+					<Dialog.Action onclick={() => updater.install(isBusy)}>{$_('updates.available.install')}</Dialog.Action>
+				</div>
+			</Dialog.Footer>
+		{:else if phase === 'checking'}
+			<Dialog.Title id="update-title">{$_('updates.checking.title')}</Dialog.Title>
+			<Progress value={null} class="mt-3" aria-labelledby="update-title" />
+			<Dialog.Footer>
+				<Dialog.Close>{$_('updates.checking.cancel')}</Dialog.Close>
+			</Dialog.Footer>
+		{:else if phase === 'upToDate'}
+			<Dialog.Title id="update-title">{$_('updates.upToDate.title')}</Dialog.Title>
+			<Dialog.Description>{$_('updates.upToDate.body', { version: updater.currentVersion })}</Dialog.Description>
+			<Dialog.Footer>
+				<Dialog.Action onclick={() => updater.close()}>{$_('updates.upToDate.ok')}</Dialog.Action>
+			</Dialog.Footer>
+		{:else if (phase === 'downloading' || phase === 'installing') && update}
+			<Dialog.Title id="update-title">{$_('updates.downloading.title', { version: update.version })}</Dialog.Title>
+			<Progress value={percent} class="mt-3" aria-labelledby="update-title" />
+			<p class="m-0 text-callout text-muted-foreground tabular-nums">
+				{#if phase === 'installing'}
+					{$_('updates.downloading.installing')}
+				{:else if updater.progress.total}
+					{$_('updates.downloading.progress', {
+						done: formatMegabytes(updater.progress.done),
+						total: formatMegabytes(updater.progress.total)
+					})}
+				{:else}
+					{formatMegabytes(updater.progress.done)}
 				{/if}
-			</div>
+			</p>
+			<Dialog.Footer>
+				<Dialog.Close disabled={phase === 'installing'}>{$_('updates.downloading.cancel')}</Dialog.Close>
+			</Dialog.Footer>
+		{:else if phase === 'installed' && update}
+			<Dialog.Title id="update-title">{$_('updates.installed.title', { version: update.version })}</Dialog.Title>
+			<Dialog.Description>{$_('updates.installed.body')}</Dialog.Description>
+			<Dialog.Footer>
+				<Button variant="secundario" onclick={() => updater.restartNow()}>{$_('updates.installed.restartNow')}</Button>
+				<Dialog.Action onclick={() => updater.dismissInstalled()}>{$_('updates.installed.ok')}</Dialog.Action>
+			</Dialog.Footer>
+		{:else if phase === 'error'}
+			<Dialog.Title id="update-title">
+				{updater.errorKind === 'install' ? $_('updates.installError.title') : $_('updates.error.title')}
+			</Dialog.Title>
+			<Dialog.Description>
+				{updater.errorKind === 'install' && update
+					? $_('updates.installError.body', { version: update.version })
+					: $_('updates.error.body')}
+			</Dialog.Description>
+			<Dialog.Footer>
+				<Dialog.Close>{$_('updates.error.cancel')}</Dialog.Close>
+				<Dialog.Action onclick={() => updater.retry()}>{$_('updates.error.retry')}</Dialog.Action>
+			</Dialog.Footer>
 		{/if}
-	</div>
+	</Dialog.Content>
+</Dialog.Root>
 {/if}

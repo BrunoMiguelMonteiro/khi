@@ -65,7 +65,7 @@ npm install
 
 ```bash
 # Modo de desenvolvimento com hot-reload
-npm run tauri dev
+npm run dev:app
 ```
 
 ### 3. Testes

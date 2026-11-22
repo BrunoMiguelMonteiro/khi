@@ -6,7 +6,7 @@
 //! - Last import/export records
 
 use crate::models::{DateFormat, ExportConfig, Language, MetadataConfig};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -22,7 +22,8 @@ pub struct AppSettings {
     pub ui_preferences: UiPreferences,
     /// Language of the interface and of the exported Markdown. A file
     /// without it, from before this setting, follows the system.
-    #[serde(default = "system_language")]
+    #[serde(default = "system_language", deserialize_with = "language_or_system")]
+    #[specta(type = Language)]
     pub language: Language,
     /// Version for migration support
     pub version: String,
@@ -33,6 +34,8 @@ pub struct AppSettings {
 #[serde(rename_all = "camelCase")]
 pub struct UiPreferences {
     /// Theme preference
+    #[serde(deserialize_with = "or_default")]
+    #[specta(type = ThemePreference)]
     pub theme: ThemePreference,
     /// Window width
     #[serde(alias = "window_width")]
@@ -47,11 +50,19 @@ pub struct UiPreferences {
     #[serde(alias = "show_onboarding")]
     pub show_onboarding: bool,
     /// Library view mode (grid or list)
-    #[serde(alias = "library_view_mode")]
+    #[serde(alias = "library_view_mode", deserialize_with = "or_default")]
+    #[specta(type = ViewMode)]
     pub library_view_mode: ViewMode,
     /// Sort preference for library
-    #[serde(alias = "library_sort")]
+    #[serde(
+        alias = "library_sort",
+        deserialize_with = "sort_or_default"
+    )]
+    #[specta(type = SortPreference)]
     pub library_sort: SortPreference,
+    /// The sort runs against its natural direction (the column header was clicked on the active column)
+    #[serde(default, alias = "library_sort_reversed")]
+    pub library_sort_reversed: bool,
     /// Whether to sync automatically when a known Kobo is connected (R23).
     /// Old files stored it as `autoImportOnConnect`.
     #[serde(
@@ -64,10 +75,72 @@ pub struct UiPreferences {
     /// Whether to look for a new version once a day, when Khi opens.
     #[serde(default = "default_true")]
     pub check_for_updates: bool,
+    /// The Settings pane that was open last, reopened with the window.
+    #[serde(default, deserialize_with = "or_default")]
+    #[specta(type = SettingsPane)]
+    pub settings_pane: SettingsPane,
+    /// The accent colour: the macOS one (`system`) or one of the seven swatches.
+    #[serde(default, deserialize_with = "or_default")]
+    #[specta(type = AccentChoice)]
+    pub accent_color: AccentChoice,
+}
+
+/// A pane of the Settings window.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default, specta::Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum SettingsPane {
+    /// The first tab: where the window opens when no pane was stored.
+    #[default]
+    Kobo,
+    Appearance,
+    Export,
+    Updates,
+}
+
+/// The accent colour chosen in Settings: Sistema follows macOS; the others are the swatches of
+/// `design/accent-tones.json`, named as `SwatchName` in `src/lib/accent/accent.ts`.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default, specta::Type)]
+#[serde(rename_all = "kebab-case")]
+pub enum AccentChoice {
+    #[default]
+    System,
+    AzulTinta,
+    VerdeFolha,
+    Turquesa,
+    Laranja,
+    Amarelo,
+    Rosa,
+    Violeta,
 }
 
 fn default_true() -> bool {
     true
+}
+
+/// Reads a value, and takes the type's default when it is not one this build knows (a newer
+/// build's name, a hand edit). A name nobody knows must not make the whole file unreadable: the
+/// next save would then write the defaults over the export folder and everything else.
+pub(crate) fn or_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    D: Deserializer<'de>,
+    T: serde::de::DeserializeOwned + Default,
+{
+    let value = serde_json::Value::deserialize(deserializer)?;
+    Ok(serde_json::from_value(value).unwrap_or_default())
+}
+
+fn default_library_sort() -> SortPreference {
+    SortPreference::DateLastRead
+}
+
+fn sort_or_default<'de, D: Deserializer<'de>>(deserializer: D) -> Result<SortPreference, D::Error> {
+    let value = serde_json::Value::deserialize(deserializer)?;
+    Ok(serde_json::from_value(value).unwrap_or_else(|_| default_library_sort()))
+}
+
+fn language_or_system<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Language, D::Error> {
+    let value = serde_json::Value::deserialize(deserializer)?;
+    Ok(serde_json::from_value(value).unwrap_or_else(|_| system_language()))
 }
 
 /// Theme preference
@@ -108,6 +181,96 @@ pub enum SortPreference {
     HighlightCount,
 }
 
+/// What one window changes in the settings file: a field per leaf it edits,
+/// left out when it is not changed. The rest of the file stays as it is, so
+/// the main window (sort, view) and Settings never undo each other's saves.
+///
+/// Flat, named after the leaf (`theme` for `uiPreferences.theme`): every
+/// leaf name is unique in `AppSettings`, and the bindings stay one level deep.
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, specta::Type)]
+#[serde(rename_all = "camelCase", default)]
+pub struct SettingsPatch {
+    /// `exportConfig.exportPath`
+    #[specta(optional)]
+    pub export_path: Option<String>,
+    /// `exportConfig.metadata`, the whole object
+    #[specta(optional)]
+    pub metadata: Option<MetadataConfig>,
+    /// `exportConfig.dateFormat`
+    #[specta(optional)]
+    pub date_format: Option<DateFormat>,
+    #[specta(optional)]
+    pub language: Option<Language>,
+    /// `uiPreferences.theme`
+    #[specta(optional)]
+    pub theme: Option<ThemePreference>,
+    /// `uiPreferences.libraryViewMode`
+    #[specta(optional)]
+    pub library_view_mode: Option<ViewMode>,
+    /// `uiPreferences.librarySort`
+    #[specta(optional)]
+    pub library_sort: Option<SortPreference>,
+    /// `uiPreferences.librarySortReversed`
+    #[specta(optional)]
+    pub library_sort_reversed: Option<bool>,
+    /// `uiPreferences.syncOnConnect`
+    #[specta(optional)]
+    pub sync_on_connect: Option<bool>,
+    /// `uiPreferences.checkForUpdates`
+    #[specta(optional)]
+    pub check_for_updates: Option<bool>,
+    /// `uiPreferences.settingsPane`
+    #[specta(optional)]
+    pub settings_pane: Option<SettingsPane>,
+    /// `uiPreferences.accentColor`
+    #[specta(optional)]
+    pub accent_color: Option<AccentChoice>,
+}
+
+impl SettingsPatch {
+    /// Writes the fields that are set over `settings`; the others are kept.
+    pub fn apply_to(self, settings: &mut AppSettings) {
+        let export = &mut settings.export_config;
+        if let Some(path) = self.export_path {
+            export.export_path = path;
+        }
+        if let Some(metadata) = self.metadata {
+            export.metadata = metadata;
+        }
+        if let Some(format) = self.date_format {
+            export.date_format = format;
+        }
+        if let Some(language) = self.language {
+            settings.language = language;
+        }
+        let ui = &mut settings.ui_preferences;
+        if let Some(theme) = self.theme {
+            ui.theme = theme;
+        }
+        if let Some(mode) = self.library_view_mode {
+            ui.library_view_mode = mode;
+        }
+        if let Some(sort) = self.library_sort {
+            ui.library_sort = sort;
+        }
+        if let Some(reversed) = self.library_sort_reversed {
+            ui.library_sort_reversed = reversed;
+        }
+        if let Some(enabled) = self.sync_on_connect {
+            ui.sync_on_connect = enabled;
+        }
+        if let Some(enabled) = self.check_for_updates {
+            ui.check_for_updates = enabled;
+        }
+        if let Some(pane) = self.settings_pane {
+            ui.settings_pane = pane;
+        }
+        if let Some(accent) = self.accent_color {
+            ui.accent_color = accent;
+        }
+    }
+}
+
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
@@ -129,8 +292,11 @@ impl Default for UiPreferences {
             show_onboarding: true,
             library_view_mode: ViewMode::Grid,
             library_sort: SortPreference::DateLastRead,
+            library_sort_reversed: false,
             sync_on_connect: true,
             check_for_updates: true,
+            settings_pane: SettingsPane::default(),
+            accent_color: AccentChoice::default(),
         }
     }
 }
@@ -181,23 +347,40 @@ fn language_from_apple_languages(output: &str) -> Language {
     }
 }
 
-/// Where `data_dir` lives under `home`. Debug builds (`tauri dev`) get
-/// their own folder, so development never touches the installed Khi's
-/// settings or Library.
-fn data_dir_in(home: &Path) -> PathBuf {
-    let folder = if cfg!(debug_assertions) {
+/// The app identifier from the Tauri config, set once in `setup`.
+static APP_IDENTIFIER: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
+/// Records the app identifier; `data_dir` fails until this has run.
+pub fn set_app_identifier(identifier: &str) {
+    let _ = APP_IDENTIFIER.set(identifier.to_string());
+}
+
+/// Where `data_dir` lives under `home`. The `.dev` identifier (`npm run
+/// dev:app` and the Khi Dev build) gets its own folder, so development never
+/// touches the installed Khi's settings or Library. Without an identifier,
+/// or in a debug build without the `.dev` one, there is no answer: it never
+/// falls back to the real folder.
+fn data_dir_for(home: &Path, identifier: Option<&str>, debug: bool) -> Result<PathBuf, SettingsError> {
+    let identifier = identifier.ok_or(SettingsError::IdentifierUnknown)?;
+    let folder = if identifier.ends_with(".dev") {
         "KoboHighlightsExporter Dev"
+    } else if debug {
+        return Err(SettingsError::DebugBuildNeedsDevIdentifier);
     } else {
         "KoboHighlightsExporter"
     };
-    home.join("Library/Application Support").join(folder)
+    Ok(home.join("Library/Application Support").join(folder))
 }
 
 /// The Khi's data folder (`settings.json`, `library.sqlite`, `covers/`),
 /// created if missing.
 pub fn data_dir() -> Result<PathBuf, SettingsError> {
     let home = std::env::var("HOME").map_err(|_| SettingsError::HomeNotFound)?;
-    let dir = data_dir_in(Path::new(&home));
+    let dir = data_dir_for(
+        Path::new(&home),
+        APP_IDENTIFIER.get().map(String::as_str),
+        cfg!(debug_assertions),
+    )?;
     if !dir.exists() {
         fs::create_dir_all(&dir).map_err(SettingsError::IoError)?;
     }
@@ -425,6 +608,10 @@ impl SettingsManager {
 pub enum SettingsError {
     /// Home directory not found
     HomeNotFound,
+    /// The app identifier was not recorded before asking for the data folder
+    IdentifierUnknown,
+    /// A debug build ran with the real identifier, which would open the real folder
+    DebugBuildNeedsDevIdentifier,
     /// IO error
     IoError(std::io::Error),
     /// Parse error
@@ -437,6 +624,11 @@ impl std::fmt::Display for SettingsError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             SettingsError::HomeNotFound => write!(f, "Home directory not found"),
+            SettingsError::IdentifierUnknown => write!(f, "App identifier not known"),
+            SettingsError::DebugBuildNeedsDevIdentifier => write!(
+                f,
+                "A debug build must run with the dev config so it never opens the real data folder: use `npm run dev:app`"
+            ),
             SettingsError::IoError(e) => write!(f, "IO error: {}", e),
             SettingsError::ParseError(e) => write!(f, "Parse error: {}", e),
             SettingsError::SerializeError(e) => write!(f, "Serialize error: {}", e),
@@ -536,16 +728,43 @@ mod tests {
         assert_eq!(manager.settings.export_config.export_path, "/v2/export");
     }
 
+    const DEV: Option<&str> = Some("com.bruno.khi.dev");
+    const REAL: Option<&str> = Some("com.bruno.khi");
+    const SUPPORT: &str = "/h/Library/Application Support/";
+
     #[test]
-    fn debug_builds_use_their_own_data_folder() {
-        let dir = data_dir_in(Path::new("/h"));
-        let expected = if cfg!(debug_assertions) {
-            "/h/Library/Application Support/KoboHighlightsExporter Dev"
-        } else {
-            "/h/Library/Application Support/KoboHighlightsExporter"
-        };
-        assert_eq!(dir, PathBuf::from(expected));
+    fn dev_identifier_uses_the_dev_data_folder_in_any_build() {
+        for debug in [true, false] {
+            let dir = data_dir_for(Path::new("/h"), DEV, debug).unwrap();
+            assert_eq!(dir, PathBuf::from(format!("{SUPPORT}KoboHighlightsExporter Dev")));
+        }
     }
+
+    #[test]
+    fn release_build_with_the_real_identifier_uses_the_real_folder() {
+        let dir = data_dir_for(Path::new("/h"), REAL, false).unwrap();
+        assert_eq!(dir, PathBuf::from(format!("{SUPPORT}KoboHighlightsExporter")));
+    }
+
+    #[test]
+    fn debug_build_without_the_dev_identifier_is_an_error_never_the_real_folder() {
+        let result = data_dir_for(Path::new("/h"), REAL, true);
+        assert!(matches!(result, Err(SettingsError::DebugBuildNeedsDevIdentifier)));
+        assert!(result.unwrap_err().to_string().contains("npm run dev:app"));
+    }
+
+    #[test]
+    fn unknown_identifier_is_an_error_never_the_real_folder() {
+        for debug in [true, false] {
+            assert!(matches!(
+                data_dir_for(Path::new("/h"), None, debug),
+                Err(SettingsError::IdentifierUnknown)
+            ));
+        }
+        // Nothing in the test binary sets the identifier
+        assert!(matches!(data_dir(), Err(SettingsError::IdentifierUnknown)));
+    }
+
     use tempfile::TempDir;
 
     #[test]
@@ -633,8 +852,11 @@ mod tests {
             show_onboarding: false,
             library_view_mode: ViewMode::List,
             library_sort: SortPreference::Author,
+            library_sort_reversed: false,
             sync_on_connect: false,
             check_for_updates: false,
+            settings_pane: SettingsPane::Export,
+            accent_color: AccentChoice::System,
         };
 
         manager.set_ui_preferences(new_prefs).unwrap();
@@ -750,6 +972,144 @@ mod tests {
         assert!(config.export_path.contains("Kobo Highlights"));
         assert!(config.metadata.author);
         assert_eq!(config.date_format, DateFormat::DdMonthYyyy);
+    }
+
+    #[test]
+    fn library_sort_reversed_defaults_false() {
+        assert!(!UiPreferences::default().library_sort_reversed);
+    }
+
+    #[test]
+    fn old_settings_without_reversed_load() {
+        let json = r#"{
+            "theme": "system",
+            "windowWidth": 1200,
+            "windowHeight": 800,
+            "isMaximized": false,
+            "showOnboarding": true,
+            "libraryViewMode": "grid",
+            "librarySort": "date_last_read"
+        }"#;
+
+        let prefs: UiPreferences = serde_json::from_str(json).unwrap();
+
+        assert!(!prefs.library_sort_reversed);
+    }
+
+    #[test]
+    fn patch_sets_reversed() {
+        let mut settings = AppSettings::default();
+        let patch: SettingsPatch = serde_json::from_str(r#"{"librarySortReversed": true}"#).unwrap();
+
+        patch.apply_to(&mut settings);
+        assert!(settings.ui_preferences.library_sort_reversed);
+
+        SettingsPatch::default().apply_to(&mut settings);
+        assert!(settings.ui_preferences.library_sort_reversed);
+    }
+
+    #[test]
+    fn old_file_without_settings_pane_opens_on_kobo() {
+        // A file from before the Settings window remembered its pane: it opens on the first tab, Kobo
+        let json = r#"{
+            "theme": "system",
+            "windowWidth": 1200,
+            "windowHeight": 800,
+            "isMaximized": false,
+            "showOnboarding": true,
+            "libraryViewMode": "grid",
+            "librarySort": "date_last_read"
+        }"#;
+
+        let prefs: UiPreferences = serde_json::from_str(json).unwrap();
+
+        assert_eq!(prefs.settings_pane, SettingsPane::Kobo);
+        assert_eq!(prefs.accent_color, AccentChoice::System);
+        assert_eq!(UiPreferences::default().settings_pane, SettingsPane::Kobo);
+    }
+
+    #[test]
+    fn unknown_enum_values_fall_back_without_losing_the_rest_of_the_file() {
+        // A newer or hand-edited file: every enum holds a name this build does not know
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("settings.json");
+        fs::write(
+            &config_path,
+            r#"{
+                "exportConfig": {
+                    "exportPath": "/Volumes/Livros/Kobo",
+                    "metadata": {"author": false, "isbn": true, "publisher": true, "dateLastRead": true, "language": true, "description": true},
+                    "dateFormat": "sideways"
+                },
+                "uiPreferences": {
+                    "theme": "sepia",
+                    "windowWidth": 1111,
+                    "windowHeight": 777,
+                    "isMaximized": false,
+                    "showOnboarding": false,
+                    "libraryViewMode": "cover-flow",
+                    "librarySort": "mood",
+                    "settingsPane": "general",
+                    "accentColor": "magenta"
+                },
+                "language": "fr",
+                "version": "9.9.9"
+            }"#,
+        )
+        .unwrap();
+
+        let manager = SettingsManager::with_path(config_path.clone()).unwrap();
+        let settings = manager.get();
+
+        // The unknown names take the default; everything else stays
+        assert_eq!(settings.export_config.export_path, "/Volumes/Livros/Kobo");
+        assert!(!settings.export_config.metadata.author);
+        assert!(settings.export_config.metadata.description);
+        assert_eq!(settings.export_config.date_format, DateFormat::DdMonthYyyy);
+        assert_eq!(settings.ui_preferences.theme, ThemePreference::System);
+        assert_eq!(settings.ui_preferences.window_width, 1111);
+        assert!(!settings.ui_preferences.show_onboarding);
+        assert_eq!(settings.ui_preferences.library_view_mode, ViewMode::Grid);
+        assert_eq!(settings.ui_preferences.library_sort, SortPreference::DateLastRead);
+        assert_eq!(settings.ui_preferences.settings_pane, SettingsPane::Kobo);
+        assert_eq!(settings.ui_preferences.accent_color, AccentChoice::System);
+        assert_eq!(settings.version, "9.9.9");
+        // No "corrupted" backup: the file was read, not discarded
+        assert!(!config_path.with_extension("json.corrupted").exists());
+    }
+
+    #[test]
+    fn settings_pane_and_accent_are_stored_by_name_and_survive_save() {
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("settings.json");
+
+        let mut manager = SettingsManager::with_path(config_path.clone()).unwrap();
+        manager.settings.ui_preferences.settings_pane = SettingsPane::Kobo;
+        manager.settings.ui_preferences.accent_color = AccentChoice::VerdeFolha;
+        manager.save().unwrap();
+
+        let saved = fs::read_to_string(&config_path).unwrap();
+        assert!(saved.contains("\"settingsPane\": \"kobo\""), "{saved}");
+        assert!(saved.contains("\"accentColor\": \"verde-folha\""), "{saved}");
+        let reloaded = SettingsManager::with_path(config_path).unwrap();
+        assert_eq!(reloaded.get().ui_preferences.settings_pane, SettingsPane::Kobo);
+        assert_eq!(reloaded.get().ui_preferences.accent_color, AccentChoice::VerdeFolha);
+    }
+
+    #[test]
+    fn patch_sets_settings_pane_and_accent_and_keeps_them_when_absent() {
+        let mut settings = AppSettings::default();
+        let patch: SettingsPatch =
+            serde_json::from_str(r#"{"settingsPane": "appearance", "accentColor": "azul-tinta"}"#)
+                .unwrap();
+
+        patch.apply_to(&mut settings);
+        assert_eq!(settings.ui_preferences.settings_pane, SettingsPane::Appearance);
+        assert_eq!(settings.ui_preferences.accent_color, AccentChoice::AzulTinta);
+
+        SettingsPatch::default().apply_to(&mut settings);
+        assert_eq!(settings.ui_preferences.settings_pane, SettingsPane::Appearance);
+        assert_eq!(settings.ui_preferences.accent_color, AccentChoice::AzulTinta);
     }
 
     #[test]
