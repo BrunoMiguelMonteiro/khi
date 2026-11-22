@@ -38,6 +38,8 @@ import { notify } from '$lib/components/ui/toast/toast-state.svelte';
 import { Submenu } from '@tauri-apps/api/menu';
 import { createApplicationMenu, setRevealLastExportEnabled, applyMenuState, setMenuActions } from './menu';
 import { menuState, type MenuStateInput } from './menu-state';
+import en from '$lib/i18n/locales/en.json';
+import pt from '$lib/i18n/locales/pt.json';
 
 /** A stand-in translator: Portuguese for the keys the menu needs. */
 const PT: Record<string, string> = {
@@ -350,6 +352,63 @@ describe('application menu', () => {
 			await applyMenuState(state());
 			expect(view.items).toHaveLength(base);
 			expect(made.menus).toHaveLength(1);
+		});
+	});
+
+	describe('native items in the language of the app', () => {
+		const lookup = (tree: unknown, key: string): string =>
+			key.split('.').reduce<any>((node, part) => node?.[part], tree) ?? key;
+		const translator = (tree: unknown) => ((key: string) => lookup(tree, key)) as typeof t;
+		const predefined = (menu: Options) =>
+			(menu.items as Options[]).filter((i) => i.kind === 'predefined' && i.item !== 'Separator');
+		const texts = (menu: Options) => predefined(menu).map((i) => i.text);
+		const submenu = (text: string) => made.submenus.find((m) => m.text === text) as Options;
+
+		it('every_predefined_item_but_separators_has_an_app_native_text', async () => {
+			await createApplicationMenu((key: string) => key as never);
+			const all = made.submenus.flatMap(predefined);
+			const offending = all
+				.filter((i) => typeof i.text !== 'string' || !i.text.startsWith('app.native.'))
+				.map((i) => (typeof i.item === 'string' ? i.item : Object.keys(i.item)[0]));
+			expect(offending, `predefined items without an app.native.* text: ${offending.join(', ')}`).toEqual([]);
+			expect(all).toHaveLength(15);
+		});
+
+		it('pt_texts_name_the_native_items_in_portuguese', async () => {
+			await createApplicationMenu(translator(pt));
+			expect(texts(submenu('Edição'))).toEqual(['Desfazer', 'Refazer', 'Cortar', 'Copiar', 'Colar', 'Selecionar tudo']);
+			expect(texts(submenu('Khi'))).toEqual([
+				'Acerca do Khi', 'Serviços', 'Ocultar o Khi', 'Ocultar outras aplicações', 'Mostrar tudo', 'Sair do Khi'
+			]);
+			expect(texts(submenu('Ficheiro'))).toEqual(['Fechar janela']);
+			expect(texts(submenu('Janela'))).toEqual(['Minimizar', 'Aumentar/reduzir']);
+		});
+
+		it('en_texts_name_the_native_items_in_english', async () => {
+			await createApplicationMenu(translator(en));
+			expect(texts(submenu('Edit'))).toEqual(['Undo', 'Redo', 'Cut', 'Copy', 'Paste', 'Select All']);
+			expect(texts(submenu('Khi'))).toEqual([
+				'About Khi', 'Services', 'Hide Khi', 'Hide Others', 'Show All', 'Quit Khi'
+			]);
+			expect(texts(submenu('File'))).toEqual(['Close Window']);
+			expect(texts(submenu('Window'))).toEqual(['Minimize', 'Zoom']);
+		});
+
+		it('about_keeps_its_name_and_copyright_and_an_icon_when_there_is_one', async () => {
+			await createApplicationMenu(translator(pt));
+			const about = predefined(submenu('Khi'))[0];
+			expect(about.item.About.name).toBe('Khi');
+			expect(about.item.About.copyright).toContain('Bruno Monteiro');
+			expect('icon' in about.item.About).toBe(false); // the mocked bundle has no icon
+
+			const { resolveResource } = await import('@tauri-apps/api/path');
+			const { Image } = await import('@tauri-apps/api/image');
+			const icon = { id: 'icon' };
+			vi.mocked(resolveResource).mockResolvedValueOnce('/icons/icon_512x512.png');
+			vi.mocked(Image.fromPath).mockResolvedValueOnce(icon as never);
+			made.submenus.length = 0;
+			await createApplicationMenu(translator(pt));
+			expect(predefined(submenu('Khi'))[0].item.About.icon).toBe(icon);
 		});
 	});
 });

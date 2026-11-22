@@ -16,7 +16,24 @@
     "menuBackToLibrary": "Voltar à Biblioteca",
     "menuSync": "Sincronizar com o Kobo",
     "menuDelete": "Apagar livro…",
-    "menuSortBy": "Ordenar por"
+    "menuSortBy": "Ordenar por",
+    "native": {
+      "about": "Acerca do Khi",
+      "services": "Serviços",
+      "hide": "Ocultar o Khi",
+      "hideOthers": "Ocultar outras aplicações",
+      "showAll": "Mostrar tudo",
+      "quit": "Sair do Khi",
+      "closeWindow": "Fechar janela",
+      "undo": "Desfazer",
+      "redo": "Refazer",
+      "cut": "Cortar",
+      "copy": "Copiar",
+      "paste": "Colar",
+      "selectAll": "Selecionar tudo",
+      "minimize": "Minimizar",
+      "maximize": "Aumentar/reduzir"
+    }
   },
   "screens": {
     "noKobo": {

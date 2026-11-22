@@ -16,7 +16,24 @@
     "menuBackToLibrary": "Back to Library",
     "menuSync": "Sync with Kobo",
     "menuDelete": "Delete Book…",
-    "menuSortBy": "Sort By"
+    "menuSortBy": "Sort By",
+    "native": {
+      "about": "About Khi",
+      "services": "Services",
+      "hide": "Hide Khi",
+      "hideOthers": "Hide Others",
+      "showAll": "Show All",
+      "quit": "Quit Khi",
+      "closeWindow": "Close Window",
+      "undo": "Undo",
+      "redo": "Redo",
+      "cut": "Cut",
+      "copy": "Copy",
+      "paste": "Paste",
+      "selectAll": "Select All",
+      "minimize": "Minimize",
+      "maximize": "Zoom"
+    }
   },
   "screens": {
     "noKobo": {

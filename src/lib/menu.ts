@@ -197,6 +197,7 @@ async function buildApplicationMenu(t: MessageFormatter, activeReaderId: () => n
             text: 'Khi',
             items: [
                 await PredefinedMenuItem.new({
+                    text: t('app.native.about'),
                     item: {
                         About: {
                             name: 'Khi',
@@ -209,12 +210,12 @@ async function buildApplicationMenu(t: MessageFormatter, activeReaderId: () => n
                 settingsItem,
                 checkForUpdatesItem,
                 await PredefinedMenuItem.new({ item: 'Separator' }),
-                await PredefinedMenuItem.new({ item: 'Services' }),
-                await PredefinedMenuItem.new({ item: 'Hide' }),
-                await PredefinedMenuItem.new({ item: 'HideOthers' }),
-                await PredefinedMenuItem.new({ item: 'ShowAll' }),
+                await PredefinedMenuItem.new({ item: 'Services', text: t('app.native.services') }),
+                await PredefinedMenuItem.new({ item: 'Hide', text: t('app.native.hide') }),
+                await PredefinedMenuItem.new({ item: 'HideOthers', text: t('app.native.hideOthers') }),
+                await PredefinedMenuItem.new({ item: 'ShowAll', text: t('app.native.showAll') }),
                 await PredefinedMenuItem.new({ item: 'Separator' }),
-                await PredefinedMenuItem.new({ item: 'Quit' })
+                await PredefinedMenuItem.new({ item: 'Quit', text: t('app.native.quit') })
             ]
         });
 
@@ -257,7 +258,7 @@ async function buildApplicationMenu(t: MessageFormatter, activeReaderId: () => n
                 await PredefinedMenuItem.new({ item: 'Separator' }),
                 revealLastExport,
                 await PredefinedMenuItem.new({ item: 'Separator' }),
-                await PredefinedMenuItem.new({ item: 'CloseWindow' })
+                await PredefinedMenuItem.new({ item: 'CloseWindow', text: t('app.native.closeWindow') })
             ]
         });
 
@@ -265,13 +266,13 @@ async function buildApplicationMenu(t: MessageFormatter, activeReaderId: () => n
         const editMenu = await Submenu.new({
             text: t('app.menuEdit'),
             items: [
-                await PredefinedMenuItem.new({ item: 'Undo' }),
-                await PredefinedMenuItem.new({ item: 'Redo' }),
+                await PredefinedMenuItem.new({ item: 'Undo', text: t('app.native.undo') }),
+                await PredefinedMenuItem.new({ item: 'Redo', text: t('app.native.redo') }),
                 await PredefinedMenuItem.new({ item: 'Separator' }),
-                await PredefinedMenuItem.new({ item: 'Cut' }),
-                await PredefinedMenuItem.new({ item: 'Copy' }),
-                await PredefinedMenuItem.new({ item: 'Paste' }),
-                await PredefinedMenuItem.new({ item: 'SelectAll' })
+                await PredefinedMenuItem.new({ item: 'Cut', text: t('app.native.cut') }),
+                await PredefinedMenuItem.new({ item: 'Copy', text: t('app.native.copy') }),
+                await PredefinedMenuItem.new({ item: 'Paste', text: t('app.native.paste') }),
+                await PredefinedMenuItem.new({ item: 'SelectAll', text: t('app.native.selectAll') })
             ]
         });
 
@@ -337,8 +338,8 @@ async function buildApplicationMenu(t: MessageFormatter, activeReaderId: () => n
         const windowMenu = await Submenu.new({
             text: t('app.menuWindow'),
             items: [
-                await PredefinedMenuItem.new({ item: 'Minimize' }),
-                await PredefinedMenuItem.new({ item: 'Maximize' })
+                await PredefinedMenuItem.new({ item: 'Minimize', text: t('app.native.minimize') }),
+                await PredefinedMenuItem.new({ item: 'Maximize', text: t('app.native.maximize') })
             ]
         });
 

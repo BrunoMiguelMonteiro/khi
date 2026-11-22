@@ -3139,9 +3139,14 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 
 **Passos:**
 - [ ] **Passo 1 (TDD):** os testes dos pontos 1 e 2. Vermelho.
-- [ ] **Passo 2:** as 16 chaves em `en.json` e `pt.json`, e o `text` em cada `PredefinedMenuItem` do `menu.ts`. Verde.
+- [ ] **Passo 2:** as 15 chaves em `en.json` e `pt.json`, e o `text` em cada `PredefinedMenuItem` do `menu.ts`. Verde.
 - [ ] **Passo 3:** gate completo (Vitest, `check`, build, visual; o Rust não muda).
 - [ ] **Passo 4 (eu):** mutações (tirar o `text` a um item; trocar uma chave); build dev, com a app em pt e em en: os menus Khi, Edição e Janela, e que ⌘Z, ⌘X, ⌘C, ⌘V, ⌘A, ⌘H, ⌘Q, ⌘W e ⌘M continuam a funcionar. Sem review adversarial: só muda texto de menu. Commit `fix(menu): native items follow the app language`.
+
+**Feito (2026-11-22), à espera do ecrã do Bruno.** Aprovada pelo Bruno («Aprovo a Task 56»). O Sonnet implementou com TDD (3 testes vermelhos antes; o do About guarda o que já existia), e eu revi.
+- **Diff:** os 15 itens com `text: t('app.native.*')`; o About mantém o nome, o copyright e o ícone; 15 chaves em en e pt (o plano dizia 16 por engano).
+- **Mutações (7):** morreram todas, incluindo um texto escrito à mão sem passar pelo i18n e uma chave trocada entre dois itens.
+- **Gate:** Vitest 1142 passam, 1 ignorado; `npm run check` 0/0; build OK; `test:visual` 179, sem baselines novas. O Rust não mudou.
 
 **Verificar no ecrã (Bruno), com a build dev:** com a app em pt, os menus Khi, Edição e Janela estão todos em português, com «Aumentar/reduzir»; com a app em en, estão em inglês; e os atalhos fazem o mesmo que antes.
 
