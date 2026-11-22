@@ -3150,7 +3150,53 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 
 **Verificar no ecrã (Bruno), com a build dev:** com a app em pt, os menus Khi, Edição e Janela estão todos em português, com «Aumentar/reduzir»; com a app em en, estão em inglês; e os atalhos fazem o mesmo que antes.
 
+### Task 57: Rótulos das Definições e data por extenso em pt
+**Decisões** (DECISIONS «Fase 6 · Rótulos das Definições e data por extenso», 2026-11-22):
+- **Rótulos en (regra da Task 55):** sentence case nos três rótulos das Definições que vêm da v1.
+- **Data por extenso em pt (Bruno):** «24 de janeiro de 2025», com o mês em minúscula (AO90) e com «de», no Markdown exportado e na opção das Definições. O en fica «24 January 2025».
+- **Incluídos nesta task (decisão minha, para aprovares com ela):**
+  - em pt, o dia sem zero à esquerda («1 de janeiro de 2025»), porque «01 de janeiro» não é a forma por extenso. O en mantém o zero, como hoje;
+  - a etiqueta do Markdown pt «**Data de Leitura**» passa a «**Data de leitura**», igual à das Definições. As outras etiquetas (Autor, Editora, Idioma, Nota) são de uma palavra.
+- **As exportações antigas não mudam.** Uma nova exportação do mesmo livro escreve a data e a etiqueta novas.
+
+**O que já existe** (levantamento a 2026-11-22):
+- `src-tauri/src/export/mod.rs`: o `PT.months` (≈ 55) tem os meses com maiúscula; o `format_date` (≈ 365) faz `"{:02} {} {}"`; o `PT.last_read` (≈ 51) é «Data de Leitura». O teste ≈ 651 espera «**Data de Leitura**: 24 Janeiro 2025».
+- `pt.json` ≈ 190: `settings.export.dateFormats.dd_month_yyyy` é «24 Janeiro 2025».
+- O `getDateFormatLabel` (`settings.svelte.ts` ≈ 497) só é usado nos testes.
+
+**Textos a mudar:**
+
+| Onde | Hoje | Passa a |
+|---|---|---|
+| en `settings.export.dateFormat` | Date Format | Date format |
+| en `settings.export.metadataTitle` | Metadata to Include | Metadata to include |
+| en `settings.export.metadata.dateLastRead` | Last Read Date | Last read date |
+| pt `settings.export.dateFormats.dd_month_yyyy` | 24 Janeiro 2025 | 24 de janeiro de 2025 |
+| Markdown pt, meses | Janeiro … Dezembro | janeiro … dezembro |
+| Markdown pt, data por extenso | 24 Janeiro 2025 / 01 Janeiro 2025 | 24 de janeiro de 2025 / 1 de janeiro de 2025 |
+| Markdown pt, etiqueta | Data de Leitura | Data de leitura |
+
+**Comportamento a provar:**
+1. **Rust (`cargo test`):** em pt, o `format_date` com `DdMonthYyyy` dá «24 de janeiro de 2025» e «1 de janeiro de 2025»; em en, «24 January 2025» e «01 January 2025» (sem mudanças). Os outros formatos não mudam. O teste do Markdown inteiro passa a esperar «**Data de leitura**: 24 de janeiro de 2025».
+2. **Textos:** os quatro da tabela no `en.json` e no `pt.json`; o `copy-rules.test.ts` continua verde.
+3. **Visual:** só podem mudar cenários das Definições › Exportação (en pelos rótulos; pt pela opção da data). Abro os PNG um a um.
+
+**Passos:**
+- [ ] **Passo 1 (TDD):** os testes Rust do ponto 1. Vermelho.
+- [ ] **Passo 2:** o `export/mod.rs` (meses, `format_date` em pt, etiqueta) e os quatro textos. Verde.
+- [ ] **Passo 3:** gate completo, com `cargo test` e `cargo clippy` (os 7 avisos de antes).
+- [ ] **Passo 4 (eu):** mutações no `format_date`; build dev e uma exportação de teste na pasta Dev, com a app em pt e em en, para ler o Markdown. Review adversarial só se o código for além do `format_date` e das constantes. Commit `fix(export): Portuguese long date and sentence-case labels`.
+
+**Verificar no ecrã (Bruno), com a build dev:**
+- nas Definições › Exportação em en: «Date format», «Metadata to include», «Last read date»;
+- em pt, a opção diz «24 de janeiro de 2025»;
+- um livro exportado em pt tem «**Data de leitura**: 24 de janeiro de 2025».
+
 ## Visto à margem (não se apaga sem pedido)
+- O `getDateFormatLabel` (`settings.svelte.ts`) só é usado nos testes.
+  
+- Chaves sem uso com o pt mal capitalizado: `settings.export.defaultFormat` («Formato Padrão»), `export.format.text` («Texto Simples»), e as do `LibraryToolbar` («Exportar Todos», «Limpar Seleção»).
+  
 - `LibraryToolbar.svelte` e `ImportingState.svelte` já não são importados por ninguém. Com eles ficam sem uso `screens.library.exportAll`, `exportSelected`, `clearSelection`, `importTitle` e `screens.importing.*`.
   
 - O pt de `settings.accent.hint` («Sistema usa a cor escolhida no macOS.») tem a mesma ambiguidade que o en tinha.
