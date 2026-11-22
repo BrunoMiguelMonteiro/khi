@@ -3286,8 +3286,10 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 - [x] **Passo 1 (eu):** gradiente novo no `icon.json`; `scripts/build-app-icon.sh`.
 - [x] **Passo 2 (eu):** `design/khi-caneta/` com o `Khi.png`, o `Khi.iconset` e o `Khi.icns` novos. Recoloro só a placa dos ficheiros da Task 54, multiplicando cada píxel da placa pela razão entre a cor nova e a antiga, para a sombra do marcador ficar; as linhas e o marcador não se tocam. Previews (512 e os tamanhos pequenos lado a lado) para o Bruno aprovar antes de copiar.
 - [x] **Passo 3 (eu):** copiar para `src-tauri/icons/` e `static/favicon.png` como na Task 54 (8 bits); `iconutil`; `npm run test:visual`; build dev.
-- [ ] **Passo 4 (Bruno):** o ícone no Dock, no Finder e no ⌘Tab, em claro e escuro.
+- [x] **Passo 4 (Bruno):** o ícone no Dock, no Finder e no ⌘Tab, em claro e escuro.
 - Commit `feat(icon): dark plate`. Sem Sonnet nem review adversarial: só imagens e uma cor.
+
+**Feito (2026-11-22), aprovado no ecrã pelo Bruno** («Aprovo a Task 60»). Commit `52a6df4`. O `gerar.py` (`design/khi-caneta/`) recolore só a placa do render da Task 54: nos píxeis opacos das camadas a diferença é 0 e o alfa é igual. O iconset sai com `magick -resize`, como na Task 54 (diferença 0 provada). Os 10 PNG e o favicon em 8 bits; o `.icns` e o `Assets.car` iguais dentro da app compilada; `test:visual` 179/179.
 
 ## Visto à margem (não se apaga sem pedido)
 - O `getDateFormatLabel` (`settings.svelte.ts`) só é usado nos testes.
