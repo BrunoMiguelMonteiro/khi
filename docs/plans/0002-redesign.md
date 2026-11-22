@@ -3194,6 +3194,39 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 
 **Feito (2026-11-22), aprovado no ecrã pelo Bruno** («Aprovo a Task 57»). Implementado pelo Sonnet. Antes do código, o teste novo do pt e o do Markdown inteiro falhavam; os de en e dos outros formatos já passavam e ficam como regressão. Mudaram o `export/mod.rs` (meses em minúscula, o `format_date` em pt com «de» e sem zero, a etiqueta «Data de leitura») e os quatro textos; o `ExportPane.svelte.test.ts` e o `definicoes/page.svelte.test.ts` seguiram os rótulos novos. Sem review adversarial: o código não passa do `format_date` e das constantes. Gate: `cargo test` verde, clippy com os mesmos 7 avisos, Vitest 1142 passam e 1 ignorado (duas corridas), `npm run check` 0/0, build OK, `test:visual` 179/179. O shuffle falha em testes da verificação de atualizações do `definicoes/page.svelte.test.ts` e no antigo `export_clears_new_of_exported_books`; com o mesmo seed e os ficheiros do HEAD falham os mesmos, por isso são anteriores. Baselines: os 25 JSON das Definições mudaram só no texto do painel Exportação, que está escondido; só os PNG dos cenários `settings-export-*` mudaram, e vi-os um a um. As cinco mutações do coordenador foram apanhadas (dia com zero em pt, sem «de», mês com maiúscula, en com o formato pt, etiqueta em title case). A exportação de teste pela interface fica para a verificação no ecrã; o texto do Markdown já é verificado no `cargo test`.
 
+### Task 58: Ajuda da cor de realce em pt
+**Decisões** (DECISIONS «Fase 6 · Ajuda da cor de realce em pt», 2026-11-22, as duas do Bruno com a minha recomendação):
+- **Texto da ajuda:** «Com “Sistema”, o Khi usa a cor de realce escolhida no macOS.» Não abre com o rótulo nu e diz quem usa a cor. As aspas “ ” são as dos textos pt-PT do macOS.
+- **Termo:** «Cor de realce», o nome da Apple em pt-PT (`AppearanceIntentsExtension.appex`), no rótulo e na ajuda. Deixa de se confundir com os destaques dos livros. Afasta-se do Figma, que diz «Cor de destaque».
+- **O en não muda.**
+
+**O que já existe** (levantamento a 2026-11-22):
+- `pt.json` ≈ 237: `settings.accent.label` «Cor de destaque»; ≈ 238: `settings.accent.hint` «Sistema usa a cor escolhida no macOS.»; `settings.accent.system` «Sistema».
+- O rótulo e a ajuda aparecem no `AppearancePane.svelte` ≈ 61 (`FormRow`). O rótulo é também o nome acessível do grupo de cores (`swatch-group.svelte` ≈ 82), e o comentário ≈ 24 cita «Cor de destaque».
+- Fixam os textos: o `swatch.test.ts` ≈ 137 (rótulo) e ≈ 158 (ajuda), e os JSON das baselines `settings-*` (o painel escondido também fica gravado).
+
+**Textos a mudar:**
+
+| Onde | Hoje | Passa a |
+|---|---|---|
+| pt `settings.accent.label` | Cor de destaque | Cor de realce |
+| pt `settings.accent.hint` | Sistema usa a cor escolhida no macOS. | Com “Sistema”, o Khi usa a cor de realce escolhida no macOS. |
+| comentário do `swatch-group.svelte` | «Cor de destaque» | «Cor de realce» |
+
+**Comportamento a provar:**
+1. **Textos:** o `swatch.test.ts` espera os dois textos novos em pt; o en fica igual.
+2. **Regra nova no `copy-rules.test.ts`:** em cada língua, o `settings.accent.hint` contém o `settings.accent.system` entre “ ”. Apanha uma troca do nome da opção sem a ajuda acompanhar.
+3. **Nome acessível:** o grupo de cores em pt chama-se «Cor de realce».
+4. **Visual:** os JSON de todos os `settings-*` podem mudar só no texto da Aparência. Só podem mudar os PNG dos três `settings-appearance-*` (pt). Abro-os um a um.
+
+**Passos:**
+- [ ] **Passo 1 (TDD):** os testes dos pontos 1 a 3. Vermelho.
+- [ ] **Passo 2:** os dois textos no `pt.json` e o comentário. Verde.
+- [ ] **Passo 3:** gate completo (Vitest duas vezes e com shuffle, `check`, build, visual; o Rust não muda).
+- [ ] **Passo 4 (eu):** mutações (ajuda sem aspas; `system` trocado só no `pt.json`; rótulo antigo); build dev em pt; tirar o ponto da ajuda do «Visto à margem». Sem review adversarial: só muda texto. Commit `fix(i18n): Portuguese accent color uses Apple's name and names the System option`.
+
+**Verificar no ecrã (Bruno), com a build dev em pt:** nas Definições › Aparência, o rótulo «Cor de realce» e a ajuda «Com “Sistema”, o Khi usa a cor de realce escolhida no macOS.», sem cortes.
+
 ## Visto à margem (não se apaga sem pedido)
 - O `getDateFormatLabel` (`settings.svelte.ts`) só é usado nos testes.
   
