@@ -3092,7 +3092,7 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 - o cabeçalho com «Try Again» e «Choose Folder…»;
 - o texto novo de Apagar livro.
 
-**Feito (2026-11-22), à espera do ecrã do Bruno.** Aprovada pelo Bruno («Aprovo a Task 55»). O Sonnet implementou com TDD (7 testes novos vermelhos antes), e eu revi. Não houve review adversarial, porque o código só trocou três chaves no menu.
+**Feito (2026-11-22), aprovado no ecrã pelo Bruno** («Aprovo a Task 55», com a app em inglês). Aprovada pelo Bruno («Aprovo a Task 55»). O Sonnet implementou com TDD (7 testes novos vermelhos antes), e eu revi. Não houve review adversarial, porque o código só trocou três chaves no menu.
 - **Diff:** igual à tabela; no pt só as 3 chaves novas e as 2 reticências.
 - **Mutações (9):** morreram todas, depois de uma correção minha. A regra do apóstrofo só via letras dos dois lados e deixava passar «{reader}'s»; agora apanha também um marcador antes do apóstrofo (`/[\p{L}}]'\p{L}/u`).
 - **Visual:** mudaram 2 cenários en (`grid--light--en`, com «Export 2 Books» no botão e nos estados, e `settings-export--light--en`, com «Bruno’s»). Abri os PNG: só mudou o texto.
