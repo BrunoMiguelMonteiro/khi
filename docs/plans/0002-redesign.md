@@ -3099,7 +3099,51 @@ As alturas incluem o contorno de 1 px; o conteúdo manda.
 - **Gate:** Vitest 1138 passam, 1 ignorado; `npm run check` 0/0; build OK; `test:visual` 179. O Rust não mudou.
 - **Visto nos PNG, fora da tabela:** os rótulos antigos das Definições estão em title case («Date Format», «Metadata to Include», «Last Read Date»), contra a regra do HIG decidida.
 
-**Fora desta task** (proposta à parte, depois de confirmar no ecrã): os itens nativos do menu (Undo, Cut, Copy, Paste, Hide Khi, Quit Khi, Minimize, Zoom, Close Window…) têm texto fixo em inglês no muda 0.20 e devem aparecer em inglês com a app em pt. O `PredefinedMenuItem.new` aceita `text`.
+**Fora desta task** (é a Task 56): os itens nativos do menu (Undo, Cut, Copy, Paste, Hide Khi, Quit Khi, Minimize, Zoom, Close Window…) têm texto fixo em inglês no muda 0.20 e devem aparecer em inglês com a app em pt. O `PredefinedMenuItem.new` aceita `text`.
+
+### Task 56: Itens nativos do menu na língua da app
+**Pedido (Bruno, 2026-11-22):** com a app em português, a Edição e a Janela mostram «Undo», «Cut», «Copy», «Minimize»… em inglês (visto no ecrã).
+
+**Decisões** (DECISIONS «Fase 6 · Inglês», 2026-11-22):
+- **Nomes pt:** os das traduções do próprio macOS (AppKit `MenuCommands.loctable`; TextEdit `Edit.loctable`). Os itens com o nome da app levam artigo, como «Ocultar o Editor de Texto».
+- **Zoom (Bruno):** «Aumentar/reduzir» em pt, o nome da Apple no Mail, Notas e Pré-visualização. O Figma Z1 diz «Zoom».
+- **Nomes en:** os do macOS em inglês (EUA), iguais aos que o muda escreve hoje.
+
+**O que já existe** (levantamento a 2026-11-22):
+- O `menu.ts` cria 15 `PredefinedMenuItem` sem `text`: Services, Hide, HideOthers, ShowAll e Quit (≈ 212–217), o About (≈ 199), CloseWindow (≈ 260), Undo, Redo, Cut, Copy, Paste e SelectAll (≈ 268–274), Minimize e Maximize (≈ 340). Os separadores não têm texto.
+- O muda 0.20 (`items/predefined.rs` ≈ 302) usa o `text` quando o recebe; sem ele, escreve títulos fixos em inglês, e o «About», o «Hide» e o «Quit» levam o nome da app. O `&` marca um mnemónico, e nenhum dos textos o tem.
+- O menu reconstrói-se quando muda a língua (Task 53), por isso os textos novos seguem a língua sem mais código.
+
+**Textos (chaves novas em `app.native.*`):**
+
+| Item | en | pt |
+|---|---|---|
+| About | About Khi | Acerca do Khi |
+| Services | Services | Serviços |
+| Hide | Hide Khi | Ocultar o Khi |
+| HideOthers | Hide Others | Ocultar outras aplicações |
+| ShowAll | Show All | Mostrar tudo |
+| Quit | Quit Khi | Sair do Khi |
+| CloseWindow | Close Window | Fechar janela |
+| Undo / Redo | Undo / Redo | Desfazer / Refazer |
+| Cut / Copy / Paste | Cut / Copy / Paste | Cortar / Copiar / Colar |
+| SelectAll | Select All | Selecionar tudo |
+| Minimize | Minimize | Minimizar |
+| Maximize | Zoom | Aumentar/reduzir |
+
+**Comportamento a provar:**
+1. **Nenhum item nativo sem texto:** no `menu.test.ts`, todos os `PredefinedMenuItem` que não são separadores recebem um `text`, e esse texto vem de uma chave `app.native.*`. O teste lista os que falham.
+2. **Textos certos:** com o pt, a Edição tem «Desfazer», «Refazer», «Cortar», «Copiar», «Colar» e «Selecionar tudo»; o menu Khi tem «Acerca do Khi», «Ocultar o Khi» e «Sair do Khi»; a Janela tem «Minimizar» e «Aumentar/reduzir». Com o en, os nomes da tabela.
+3. **O resto não muda:** os aceleradores e as ações dos itens nativos são os do muda; o About continua com o nome, o copyright e o ícone.
+4. **As regras da Task 55** (`copy-rules.test.ts`) continuam a passar.
+
+**Passos:**
+- [ ] **Passo 1 (TDD):** os testes dos pontos 1 e 2. Vermelho.
+- [ ] **Passo 2:** as 16 chaves em `en.json` e `pt.json`, e o `text` em cada `PredefinedMenuItem` do `menu.ts`. Verde.
+- [ ] **Passo 3:** gate completo (Vitest, `check`, build, visual; o Rust não muda).
+- [ ] **Passo 4 (eu):** mutações (tirar o `text` a um item; trocar uma chave); build dev, com a app em pt e em en: os menus Khi, Edição e Janela, e que ⌘Z, ⌘X, ⌘C, ⌘V, ⌘A, ⌘H, ⌘Q, ⌘W e ⌘M continuam a funcionar. Sem review adversarial: só muda texto de menu. Commit `fix(menu): native items follow the app language`.
+
+**Verificar no ecrã (Bruno), com a build dev:** com a app em pt, os menus Khi, Edição e Janela estão todos em português, com «Aumentar/reduzir»; com a app em en, estão em inglês; e os atalhos fazem o mesmo que antes.
 
 ## Visto à margem (não se apaga sem pedido)
 - `LibraryToolbar.svelte` e `ImportingState.svelte` já não são importados por ninguém. Com eles ficam sem uso `screens.library.exportAll`, `exportSelected`, `clearSelection`, `importTitle` e `screens.importing.*`.
