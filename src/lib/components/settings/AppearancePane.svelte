@@ -23,7 +23,7 @@
 	const themeItems = $derived(themes.map((value) => ({ value, label: $_(themeKeys[value]) })));
 
 	// Each language in its own, whatever the interface speaks
-	const languages: Language[] = ['en', 'pt'];
+	const languages: Language[] = ['en', 'es', 'fr', 'pt'];
 	const languageItems = $derived(
 		languages.map((value) => ({ value, label: $_(`settings.appearance.languages.${value}`) }))
 	);

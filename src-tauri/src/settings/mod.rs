@@ -342,8 +342,13 @@ fn language_from_apple_languages(output: &str) -> Language {
         .map(|line| line.trim().trim_matches(|c| c == '"' || c == ','))
         .find(|entry| !entry.is_empty() && *entry != "(" && *entry != ")");
     match first {
-        Some(tag) if tag.to_ascii_lowercase().starts_with("pt") => Language::Pt,
-        _ => Language::En,
+        Some(tag) => match tag.to_ascii_lowercase().get(..2) {
+            Some("pt") => Language::Pt,
+            Some("es") => Language::Es,
+            Some("fr") => Language::Fr,
+            _ => Language::En,
+        },
+        None => Language::En,
     }
 }
 
@@ -687,7 +692,12 @@ mod tests {
         assert_eq!(language_from_apple_languages(pt_first), Language::Pt);
         assert_eq!(language_from_apple_languages("(\n    pt,\n    en\n)\n"), Language::Pt);
         assert_eq!(language_from_apple_languages("(\n    \"pt-BR\"\n)\n"), Language::Pt);
-        assert_eq!(language_from_apple_languages("(\n    \"fr-FR\",\n    \"pt-PT\"\n)\n"), Language::En);
+        assert_eq!(language_from_apple_languages("(\n    \"fr-FR\",\n    \"pt-PT\"\n)\n"), Language::Fr);
+        assert_eq!(language_from_apple_languages("(\n    \"fr-CA\"\n)\n"), Language::Fr);
+        assert_eq!(language_from_apple_languages("(\n    \"es-ES\",\n    \"en-US\"\n)\n"), Language::Es);
+        assert_eq!(language_from_apple_languages("(\n    \"es-419\"\n)\n"), Language::Es);
+        // A language Khi does not speak: English
+        assert_eq!(language_from_apple_languages("(\n    \"de-DE\",\n    \"pt-PT\"\n)\n"), Language::En);
         assert_eq!(language_from_apple_languages(""), Language::En);
     }
 
