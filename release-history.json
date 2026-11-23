@@ -1,5 +1,33 @@
 [
   {
+    "version": "2.1.0",
+    "date": "2026-11-23",
+    "notes": {
+      "en": {
+        "whats_new": [
+          "Khi now speaks Spanish and French. Choose the language in Settings › Appearance.",
+          "The exported Markdown follows the language you choose, with its own labels and dates.",
+          "The Settings window changes height smoothly when you switch panes."
+        ],
+        "bug_fixes": [
+          "The window buttons in Settings no longer move when you open the Kobo pane.",
+          "Settings no longer flicker when you open Export or Appearance."
+        ]
+      },
+      "pt": {
+        "whats_new": [
+          "O Khi fala agora espanhol e francês. Escolhe o idioma em Definições › Aparência.",
+          "O Markdown exportado segue o idioma que escolheres, com as etiquetas e as datas desse idioma.",
+          "A janela das Definições muda de altura de forma suave quando trocas de separador."
+        ],
+        "bug_fixes": [
+          "Os botões da janela das Definições já não mudam de sítio no separador Kobo.",
+          "As Definições já não estremecem ao abrir Exportação ou Aparência."
+        ]
+      }
+    }
+  },
+  {
     "version": "2.0.0",
     "date": "2026-11-22",
     "notes": {
