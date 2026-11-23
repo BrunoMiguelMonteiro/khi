@@ -180,7 +180,7 @@
         "author": "Autor",
         "isbn": "ISBN",
         "publisher": "Editorial",
-        "dateLastRead": "Fecha de última lectura",
+        "dateLastRead": "Última lectura",
         "language": "Idioma",
         "description": "Descripción"
       },
