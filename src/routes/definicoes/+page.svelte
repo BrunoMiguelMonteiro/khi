@@ -45,17 +45,10 @@
 		appWindow.close().catch((error) => console.error('Failed to close settings:', error));
 	}
 
-	// The window's name (Window menu, Mission Control) is the pane's, in the language of the window; the title itself is hidden
-	$effect(() => {
-		if (!settings.loaded) return;
-		appWindow
-			.setTitle(titles[pane])
-			.catch((error) => console.error('Failed to set the window title:', error));
-	});
-
 	// The height follows the pane; the window shows only after its first size, so it never appears
 	// at another height. The calls go one after another.
 	let lastHeight = 0;
+	let lastTitle = '';
 	let shown = false;
 	let sizing: Promise<unknown> = Promise.resolve();
 	function fit() {
@@ -66,6 +59,16 @@
 			lastHeight = height;
 			sizing = sizing.then(() =>
 				appWindow.setSize(new LogicalSize(WIDTH, height)).catch((error) => console.error('Failed to size the window:', error))
+			);
+		}
+		// The window's name (Window menu, Mission Control) is the pane's, in the language of the window; the
+		// title itself is hidden. Set after the size: a title change puts the traffic lights back at the
+		// height the window has then, and before the new size they jumped when the window grew.
+		const title = titles[pane];
+		if (title !== lastTitle) {
+			lastTitle = title;
+			sizing = sizing.then(() =>
+				appWindow.setTitle(title).catch((error) => console.error('Failed to set the window title:', error))
 			);
 		}
 		if (!shown) {

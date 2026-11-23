@@ -230,6 +230,25 @@ describe('/definicoes · window', () => {
 		await waitFor(() => expect(appWindow.setTitle).toHaveBeenLastCalledWith('Updates'));
 	});
 
+	it('names the window only after sizing it: a title change puts the traffic lights back at the height then', async () => {
+		render(Page);
+		await waitFor(() => expect(appWindow.show).toHaveBeenCalled());
+
+		for (const [tab, title, height] of [
+			['Kobo', 'Kobo', 243],
+			['Appearance', 'Appearance', 287],
+			['Export', 'Export', 382]
+		] as const) {
+			await fireEvent.click(screen.getByRole('tab', { name: tab }));
+			await waitFor(() => expect(appWindow.setTitle).toHaveBeenLastCalledWith(title));
+			const sized = appWindow.setSize.mock.calls.findLastIndex(([size]) => size.height === height);
+			const named = appWindow.setTitle.mock.calls.findLastIndex(([name]) => name === title);
+			expect(appWindow.setTitle.mock.invocationCallOrder[named]).toBeGreaterThan(
+				appWindow.setSize.mock.invocationCallOrder[sized]
+			);
+		}
+	});
+
 	it('the title follows the language', async () => {
 		render(Page);
 		await waitFor(() => expect(appWindow.setTitle).toHaveBeenCalledWith('Export'));
