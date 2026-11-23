@@ -40,7 +40,7 @@ tauri-specta = { version = "=2.0.0-rc.28", features = ["derive", "typescript"] }
 objc2 = "0.6.5"
 block2 = "0.6.2"
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "block2", "NSString", "NSUserDefaults", "NSNotification", "NSObject", "NSOperation", "NSDictionary", "NSValue"] }
-objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "block2", "objc2-core-foundation", "NSColor", "NSColorSpace", "NSAppearance", "NSResponder", "NSWindow", "NSView", "NSControl", "NSButton"] }
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "block2", "objc2-core-foundation", "NSColor", "NSColorSpace", "NSAppearance", "NSResponder", "NSWindow", "NSView", "NSControl", "NSButton", "NSWorkspace", "NSAccessibility"] }
 
 [dev-dependencies]
 tempfile = "3.10"
