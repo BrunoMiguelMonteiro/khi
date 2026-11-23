@@ -42,6 +42,17 @@
 		appWindow.close().catch((error) => console.error('Failed to close settings:', error));
 	}
 
+	// The window is as tall as the pane, so the page never scrolls. A taller pane is drawn a frame before
+	// the window grows: with a mouse macOS shows classic scrollbars, one appeared, took its width and the
+	// pane shook.
+	$effect(() => {
+		const root = document.documentElement;
+		root.style.overflow = 'hidden';
+		return () => {
+			root.style.overflow = '';
+		};
+	});
+
 	// The height follows the pane; the window shows only after its first size, so it never appears
 	// at another height. The calls go one after another.
 	let lastHeight = 0;

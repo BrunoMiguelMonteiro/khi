@@ -183,6 +183,14 @@ describe('/definicoes · window', () => {
 		expect(sizeWindow.mock.calls[2][0]).toEqual({ height: 243, animate: true });
 	});
 
+	it('the page never scrolls: a taller pane waits for the window without a scrollbar', async () => {
+		const { unmount } = render(Page);
+
+		expect(document.documentElement.style.overflow).toBe('hidden');
+		unmount();
+		expect(document.documentElement.style.overflow).toBe('');
+	});
+
 	it('a height that did not change does not ask for a size again', async () => {
 		render(Page);
 		await waitFor(() => expect(sizeWindow).toHaveBeenCalledTimes(1));
