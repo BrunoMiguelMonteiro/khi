@@ -87,7 +87,7 @@ describe('AppearancePane', () => {
 		expect(trigger).toHaveTextContent('English');
 
 		await openSelect(user, trigger);
-		expect((await screen.findAllByRole('option', { hidden: true })).map((o) => o.textContent?.trim())).toEqual(['English', 'Português']);
+		expect((await screen.findAllByRole('option', { hidden: true })).map((o) => o.textContent?.trim())).toEqual(['English', 'Español', 'Français', 'Português']);
 		await user.click(optionNamed('Português'));
 
 		await waitFor(() => expect(rust.patches).toEqual([{ language: 'pt' }]));

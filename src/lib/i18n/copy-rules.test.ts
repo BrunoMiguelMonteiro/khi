@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import en from './locales/en.json';
+import es from './locales/es.json';
+import fr from './locales/fr.json';
 import pt from './locales/pt.json';
 
 function entries(tree: object, prefix = ''): [string, string][] {
@@ -16,6 +18,8 @@ const offenders = (tree: object, bad: (value: string) => boolean) =>
 describe('copy rules', () => {
 	it.each([
 		['en', en],
+		['es', es],
+		['fr', fr],
 		['pt', pt]
 	])('%s: no three ASCII dots, the ellipsis character is used', (_name, tree) => {
 		expect(offenders(tree, (v) => v.includes('...'))).toEqual([]);
@@ -23,9 +27,18 @@ describe('copy rules', () => {
 
 	it.each([
 		['en', en],
+		['es', es],
 		['pt', pt]
 	])('%s: the accent hint names the System option between curly quotes', (_name, tree) => {
 		expect(tree.settings.accent.hint).toContain(`\u201C${tree.settings.accent.system}\u201D`);
+	});
+
+	it('fr: the accent hint names the System option between guillemets, with narrow no-break spaces', () => {
+		expect(fr.settings.accent.hint).toContain(`\u00AB\u202F${fr.settings.accent.system}\u202F\u00BB`);
+	});
+
+	it('fr: a narrow no-break space before ? ! ; and :', () => {
+		expect(offenders(fr, (v) => /[^\u202F][?!;]|[^\u202F\d]:(?!\/)/u.test(v.replace(/\{[^}]*\}/g, 'x')))).toEqual([]);
 	});
 
 	it('en: no straight apostrophe between letters or after a placeholder, the typographic one is used', () => {

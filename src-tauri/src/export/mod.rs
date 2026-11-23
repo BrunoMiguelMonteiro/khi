@@ -69,10 +69,36 @@ const EN: Labels = Labels {
     ],
 };
 
+const ES: Labels = Labels {
+    author: "Autor",
+    publisher: "Editorial",
+    last_read: "Fecha de lectura",
+    language: "Idioma",
+    note: "Nota",
+    months: [
+        "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre",
+        "octubre", "noviembre", "diciembre",
+    ],
+};
+
+const FR: Labels = Labels {
+    author: "Auteur",
+    publisher: "Éditeur",
+    last_read: "Date de lecture",
+    language: "Langue",
+    note: "Note",
+    months: [
+        "janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre",
+        "octobre", "novembre", "décembre",
+    ],
+};
+
 fn labels(language: Language) -> &'static Labels {
     match language {
         Language::Pt => &PT,
         Language::En => &EN,
+        Language::Es => &ES,
+        Language::Fr => &FR,
     }
 }
 
@@ -370,8 +396,11 @@ fn format_date(date_str: &str, format: &DateFormat, language: Language) -> Strin
             DateFormat::DdMonthYyyy => {
                 let month_name = labels(language).months[(date.month() - 1) as usize];
                 match language {
-                    Language::Pt => format!("{} de {} de {}", date.day(), month_name, date.year()),
+                    Language::Pt | Language::Es => format!("{} de {} de {}", date.day(), month_name, date.year()),
                     Language::En => format!("{:02} {} {}", date.day(), month_name, date.year()),
+                    // The first of the month is «1er»
+                    Language::Fr if date.day() == 1 => format!("1er {} {}", month_name, date.year()),
+                    Language::Fr => format!("{} {} {}", date.day(), month_name, date.year()),
                 }
             }
             DateFormat::Iso8601 => date.format("%Y-%m-%d").to_string(),
@@ -686,8 +715,33 @@ mod tests {
     }
 
     #[test]
+    fn spanish_markdown_has_spanish_labels_and_months() {
+        let expected = "# Test Book\n\n**Autor**: Test Author\n**ISBN**: 978-1234567890\n**Editorial**: Test Publisher\n**Fecha de lectura**: 24 de enero de 2025\n**Idioma**: en\n\nA test book description\n\n---\n\n> First highlight\n\n**Nota:** A thought  \nsecond line\n\nChapter 1 · 25%\n\n> Second highlight\n\nChapter 1 · 50%\n";
+        assert_eq!(full_markdown(Language::Es), expected);
+    }
+
+    #[test]
+    fn french_markdown_has_french_labels_and_months() {
+        let expected = "# Test Book\n\n**Auteur**: Test Author\n**ISBN**: 978-1234567890\n**Éditeur**: Test Publisher\n**Date de lecture**: 24 janvier 2025\n**Langue**: en\n\nA test book description\n\n---\n\n> First highlight\n\n**Note:** A thought  \nsecond line\n\nChapter 1 · 25%\n\n> Second highlight\n\nChapter 1 · 50%\n";
+        assert_eq!(full_markdown(Language::Fr), expected);
+    }
+
+    #[test]
+    fn format_date_es_long_has_de_and_lowercase_month() {
+        assert_eq!(format_date("2025-01-24", &DateFormat::DdMonthYyyy, Language::Es), "24 de enero de 2025");
+        assert_eq!(format_date("2025-03-01", &DateFormat::DdMonthYyyy, Language::Es), "1 de marzo de 2025");
+    }
+
+    #[test]
+    fn format_date_fr_long_has_lowercase_month_and_premier() {
+        assert_eq!(format_date("2025-02-24", &DateFormat::DdMonthYyyy, Language::Fr), "24 février 2025");
+        // The first of the month is «1er» in French
+        assert_eq!(format_date("2025-08-01", &DateFormat::DdMonthYyyy, Language::Fr), "1er août 2025");
+    }
+
+    #[test]
     fn format_date_other_formats_unchanged() {
-        for language in [Language::Pt, Language::En] {
+        for language in [Language::Pt, Language::En, Language::Es, Language::Fr] {
             assert_eq!(
                 format_date("2025-01-01", &DateFormat::DdMmYyyy, language),
                 "01/01/2025"

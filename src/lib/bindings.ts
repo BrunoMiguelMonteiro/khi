@@ -202,7 +202,7 @@ export type KoboDevice_Serialize = {
 };
 
 /**  The language of the interface and of the exported Markdown. */
-export type Language = "en" | "pt";
+export type Language = "en" | "es" | "fr" | "pt";
 
 /**
  *  A book as the Library holds it, with every highlight ever synced,
