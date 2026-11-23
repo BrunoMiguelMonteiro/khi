@@ -10,7 +10,6 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { emit, listen } from '@tauri-apps/api/event';
-	import { LogicalSize } from '@tauri-apps/api/dpi';
 	import { getCurrentWindow } from '@tauri-apps/api/window';
 	import SettingsPanel from '$lib/components/SettingsPanel.svelte';
 	import { TooltipProvider } from '$lib/components/ui/tooltip';
@@ -21,8 +20,6 @@
 	import { UPDATES_STATE_EVENT, UPDATES_STATE_REQUEST_EVENT, updater, type UpdatesStatePayload } from '$lib/stores/updater.svelte';
 
 	const appWindow = getCurrentWindow();
-	/** The window's width, from the Figma; Rust builds it the same (`settings_window_spec`). */
-	const WIDTH = 540;
 	let panel: ReturnType<typeof SettingsPanel> | undefined;
 	let frame = $state<HTMLElement | null>(null);
 
@@ -45,17 +42,21 @@
 		appWindow.close().catch((error) => console.error('Failed to close settings:', error));
 	}
 
-	// The window's name (Window menu, Mission Control) is the pane's, in the language of the window; the title itself is hidden
+	// The window is as tall as the pane, so the page never scrolls. A taller pane is drawn a frame before
+	// the window grows: with a mouse macOS shows classic scrollbars, one appeared, took its width and the
+	// pane shook.
 	$effect(() => {
-		if (!settings.loaded) return;
-		appWindow
-			.setTitle(titles[pane])
-			.catch((error) => console.error('Failed to set the window title:', error));
+		const root = document.documentElement;
+		root.style.overflow = 'hidden';
+		return () => {
+			root.style.overflow = '';
+		};
 	});
 
 	// The height follows the pane; the window shows only after its first size, so it never appears
 	// at another height. The calls go one after another.
 	let lastHeight = 0;
+	let lastTitle = '';
 	let shown = false;
 	let sizing: Promise<unknown> = Promise.resolve();
 	function fit() {
@@ -64,8 +65,20 @@
 		if (height <= 0) return;
 		if (height !== lastHeight) {
 			lastHeight = height;
+			// Animated once the window shows, as macOS's own Settings windows: an instant resize made the bar shake as it grew
+			const animate = shown;
 			sizing = sizing.then(() =>
-				appWindow.setSize(new LogicalSize(WIDTH, height)).catch((error) => console.error('Failed to size the window:', error))
+				commands.sizeSettingsWindow(height, animate).catch((error) => console.error('Failed to size the window:', error))
+			);
+		}
+		// The window's name (Window menu, Mission Control) is the pane's, in the language of the window; the
+		// title itself is hidden. Set after the size: a title change puts the traffic lights back at the
+		// height the window has then, and before the new size they jumped when the window grew.
+		const title = titles[pane];
+		if (title !== lastTitle) {
+			lastTitle = title;
+			sizing = sizing.then(() =>
+				appWindow.setTitle(title).catch((error) => console.error('Failed to set the window title:', error))
 			);
 		}
 		if (!shown) {

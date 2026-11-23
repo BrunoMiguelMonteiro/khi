@@ -65,6 +65,13 @@ export const commands = {
 	 *  Async, because a sync command that builds a window can deadlock.
 	 */
 	openSettings: (title: string, readerId: number | null) => __TAURI_INVOKE<null>("open_settings", { title, readerId }),
+	/**
+	 *  Sets the Settings window's content height, its top edge staying put. With
+	 *  `animate`, macOS animates it as in its own Settings windows: an instant
+	 *  resize of the shown window made the bar shake as it grew (WebKit draws a
+	 *  frame at the old size). Never animated with Reduce Motion on.
+	 */
+	sizeSettingsWindow: (height: number | null, animate: boolean) => __TAURI_INVOKE<null>("size_settings_window", { height, animate }),
 	/**  The Reader to show in Settings; `None` means the last one opened (R5). */
 	settingsReader: () => __TAURI_INVOKE<number | null>("settings_reader"),
 	/**
