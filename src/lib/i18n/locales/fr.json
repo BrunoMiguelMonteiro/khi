@@ -72,7 +72,7 @@
         "chooseFolder": "Choisir le dossier…"
       },
       "title": "Bibliothèque",
-      "titleOf": "Bibliothèque de {reader}",
+      "titleOf": "Bibliothèque · {reader}",
       "exportAll": "Tout exporter",
       "exportSelected": "Exporter la sélection",
       "clearSelection": "Effacer la sélection",

@@ -42,6 +42,8 @@ struct Labels {
     last_read: &'static str,
     language: &'static str,
     note: &'static str,
+    /// What goes before a label's colon: nothing, or French's narrow no-break space
+    colon_space: &'static str,
     months: [&'static str; 12],
 }
 
@@ -51,6 +53,7 @@ const PT: Labels = Labels {
     last_read: "Data de leitura",
     language: "Idioma",
     note: "Nota",
+    colon_space: "",
     months: [
         "janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro",
         "outubro", "novembro", "dezembro",
@@ -63,6 +66,7 @@ const EN: Labels = Labels {
     last_read: "Last read",
     language: "Language",
     note: "Note",
+    colon_space: "",
     months: [
         "January", "February", "March", "April", "May", "June", "July", "August", "September",
         "October", "November", "December",
@@ -75,6 +79,7 @@ const ES: Labels = Labels {
     last_read: "Fecha de lectura",
     language: "Idioma",
     note: "Nota",
+    colon_space: "",
     months: [
         "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre",
         "octubre", "noviembre", "diciembre",
@@ -87,6 +92,7 @@ const FR: Labels = Labels {
     last_read: "Date de lecture",
     language: "Langue",
     note: "Note",
+    colon_space: "\u{202F}",
     months: [
         "janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre",
         "octobre", "novembre", "décembre",
@@ -270,25 +276,26 @@ impl MarkdownExporter {
         let mut metadata: Vec<String> = Vec::new();
 
         if config.metadata.author && !book.author.is_empty() {
-            metadata.push(format!("**{}**: {}", words.author, book.author));
+            metadata.push(format!("**{}**{}: {}", words.author, words.colon_space, book.author));
         }
         if config.metadata.isbn && book.isbn.is_some() {
-            metadata.push(format!("**ISBN**: {}", book.isbn.as_ref().unwrap()));
+            metadata.push(format!("**ISBN**{}: {}", words.colon_space, book.isbn.as_ref().unwrap()));
         }
         if config.metadata.publisher && book.publisher.is_some() {
             metadata.push(format!(
-                "**{}**: {}",
+                "**{}**{}: {}",
                 words.publisher,
+                words.colon_space,
                 book.publisher.as_ref().unwrap()
             ));
         }
         if config.metadata.date_last_read && book.date_last_read.is_some() {
             let formatted =
                 format_date(book.date_last_read.as_ref().unwrap(), &config.date_format, self.language);
-            metadata.push(format!("**{}**: {}", words.last_read, formatted));
+            metadata.push(format!("**{}**{}: {}", words.last_read, words.colon_space, formatted));
         }
         if config.metadata.language && book.language.is_some() {
-            metadata.push(format!("**{}**: {}", words.language, book.language.as_ref().unwrap()));
+            metadata.push(format!("**{}**{}: {}", words.language, words.colon_space, book.language.as_ref().unwrap()));
         }
         if config.metadata.description && book.description.is_some() {
             metadata.push(String::new());
@@ -330,7 +337,8 @@ impl MarkdownExporter {
                 .filter(|l| !l.is_empty())
                 .collect();
             lines.push(String::new());
-            lines.push(format!("**{}:** {}", labels(self.language).note, body.join("  \n")));
+            let words = labels(self.language);
+            lines.push(format!("**{}{}:** {}", words.note, words.colon_space, body.join("  \n")));
         }
 
         // Location info (no label, just the value)
@@ -722,7 +730,8 @@ mod tests {
 
     #[test]
     fn french_markdown_has_french_labels_and_months() {
-        let expected = "# Test Book\n\n**Auteur**: Test Author\n**ISBN**: 978-1234567890\n**Éditeur**: Test Publisher\n**Date de lecture**: 24 janvier 2025\n**Langue**: en\n\nA test book description\n\n---\n\n> First highlight\n\n**Note:** A thought  \nsecond line\n\nChapter 1 · 25%\n\n> Second highlight\n\nChapter 1 · 50%\n";
+        // French puts a narrow no-break space (U+202F) before the colon
+        let expected = "# Test Book\n\n**Auteur**\u{202F}: Test Author\n**ISBN**\u{202F}: 978-1234567890\n**Éditeur**\u{202F}: Test Publisher\n**Date de lecture**\u{202F}: 24 janvier 2025\n**Langue**\u{202F}: en\n\nA test book description\n\n---\n\n> First highlight\n\n**Note\u{202F}:** A thought  \nsecond line\n\nChapter 1 · 25%\n\n> Second highlight\n\nChapter 1 · 50%\n";
         assert_eq!(full_markdown(Language::Fr), expected);
     }
 
