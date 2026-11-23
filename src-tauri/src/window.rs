@@ -83,6 +83,21 @@ pub fn settings_window_spec(title: String) -> SettingsWindowSpec {
     }
 }
 
+/// The config the Settings window is built from. The traffic light position
+/// goes here, not on the builder: the builder's `traffic_light_position` only
+/// reaches wry, and tao, which puts the lights back after `setTitle`, would
+/// not know it. The title changes with the pane, so without this the lights
+/// fell back to AppKit's place whenever the pane changed and the height did not.
+pub fn settings_window_config(spec: &SettingsWindowSpec) -> tauri::utils::config::WindowConfig {
+    let (x, y) = spec.traffic_light_position;
+    tauri::utils::config::WindowConfig {
+        label: spec.label.to_string(),
+        url: tauri::WebviewUrl::App(spec.url_path.into()),
+        traffic_light_position: Some(tauri::utils::config::LogicalPosition { x, y }),
+        ..Default::default()
+    }
+}
+
 /// Held from looking the Settings window up until it is built: two quick ⌘,
 /// would otherwise both find no window and both build one. An async lock,
 /// awaited by the async command: a sync lock held on the main thread would
@@ -161,11 +176,8 @@ pub async fn open_settings(
         return window.set_focus().map_err(|e| e.to_string());
     }
 
-    let builder = tauri::WebviewWindowBuilder::new(
-        &app,
-        spec.label,
-        tauri::WebviewUrl::App(spec.url_path.into()),
-    )
+    let builder = tauri::WebviewWindowBuilder::from_config(&app, &settings_window_config(&spec))
+        .map_err(|e| e.to_string())?
     .title(spec.title)
     .resizable(spec.resizable)
     .minimizable(spec.minimizable)
@@ -176,11 +188,7 @@ pub async fn open_settings(
     #[cfg(target_os = "macos")]
     let builder = builder
         .title_bar_style(spec.title_bar_style)
-        .hidden_title(spec.hidden_title)
-        .traffic_light_position(tauri::LogicalPosition::new(
-            spec.traffic_light_position.0,
-            spec.traffic_light_position.1,
-        ));
+        .hidden_title(spec.hidden_title);
     builder.build().map_err(|e| e.to_string())?;
     show_when_ready(app.clone(), spec.label);
     Ok(())
@@ -329,6 +337,17 @@ mod tests {
         assert!(!spec.maximizable);
         // Shown by the page once its theme is applied
         assert!(!spec.visible);
+    }
+
+    #[test]
+    fn settings_window_config_carries_the_traffic_lights() {
+        let spec = super::settings_window_spec("Definições".to_string());
+        let config = super::settings_window_config(&spec);
+        assert_eq!(config.label, "settings");
+        assert_eq!(config.url, tauri::WebviewUrl::App("definicoes".into()));
+        // In the config, so tao keeps it and puts the lights back after a title change
+        let position = config.traffic_light_position.expect("traffic light position");
+        assert_eq!((position.x, position.y), (16.0, 28.0));
     }
 
     #[test]
