@@ -2,7 +2,7 @@
 
 A native macOS app that keeps the highlights from your Kobo in a Library on your Mac and exports them to Markdown.
 
-<img src="docs/images/library.png" alt="Khi’s Library in the light theme, with new highlights in two books and the Export 2 Books button" width="800">
+<img src="docs/images/library.webp" alt="Khi’s Library in the light theme, a grid of book covers with each book’s highlight count" width="800">
 
 ## Features
 
