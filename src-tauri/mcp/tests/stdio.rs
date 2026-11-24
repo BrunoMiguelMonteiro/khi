@@ -129,6 +129,16 @@ fn tools_are_listed_with_annotations_and_schemas() {
     let description_of = |n: &str| tools.iter().find(|t| t["name"] == n).unwrap()["description"].as_str().unwrap().to_string();
     assert!(description_of("new_highlights").contains("syncedSince"));
     assert!(description_of("search_highlights").to_lowercase().contains("not a meaning search"));
+    // Highlight text is whole only while the answer fits the ceiling
+    let get_book = description_of("get_book");
+    assert!(!get_book.contains("returned whole."), "{get_book}");
+    assert!(get_book.contains("truncated"), "{get_book}");
+    let book_schema = &tools.iter().find(|t| t["name"] == "get_book").unwrap()["outputSchema"]["properties"]["book"];
+    let book_props = book_schema["properties"].as_object().expect("book declares its properties");
+    for wanted in ["id", "readerId", "title", "author", "language", "dateLastRead", "highlightCount", "noteCount",
+                   "newCount", "removedCount", "isbn", "publisher", "description", "truncated"] {
+        assert!(book_props.contains_key(wanted), "book.{wanted} is not in the schema");
+    }
     s.finish();
 }
 
