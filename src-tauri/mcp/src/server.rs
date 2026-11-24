@@ -43,6 +43,19 @@ fn tool_list() -> Vec<Tool> {
         .collect()
 }
 
+/// Runs a tool call on a blocking thread: a busy Library (the 2 s timeout)
+/// must not hold up the one-thread runtime that speaks the protocol. A panic
+/// in the call comes back as an error result, not as a dropped answer.
+pub async fn run_blocking(call: impl FnOnce() -> Outcome + Send + 'static) -> Outcome {
+    match tokio::task::spawn_blocking(call).await {
+        Ok(outcome) => outcome,
+        Err(why) => {
+            log::error!("tool call failed: {why}");
+            Outcome::Failed("khi-mcp hit an internal error".into())
+        }
+    }
+}
+
 impl ServerHandler for KhiServer {
     fn get_info(&self) -> ServerConfig {
         ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
@@ -70,7 +83,8 @@ impl ServerHandler for KhiServer {
         // Only the tool's name is logged: never its arguments or its answer.
         log::info!("tools/call {}", request.name);
         let args = request.arguments.unwrap_or_default();
-        match tools::call(&self.data_dir, self.only_reader, &request.name, args) {
+        let (data_dir, only_reader, name) = (self.data_dir.clone(), self.only_reader, request.name.to_string());
+        match run_blocking(move || tools::call(&data_dir, only_reader, &name, args)).await {
             Outcome::Answer(value) => Ok(CallToolResult::structured(value).into()),
             Outcome::Failed(why) => Ok(CallToolResult::error(vec![ContentBlock::text(why)]).into()),
             Outcome::UnknownTool => Err(ErrorData::method_not_found::<rmcp::model::CallToolRequestMethod>()),
