@@ -58,5 +58,9 @@ mockall = "0.12"
 name = "eval_fixture"
 required-features = ["eval-fixture"]
 
+[[test]]
+name = "library_read_books"
+required-features = ["eval-fixture"]
+
 [profile.release.build-override]
 strip = false

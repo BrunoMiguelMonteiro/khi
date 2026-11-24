@@ -134,7 +134,7 @@ const META_LAST_READER: &str = "last_reader";
 /// brought it, later than the book was last opened (D1), and it is not
 /// removed from the Kobo: a removed highlight is never new. One rule for
 /// `isNew` and for the summary's `new_since`.
-const IS_NEW: &str =
+pub(crate) const IS_NEW: &str =
     "h.synced_seq IS NOT NULL AND h.synced_seq > COALESCE(b.opened_seq, 0) AND h.removed_at IS NULL";
 
 const BOOK_COLUMNS: &str = "id, title, author, isbn, publisher, language, description, date_last_read, cover_file";

@@ -8,7 +8,7 @@ use unicode_normalization::UnicodeNormalization;
 
 /// Lowercase, accents stripped (NFD minus combining marks), punctuation
 /// dropped and whitespace collapsed.
-fn normalize(s: &str) -> String {
+pub(crate) fn normalize(s: &str) -> String {
     let cleaned: String = s
         .nfd()
         .filter(|c| !is_combining_mark(*c))
