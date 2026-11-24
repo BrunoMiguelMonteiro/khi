@@ -84,14 +84,17 @@ npm test -- --coverage
 ### 4. Build de Produção
 
 ```bash
-# Build completo (frontend + backend + bundle)
-npm run tauri build
+# Build de release (khi-mcp + frontend + backend + bundle)
+npm run build:release
 ```
 
-Este comando:
-1. Compila o frontend (Vite) para `build/`
-2. Compila o backend Rust em release mode
-3. Gera o bundle da aplicação em `src-tauri/target/release/bundle/`
+Os releases usam `npm run build:release`, não `npm run tauri build`. Este comando:
+1. Compila o `khi-mcp` em release mode (`scripts/build-mcp.sh`), confirma que não arrasta `tauri*`, `wry`, `tao`, `reqwest` nem `hyper*`, e copia-o para `src-tauri/binaries/khi-mcp-aarch64-apple-darwin`
+2. Compila o frontend (Vite) para `build/`
+3. Compila o backend Rust em release mode
+4. Gera o bundle da aplicação em `src-tauri/target/release/bundle/`, com o `khi-mcp` em `Khi.app/Contents/MacOS/`
+
+O `externalBin` vive só em `src-tauri/tauri.release.conf.json` (passado com `--config`). Fica fora do `tauri.conf.json` porque o `tauri-build` copia esses ficheiros em cada compilação e falha se faltarem, o que partiria o `cargo test` e o `npm run dev:app` numa árvore limpa. Só há binário para Apple Silicon (`aarch64-apple-darwin`).
 
 ### 5. Localização dos Artefactos
 
@@ -175,7 +178,7 @@ tauri = { version = "2" }
 
 3. **Notarização**
    - Cria uma chave em App Store Connect › Users and Access › Integrations › App Store Connect API e guarda o `.p8` em `~/.appstoreconnect/private_keys/` (nunca no repositório).
-   - Com estas variáveis, o `npm run tauri build` assina, notariza e agrafa o `Khi.app`:
+   - Com estas variáveis, o `npm run build:release` assina, notariza e agrafa o `Khi.app`:
      ```bash
      export APPLE_API_KEY="<Key ID>"
      export APPLE_API_ISSUER="<Issuer ID>"
@@ -184,6 +187,7 @@ tauri = { version = "2" }
    - O DMG não é notarizado pelo Tauri: assina-o, envia-o com `xcrun notarytool submit … --wait` e agrafa-o com `xcrun stapler staple`.
    - Não voltes a assinar o `Khi.app` depois do build: o `Khi.app.tar.gz.sig` do updater cobre o arquivo tal como o Tauri o fez.
    - Verificar: `spctl -a -t exec -vv src-tauri/target/release/bundle/macos/Khi.app` deve dizer `source=Notarized Developer ID`.
+   - Verificar também o `khi-mcp` embebido: `codesign -dv --verbose=4 src-tauri/target/release/bundle/macos/Khi.app/Contents/MacOS/khi-mcp` deve mostrar o mesmo Developer ID (`Authority=` e `TeamIdentifier=`) que a app. O `spctl` na app tem de continuar a dizer `source=Notarized Developer ID`.
    - Documentação: https://tauri.app/distribute/sign/macos/
 
 ## Solução de Problemas
