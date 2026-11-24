@@ -227,6 +227,38 @@ fn domain_errors_are_tool_results_with_is_error() {
 }
 
 #[test]
+fn with_the_switch_off_every_tool_is_refused_and_nothing_is_written() {
+    let home = eval_home();
+    let file = data_dir(&home).join("library.sqlite");
+    // The app turns the switch off; the server was not told.
+    khi_core::library::Library::open(&data_dir(&home)).unwrap().set_allow_agents(false).unwrap();
+    let before = std::fs::read(&file).unwrap();
+    let mut s = Server::start(&home, &["--dev"]);
+    let tools = s.request("tools/list", json!({}));
+    assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 5, "{tools}");
+    let calls = [
+        ("list_readers", json!({})),
+        ("list_books", json!({})),
+        ("get_book", json!({"bookId": 1})),
+        ("new_highlights", json!({})),
+        ("search_highlights", json!({"query": "confianca"})),
+    ];
+    for (tool, arguments) in calls {
+        let result = s.call(tool, arguments);
+        assert_eq!(result["isError"], true, "{tool}: {result}");
+        assert_eq!(result["content"][0]["text"], "Turned off in Khi Settings › Agents", "{tool}");
+    }
+    // Turned on in the app: the next call answers, with no restart.
+    khi_core::library::Library::open(&data_dir(&home)).unwrap().set_allow_agents(true).unwrap();
+    let on = s.call("list_readers", json!({}));
+    assert_eq!(on["isError"], false, "{on}");
+    s.finish();
+    // Refused calls left the file as it was (the switch itself was the app's write).
+    khi_core::library::Library::open(&data_dir(&home)).unwrap().set_allow_agents(false).unwrap();
+    assert_eq!(std::fs::read(&file).unwrap(), before);
+}
+
+#[test]
 fn since_without_a_mode_means_synced_since_and_with_unseen_is_refused() {
     let home = eval_home();
     let mut s = Server::start(&home, &["--dev"]);
