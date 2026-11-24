@@ -5,6 +5,7 @@ use super::identity::normalize;
 use super::{schema, IS_NEW};
 use rusqlite::{Connection, ErrorCode, OpenFlags};
 use serde::Serialize;
+use sha2::{Digest, Sha256};
 use std::path::Path;
 use std::time::Duration;
 
@@ -238,8 +239,17 @@ impl ReadLibrary {
     }
 
     pub fn list_books(&self, params: &ListBooks) -> Result<BooksPage, ReadError> {
+        let words: Vec<String> = params
+            .query
+            .as_deref()
+            .map(|q| normalize(q).split(' ').filter(|w| !w.is_empty()).map(str::to_string).collect())
+            .unwrap_or_default();
+        let fp = fingerprint(
+            "list_books",
+            &[format!("{:?}", params.reader_id), params.has_new.to_string(), words.join(" "), format!("{:?}", params.sort)],
+        );
         let offset = match &params.cursor {
-            Some(cursor) => decode_cursor(cursor)?,
+            Some(cursor) => decode_cursor(cursor, &fp)?,
             None => 0,
         };
         let limit = params.limit.unwrap_or(DEFAULT_LIMIT).clamp(1, MAX_LIMIT);
@@ -250,11 +260,6 @@ impl ReadLibrary {
             }
             BookSort::HighlightCount => "highlight_count DESC, b.title COLLATE NOCASE, b.id",
         };
-        let words: Vec<String> = params
-            .query
-            .as_deref()
-            .map(|q| normalize(q).split(' ').filter(|w| !w.is_empty()).map(str::to_string).collect())
-            .unwrap_or_default();
 
         let matching = self.read(|conn| {
             let mut books = Vec::new();
@@ -281,6 +286,7 @@ impl ReadLibrary {
             books,
             offset,
             total,
+            &fp,
             |_, books, cursor| {
                 json_size(&BooksPage { books: books.to_vec(), next_cursor: cursor.map(str::to_string), total: total32 })
             },
@@ -292,7 +298,8 @@ impl ReadLibrary {
 
 /// Keeps the longest prefix of `items` whose serialized page fits the
 /// ceiling and points `nextCursor` at the first one left out. `total` is how
-/// many items match overall, so the last page has no cursor. `size_of`
+/// many items match overall, so the last page has no cursor; `fingerprint`
+/// is the one of the call, which the cursor carries. `size_of`
 /// serializes the answer around a list of items and the cursor, and says how
 /// many bytes it takes. When the one item left (or the answer around no item
 /// at all) is still over the ceiling, `shrink` cuts the longest string of
@@ -302,12 +309,13 @@ fn fit_page<C, T>(
     mut items: Vec<T>,
     offset: usize,
     total: usize,
+    fingerprint: &str,
     size_of: impl Fn(&C, &[T], Option<&str>) -> usize,
     shrink: impl Fn(&mut C, Option<&mut T>, usize) -> bool,
 ) -> (Vec<T>, Option<String>) {
     let cursor_for = |kept: usize| {
         let next = offset + kept;
-        (next < total).then(|| encode_cursor(next))
+        (next < total).then(|| encode_cursor(next, fingerprint))
     };
     let mut kept = items.len();
     while kept > 1 && size_of(ctx, &items[..kept], cursor_for(kept).as_deref()) > CEILING_BYTES {
@@ -462,12 +470,25 @@ fn summaries(
     Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
 }
 
-/// `"v1:<offset>"` in hex: opaque to the caller, cheap to check.
-fn encode_cursor(offset: usize) -> String {
-    format!("v1:{offset}").bytes().map(|b| format!("{b:02x}")).collect()
+/// A few bytes of the hash of a call's method, sort and filters (everything
+/// but `limit` and `cursor`): the cursor of one call is no good for another.
+fn fingerprint(method: &str, parts: &[String]) -> String {
+    let mut hash = Sha256::new();
+    hash.update(method);
+    for part in parts {
+        hash.update([0x1f]);
+        hash.update(part);
+    }
+    hash.finalize().iter().take(4).map(|b| format!("{b:02x}")).collect()
 }
 
-fn decode_cursor(cursor: &str) -> Result<usize, ReadError> {
+/// `"v1:<offset>:<fingerprint>"` in hex: opaque to the caller, cheap to check.
+fn encode_cursor(offset: usize, fingerprint: &str) -> String {
+    format!("v1:{offset}:{fingerprint}").bytes().map(|b| format!("{b:02x}")).collect()
+}
+
+/// The offset of a cursor made for the call with this `fingerprint`.
+fn decode_cursor(cursor: &str, fingerprint: &str) -> Result<usize, ReadError> {
     let bytes = cursor.as_bytes();
     if bytes.is_empty() || bytes.len() % 2 != 0 {
         return Err(ReadError::InvalidCursor);
@@ -478,8 +499,11 @@ fn decode_cursor(cursor: &str) -> Result<usize, ReadError> {
         .collect();
     let text = String::from_utf8(decoded.ok_or(ReadError::InvalidCursor)?).map_err(|_| ReadError::InvalidCursor)?;
     text.strip_prefix("v1:")
-        .filter(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
-        .and_then(|n| n.parse().ok())
+        .and_then(|rest| rest.split_once(':'))
+        .filter(|(n, fp)| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()) && *fp == fingerprint)
+        // SQLite offsets are signed 64-bit.
+        .and_then(|(n, _)| n.parse::<i64>().ok())
+        .and_then(|n| usize::try_from(n).ok())
         .ok_or(ReadError::InvalidCursor)
 }
 
@@ -624,8 +648,9 @@ fn normalize_since(input: &str) -> Result<String, ReadError> {
 
 impl ReadLibrary {
     pub fn get_book(&self, params: &GetBook) -> Result<BookPage, ReadError> {
+        let fp = fingerprint("get_book", &[params.book_id.to_string(), params.include_removed.to_string()]);
         let offset = match &params.cursor {
-            Some(cursor) => decode_cursor(cursor)?,
+            Some(cursor) => decode_cursor(cursor, &fp)?,
             None => 0,
         };
         let limit = params.limit.unwrap_or(DEFAULT_BOOK_LIMIT).clamp(1, MAX_BOOK_LIMIT);
@@ -667,6 +692,7 @@ impl ReadLibrary {
             items,
             offset,
             total,
+            &fp,
             |book, kept, cursor| {
                 json_size(&BookPage {
                     book: book.clone(),
@@ -684,15 +710,16 @@ impl ReadLibrary {
     }
 
     pub fn new_highlights(&self, params: &NewHighlights) -> Result<NewPage, ReadError> {
-        let offset = match &params.cursor {
-            Some(cursor) => decode_cursor(cursor)?,
-            None => 0,
-        };
         let limit = params.limit.unwrap_or(DEFAULT_LIMIT).clamp(1, MAX_LIMIT);
         let (condition, since) = match &params.mode {
             NewMode::Unseen => (IS_NEW.to_string(), None),
             // A NULL synced_at compares as unknown, so it is never included.
             NewMode::SyncedSince(date) => ("h.synced_at >= ?3".to_string(), Some(normalize_since(date)?)),
+        };
+        let fp = fingerprint("new_highlights", &[format!("{since:?}"), format!("{:?}", params.reader_id)]);
+        let offset = match &params.cursor {
+            Some(cursor) => decode_cursor(cursor, &fp)?,
+            None => 0,
         };
         let (items, total, mut books) = self.read(|conn| {
             let filter = format!("(?1 IS NULL OR b.reader_id = ?1) AND {condition}");
@@ -729,6 +756,7 @@ impl ReadLibrary {
             items,
             offset,
             total,
+            &fp,
             |books, kept, cursor| {
                 json_size(&NewPage {
                     groups: group_by_book(kept, books),
@@ -848,8 +876,18 @@ impl ReadLibrary {
             return Err(ReadError::InvalidQuery);
         }
         let words: Vec<&str> = query.split(' ').collect();
+        let fp = fingerprint(
+            "search_highlights",
+            &[
+                query.clone(),
+                format!("{:?}", params.search_in),
+                format!("{:?}", params.reader_id),
+                format!("{:?}", params.book_id),
+                params.include_removed.to_string(),
+            ],
+        );
         let offset = match &params.cursor {
-            Some(cursor) => decode_cursor(cursor)?,
+            Some(cursor) => decode_cursor(cursor, &fp)?,
             None => 0,
         };
         let limit = params.limit.unwrap_or(DEFAULT_LIMIT).clamp(1, MAX_LIMIT);
@@ -899,6 +937,7 @@ impl ReadLibrary {
             hits,
             offset,
             total,
+            &fp,
             |_, kept, cursor| json_size(&SearchPage { results: kept.to_vec(), next_cursor: cursor.map(str::to_string) }),
             |_, hit, excess| {
                 hit.is_some_and(|h| shorten_longest(vec![&mut h.highlight, &mut h.book], excess))

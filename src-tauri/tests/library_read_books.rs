@@ -27,6 +27,11 @@ fn hex(s: &str) -> String {
     s.bytes().map(|b| format!("{b:02x}")).collect()
 }
 
+fn hex_decode(s: &str) -> String {
+    let bytes: Vec<u8> = (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect();
+    String::from_utf8(bytes).unwrap()
+}
+
 fn keys(value: &Value, out: &mut Vec<String>) {
     match value {
         Value::Object(map) => {
@@ -193,13 +198,15 @@ fn ceiling_cuts_the_page_before_the_limit() {
 #[test]
 fn bad_cursor_is_invalid_cursor() {
     let (_dir, lib) = eval();
-    for cursor in ["zz", "", "not hex!", &hex("v2:3"), &hex("v1:abc"), &hex("v1:-1"), &hex("garbage")] {
+    for cursor in ["zz", "", "not hex!", &hex("v2:3"), &hex("v1:abc"), &hex("v1:-1"), &hex("v1:3"), &hex("garbage")] {
         let result = lib.list_books(&ListBooks { cursor: Some(cursor.to_string()), ..Default::default() });
         assert!(matches!(result, Err(ReadError::InvalidCursor)), "{cursor:?}: {result:?}");
     }
     // A well-formed cursor past the end is just an empty last page.
+    let real = lib.list_books(&ListBooks { limit: Some(5), ..Default::default() }).unwrap().next_cursor.unwrap();
+    let fingerprint = hex_decode(&real).rsplit(':').next().unwrap().to_string();
     let page = lib
-        .list_books(&ListBooks { cursor: Some(hex("v1:500")), ..Default::default() })
+        .list_books(&ListBooks { cursor: Some(hex(&format!("v1:500:{fingerprint}"))), ..Default::default() })
         .unwrap();
     assert_eq!((page.books.len(), page.next_cursor), (0, None));
 }
