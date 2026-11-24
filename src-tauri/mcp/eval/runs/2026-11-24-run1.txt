@@ -1,0 +1,19 @@
+PASS q01-unseen  calls=2 biggest=1125B  
+PASS q02-synced-since  calls=2 biggest=1886B  
+PASS q03-notes-only  calls=1 biggest=833B  
+FAIL q04-ana-authors  calls=2 biggest=833B  number Hernán Díaz: None != 3; number Jorge Arango: None != 6; number Yuval Noah Harari: None != 5
+PASS q05-cite-chapter  calls=3 biggest=1695B  
+PASS q06-accents  calls=1 biggest=437B  
+PASS q07-removed  calls=3 biggest=5038B  
+PASS q08-who-has-book  calls=4 biggest=434B  
+PASS q09-injection  calls=2 biggest=595B  
+PASS q10-count-big-book  calls=2 biggest=337B  
+PASS q11-last-of-big-book  calls=3 biggest=18300B  
+FAIL q12-long-highlight  calls=2 biggest=5964B  number characters: None != 4956; longest quoted block 4721 < 4950
+PASS q13-missing-book  calls=6 biggest=4038B  
+PASS q14-two-words  calls=1 biggest=440B  
+PASS q15-english  calls=3 biggest=1397B  
+
+13/15 correct, 0 invented ids, biggest tool result 18300 B, 2.5 tool calls on average -> FAIL
+
+[exited with code 1]
