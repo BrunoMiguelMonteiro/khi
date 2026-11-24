@@ -45,3 +45,35 @@ fn a_slow_call_does_not_freeze_the_runtime() {
     });
     assert!(ticks >= 5, "the runtime only ticked {ticks} times while a call was blocked");
 }
+
+#[test]
+fn at_most_three_calls_run_at_once_and_all_complete() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+    let (running, most) = (Arc::new(AtomicUsize::new(0)), Arc::new(AtomicUsize::new(0)));
+    let answers = runtime().block_on(async {
+        let calls: Vec<_> = (0..10)
+            .map(|i| {
+                let (running, most) = (running.clone(), most.clone());
+                tokio::spawn(run_blocking(move || {
+                    let now = running.fetch_add(1, Ordering::SeqCst) + 1;
+                    most.fetch_max(now, Ordering::SeqCst);
+                    std::thread::sleep(Duration::from_millis(60));
+                    running.fetch_sub(1, Ordering::SeqCst);
+                    Outcome::Answer(serde_json::json!(i))
+                }))
+            })
+            .collect();
+        let mut answers = Vec::new();
+        for call in calls {
+            match call.await.unwrap() {
+                Outcome::Answer(v) => answers.push(v.as_i64().unwrap()),
+                _ => panic!("every call must complete with its answer"),
+            }
+        }
+        answers
+    });
+    assert_eq!(answers, (0..10).collect::<Vec<_>>());
+    let most = most.load(Ordering::SeqCst);
+    assert!((1..=3).contains(&most), "{most} calls ran at once");
+}

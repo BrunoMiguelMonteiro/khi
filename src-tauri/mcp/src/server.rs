@@ -10,6 +10,7 @@ use rmcp::{ErrorData, ServerHandler};
 use serde_json::Value;
 use std::path::PathBuf;
 use std::sync::Arc;
+use tokio::sync::Semaphore;
 
 #[derive(Clone)]
 pub struct KhiServer {
@@ -43,11 +44,25 @@ fn tool_list() -> Vec<Tool> {
         .collect()
 }
 
+/// Tool calls that may run at once: each opens the Library and can scan it,
+/// so a client firing many must not start them all; the rest wait here.
+const MAX_CALLS: usize = 3;
+static CALLS: Semaphore = Semaphore::const_new(MAX_CALLS);
+
 /// Runs a tool call on a blocking thread: a busy Library (the 2 s timeout)
 /// must not hold up the one-thread runtime that speaks the protocol. A panic
-/// in the call comes back as an error result, not as a dropped answer.
+/// in the call comes back as an error result, not as a dropped answer. At
+/// most `MAX_CALLS` calls run at once.
 pub async fn run_blocking(call: impl FnOnce() -> Outcome + Send + 'static) -> Outcome {
-    match tokio::task::spawn_blocking(call).await {
+    // The semaphore is never closed, so acquiring cannot fail. The permit
+    // moves into the blocking thread: if the caller gives up, the call still
+    // counts until it ends.
+    let permit = CALLS.acquire().await.ok();
+    let counted = move || {
+        let _permit = permit;
+        call()
+    };
+    match tokio::task::spawn_blocking(counted).await {
         Ok(outcome) => outcome,
         Err(why) => {
             log::error!("tool call failed: {why}");
