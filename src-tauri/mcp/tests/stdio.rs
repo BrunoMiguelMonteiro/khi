@@ -157,6 +157,15 @@ fn every_tool_answers_on_the_eval_library() {
     let text: Value = serde_json::from_str(readers["content"][0]["text"].as_str().unwrap()).unwrap();
     assert_eq!(text, readers["structuredContent"]);
 
+    // Paging works like the other lists.
+    let first = s.call("list_readers", json!({"limit": 2}));
+    assert_eq!(first["structuredContent"]["readers"].as_array().unwrap().len(), 2);
+    assert_eq!(first["structuredContent"]["total"], 3);
+    let cursor = first["structuredContent"]["nextCursor"].clone();
+    let last = s.call("list_readers", json!({"limit": 2, "cursor": cursor}));
+    assert_eq!(last["structuredContent"]["readers"][0]["name"], "Rui");
+    assert!(last["structuredContent"]["nextCursor"].is_null());
+
     let books = s.call("list_books", json!({"readerId": 1, "query": "confianca"}));
     assert_eq!(books["structuredContent"]["total"], 1);
     assert_eq!(keys_of(&books), schema_keys("list_books"));

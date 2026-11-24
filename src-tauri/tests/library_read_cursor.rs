@@ -3,7 +3,7 @@
 
 use khi_lib::library::eval_fixture::build_eval_library;
 use khi_lib::library::read::{
-    open_read_only, BookSort, GetBook, ListBooks, NewHighlights, NewMode, ReadError, ReadLibrary, SearchIn,
+    open_read_only, BookSort, GetBook, ListBooks, ListReaders, NewHighlights, NewMode, ReadError, ReadLibrary, SearchIn,
     SearchParams,
 };
 use tempfile::TempDir;
@@ -109,6 +109,28 @@ fn search_cursor_is_bound_to_the_query_and_filters() {
     for offset in HUGE {
         invalid(lib.search_highlights(&SearchParams { cursor: Some(with_offset(&cursor, offset)), ..first.clone() }), offset);
     }
+}
+
+#[test]
+fn list_readers_cursor_is_bound_to_its_method_and_reader() {
+    let (_dir, lib) = eval();
+    let first = ListReaders { limit: Some(1), ..Default::default() };
+    let cursor = lib.list_readers(&first).unwrap().next_cursor.expect("3 Readers");
+    let with = |p: ListReaders| lib.list_readers(&ListReaders { cursor: Some(cursor.clone()), ..p });
+
+    assert!(with(first.clone()).is_ok(), "unchanged");
+    invalid(with(ListReaders { reader_id: Some(1), ..first.clone() }), "readerId");
+    for offset in HUGE {
+        invalid(lib.list_readers(&ListReaders { cursor: Some(with_offset(&cursor, offset)), ..first.clone() }), offset);
+    }
+    // A cursor from another method is no good here, nor this one there.
+    let books = lib.list_books(&ListBooks { limit: Some(1), ..Default::default() }).unwrap();
+    invalid(with_cursor_of(&lib, books.next_cursor.expect("many books")), "list_books cursor");
+    invalid(lib.list_books(&ListBooks { cursor: Some(cursor), ..Default::default() }), "list_readers cursor");
+}
+
+fn with_cursor_of(lib: &ReadLibrary, cursor: String) -> Result<khi_lib::library::read::ReadersPage, ReadError> {
+    lib.list_readers(&ListReaders { cursor: Some(cursor), ..Default::default() })
 }
 
 #[test]

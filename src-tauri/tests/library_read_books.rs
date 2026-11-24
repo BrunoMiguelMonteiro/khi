@@ -5,7 +5,7 @@ mod common;
 
 use common::{hl, kobo_book, snapshot, KOBO_A};
 use khi_lib::library::eval_fixture::build_eval_library;
-use khi_lib::library::read::{open_read_only, BookSort, ListBooks, ReadError, ReadLibrary};
+use khi_lib::library::read::{open_read_only, BookSort, ListBooks, ListReaders, ReadError, ReadLibrary};
 use serde_json::Value;
 use tempfile::TempDir;
 
@@ -61,7 +61,7 @@ fn size(value: &impl serde::Serialize) -> usize {
 #[test]
 fn list_readers_counts_and_new_since() {
     let (_dir, lib) = eval();
-    let readers = lib.list_readers().unwrap();
+    let readers = lib.list_readers(&ListReaders::default()).unwrap().readers;
     let rows: Vec<_> = readers
         .iter()
         .map(|r| (r.name.as_str(), r.book_count, r.highlight_count, r.new_count))
@@ -222,7 +222,7 @@ fn reads_check_the_schema_each_call() {
     let (dir, lib) = eval();
     let conn = rusqlite::Connection::open(dir.path().join("library.sqlite")).unwrap();
     conn.pragma_update(None, "user_version", 3).unwrap();
-    assert!(matches!(lib.list_readers(), Err(ReadError::SchemaMismatch { .. })));
+    assert!(matches!(lib.list_readers(&ListReaders::default()), Err(ReadError::SchemaMismatch { .. })));
     assert!(matches!(lib.list_books(&ListBooks::default()), Err(ReadError::SchemaMismatch { .. })));
 }
 
@@ -241,6 +241,6 @@ fn book_without_highlights_has_zero_counts() {
     let book = &page.books[0];
     assert_eq!(book.title, "Empty");
     assert_eq!((book.highlight_count, book.note_count, book.new_count, book.removed_count), (0, 0, 0, 0));
-    let readers = lib.list_readers().unwrap();
+    let readers = lib.list_readers(&ListReaders::default()).unwrap().readers;
     assert_eq!((readers[0].book_count, readers[0].highlight_count, readers[0].new_count), (1, 0, 0));
 }

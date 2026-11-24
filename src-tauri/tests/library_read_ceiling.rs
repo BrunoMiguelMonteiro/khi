@@ -5,7 +5,7 @@ mod common;
 
 use common::{hl, kobo_book, no_cover, no_progress, snapshot, KOBO_A};
 use khi_lib::library::read::{
-    open_read_only, GetBook, ListBooks, NewHighlights, NewMode, ReadLibrary, SearchParams,
+    open_read_only, GetBook, ListBooks, ListReaders, NewHighlights, NewMode, ReadLibrary, SearchParams,
 };
 use khi_lib::models::{KoboBook, KoboHighlight};
 use tempfile::TempDir;
@@ -205,9 +205,42 @@ fn list_readers_shortens_a_huge_name() {
     let (dir, app, _) = common::setup();
     app.create_reader(&"r".repeat(30_000)).unwrap();
     let lib = open_read_only(dir.path()).unwrap();
-    let readers = lib.list_readers().unwrap();
-    assert!(size(&serde_json::json!({ "readers": readers })) <= CEILING);
-    assert!(readers.iter().any(|r| r.truncated));
+    // The huge name does not fit beside the first Reader: it gets a page of its own.
+    let first = lib.list_readers(&ListReaders::default()).unwrap();
+    assert!(size(&first) <= CEILING);
+    let page = lib.list_readers(&ListReaders { cursor: first.next_cursor, ..Default::default() }).unwrap();
+    assert!(size(&page) <= CEILING);
+    assert!(page.readers.iter().any(|r| r.truncated));
+    assert_eq!(page.next_cursor, None);
+}
+
+#[test]
+fn list_readers_pages_stay_under_the_ceiling_and_reach_every_reader() {
+    let (dir, app, _) = common::setup();
+    for i in 0..500 {
+        app.create_reader(&format!("Reader {i:03} {}", "n".repeat(80))).unwrap();
+    }
+    let lib = open_read_only(dir.path()).unwrap();
+
+    let default = lib.list_readers(&ListReaders::default()).unwrap();
+    assert_eq!((default.readers.len(), default.total), (20, 501));
+    assert!(default.next_cursor.is_some());
+
+    let (mut cursor, mut ids, mut shortest) = (None, Vec::new(), usize::MAX);
+    loop {
+        let page = lib.list_readers(&ListReaders { limit: Some(100), cursor: cursor.clone(), ..Default::default() }).unwrap();
+        assert!(size(&page) <= CEILING, "a page took {} bytes", size(&page));
+        assert_eq!(page.total, 501);
+        shortest = shortest.min(page.readers.len());
+        ids.extend(page.readers.iter().map(|r| r.id));
+        match page.next_cursor {
+            Some(next) => cursor = Some(next),
+            None => break,
+        }
+    }
+    assert!(shortest < 100, "the ceiling should have cut at least one page short of the limit");
+    assert_eq!(ids.len(), 501);
+    assert!(ids.windows(2).all(|w| w[0] < w[1]), "readers come in id order, none twice");
 }
 
 #[test]

@@ -140,6 +140,22 @@ pub struct ReaderInfo {
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ReadersPage {
+    pub readers: Vec<ReaderInfo>,
+    pub next_cursor: Option<String>,
+    /// Readers that match, not only the ones on this page.
+    pub total: u32,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ListReaders {
+    pub reader_id: Option<u32>,
+    pub limit: Option<usize>,
+    pub cursor: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BookSummary {
     pub id: u32,
     pub reader_id: u32,
@@ -198,8 +214,16 @@ impl ReadLibrary {
         Ok(out)
     }
 
-    pub fn list_readers(&self) -> Result<Vec<ReaderInfo>, ReadError> {
-        self.read(|conn| {
+    pub fn list_readers(&self, params: &ListReaders) -> Result<ReadersPage, ReadError> {
+        let fp = fingerprint("list_readers", &[format!("{:?}", params.reader_id)]);
+        let offset = match &params.cursor {
+            Some(cursor) => decode_cursor(cursor, &fp)?,
+            None => 0,
+        };
+        let limit = params.limit.unwrap_or(DEFAULT_LIMIT).clamp(1, MAX_LIMIT);
+        let (readers, total) = self.read(|conn| {
+            let total: u32 =
+                conn.query_row("SELECT COUNT(*) FROM readers WHERE (?1 IS NULL OR id = ?1)", [params.reader_id], |r| r.get(0))?;
             let mut stmt = conn.prepare(&format!(
                 "SELECT r.id, r.name,
                         (SELECT COUNT(*) FROM books b WHERE b.reader_id = r.id),
@@ -208,9 +232,9 @@ impl ReadLibrary {
                           WHERE b.reader_id = r.id AND {IS_NEW}),
                         (SELECT MIN(h.synced_at) FROM highlights h JOIN books b ON b.id = h.book_id
                           WHERE b.reader_id = r.id AND {IS_NEW})
-                 FROM readers r ORDER BY r.id"
+                 FROM readers r WHERE (?1 IS NULL OR r.id = ?1) ORDER BY r.id LIMIT ?2 OFFSET ?3"
             ))?;
-            let rows = stmt.query_map([], |r| {
+            let rows = stmt.query_map(rusqlite::params![params.reader_id, limit as i64, offset as i64], |r| {
                 Ok(ReaderInfo {
                     id: r.get(0)?,
                     name: r.get(1)?,
@@ -221,21 +245,20 @@ impl ReadLibrary {
                     truncated: false,
                 })
             })?;
-            let mut readers = rows.collect::<rusqlite::Result<Vec<_>>>()?;
-            // No paging here: long names are cut until the answer fits.
-            #[derive(Serialize)]
-            struct Answer<'a> {
-                readers: &'a [ReaderInfo],
-            }
-            loop {
-                let size = json_size(&Answer { readers: &readers });
-                let parts = readers.iter_mut().map(|r| r as &mut dyn Shorten).collect();
-                if size <= CEILING_BYTES || !shorten_longest(parts, size - CEILING_BYTES) {
-                    break;
-                }
-            }
-            Ok(readers)
-        })
+            Ok((rows.collect::<rusqlite::Result<Vec<_>>>()?, total))
+        })?;
+        let (readers, next_cursor) = fit_page(
+            &mut (),
+            readers,
+            offset,
+            total as usize,
+            &fp,
+            |_, readers, cursor| {
+                json_size(&ReadersPage { readers: readers.to_vec(), next_cursor: cursor.map(str::to_string), total })
+            },
+            |_, reader, excess| reader.is_some_and(|r| shorten_longest(vec![r], excess)),
+        );
+        Ok(ReadersPage { readers, next_cursor, total })
     }
 
     pub fn list_books(&self, params: &ListBooks) -> Result<BooksPage, ReadError> {
