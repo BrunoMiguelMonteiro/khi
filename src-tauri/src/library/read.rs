@@ -371,19 +371,29 @@ fn json_len(c: char) -> usize {
     }
 }
 
-/// Cuts at least `excess` serialized bytes off the end of the longest string
-/// of the longest-stringed part, on a char boundary, and flags that part.
-/// False when every string is already empty.
+/// Bytes `s` takes inside a JSON string.
+fn json_weight(s: &str) -> usize {
+    s.chars().map(json_len).sum()
+}
+
+/// Cuts at least `excess` serialized bytes off the end of the heaviest string
+/// (by its size in JSON) of the heaviest-stringed part, on a char boundary,
+/// and flags that part. False when every string is already empty.
+///
+/// `strings` only offers free text, never identifiers or dates: when those
+/// alone overflow the ceiling the page is returned as it is, not corrupted.
 fn shorten_longest(mut parts: Vec<&mut dyn Shorten>, excess: usize) -> bool {
-    let lengths: Vec<usize> =
-        parts.iter_mut().map(|p| p.strings().iter().map(|s| s.len()).max().unwrap_or(0)).collect();
+    let lengths: Vec<usize> = parts
+        .iter_mut()
+        .map(|p| p.strings().iter().map(|s| json_weight(s)).max().unwrap_or(0))
+        .collect();
     let Some((index, _)) = lengths.iter().enumerate().max_by_key(|(_, len)| **len) else {
         return false;
     };
     let part = &mut parts[index];
     {
         let mut strings = part.strings();
-        let Some(string) = strings.iter_mut().max_by_key(|s| s.len()).filter(|s| !s.is_empty()) else {
+        let Some(string) = strings.iter_mut().max_by_key(|s| json_weight(s)).filter(|s| !s.is_empty()) else {
             return false;
         };
         let mut cut = 0;
@@ -400,11 +410,7 @@ fn shorten_longest(mut parts: Vec<&mut dyn Shorten>, excess: usize) -> bool {
 
 impl Shorten for HighlightInfo {
     fn strings(&mut self) -> Vec<&mut String> {
-        [Some(&mut self.id), Some(&mut self.text), self.note.as_mut(), self.chapter.as_mut(),
-         self.date_created.as_mut(), self.synced_at.as_mut()]
-            .into_iter()
-            .flatten()
-            .collect()
+        [Some(&mut self.text), self.note.as_mut(), self.chapter.as_mut()].into_iter().flatten().collect()
     }
     fn flag(&mut self) {
         self.truncated = true;
@@ -413,10 +419,7 @@ impl Shorten for HighlightInfo {
 
 impl Shorten for BookSummary {
     fn strings(&mut self) -> Vec<&mut String> {
-        [Some(&mut self.title), Some(&mut self.author), self.language.as_mut(), self.date_last_read.as_mut()]
-            .into_iter()
-            .flatten()
-            .collect()
+        vec![&mut self.title, &mut self.author]
     }
     fn flag(&mut self) {
         self.truncated = true;
@@ -426,7 +429,7 @@ impl Shorten for BookSummary {
 impl Shorten for BookDetail {
     fn strings(&mut self) -> Vec<&mut String> {
         let mut strings = self.summary.strings();
-        strings.extend([self.isbn.as_mut(), self.publisher.as_mut(), self.description.as_mut()].into_iter().flatten());
+        strings.extend([self.publisher.as_mut(), self.description.as_mut()].into_iter().flatten());
         strings
     }
     fn flag(&mut self) {
@@ -445,7 +448,7 @@ impl Shorten for BookRef {
 
 impl Shorten for ReaderInfo {
     fn strings(&mut self) -> Vec<&mut String> {
-        [Some(&mut self.name), self.new_since.as_mut()].into_iter().flatten().collect()
+        vec![&mut self.name]
     }
     fn flag(&mut self) {
         self.truncated = true;
@@ -1009,5 +1012,34 @@ impl ReadLibrary {
             },
         );
         Ok(SearchPage { results, next_cursor })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn reader(name: &str) -> ReaderInfo {
+        ReaderInfo {
+            id: 1,
+            name: name.into(),
+            book_count: 0,
+            highlight_count: 0,
+            new_count: 0,
+            new_since: Some("2026-11-09T18:00:00Z".into()),
+            truncated: false,
+        }
+    }
+
+    #[test]
+    fn the_longest_string_is_the_one_heaviest_in_json() {
+        // 60 quotes weigh 120 bytes in JSON, more than 100 plain characters
+        let mut quotes = reader(&"\"".repeat(60));
+        let mut plain = reader(&"p".repeat(100));
+        assert!(shorten_longest(vec![&mut plain, &mut quotes], 10));
+        assert!(quotes.truncated && !plain.truncated);
+        assert_eq!(quotes.name.len(), 55);
+        assert_eq!(plain.name.len(), 100);
+        assert_eq!(quotes.new_since.as_deref(), Some("2026-11-09T18:00:00Z"));
     }
 }

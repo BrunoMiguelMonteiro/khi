@@ -133,6 +133,26 @@ fn get_book_keeps_long_text_whole_and_cuts_the_description() {
 }
 
 #[test]
+fn shortening_never_cuts_an_identifier() {
+    let (dir, mut app, _) = common::setup();
+    let long_id = "i".repeat(20_000);
+    let book = kobo_book(
+        "file:///mnt/onboard/i.epub",
+        "Ids",
+        "A",
+        vec![hl(&long_id, "short text"), hl("other", &"t".repeat(1500))],
+    );
+    app.sync(KOBO_A, &snapshot(vec![book]), &no_cover, no_progress).unwrap();
+    let lib = open_read_only(dir.path()).unwrap();
+    let id = book_id(&lib, 1, "ids");
+    let page = lib.get_book(&GetBook { book_id: id, ..Default::default() }).unwrap();
+    // A page the id alone overflows is returned as it is: only free text is cut
+    let found = page.highlights.iter().find(|h| h.id.len() == 20_000).expect("the long id comes back whole");
+    assert_eq!(found.id, long_id);
+    assert!(page.highlights.iter().all(|h| h.date_created.as_deref().is_none_or(|d| d.len() == 20)));
+}
+
+#[test]
 fn get_book_unknown_id_is_not_found() {
     let (_dir, _app, lib) = eval();
     let result = lib.get_book(&GetBook { book_id: 99999, ..Default::default() });
