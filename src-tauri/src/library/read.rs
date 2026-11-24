@@ -48,7 +48,7 @@ impl std::fmt::Display for ReadError {
             ),
             ReadError::InvalidCursor => write!(f, "Invalid cursor: use the nextCursor of a previous answer as it was given"),
             ReadError::InvalidDate => write!(f, "Invalid date: use YYYY-MM-DD or an ISO 8601 date-time"),
-            ReadError::InvalidQuery => write!(f, "Invalid query: use 2 to 200 characters with at least one letter or digit"),
+            ReadError::InvalidQuery => write!(f, "Invalid query: use 2 to 200 characters with at least one word of 2 or more letters or digits"),
             ReadError::NotFound => write!(f, "No such book in the Library"),
             ReadError::Db(e) => write!(f, "Library database error: {e}"),
         }
@@ -934,16 +934,17 @@ impl ReadLibrary {
     pub fn search_highlights(&self, params: &SearchParams) -> Result<SearchPage, ReadError> {
         let length = params.query.trim().chars().count();
         let query = search_normalize(&params.query);
-        let words: Vec<&str> = query.split(' ').filter(|w| !w.is_empty()).collect();
-        // Every term needs 2 characters, or "a." would match nearly everything.
-        if !(2..=200).contains(&length) || words.is_empty() || words.iter().any(|w| w.chars().count() < 2) {
+        // A 1-character term would match nearly everything ("a" starts most
+        // texts), so it is dropped; the query needs at least one longer term.
+        let words: Vec<&str> = query.split(' ').filter(|w| w.chars().count() >= 2).collect();
+        if !(2..=200).contains(&length) || words.is_empty() {
             return Err(ReadError::InvalidQuery);
         }
         let spaced: Vec<String> = words.iter().map(|w| format!(" {w}")).collect();
         let fp = fingerprint(
             "search_highlights",
             &[
-                query.clone(),
+                words.join(" "),
                 format!("{:?}", params.search_in),
                 format!("{:?}", params.reader_id),
                 format!("{:?}", params.book_id),

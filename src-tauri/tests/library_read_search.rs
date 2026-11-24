@@ -157,13 +157,50 @@ fn letters_that_nfd_keeps_are_folded_on_both_sides() {
 }
 
 #[test]
-fn every_term_needs_two_characters() {
+fn a_query_needs_one_word_of_two_characters() {
     let (_dir, lib) = with_texts(&["a b c d", "alpha beta"]);
-    for bad in ["a.", "%%", "a%", "alpha b", "a alpha", "  ."] {
+    for bad in ["a.", "%%", "a%", "a %", "  ."] {
         let result = lib.search_highlights(&find(bad));
         assert!(matches!(result, Err(ReadError::InvalidQuery)), "{bad:?}: {result:?}");
     }
     assert_eq!(ids(&lib.search_highlights(&find("al be")).unwrap()), ["h000001"]);
+    // The 1-character terms are dropped, not matched
+    assert_eq!(ids(&lib.search_highlights(&find("alpha b")).unwrap()), ["h000001"]);
+    assert_eq!(ids(&lib.search_highlights(&find("a alpha")).unwrap()), ["h000001"]);
+    let message = ReadError::InvalidQuery.to_string();
+    assert!(message.contains("2 or more letters or digits"), "{message}");
+}
+
+#[test]
+fn queries_with_short_words_still_find_the_long_ones() {
+    let (_dir, lib) = with_texts(&[
+        "Guerra e Paz é um romance",
+        "defendo a liberdade de todos",
+        "don't panic, I think so",
+        "a gota d'água do copo",
+        "nothing here",
+    ]);
+    let find_ids = |q: &str| ids(&lib.search_highlights(&find(q)).unwrap()).iter().map(|s| s.to_string()).collect::<Vec<_>>();
+    assert_eq!(find_ids("Guerra e Paz"), ["h000000"]);
+    assert_eq!(find_ids("a liberdade"), ["h000001"]);
+    assert_eq!(find_ids("don't"), ["h000002"]);
+    assert_eq!(find_ids("I think"), ["h000002"]);
+    assert_eq!(find_ids("d'água"), ["h000003"]);
+}
+
+#[test]
+fn the_cursor_follows_the_terms_matched_not_the_short_words() {
+    let (_dir, lib) = many(5, |i| format!("liberdade {i}"));
+    let first = lib.search_highlights(&SearchParams { limit: Some(2), ..find("a liberdade") }).unwrap();
+    let cursor = first.next_cursor.clone().expect("more pages");
+    // The same terms matched, spelled with another short word, take the cursor
+    let next = lib
+        .search_highlights(&SearchParams { limit: Some(2), cursor: Some(cursor.clone()), ..find("e liberdade") })
+        .unwrap();
+    assert_eq!(ids(&next), ["h000002", "h000003"]);
+    // Other terms do not
+    let other = lib.search_highlights(&SearchParams { cursor: Some(cursor), ..find("a liberdades") });
+    assert!(matches!(other, Err(ReadError::InvalidCursor)));
 }
 
 #[test]
