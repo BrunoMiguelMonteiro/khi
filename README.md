@@ -11,7 +11,7 @@ A native macOS app that keeps the highlights from your Kobo in a Library on your
 - **New highlights first.** After a sync, the Library says how many highlights are new and in how many books, with a single button to export just those books.
 - **One Library per reader.** Each person in the house has their own Library. A Kobo is assigned to a reader the first time you connect it, and one reader can have several Kobos.
 - **Markdown export.** One file per book, with the metadata you choose, your notes under their quotes, and the chapter and position of each highlight.
-- **Native on macOS.** A menu bar with keyboard shortcuts, light and dark themes, your choice of accent color, and English or Portuguese, which also sets the language of the exported Markdown.
+- **Native on macOS.** A menu bar with keyboard shortcuts, light and dark themes, your choice of accent color, and English, Spanish, French or Portuguese. The language starts as your Mac’s and also sets the language of the exported Markdown.
 - **Automatic updates.** Khi checks for signed updates once a day and installs them when you agree.
 - **Read-only access to your Kobo.** Khi opens your Kobo’s database read-only.
 
@@ -95,7 +95,7 @@ Chapter 1 · 50%
 ```
 
 - Settings › Export chooses which metadata to include (author, ISBN, publisher, last read date, language, description) and the date format: `24/01/2025`, `24 January 2025` or ISO 8601 (`2025-01-24`).
-- The labels and month names follow the app’s language. In Portuguese the same book has `**Autor**`, `**Data de leitura**: 24 de janeiro de 2025` and `**Nota:**`.
+- The labels and month names follow the app’s language. In Portuguese the same book has `**Autor**`, `**Data de leitura**: 24 de janeiro de 2025` and `**Nota:**`; in Spanish, `**Fecha de lectura**: 24 de enero de 2025`; in French, `**Date de lecture** : 24 janvier 2025`, with a narrow no-break space before each colon.
 - The same books and settings always produce the same bytes, so the files work well in Git or a notes vault.
 
 ## Settings
@@ -181,7 +181,7 @@ The app is written to `src-tauri/target/debug/bundle/macos/`. A release build us
 | `src/routes/definicoes/` | The Settings window |
 | `src/lib/components/` | Screens, dialogs and the `ui/` components |
 | `src/lib/menu.ts`, `menu-state.ts` | The native menu bar and when each item is enabled |
-| `src/lib/i18n/locales/` | English and Portuguese strings |
+| `src/lib/i18n/locales/` | English, Spanish, French and Portuguese strings |
 
 **Backend (Rust):**
 
