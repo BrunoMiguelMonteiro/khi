@@ -14,6 +14,12 @@ pub enum GuardError {
     Volumes,
     /// The file is not called `library.sqlite`.
     NotLibraryFile,
+    /// No data folder, or no `library.sqlite` in it.
+    Missing,
+    /// The file is there but its real path cannot be found (a broken symlink).
+    Unresolved(String),
+    /// The file's real folder is not the data folder (a symlink elsewhere).
+    OutsideDataDir,
 }
 
 impl std::fmt::Display for GuardError {
@@ -22,6 +28,9 @@ impl std::fmt::Display for GuardError {
             GuardError::Folder(why) => write!(f, "Cannot choose the Khi data folder: {why}"),
             GuardError::Volumes => write!(f, "Refusing to read anything under /Volumes/"),
             GuardError::NotLibraryFile => write!(f, "Refusing to open a file that is not library.sqlite"),
+            GuardError::Missing => write!(f, "No Library found in the Khi data folder"),
+            GuardError::Unresolved(why) => write!(f, "Cannot resolve library.sqlite: {why}"),
+            GuardError::OutsideDataDir => write!(f, "Refusing to open a library.sqlite that lives outside the Khi data folder"),
         }
     }
 }
@@ -57,12 +66,21 @@ pub fn check_library_file(path: &Path) -> Result<(), GuardError> {
     Ok(())
 }
 
-/// The Library file of `dir`, checked, and checked again after symlinks.
+/// The Library file of `dir`, as a canonical path: checked by name, then
+/// resolved through every symlink and checked again, and it has to sit
+/// directly in the canonical data folder. Run it before every open. A missing
+/// folder or file is `Missing`, never a skipped check.
 pub fn library_file(dir: &Path) -> Result<PathBuf, GuardError> {
     let file = dir.join(LIBRARY_FILE);
     check_library_file(&file)?;
-    if let Ok(real) = file.canonicalize() {
-        check_library_file(&real)?;
+    if std::fs::symlink_metadata(&file).is_err() {
+        return Err(GuardError::Missing);
     }
-    Ok(file)
+    let real = file.canonicalize().map_err(|e| GuardError::Unresolved(e.to_string()))?;
+    check_library_file(&real)?;
+    let real_dir = dir.canonicalize().map_err(|e| GuardError::Unresolved(e.to_string()))?;
+    if real.parent() != Some(real_dir.as_path()) {
+        return Err(GuardError::OutsideDataDir);
+    }
+    Ok(real)
 }

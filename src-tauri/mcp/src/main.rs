@@ -1,4 +1,4 @@
-use khi_mcp::guard::{library_file, resolve_data_dir};
+use khi_mcp::guard::{library_file, resolve_data_dir, GuardError};
 use khi_mcp::server::KhiServer;
 use rmcp::ServiceExt;
 use std::path::PathBuf;
@@ -44,9 +44,13 @@ fn main() -> ExitCode {
         eprintln!("khi-mcp: HOME is not set");
         return ExitCode::FAILURE;
     };
-    let data_dir = match resolve_data_dir(&home, identifier, cfg!(debug_assertions))
-        .and_then(|dir| library_file(&dir).map(|_| dir))
-    {
+    // A Library that is not there yet is fine: every tool call checks again.
+    let data_dir = match resolve_data_dir(&home, identifier, cfg!(debug_assertions)).and_then(|dir| {
+        match library_file(&dir) {
+            Ok(_) | Err(GuardError::Missing) => Ok(dir),
+            Err(why) => Err(why),
+        }
+    }) {
         Ok(dir) => dir,
         Err(why) => {
             eprintln!("khi-mcp: {why}");

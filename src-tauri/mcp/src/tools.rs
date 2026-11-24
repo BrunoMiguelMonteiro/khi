@@ -1,6 +1,7 @@
 //! The five tools: their descriptions and schemas, and what each one does
 //! with the read-only Library. No protocol code here.
 
+use crate::guard::{library_file, GuardError};
 use khi_lib::library::read::{
     open_read_only, BookSort, GetBook, ListBooks, NewHighlights, NewMode, ReadError, SearchIn, SearchParams,
 };
@@ -225,8 +226,16 @@ pub fn call(data_dir: &Path, only_reader: Option<u32>, name: &str, args: Map<Str
         return Outcome::UnknownTool;
     }
     let run = || -> Result<Value, String> {
-        // Check the arguments before touching the disk.
-        let lib = || open_read_only(data_dir).map_err(|e| e.to_string());
+        // Check the arguments before touching the disk. The path guard runs on
+        // every call, and the Library is opened through the path it resolved.
+        let lib = || {
+            let file = library_file(data_dir).map_err(|e| match e {
+                GuardError::Missing => ReadError::LibraryNotFound.to_string(),
+                other => other.to_string(),
+            })?;
+            let dir = file.parent().ok_or_else(|| GuardError::OutsideDataDir.to_string())?;
+            open_read_only(dir).map_err(|e| e.to_string())
+        };
         match name {
             "list_readers" => {
                 parse::<ListReadersArgs>(args.clone())?;

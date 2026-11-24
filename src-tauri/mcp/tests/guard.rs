@@ -16,6 +16,7 @@ fn dev_identifier_gives_the_dev_folder_canonicalized() {
     let home = TempDir::new().unwrap();
     let dir = home.path().join("Library/Application Support/KoboHighlightsExporter Dev");
     std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("library.sqlite"), b"").unwrap();
     let resolved = resolve_data_dir(home.path(), "com.bruno.khi.dev", true).unwrap();
     assert_eq!(resolved, dir.canonicalize().unwrap());
     assert_eq!(library_file(&resolved).unwrap(), resolved.join("library.sqlite"));
@@ -67,4 +68,62 @@ fn a_symlink_into_volumes_is_refused() {
             Err(GuardError::Volumes)
         ));
     }
+}
+
+/// A data folder with `library.sqlite` replaced by whatever `make` creates.
+fn folder_with(make: impl FnOnce(&Path, &Path)) -> (TempDir, std::path::PathBuf) {
+    let tmp = TempDir::new().unwrap();
+    let data = tmp.path().join("data");
+    let elsewhere = tmp.path().join("elsewhere");
+    std::fs::create_dir_all(&data).unwrap();
+    std::fs::create_dir_all(&elsewhere).unwrap();
+    make(&data, &elsewhere);
+    (tmp, data)
+}
+
+#[test]
+fn a_missing_file_or_folder_is_missing_not_skipped() {
+    let (tmp, data) = folder_with(|_, _| {});
+    assert!(matches!(library_file(&data), Err(GuardError::Missing)));
+    assert!(matches!(library_file(&tmp.path().join("nope")), Err(GuardError::Missing)));
+}
+
+#[test]
+fn a_real_file_resolves_to_its_canonical_path() {
+    let (_tmp, data) = folder_with(|data, _| std::fs::write(data.join("library.sqlite"), b"").unwrap());
+    assert_eq!(library_file(&data).unwrap(), data.canonicalize().unwrap().join("library.sqlite"));
+}
+
+#[test]
+fn a_symlink_to_a_kobo_database_is_refused() {
+    let (_tmp, data) = folder_with(|data, elsewhere| {
+        std::fs::write(elsewhere.join("KoboReader.sqlite"), b"").unwrap();
+        std::os::unix::fs::symlink(elsewhere.join("KoboReader.sqlite"), data.join("library.sqlite")).unwrap();
+    });
+    assert!(matches!(library_file(&data), Err(GuardError::NotLibraryFile)));
+}
+
+#[test]
+fn a_symlink_to_a_library_in_another_folder_is_refused() {
+    let (_tmp, data) = folder_with(|data, elsewhere| {
+        std::fs::write(elsewhere.join("library.sqlite"), b"").unwrap();
+        std::os::unix::fs::symlink(elsewhere.join("library.sqlite"), data.join("library.sqlite")).unwrap();
+    });
+    assert!(matches!(library_file(&data), Err(GuardError::OutsideDataDir)));
+}
+
+#[test]
+fn a_broken_symlink_is_refused() {
+    let (_tmp, data) = folder_with(|data, elsewhere| {
+        std::os::unix::fs::symlink(elsewhere.join("gone.sqlite"), data.join("library.sqlite")).unwrap();
+    });
+    assert!(matches!(library_file(&data), Err(GuardError::Unresolved(_))));
+}
+
+#[test]
+fn a_symlinked_data_folder_is_followed_to_its_real_folder() {
+    let (tmp, real) = folder_with(|data, _| std::fs::write(data.join("library.sqlite"), b"").unwrap());
+    let link = tmp.path().join("link");
+    std::os::unix::fs::symlink(&real, &link).unwrap();
+    assert_eq!(library_file(&link).unwrap(), real.canonicalize().unwrap().join("library.sqlite"));
 }

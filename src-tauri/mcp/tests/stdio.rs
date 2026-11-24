@@ -220,6 +220,48 @@ fn a_missing_library_is_an_error_result_and_nothing_is_created() {
     assert!(!home.path().join("Library").exists(), "the khi-mcp created something");
 }
 
+/// A Library built by the app's own code in `dir`, closed again.
+fn library_in(dir: &std::path::Path) {
+    std::fs::create_dir_all(dir).unwrap();
+    drop(khi_lib::library::eval_fixture::build_eval_library(dir).unwrap());
+}
+
+#[test]
+fn a_library_symlinked_after_startup_is_refused_on_every_call() {
+    let home = TempDir::new().unwrap();
+    let dir = data_dir(&home);
+    std::fs::create_dir_all(&dir).unwrap();
+    // The server starts with no library.sqlite at all.
+    let mut s = Server::start(&home, &["--dev"]);
+    assert_eq!(s.call("list_readers", json!({}))["isError"], true);
+
+    // A symlink to someone's KoboReader.sqlite, made afterwards.
+    let kobo_dir = home.path().join("kobo");
+    library_in(&kobo_dir);
+    std::fs::rename(kobo_dir.join("library.sqlite"), kobo_dir.join("KoboReader.sqlite")).unwrap();
+    let link = dir.join("library.sqlite");
+    std::os::unix::fs::symlink(kobo_dir.join("KoboReader.sqlite"), &link).unwrap();
+    let refused = s.call("list_readers", json!({}));
+    assert_eq!(refused["isError"], true, "{refused}");
+    assert!(refused["structuredContent"].is_null());
+
+    // A symlink to a library.sqlite in another folder.
+    let other = home.path().join("other");
+    library_in(&other);
+    std::fs::remove_file(&link).unwrap();
+    std::os::unix::fs::symlink(other.join("library.sqlite"), &link).unwrap();
+    let refused = s.call("list_books", json!({}));
+    assert_eq!(refused["isError"], true, "{refused}");
+
+    // A normal file there works, with the same server still running.
+    std::fs::remove_file(&link).unwrap();
+    std::fs::copy(other.join("library.sqlite"), &link).unwrap();
+    let readers = s.call("list_readers", json!({}));
+    assert_eq!(readers["isError"], false, "{readers}");
+    assert_eq!(readers["structuredContent"]["readers"].as_array().unwrap().len(), 3);
+    s.finish();
+}
+
 #[test]
 fn reader_flag_limits_every_tool() {
     let home = eval_home();
