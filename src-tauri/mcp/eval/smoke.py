@@ -113,7 +113,12 @@ def main():
         dev = home / "Library/Application Support/KoboHighlightsExporter Dev"
         subprocess.run(
             ["cargo", "run", "-q", "-p", "khi-mcp", "--example", "build_eval", "--", str(dev)],
-            cwd=ROOT / "src-tauri", env={**os.environ, "HOME": str(home)}, check=True,
+            cwd=ROOT / "src-tauri",
+            # build_eval checks the folder against HOME; rustup and cargo keep the real ones.
+            env={**os.environ, "HOME": str(home),
+                 "RUSTUP_HOME": os.environ.get("RUSTUP_HOME", str(Path.home() / ".rustup")),
+                 "CARGO_HOME": os.environ.get("CARGO_HOME", str(Path.home() / ".cargo"))},
+            check=True,
         )
         library = dev / "library.sqlite"
         # The evaluation Library leaves the WAL open: fold it in, so the bytes are the whole state.
