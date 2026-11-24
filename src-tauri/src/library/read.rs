@@ -23,6 +23,8 @@ pub enum ReadError {
     InvalidCursor,
     /// A `since` that is neither `YYYY-MM-DD` nor an ISO 8601 date-time.
     InvalidDate,
+    /// A search query shorter than 2 or longer than 200 characters.
+    InvalidQuery,
     /// No such book.
     NotFound,
     Db(rusqlite::Error),
@@ -45,6 +47,7 @@ impl std::fmt::Display for ReadError {
             ),
             ReadError::InvalidCursor => write!(f, "Invalid cursor: use the nextCursor of a previous answer as it was given"),
             ReadError::InvalidDate => write!(f, "Invalid date: use YYYY-MM-DD or an ISO 8601 date-time"),
+            ReadError::InvalidQuery => write!(f, "Invalid query: use 2 to 200 characters with at least one letter or digit"),
             ReadError::NotFound => write!(f, "No such book in the Library"),
             ReadError::Db(e) => write!(f, "Library database error: {e}"),
         }
@@ -599,4 +602,136 @@ fn group_by_book(items: &[HighlightInfo], books: &std::collections::HashMap<u32,
         }
     }
     groups
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SearchIn {
+    #[default]
+    Both,
+    Text,
+    Note,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum MatchedIn {
+    Text,
+    Note,
+}
+
+#[derive(Debug, Clone)]
+pub struct SearchParams {
+    pub query: String,
+    pub search_in: SearchIn,
+    pub reader_id: Option<u32>,
+    pub book_id: Option<u32>,
+    pub include_removed: bool,
+    pub limit: Option<usize>,
+    pub cursor: Option<String>,
+}
+
+impl Default for SearchParams {
+    fn default() -> Self {
+        SearchParams {
+            query: String::new(),
+            search_in: SearchIn::Both,
+            reader_id: None,
+            book_id: None,
+            include_removed: true,
+            limit: None,
+            cursor: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BookRef {
+    pub id: u32,
+    pub title: String,
+    pub author: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchHit {
+    pub highlight: HighlightInfo,
+    pub book: BookRef,
+    pub matched_in: MatchedIn,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchPage {
+    pub results: Vec<SearchHit>,
+    pub next_cursor: Option<String>,
+}
+
+/// Every word of the query is in `field` (both already normalized).
+fn has_all(field: &str, words: &[&str]) -> bool {
+    words.iter().all(|w| field.contains(w))
+}
+
+impl ReadLibrary {
+    /// Scans the highlights in Rust: the Library has no text index, and
+    /// SQLite's LIKE does not fold accents. The scan stops once the page and
+    /// one more match are found.
+    pub fn search_highlights(&self, params: &SearchParams) -> Result<SearchPage, ReadError> {
+        let length = params.query.trim().chars().count();
+        let query = normalize(&params.query);
+        if !(2..=200).contains(&length) || query.is_empty() {
+            return Err(ReadError::InvalidQuery);
+        }
+        let words: Vec<&str> = query.split(' ').collect();
+        let offset = match &params.cursor {
+            Some(cursor) => decode_cursor(cursor)?,
+            None => 0,
+        };
+        let limit = params.limit.unwrap_or(DEFAULT_LIMIT).clamp(1, MAX_LIMIT);
+        let in_text = params.search_in != SearchIn::Note;
+        let in_note = params.search_in != SearchIn::Text;
+
+        let (hits, more) = self.read(|conn| {
+            let mut stmt = conn.prepare(&format!(
+                "SELECT {}, b.title, b.author FROM highlights h JOIN books b ON b.id = h.book_id
+                 WHERE (?1 IS NULL OR b.reader_id = ?1) AND (?2 IS NULL OR b.id = ?2)
+                   AND (?3 OR h.removed_at IS NULL)
+                 ORDER BY b.title COLLATE NOCASE, b.id, h.chapter_progress, h.date_created, h.bookmark_id",
+                highlight_columns()
+            ))?;
+            let mut rows = stmt.query(rusqlite::params![params.reader_id, params.book_id, params.include_removed])?;
+            let (mut skipped, mut hits, mut more) = (0, Vec::new(), false);
+            while let Some(row) = rows.next()? {
+                let text: String = row.get(2)?;
+                let note: Option<String> = row.get(3)?;
+                let matched_in = if in_text && has_all(&normalize(&text), &words) {
+                    MatchedIn::Text
+                } else if in_note && note.as_deref().is_some_and(|n| has_all(&normalize(n), &words)) {
+                    MatchedIn::Note
+                } else {
+                    continue;
+                };
+                if skipped < offset {
+                    skipped += 1;
+                    continue;
+                }
+                if hits.len() == limit {
+                    more = true;
+                    break;
+                }
+                hits.push(SearchHit {
+                    highlight: highlight_from_row(row, true)?,
+                    book: BookRef { id: row.get(1)?, title: row.get(10)?, author: row.get(11)? },
+                    matched_in,
+                });
+            }
+            Ok((hits, more))
+        })?;
+        // Only "is there more" is known, which is all fit_page needs.
+        let total = offset + hits.len() + usize::from(more);
+        let (results, next_cursor) = fit_page(hits, offset, total, |kept, cursor| {
+            json_size(&SearchPage { results: kept.to_vec(), next_cursor: cursor.map(str::to_string) })
+        });
+        Ok(SearchPage { results, next_cursor })
+    }
 }
