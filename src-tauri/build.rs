@@ -6,15 +6,22 @@ fn main() {
         return;
     }
     // Without the updater plugin its permission does not exist, and Tauri
-    // refuses a capability that names it: build from copies without that line.
+    // refuses a capability that names it: build from copies without it.
     let source = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).join("capabilities");
     let target = PathBuf::from(env::var("OUT_DIR").unwrap()).join("capabilities");
     fs::create_dir_all(&target).unwrap();
     for entry in fs::read_dir(&source).unwrap() {
         let path = entry.unwrap().path();
-        let text = fs::read_to_string(&path).unwrap();
-        let kept: Vec<&str> = text.lines().filter(|line| !line.contains("updater:")).collect();
-        fs::write(target.join(path.file_name().unwrap()), kept.join("\n")).unwrap();
+        let mut capability: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        if let Some(permissions) = capability["permissions"].as_array_mut() {
+            // A permission is a string or an object with an `identifier`
+            permissions.retain(|p| {
+                let id = p.as_str().or_else(|| p["identifier"].as_str()).unwrap_or_default();
+                !id.starts_with("updater:")
+            });
+        }
+        fs::write(target.join(path.file_name().unwrap()), capability.to_string()).unwrap();
     }
     println!("cargo:rerun-if-changed={}", source.display());
     let pattern: &'static str = Box::leak(format!("{}/**/*", target.display()).into_boxed_str());
