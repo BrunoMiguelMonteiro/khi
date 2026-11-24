@@ -1,6 +1,8 @@
 //! The persistent Library: every book and highlight the Khi has ever read from
 //! a Kobo, kept in `library.sqlite` so it is available with no Kobo connected.
 
+#[cfg(feature = "eval-fixture")]
+pub mod eval_fixture;
 pub mod identity;
 pub mod read;
 pub mod schema;

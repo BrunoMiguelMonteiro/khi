@@ -13,6 +13,10 @@ edition = "2021"
 name = "khi_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+# The evaluation Library builder (src/library/eval_fixture.rs); only tests and the khi-mcp tooling turn it on.
+[features]
+eval-fixture = []
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
@@ -49,6 +53,10 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std"
 [dev-dependencies]
 tempfile = "3.10"
 mockall = "0.12"
+
+[[test]]
+name = "eval_fixture"
+required-features = ["eval-fixture"]
 
 [profile.release.build-override]
 strip = false

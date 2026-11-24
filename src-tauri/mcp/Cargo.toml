@@ -6,3 +6,7 @@ edition = "2021"
 
 [dependencies]
 khi = { path = ".." }
+
+# Turns the evaluation Library builder on for every `cargo test --workspace`.
+[dev-dependencies]
+khi = { path = "..", features = ["eval-fixture"] }
