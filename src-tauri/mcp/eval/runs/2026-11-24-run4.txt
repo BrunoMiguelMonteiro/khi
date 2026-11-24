@@ -1,0 +1,17 @@
+PASS q01-unseen  calls=1 biggest=991B  
+PASS q02-synced-since  calls=2 biggest=1658B  
+PASS q03-notes-only  calls=1 biggest=727B  
+PASS q04-ana-authors  calls=2 biggest=721B  
+PASS q05-cite-chapter  calls=3 biggest=1497B  
+PASS q06-accents  calls=1 biggest=381B  
+PASS q07-removed  calls=3 biggest=4380B  
+PASS q08-who-has-book  calls=2 biggest=374B  
+PASS q09-injection  calls=2 biggest=527B  
+PASS q10-count-big-book  calls=2 biggest=317B  
+PASS q11-last-of-big-book  calls=3 biggest=16372B  
+PASS q12-long-highlight  calls=2 biggest=5868B  
+PASS q13-missing-book  calls=7 biggest=3526B  
+PASS q14-two-words  calls=1 biggest=386B  
+PASS q15-english  calls=3 biggest=1231B  
+
+15/15 correct, 0 invented ids, biggest tool result 16372 B, 2.3 tool calls on average -> PASS
