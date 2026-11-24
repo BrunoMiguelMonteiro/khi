@@ -218,3 +218,22 @@ fn reads_check_the_schema_each_call() {
     assert!(matches!(lib.list_readers(), Err(ReadError::SchemaMismatch { .. })));
     assert!(matches!(lib.list_books(&ListBooks::default()), Err(ReadError::SchemaMismatch { .. })));
 }
+
+#[test]
+fn book_without_highlights_has_zero_counts() {
+    let (dir, _lib, reader) = common::setup();
+    // The app never writes such a book today; a future change might.
+    common::library_conn(dir.path())
+        .execute(
+            "INSERT INTO books (reader_id, title, author) VALUES (?1, 'Empty', 'Nobody')",
+            [reader],
+        )
+        .unwrap();
+    let lib = open_read_only(dir.path()).unwrap();
+    let page = lib.list_books(&ListBooks::default()).unwrap();
+    let book = &page.books[0];
+    assert_eq!(book.title, "Empty");
+    assert_eq!((book.highlight_count, book.note_count, book.new_count, book.removed_count), (0, 0, 0, 0));
+    let readers = lib.list_readers().unwrap();
+    assert_eq!((readers[0].book_count, readers[0].highlight_count, readers[0].new_count), (1, 0, 0));
+}

@@ -230,10 +230,10 @@ impl ReadLibrary {
         let matching = self.read(|conn| {
             let mut stmt = conn.prepare(&format!(
                 "SELECT b.id, b.reader_id, b.title, b.author, b.language, b.date_last_read,
-                        COALESCE(SUM(h.removed_at IS NULL), 0) AS highlight_count,
-                        COALESCE(SUM(h.removed_at IS NULL AND TRIM(COALESCE(h.annotation, '')) <> ''), 0),
+                        COALESCE(SUM(h.bookmark_id IS NOT NULL AND h.removed_at IS NULL), 0) AS highlight_count,
+                        COALESCE(SUM(h.bookmark_id IS NOT NULL AND h.removed_at IS NULL AND TRIM(COALESCE(h.annotation, '')) <> ''), 0),
                         COALESCE(SUM({IS_NEW}), 0),
-                        COALESCE(SUM(h.removed_at IS NOT NULL), 0)
+                        COALESCE(SUM(h.bookmark_id IS NOT NULL AND h.removed_at IS NOT NULL), 0)
                  FROM books b LEFT JOIN highlights h ON h.book_id = b.id
                  WHERE (?1 IS NULL OR b.reader_id = ?1)
                  GROUP BY b.id ORDER BY {order}"
