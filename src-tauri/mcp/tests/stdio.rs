@@ -208,6 +208,26 @@ fn domain_errors_are_tool_results_with_is_error() {
 }
 
 #[test]
+fn since_without_a_mode_means_synced_since_and_with_unseen_is_refused() {
+    let home = eval_home();
+    let mut s = Server::start(&home, &["--dev"]);
+    let explicit = s.call("new_highlights", json!({"mode": "syncedSince", "since": "2026-11-01", "readerId": 1}));
+    assert_eq!(explicit["structuredContent"]["totalHighlights"], 5);
+    // `since` alone is not ignored: it picks syncedSince.
+    let bare = s.call("new_highlights", json!({"since": "2026-11-01", "readerId": 1}));
+    assert_eq!(bare["isError"], false, "{bare}");
+    assert_eq!(bare["structuredContent"], explicit["structuredContent"]);
+    // `since` with unseen is a mistake, not something to drop silently.
+    let both = s.call("new_highlights", json!({"mode": "unseen", "since": "2026-11-01"}));
+    assert_eq!(both["isError"], true, "{both}");
+    assert!(both["content"][0]["text"].as_str().unwrap().contains("since only works with mode syncedSince"));
+    // Without `since` nothing changes.
+    let plain = s.call("new_highlights", json!({}));
+    assert_eq!(plain["structuredContent"]["totalHighlights"], 3);
+    s.finish();
+}
+
+#[test]
 fn a_missing_library_is_an_error_result_and_nothing_is_created() {
     let home = TempDir::new().unwrap();
     let mut s = Server::start(&home, &["--dev"]);
