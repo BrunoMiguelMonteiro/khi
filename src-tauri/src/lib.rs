@@ -75,14 +75,11 @@ pub fn run() {
         .export(specta_typescript::Typescript::default(), BINDINGS_PATH)
         .expect("Failed to export typescript bindings");
 
-    let app_builder = tauri::Builder::default()
+    tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_process::init());
-    // The khi-mcp links khi without the updater, so it has no network code
-    #[cfg(feature = "updater")]
-    let app_builder = app_builder.plugin(tauri_plugin_updater::Builder::new().build());
-    app_builder
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(builder.invoke_handler())
         .manage(window::SettingsWindowLock::default())
         .manage(window::SettingsReader::default())
