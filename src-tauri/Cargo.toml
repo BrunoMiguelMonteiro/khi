@@ -62,5 +62,13 @@ required-features = ["eval-fixture"]
 name = "library_read_books"
 required-features = ["eval-fixture"]
 
+[[test]]
+name = "library_read_book"
+required-features = ["eval-fixture"]
+
+[[test]]
+name = "library_read_concurrency"
+required-features = ["eval-fixture"]
+
 [profile.release.build-override]
 strip = false

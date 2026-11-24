@@ -21,6 +21,10 @@ pub enum ReadError {
     SchemaMismatch { found: usize, expected: usize },
     /// A `cursor` that this tool did not hand out.
     InvalidCursor,
+    /// A `since` that is neither `YYYY-MM-DD` nor an ISO 8601 date-time.
+    InvalidDate,
+    /// No such book.
+    NotFound,
     Db(rusqlite::Error),
 }
 
@@ -40,6 +44,8 @@ impl std::fmt::Display for ReadError {
                 "The Library is at version {found}, newer than the {expected} this tool knows: update the Khi app and this tool"
             ),
             ReadError::InvalidCursor => write!(f, "Invalid cursor: use the nextCursor of a previous answer as it was given"),
+            ReadError::InvalidDate => write!(f, "Invalid date: use YYYY-MM-DD or an ISO 8601 date-time"),
+            ReadError::NotFound => write!(f, "No such book in the Library"),
             ReadError::Db(e) => write!(f, "Library database error: {e}"),
         }
     }
@@ -228,33 +234,8 @@ impl ReadLibrary {
             .unwrap_or_default();
 
         let matching = self.read(|conn| {
-            let mut stmt = conn.prepare(&format!(
-                "SELECT b.id, b.reader_id, b.title, b.author, b.language, b.date_last_read,
-                        COALESCE(SUM(h.bookmark_id IS NOT NULL AND h.removed_at IS NULL), 0) AS highlight_count,
-                        COALESCE(SUM(h.bookmark_id IS NOT NULL AND h.removed_at IS NULL AND TRIM(COALESCE(h.annotation, '')) <> ''), 0),
-                        COALESCE(SUM({IS_NEW}), 0),
-                        COALESCE(SUM(h.bookmark_id IS NOT NULL AND h.removed_at IS NOT NULL), 0)
-                 FROM books b LEFT JOIN highlights h ON h.book_id = b.id
-                 WHERE (?1 IS NULL OR b.reader_id = ?1)
-                 GROUP BY b.id ORDER BY {order}"
-            ))?;
-            let rows = stmt.query_map([params.reader_id], |r| {
-                Ok(BookSummary {
-                    id: r.get(0)?,
-                    reader_id: r.get(1)?,
-                    title: r.get(2)?,
-                    author: r.get(3)?,
-                    language: r.get(4)?,
-                    date_last_read: r.get(5)?,
-                    highlight_count: r.get(6)?,
-                    note_count: r.get(7)?,
-                    new_count: r.get(8)?,
-                    removed_count: r.get(9)?,
-                })
-            })?;
             let mut books = Vec::new();
-            for book in rows {
-                let book = book?;
+            for book in summaries(conn, params.reader_id, None, order)? {
                 if params.has_new && book.new_count == 0 {
                     continue;
                 }
@@ -271,10 +252,9 @@ impl ReadLibrary {
 
         let total = matching.len();
         let books: Vec<BookSummary> = matching.into_iter().skip(offset).take(limit).collect();
-        let (books, next_cursor) = fit_page(books, offset, total, |books, next_cursor| BooksPage {
-            books,
-            next_cursor,
-            total: total as u32,
+        let total32 = total as u32;
+        let (books, next_cursor) = fit_page(books, offset, total, |books, cursor| {
+            json_size(&BooksPage { books: books.to_vec(), next_cursor: cursor.map(str::to_string), total: total32 })
         });
         Ok(BooksPage { books, next_cursor, total: total as u32 })
     }
@@ -283,33 +263,64 @@ impl ReadLibrary {
 /// Keeps the longest prefix of `items` whose serialized page fits the
 /// ceiling (one item always stays) and points `nextCursor` at the first one
 /// left out. `total` is how many items match overall, so the last page has
-/// no cursor. `page` builds the answer around a list of items.
-fn fit_page<T: Serialize, P: Serialize>(
+/// no cursor. `size_of` serializes the answer around a list of items and
+/// the cursor, and says how many bytes it takes.
+fn fit_page<T>(
     mut items: Vec<T>,
     offset: usize,
     total: usize,
-    page: impl Fn(Vec<T>, Option<String>) -> P,
+    size_of: impl Fn(&[T], Option<&str>) -> usize,
 ) -> (Vec<T>, Option<String>) {
     let cursor_for = |kept: usize| {
         let next = offset + kept;
         (next < total).then(|| encode_cursor(next))
     };
-    let sizes: Vec<usize> = items
-        .iter()
-        .map(|item| serde_json::to_vec(item).map(|v| v.len()).unwrap_or(0))
-        .collect();
     let mut kept = items.len();
-    while kept > 1 {
-        let shell = serde_json::to_vec(&page(Vec::new(), cursor_for(kept))).map(|v| v.len()).unwrap_or(0);
-        // The items, and a comma between each pair.
-        let bytes = shell + sizes[..kept].iter().sum::<usize>() + (kept - 1);
-        if bytes <= CEILING_BYTES {
-            break;
-        }
+    while kept > 1 && size_of(&items[..kept], cursor_for(kept).as_deref()) > CEILING_BYTES {
         kept -= 1;
     }
     items.truncate(kept);
     (items, cursor_for(kept))
+}
+
+fn json_size(value: &impl Serialize) -> usize {
+    serde_json::to_vec(value).map(|v| v.len()).unwrap_or(0)
+}
+
+/// Book summaries, optionally of one Reader or one book, in `order`.
+fn summaries(
+    conn: &Connection,
+    reader_id: Option<u32>,
+    book_id: Option<u32>,
+    order: &str,
+) -> Result<Vec<BookSummary>, ReadError> {
+    // The LEFT JOIN gives one all-NULL row to a book with no highlights:
+    // only rows with a bookmark_id are highlights.
+    let mut stmt = conn.prepare(&format!(
+        "SELECT b.id, b.reader_id, b.title, b.author, b.language, b.date_last_read,
+                COALESCE(SUM(h.bookmark_id IS NOT NULL AND h.removed_at IS NULL), 0) AS highlight_count,
+                COALESCE(SUM(h.bookmark_id IS NOT NULL AND h.removed_at IS NULL AND TRIM(COALESCE(h.annotation, '')) <> ''), 0),
+                COALESCE(SUM({IS_NEW}), 0),
+                COALESCE(SUM(h.bookmark_id IS NOT NULL AND h.removed_at IS NOT NULL), 0)
+         FROM books b LEFT JOIN highlights h ON h.book_id = b.id
+         WHERE (?1 IS NULL OR b.reader_id = ?1) AND (?2 IS NULL OR b.id = ?2)
+         GROUP BY b.id ORDER BY {order}"
+    ))?;
+    let rows = stmt.query_map(rusqlite::params![reader_id, book_id], |r| {
+        Ok(BookSummary {
+            id: r.get(0)?,
+            reader_id: r.get(1)?,
+            title: r.get(2)?,
+            author: r.get(3)?,
+            language: r.get(4)?,
+            date_last_read: r.get(5)?,
+            highlight_count: r.get(6)?,
+            note_count: r.get(7)?,
+            new_count: r.get(8)?,
+            removed_count: r.get(9)?,
+        })
+    })?;
+    Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
 }
 
 /// `"v1:<offset>"` in hex: opaque to the caller, cheap to check.
@@ -331,4 +342,261 @@ fn decode_cursor(cursor: &str) -> Result<usize, ReadError> {
         .filter(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
         .and_then(|n| n.parse().ok())
         .ok_or(ReadError::InvalidCursor)
+}
+
+/// Longest text an answer carries whole, except in `get_book`.
+const TEXT_CUT_CHARS: usize = 2000;
+const DESCRIPTION_CUT_CHARS: usize = 1000;
+const DEFAULT_BOOK_LIMIT: usize = 50;
+const MAX_BOOK_LIMIT: usize = 200;
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HighlightInfo {
+    /// The Kobo's bookmark id: unique only inside a Reader, so `book_id` goes along.
+    pub id: String,
+    pub book_id: u32,
+    pub text: String,
+    pub note: Option<String>,
+    pub chapter: Option<String>,
+    pub progress: Option<f64>,
+    pub date_created: Option<String>,
+    pub synced_at: Option<String>,
+    pub is_new: bool,
+    pub removed: bool,
+    /// The text was cut at 2000 characters.
+    pub truncated: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BookDetail {
+    #[serde(flatten)]
+    pub summary: BookSummary,
+    pub isbn: Option<String>,
+    pub publisher: Option<String>,
+    /// Cut at 1000 characters: the Kobo sometimes stores long HTML.
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BookPage {
+    pub book: BookDetail,
+    pub highlights: Vec<HighlightInfo>,
+    pub next_cursor: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct GetBook {
+    pub book_id: u32,
+    pub include_removed: bool,
+    pub limit: Option<usize>,
+    pub cursor: Option<String>,
+}
+
+impl Default for GetBook {
+    fn default() -> Self {
+        GetBook { book_id: 0, include_removed: true, limit: None, cursor: None }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NewGroup {
+    pub book: BookSummary,
+    pub highlights: Vec<HighlightInfo>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NewPage {
+    pub groups: Vec<NewGroup>,
+    pub next_cursor: Option<String>,
+    pub total_highlights: u32,
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub enum NewMode {
+    /// What the app calls new: arrived after the book was last opened.
+    #[default]
+    Unseen,
+    /// Arrived in the Library on or after this date (`synced_at`).
+    SyncedSince(String),
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct NewHighlights {
+    pub mode: NewMode,
+    pub reader_id: Option<u32>,
+    pub limit: Option<usize>,
+    pub cursor: Option<String>,
+}
+
+/// The columns `highlight_from_row` reads, in this order, with `IS_NEW` in
+/// the `h`/`b` aliases.
+fn highlight_columns() -> String {
+    format!(
+        "h.bookmark_id, h.book_id, h.text, h.annotation, h.chapter_title, h.chapter_progress,
+         h.date_created, h.synced_at, {IS_NEW}, h.removed_at IS NOT NULL"
+    )
+}
+
+fn highlight_from_row(r: &rusqlite::Row, cut: bool) -> rusqlite::Result<HighlightInfo> {
+    let mut text: String = r.get(2)?;
+    let mut truncated = false;
+    if cut {
+        if let Some((end, _)) = text.char_indices().nth(TEXT_CUT_CHARS) {
+            text.truncate(end);
+            truncated = true;
+        }
+    }
+    let note: Option<String> = r.get(3)?;
+    Ok(HighlightInfo {
+        id: r.get(0)?,
+        book_id: r.get(1)?,
+        text,
+        note: note.filter(|n| !n.trim().is_empty()),
+        chapter: r.get(4)?,
+        progress: r.get(5)?,
+        date_created: r.get(6)?,
+        synced_at: r.get(7)?,
+        is_new: r.get(8)?,
+        removed: r.get(9)?,
+        truncated,
+    })
+}
+
+/// `YYYY-MM-DD` or an ISO 8601 date-time, as the UTC `synced_at` format.
+fn normalize_since(input: &str) -> Result<String, ReadError> {
+    use chrono::{DateTime, NaiveDate, NaiveDateTime};
+    let input = input.trim();
+    if let Ok(date) = NaiveDate::parse_from_str(input, "%Y-%m-%d") {
+        return Ok(format!("{date}T00:00:00Z"));
+    }
+    if let Ok(at) = DateTime::parse_from_rfc3339(input) {
+        return Ok(at.with_timezone(&chrono::Utc).format("%Y-%m-%dT%H:%M:%SZ").to_string());
+    }
+    if let Ok(at) = NaiveDateTime::parse_from_str(input, "%Y-%m-%dT%H:%M:%S") {
+        return Ok(at.format("%Y-%m-%dT%H:%M:%SZ").to_string());
+    }
+    Err(ReadError::InvalidDate)
+}
+
+impl ReadLibrary {
+    pub fn get_book(&self, params: &GetBook) -> Result<BookPage, ReadError> {
+        let offset = match &params.cursor {
+            Some(cursor) => decode_cursor(cursor)?,
+            None => 0,
+        };
+        let limit = params.limit.unwrap_or(DEFAULT_BOOK_LIMIT).clamp(1, MAX_BOOK_LIMIT);
+        let (book, items, total) = self.read(|conn| {
+            let summary = summaries(conn, None, Some(params.book_id), "b.id")?
+                .pop()
+                .ok_or(ReadError::NotFound)?;
+            let (isbn, publisher, description) = conn.query_row(
+                "SELECT isbn, publisher, description FROM books WHERE id = ?1",
+                [params.book_id],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get::<_, Option<String>>(2)?)),
+            )?;
+            let book = BookDetail {
+                summary,
+                isbn,
+                publisher,
+                description: description.map(|d| d.chars().take(DESCRIPTION_CUT_CHARS).collect()),
+            };
+            let total: usize = conn.query_row(
+                "SELECT COUNT(*) FROM highlights h WHERE h.book_id = ?1 AND (?2 OR h.removed_at IS NULL)",
+                rusqlite::params![params.book_id, params.include_removed],
+                |r| r.get(0),
+            )?;
+            let mut stmt = conn.prepare(&format!(
+                "SELECT {} FROM highlights h JOIN books b ON b.id = h.book_id
+                 WHERE h.book_id = ?1 AND (?2 OR h.removed_at IS NULL)
+                 ORDER BY h.chapter_progress, h.date_created, h.bookmark_id LIMIT ?3 OFFSET ?4",
+                highlight_columns()
+            ))?;
+            // The text of a book's highlight is never cut here.
+            let rows = stmt.query_map(
+                rusqlite::params![params.book_id, params.include_removed, limit, offset],
+                |r| highlight_from_row(r, false),
+            )?;
+            Ok((book, rows.collect::<rusqlite::Result<Vec<_>>>()?, total))
+        })?;
+        let (highlights, next_cursor) = fit_page(items, offset, total, |kept, cursor| {
+            json_size(&BookPage {
+                book: book.clone(),
+                highlights: kept.to_vec(),
+                next_cursor: cursor.map(str::to_string),
+            })
+        });
+        Ok(BookPage { book, highlights, next_cursor })
+    }
+
+    pub fn new_highlights(&self, params: &NewHighlights) -> Result<NewPage, ReadError> {
+        let offset = match &params.cursor {
+            Some(cursor) => decode_cursor(cursor)?,
+            None => 0,
+        };
+        let limit = params.limit.unwrap_or(DEFAULT_LIMIT).clamp(1, MAX_LIMIT);
+        let (condition, since) = match &params.mode {
+            NewMode::Unseen => (IS_NEW.to_string(), None),
+            // A NULL synced_at compares as unknown, so it is never included.
+            NewMode::SyncedSince(date) => ("h.synced_at >= ?3".to_string(), Some(normalize_since(date)?)),
+        };
+        let (items, total, books) = self.read(|conn| {
+            let filter = format!("(?1 IS NULL OR b.reader_id = ?1) AND {condition}");
+            let total: usize = {
+                let sql = format!("SELECT COUNT(*) FROM highlights h JOIN books b ON b.id = h.book_id WHERE {filter}");
+                let mut stmt = conn.prepare(&sql)?;
+                match &since {
+                    Some(since) => stmt.query_row(rusqlite::params![params.reader_id, 0, since], |r| r.get(0))?,
+                    None => stmt.query_row(rusqlite::params![params.reader_id], |r| r.get(0))?,
+                }
+            };
+            let sql = format!(
+                "SELECT {} FROM highlights h JOIN books b ON b.id = h.book_id WHERE {filter}
+                 ORDER BY b.title COLLATE NOCASE, b.id, h.chapter_progress, h.date_created, h.bookmark_id
+                 LIMIT {limit} OFFSET {offset}",
+                highlight_columns()
+            );
+            let mut stmt = conn.prepare(&sql)?;
+            let map = |r: &rusqlite::Row| highlight_from_row(r, true);
+            let items = match &since {
+                Some(since) => stmt.query_map(rusqlite::params![params.reader_id, 0, since], map)?,
+                None => stmt.query_map(rusqlite::params![params.reader_id], map)?,
+            }
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+            let books: std::collections::HashMap<u32, BookSummary> = summaries(conn, params.reader_id, None, "b.id")?
+                .into_iter()
+                .map(|b| (b.id, b))
+                .collect();
+            Ok((items, total, books))
+        })?;
+        let total32 = total as u32;
+        let (items, next_cursor) = fit_page(items, offset, total, |kept, cursor| {
+            json_size(&NewPage {
+                groups: group_by_book(kept, &books),
+                next_cursor: cursor.map(str::to_string),
+                total_highlights: total32,
+            })
+        });
+        Ok(NewPage { groups: group_by_book(&items, &books), next_cursor, total_highlights: total32 })
+    }
+}
+
+/// Consecutive highlights of the same book make one group.
+fn group_by_book(items: &[HighlightInfo], books: &std::collections::HashMap<u32, BookSummary>) -> Vec<NewGroup> {
+    let mut groups: Vec<NewGroup> = Vec::new();
+    for item in items {
+        match groups.last_mut() {
+            Some(group) if group.book.id == item.book_id => group.highlights.push(item.clone()),
+            _ => {
+                if let Some(book) = books.get(&item.book_id) {
+                    groups.push(NewGroup { book: book.clone(), highlights: vec![item.clone()] });
+                }
+            }
+        }
+    }
+    groups
 }
