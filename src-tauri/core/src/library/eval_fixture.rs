@@ -10,7 +10,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-const FIXTURE: &str = include_str!("../../mcp/eval/fixture.json");
+const FIXTURE: &str = include_str!("../../../mcp/eval/fixture.json");
 
 /// Every highlight in the fixture was underlined on this date.
 const DATE_CREATED: &str = "2026-10-01T10:00:00Z";

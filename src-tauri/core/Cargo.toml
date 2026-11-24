@@ -1,0 +1,25 @@
+[package]
+name = "khi-core"
+version = "1.3.0"
+description = "The Khi Library, models, settings and export, without Tauri"
+edition = "2021"
+
+[lib]
+name = "khi_core"
+
+# The evaluation Library builder (src/library/eval_fixture.rs); only tests and the khi-mcp tooling turn it on.
+[features]
+eval-fixture = []
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.31", features = ["bundled"] }
+unicode-normalization = "0.1"
+log = "0.4"
+chrono = "0.4"
+sha2 = "0.10"
+specta = { version = "=2.0.0-rc.28", features = ["derive"] }
+
+[dev-dependencies]
+tempfile = "3.10"

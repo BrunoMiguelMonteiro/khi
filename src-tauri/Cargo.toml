@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "mcp"]
+members = [".", "core", "mcp"]
 resolver = "2"
 
 [package]
@@ -17,13 +17,14 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 [features]
 default = ["updater"]
 updater = ["dep:tauri-plugin-updater"]
-eval-fixture = []
+eval-fixture = ["khi-core/eval-fixture"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 serde_json = "1"
 
 [dependencies]
+khi-core = { path = "core" }
 tauri = { version = "2", features = ["protocol-asset", "image-png"] }
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"

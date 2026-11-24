@@ -2,13 +2,11 @@ pub mod commands;
 pub mod covers;
 pub mod db;
 pub mod device;
-pub mod export;
-pub mod library;
-pub mod models;
-pub mod settings;
 pub mod system_accent;
 pub mod utils;
 pub mod window;
+
+pub use khi_core::{export, library, models, settings};
 
 use device::monitor::DeviceMonitor;
 use device::monitor::{DeviceDetectedEvent, DeviceDisconnectedEvent};
