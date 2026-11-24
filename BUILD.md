@@ -96,6 +96,14 @@ Os releases usam `npm run build:release`, não `npm run tauri build`. Este coman
 
 O `externalBin` vive só em `src-tauri/tauri.release.conf.json` (passado com `--config`). Fica fora do `tauri.conf.json` porque o `tauri-build` copia esses ficheiros em cada compilação e falha se faltarem, o que partiria o `cargo test` e o `npm run dev:app` numa árvore limpa. Só há binário para Apple Silicon (`aarch64-apple-darwin`).
 
+Depois do build, confirmar que o `khi-mcp` embebido funciona, sem modelo e sem tocar na Biblioteca real (usa um `HOME` temporário com a Biblioteca de avaliação):
+
+```bash
+python3 src-tauri/mcp/eval/smoke.py
+```
+
+Tem de acabar em `PASS`. Verifica que arranca, lista as cinco ferramentas só de leitura, responde, não altera o `library.sqlite` e respeita o interruptor de Definições › Agentes em cada chamada.
+
 ### 5. Localização dos Artefactos
 
 Após o build, os artefactos encontram-se em:
