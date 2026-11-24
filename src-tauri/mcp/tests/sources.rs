@@ -47,5 +47,11 @@ fn dependency_tree_has_no_network_crates() {
         for banned in ["reqwest", "hyper", "hyper-util", "hyper-rustls", "tauri-plugin-updater"] {
             assert_ne!(name, banned, "khi-mcp depends on {banned}");
         }
+        for prefix in ["tauri", "wry", "tao"] {
+            assert!(
+                name != prefix && !name.starts_with(&format!("{prefix}-")),
+                "khi-mcp depends on {name}"
+            );
+        }
     }
 }

@@ -25,7 +25,7 @@ fn eval_home() -> TempDir {
     let home = TempDir::new().unwrap();
     let dir = data_dir(&home);
     std::fs::create_dir_all(&dir).unwrap();
-    drop(khi_lib::library::eval_fixture::build_eval_library(&dir).unwrap());
+    drop(khi_core::library::eval_fixture::build_eval_library(&dir).unwrap());
     home
 }
 
@@ -262,7 +262,7 @@ fn a_missing_library_is_an_error_result_and_nothing_is_created() {
 /// A Library built by the app's own code in `dir`, closed again.
 fn library_in(dir: &std::path::Path) {
     std::fs::create_dir_all(dir).unwrap();
-    drop(khi_lib::library::eval_fixture::build_eval_library(dir).unwrap());
+    drop(khi_core::library::eval_fixture::build_eval_library(dir).unwrap());
 }
 
 #[test]

@@ -2,7 +2,7 @@
 //! with the read-only Library. No protocol code here.
 
 use crate::guard::{library_file, GuardError};
-use khi_lib::library::read::{
+use khi_core::library::read::{
     open_read_only, BookSort, GetBook, ListBooks, ListReaders, NewHighlights, NewMode, ReadError, SearchIn, SearchParams,
 };
 use serde::Deserialize;

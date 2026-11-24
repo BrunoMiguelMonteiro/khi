@@ -5,8 +5,7 @@ description = "Read-only MCP server over the Khi Library"
 edition = "2021"
 
 [dependencies]
-# default-features = false leaves the updater (and with it reqwest and hyper) out
-khi = { path = "..", default-features = false }
+khi-core = { path = "../core" }
 rmcp = { version = "=3.11.0", default-features = false, features = ["server"] }
 tokio = { version = "1", features = ["rt", "io-std", "sync"] }
 serde = { version = "1", features = ["derive"] }
@@ -16,5 +15,5 @@ env_logger = "0.11"
 
 # Turns the evaluation Library builder on for every `cargo test --workspace`.
 [dev-dependencies]
-khi = { path = "..", default-features = false, features = ["eval-fixture"] }
+khi-core = { path = "../core", features = ["eval-fixture"] }
 tempfile = "3.10"

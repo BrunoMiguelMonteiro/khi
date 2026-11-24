@@ -2,7 +2,7 @@
 //! (test 15). The folder must not exist yet, so the real Library can never be
 //! the target: `cargo run -p khi-mcp --example build_eval -- <empty dir>`.
 
-use khi_lib::library::eval_fixture::build_eval_library;
+use khi_core::library::eval_fixture::build_eval_library;
 use std::path::PathBuf;
 
 fn main() {

@@ -1,7 +1,7 @@
 //! Where the Library may be read from: the data folder `data_dir_for` names,
 //! canonicalized, and only a file called `library.sqlite`, never a Kobo.
 
-use khi_lib::settings::data_dir_for;
+use khi_core::settings::data_dir_for;
 use std::path::{Path, PathBuf};
 
 pub const LIBRARY_FILE: &str = "library.sqlite";

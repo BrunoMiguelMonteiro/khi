@@ -57,6 +57,8 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std"
 [dev-dependencies]
 tempfile = "3.10"
 mockall = "0.12"
+# Turns eval-fixture on for every `cargo test --workspace`, so the [[test]]s below always run.
+khi = { path = ".", features = ["eval-fixture"] }
 
 [[test]]
 name = "eval_fixture"
