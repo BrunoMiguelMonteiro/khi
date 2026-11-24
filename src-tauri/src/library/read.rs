@@ -860,9 +860,41 @@ pub struct SearchPage {
     pub next_cursor: Option<String>,
 }
 
-/// Every word of the query is in `field` (both already normalized).
-fn has_all(field: &str, words: &[&str]) -> bool {
-    words.iter().all(|w| field.contains(w))
+/// Letters NFD does not take apart, folded to what a keyboard without them
+/// types. For search only: the book identity keeps using `normalize` as is.
+fn search_fold(c: char) -> Option<&'static str> {
+    Some(match c {
+        'ł' | 'Ł' => "l",
+        'ø' | 'Ø' => "o",
+        'ß' | 'ẞ' => "ss",
+        'æ' | 'Æ' => "ae",
+        'œ' | 'Œ' => "oe",
+        'đ' | 'Đ' | 'ð' | 'Ð' => "d",
+        'þ' | 'Þ' => "th",
+        'ı' => "i",
+        _ => return None,
+    })
+}
+
+/// `normalize` after folding the letters NFD leaves alone.
+fn search_normalize(s: &str) -> String {
+    if !s.chars().any(|c| search_fold(c).is_some()) {
+        return normalize(s);
+    }
+    let folded: String = s.chars().fold(String::with_capacity(s.len()), |mut out, c| {
+        match search_fold(c) {
+            Some(to) => out.push_str(to),
+            None => out.push(c),
+        }
+        out
+    });
+    normalize(&folded)
+}
+
+/// Every term starts a word of `field` (both already normalized: words are
+/// separated by one space). `spaced` holds each term with a space before it.
+fn has_all(field: &str, terms: &[&str], spaced: &[String]) -> bool {
+    terms.iter().zip(spaced).all(|(t, s)| field.starts_with(t) || field.contains(s.as_str()))
 }
 
 impl ReadLibrary {
@@ -871,11 +903,13 @@ impl ReadLibrary {
     /// one more match are found.
     pub fn search_highlights(&self, params: &SearchParams) -> Result<SearchPage, ReadError> {
         let length = params.query.trim().chars().count();
-        let query = normalize(&params.query);
-        if !(2..=200).contains(&length) || query.is_empty() {
+        let query = search_normalize(&params.query);
+        let words: Vec<&str> = query.split(' ').filter(|w| !w.is_empty()).collect();
+        // Every term needs 2 characters, or "a." would match nearly everything.
+        if !(2..=200).contains(&length) || words.is_empty() || words.iter().any(|w| w.chars().count() < 2) {
             return Err(ReadError::InvalidQuery);
         }
-        let words: Vec<&str> = query.split(' ').collect();
+        let spaced: Vec<String> = words.iter().map(|w| format!(" {w}")).collect();
         let fp = fingerprint(
             "search_highlights",
             &[
@@ -907,9 +941,9 @@ impl ReadLibrary {
             while let Some(row) = rows.next()? {
                 let text: String = row.get(2)?;
                 let note: Option<String> = row.get(3)?;
-                let matched_in = if in_text && has_all(&normalize(&text), &words) {
+                let matched_in = if in_text && has_all(&search_normalize(&text), &words, &spaced) {
                     MatchedIn::Text
-                } else if in_note && note.as_deref().is_some_and(|n| has_all(&normalize(n), &words)) {
+                } else if in_note && note.as_deref().is_some_and(|n| has_all(&search_normalize(n), &words, &spaced)) {
                     MatchedIn::Note
                 } else {
                     continue;

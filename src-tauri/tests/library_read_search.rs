@@ -118,6 +118,54 @@ fn query_length_is_checked() {
     assert!(lib.search_highlights(&find(&"x".repeat(200))).is_ok());
 }
 
+/// A Library with one highlight per text, ids `h000000`, `h000001`, ...
+fn with_texts(texts: &[&str]) -> (TempDir, ReadLibrary) {
+    many(texts.len(), |i| texts[i].to_string())
+}
+
+#[test]
+fn a_term_matches_the_start_of_a_word_not_the_middle() {
+    let (_dir, lib) = with_texts(&["we start here", "a arte de rever", "Art of war", "smart move"]);
+    assert_eq!(sorted(ids(&lib.search_highlights(&find("art")).unwrap())), ["h000001", "h000002"]);
+    // A word start, any later word of the text counts
+    assert_eq!(ids(&lib.search_highlights(&find("rever")).unwrap()), ["h000001"]);
+    // Every term still has to match, in any order
+    assert_eq!(ids(&lib.search_highlights(&find("war art")).unwrap()), ["h000002"]);
+}
+
+#[test]
+fn a_term_is_a_prefix_of_the_word() {
+    let (_dir, lib) = with_texts(&["as liberdades do corpo", "a liberdade", "libertar"]);
+    assert_eq!(sorted(ids(&lib.search_highlights(&find("liberdade")).unwrap())), ["h000000", "h000001"]);
+    assert_eq!(ids(&lib.search_highlights(&find("liberdades")).unwrap()), ["h000000"]);
+}
+
+#[test]
+fn letters_that_nfd_keeps_are_folded_on_both_sides() {
+    let (_dir, lib) = with_texts(&["Visita a Łódź", "Straße 5 em Berlim", "Ørsted and Æther", "Œuvre de Đorđe", "Þor e ı", "other"]);
+    let find_ids = |q: &str| ids(&lib.search_highlights(&find(q)).unwrap()).iter().map(|s| s.to_string()).collect::<Vec<_>>();
+    assert_eq!(find_ids("lodz"), ["h000000"]);
+    assert_eq!(find_ids("ŁÓDŹ"), ["h000000"]);
+    assert_eq!(find_ids("strasse"), ["h000001"]);
+    assert_eq!(find_ids("Straße"), ["h000001"]);
+    assert_eq!(find_ids("orsted"), ["h000002"]);
+    assert_eq!(find_ids("aether"), ["h000002"]);
+    assert_eq!(find_ids("oeuvre"), ["h000003"]);
+    assert_eq!(find_ids("dorde"), ["h000003"]);
+    assert_eq!(find_ids("thor"), ["h000004"]);
+    assert_eq!(find_ids("ii"), Vec::<String>::new());
+}
+
+#[test]
+fn every_term_needs_two_characters() {
+    let (_dir, lib) = with_texts(&["a b c d", "alpha beta"]);
+    for bad in ["a.", "%%", "a%", "alpha b", "a alpha", "  ."] {
+        let result = lib.search_highlights(&find(bad));
+        assert!(matches!(result, Err(ReadError::InvalidQuery)), "{bad:?}: {result:?}");
+    }
+    assert_eq!(ids(&lib.search_highlights(&find("al be")).unwrap()), ["h000001"]);
+}
+
 #[test]
 fn no_private_keys_and_the_documented_shape() {
     let (_dir, _app, lib) = eval();
