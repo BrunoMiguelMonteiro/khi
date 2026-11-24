@@ -95,6 +95,7 @@ pub enum SettingsPane {
     Appearance,
     Export,
     Updates,
+    Agents,
 }
 
 /// The accent colour chosen in Settings: Sistema follows macOS; the others are the swatches of
@@ -1026,6 +1027,12 @@ mod tests {
         assert_eq!(prefs.settings_pane, SettingsPane::Kobo);
         assert_eq!(prefs.accent_color, AccentChoice::System);
         assert_eq!(UiPreferences::default().settings_pane, SettingsPane::Kobo);
+    }
+
+    #[test]
+    fn the_agents_pane_is_kept_as_agents() {
+        assert_eq!(serde_json::to_string(&SettingsPane::Agents).unwrap(), "\"agents\"");
+        assert_eq!(serde_json::from_str::<SettingsPane>("\"agents\"").unwrap(), SettingsPane::Agents);
     }
 
     #[test]

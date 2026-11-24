@@ -212,6 +212,32 @@ pub async fn last_reader(app: AppHandle) -> Result<Option<u32>, String> {
     with_library(app, |lib| lib.last_reader().map_err(err)).await
 }
 
+/// Whether agents (the MCP) may read the Library. Off until the user turns it on.
+#[tauri::command]
+#[specta::specta]
+pub async fn agents_allowed(app: AppHandle) -> Result<bool, String> {
+    with_library(app, |lib| lib.allow_agents().map_err(err)).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn set_agents_allowed(app: AppHandle, allowed: bool) -> Result<(), String> {
+    with_library(app, move |lib| lib.set_allow_agents(allowed).map_err(err)).await
+}
+
+/// Where `khi-mcp` sits: next to `exe` (Khi.app/Contents/MacOS/khi-mcp in the release app). The
+/// file may not exist, as in a dev build.
+pub fn mcp_helper_path_for(exe: &Path) -> Result<String, String> {
+    let dir = exe.parent().ok_or("The app has no folder")?;
+    Ok(dir.join("khi-mcp").to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn mcp_helper_path() -> Result<String, String> {
+    mcp_helper_path_for(&std::env::current_exe().map_err(err)?)
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn get_library(app: AppHandle, reader_id: u32) -> Result<Vec<LibraryBook>, String> {
@@ -360,4 +386,23 @@ pub async fn sync_kobo(app: AppHandle, device: KoboDevice) -> Result<SyncReport,
     })
     .await
     .map_err(|e| format!("Sync task failed: {}", e))?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_helper_sits_next_to_the_app_executable() {
+        let exe = Path::new("/Applications/My Apps/Khi.app/Contents/MacOS/Khi");
+        assert_eq!(
+            mcp_helper_path_for(exe).unwrap(),
+            "/Applications/My Apps/Khi.app/Contents/MacOS/khi-mcp"
+        );
+    }
+
+    #[test]
+    fn a_path_with_no_folder_has_no_helper() {
+        assert!(mcp_helper_path_for(Path::new("/")).is_err());
+    }
 }

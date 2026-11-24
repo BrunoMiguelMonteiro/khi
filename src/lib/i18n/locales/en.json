@@ -220,7 +220,8 @@
       "label": "Settings tabs",
       "export": "Export",
       "appearance": "Appearance",
-      "kobo": "Kobo"
+      "kobo": "Kobo",
+      "agents": "Agents"
     },
     "reader": {
       "title": "Reader",
@@ -254,6 +255,21 @@
       "readerPickHelp": "The reader whose name you want to change.",
       "nameHelp": "Shown in the Library title.",
       "syncOnConnectAllHelp": "Applies to every reader: syncs when you connect a known Kobo."
+    },
+    "agents": {
+      "allow": "Allow agents",
+      "allowHint": "The agent reads the highlights and notes of every Reader and sends them to the model it uses. Khi sends nothing.",
+      "connect": "Connect an agent",
+      "agent": "Agent",
+      "claudeCode": "Claude Code",
+      "claudeDesktop": "Claude Desktop",
+      "other": "Other agents",
+      "copy": "Copy",
+      "copied": "Copied",
+      "helpClaudeCode": "Paste it in Terminal. Check with claude mcp list.",
+      "helpClaudeDesktop": "Paste it into claude_desktop_config.json and reopen Claude Desktop.",
+      "helpOther": "Point the agent at this file, with no arguments.",
+      "footer": "If you move Khi to another folder, copy the command again."
     }
   },
   "export": {

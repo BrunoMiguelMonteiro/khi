@@ -49,7 +49,7 @@ Element.prototype.hasPointerCapture ??= () => false;
 Element.prototype.scrollIntoView ??= () => {};
 
 /** The window's height per pane, as the page would measure it (the Figma's, Task 45). */
-const HEIGHTS: Record<string, number> = { export: 382, appearance: 287, kobo: 243, updates: 243 };
+const HEIGHTS: Record<string, number> = { export: 382, appearance: 287, kobo: 243, updates: 243, agents: 414 };
 
 /** jsdom has no layout: the frame's height is the active pane's, and the observer is driven by hand. */
 const observers = new Set<() => void>();
@@ -150,10 +150,10 @@ describe('/definicoes · window', () => {
 		expect(screen.getByRole('tab', { name: 'Export' })).toHaveAttribute('aria-selected', 'true');
 	});
 
-	it('the tabs are Kobo, Appearance, Export and Updates, in that order', async () => {
+	it('the tabs are Kobo, Appearance, Export, Updates and Agents, in that order', async () => {
 		render(Page);
 
-		expect(screen.getAllByRole('tab').map((tab) => tab.textContent?.trim())).toEqual(['Kobo', 'Appearance', 'Export', 'Updates']);
+		expect(screen.getAllByRole('tab').map((tab) => tab.textContent?.trim())).toEqual(['Kobo', 'Appearance', 'Export', 'Updates', 'Agents']);
 	});
 
 	it('without a stored pane the window opens on Kobo, the first tab', async () => {
@@ -228,6 +228,21 @@ describe('/definicoes · window', () => {
 		await waitFor(() => expect(appWindow.setTitle).toHaveBeenLastCalledWith('Kobo'));
 		await fireEvent.click(screen.getByRole('tab', { name: 'Updates' }));
 		await waitFor(() => expect(appWindow.setTitle).toHaveBeenLastCalledWith('Updates'));
+		await fireEvent.click(screen.getByRole('tab', { name: 'Agents' }));
+		await waitFor(() => expect(appWindow.setTitle).toHaveBeenLastCalledWith('Agents'));
+	});
+
+	it('the Agents pane fits the window and is remembered as the pane on show', async () => {
+		render(Page);
+		await waitFor(() => expect(appWindow.setSize).toHaveBeenCalledTimes(1));
+
+		await fireEvent.click(screen.getByRole('tab', { name: 'Agents' }));
+		resized();
+
+		await waitFor(() => expect(appWindow.setSize).toHaveBeenCalledTimes(2));
+		expect(appWindow.setSize.mock.calls[1][0]).toMatchObject({ width: 540, height: 414 });
+		await waitFor(() => expect(invoke).toHaveBeenCalledWith('update_settings', { patch: { settingsPane: 'agents' } }));
+		expect(await screen.findByRole('switch', { name: 'Allow agents' })).toBeInTheDocument();
 	});
 
 	it('the title follows the language', async () => {
@@ -334,7 +349,7 @@ describe('/definicoes · window', () => {
 
 	it('has no Save, Cancel or Reset anywhere, in any pane', async () => {
 		render(Page);
-		for (const name of ['Export', 'Appearance', 'Kobo', 'Updates']) {
+		for (const name of ['Export', 'Appearance', 'Kobo', 'Updates', 'Agents']) {
 			await fireEvent.click(screen.getByRole('tab', { name }));
 			expect(screen.queryByRole('button', { name: /save|cancel|reset/i })).toBeNull();
 		}

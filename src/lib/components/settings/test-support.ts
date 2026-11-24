@@ -43,6 +43,12 @@ export type Rust = {
 	home: string | null;
 	/** Holds every `update_settings` until `release()`, in the order they came. */
 	held: (() => void)[] | null;
+	/** What `agents_allowed` answers, and what `set_agents_allowed` keeps. */
+	agents: boolean;
+	/** What `mcp_helper_path` answers. */
+	helper: string;
+	/** `set_agents_allowed` fails with this, when set. */
+	agentsFail: string | null;
 	/** `update_settings` calls, in order. */
 	patches: Record<string, unknown>[];
 	calls: { cmd: string; args: unknown }[];
@@ -56,6 +62,9 @@ export function rustKeeps(readers = [BRUNO]): Rust {
 		readers: structuredClone(readers),
 		picked: null,
 		home: '/Users/test',
+		agents: false,
+		helper: '/Applications/My Apps/Khi.app/Contents/MacOS/khi-mcp',
+		agentsFail: null,
 		held: null,
 		patches: [],
 		calls: [],
@@ -110,6 +119,14 @@ export function rustKeeps(readers = [BRUNO]): Rust {
 				if (reader) reader.exportPath = a!.path;
 				return Promise.resolve(null);
 			}
+			case 'agents_allowed':
+				return Promise.resolve(rust.agents);
+			case 'set_agents_allowed':
+				if (rust.agentsFail) return Promise.reject(rust.agentsFail);
+				rust.agents = a!.allowed;
+				return Promise.resolve(null);
+			case 'mcp_helper_path':
+				return Promise.resolve(rust.helper);
 			default:
 				return Promise.resolve(null);
 		}
