@@ -132,6 +132,9 @@ pub struct ReaderInfo {
     pub highlight_count: u32,
     pub new_count: u32,
     pub new_since: Option<String>,
+    /// Strings were shortened to keep the answer under the ceiling.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub truncated: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -148,6 +151,9 @@ pub struct BookSummary {
     pub note_count: u32,
     pub new_count: u32,
     pub removed_count: u32,
+    /// Strings were shortened to keep the answer under the ceiling.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub truncated: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -211,9 +217,23 @@ impl ReadLibrary {
                     highlight_count: r.get(3)?,
                     new_count: r.get(4)?,
                     new_since: r.get(5)?,
+                    truncated: false,
                 })
             })?;
-            Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+            let mut readers = rows.collect::<rusqlite::Result<Vec<_>>>()?;
+            // No paging here: long names are cut until the answer fits.
+            #[derive(Serialize)]
+            struct Answer<'a> {
+                readers: &'a [ReaderInfo],
+            }
+            loop {
+                let size = json_size(&Answer { readers: &readers });
+                let parts = readers.iter_mut().map(|r| r as &mut dyn Shorten).collect();
+                if size <= CEILING_BYTES || !shorten_longest(parts, size - CEILING_BYTES) {
+                    break;
+                }
+            }
+            Ok(readers)
         })
     }
 
@@ -256,34 +276,149 @@ impl ReadLibrary {
         let total = matching.len();
         let books: Vec<BookSummary> = matching.into_iter().skip(offset).take(limit).collect();
         let total32 = total as u32;
-        let (books, next_cursor) = fit_page(books, offset, total, |books, cursor| {
-            json_size(&BooksPage { books: books.to_vec(), next_cursor: cursor.map(str::to_string), total: total32 })
-        });
+        let (books, next_cursor) = fit_page(
+            &mut (),
+            books,
+            offset,
+            total,
+            |_, books, cursor| {
+                json_size(&BooksPage { books: books.to_vec(), next_cursor: cursor.map(str::to_string), total: total32 })
+            },
+            |_, book, excess| book.is_some_and(|b| shorten_longest(vec![b], excess)),
+        );
         Ok(BooksPage { books, next_cursor, total: total as u32 })
     }
 }
 
 /// Keeps the longest prefix of `items` whose serialized page fits the
-/// ceiling (one item always stays) and points `nextCursor` at the first one
-/// left out. `total` is how many items match overall, so the last page has
-/// no cursor. `size_of` serializes the answer around a list of items and
-/// the cursor, and says how many bytes it takes.
-fn fit_page<T>(
+/// ceiling and points `nextCursor` at the first one left out. `total` is how
+/// many items match overall, so the last page has no cursor. `size_of`
+/// serializes the answer around a list of items and the cursor, and says how
+/// many bytes it takes. When the one item left (or the answer around no item
+/// at all) is still over the ceiling, `shrink` cuts the longest string of
+/// `ctx` or of that item by the bytes in excess, and says whether it cut any.
+fn fit_page<C, T>(
+    ctx: &mut C,
     mut items: Vec<T>,
     offset: usize,
     total: usize,
-    size_of: impl Fn(&[T], Option<&str>) -> usize,
+    size_of: impl Fn(&C, &[T], Option<&str>) -> usize,
+    shrink: impl Fn(&mut C, Option<&mut T>, usize) -> bool,
 ) -> (Vec<T>, Option<String>) {
     let cursor_for = |kept: usize| {
         let next = offset + kept;
         (next < total).then(|| encode_cursor(next))
     };
     let mut kept = items.len();
-    while kept > 1 && size_of(&items[..kept], cursor_for(kept).as_deref()) > CEILING_BYTES {
+    while kept > 1 && size_of(ctx, &items[..kept], cursor_for(kept).as_deref()) > CEILING_BYTES {
         kept -= 1;
     }
     items.truncate(kept);
-    (items, cursor_for(kept))
+    let cursor = cursor_for(kept);
+    loop {
+        let size = size_of(ctx, &items, cursor.as_deref());
+        if size <= CEILING_BYTES || !shrink(ctx, items.first_mut(), size - CEILING_BYTES) {
+            break;
+        }
+    }
+    (items, cursor)
+}
+
+/// Something with strings that can be cut to keep an answer under the ceiling.
+trait Shorten {
+    fn strings(&mut self) -> Vec<&mut String>;
+    /// Marks that a string was cut.
+    fn flag(&mut self);
+}
+
+/// Bytes `c` takes inside a JSON string.
+fn json_len(c: char) -> usize {
+    match c {
+        '"' | '\\' | '\n' | '\r' | '\t' | '\u{8}' | '\u{c}' => 2,
+        c if c < ' ' => 6,
+        c => c.len_utf8(),
+    }
+}
+
+/// Cuts at least `excess` serialized bytes off the end of the longest string
+/// of the longest-stringed part, on a char boundary, and flags that part.
+/// False when every string is already empty.
+fn shorten_longest(mut parts: Vec<&mut dyn Shorten>, excess: usize) -> bool {
+    let lengths: Vec<usize> =
+        parts.iter_mut().map(|p| p.strings().iter().map(|s| s.len()).max().unwrap_or(0)).collect();
+    let Some((index, _)) = lengths.iter().enumerate().max_by_key(|(_, len)| **len) else {
+        return false;
+    };
+    let part = &mut parts[index];
+    {
+        let mut strings = part.strings();
+        let Some(string) = strings.iter_mut().max_by_key(|s| s.len()).filter(|s| !s.is_empty()) else {
+            return false;
+        };
+        let mut cut = 0;
+        while cut < excess {
+            match string.pop() {
+                Some(c) => cut += json_len(c),
+                None => break,
+            }
+        }
+    }
+    part.flag();
+    true
+}
+
+impl Shorten for HighlightInfo {
+    fn strings(&mut self) -> Vec<&mut String> {
+        [Some(&mut self.id), Some(&mut self.text), self.note.as_mut(), self.chapter.as_mut(),
+         self.date_created.as_mut(), self.synced_at.as_mut()]
+            .into_iter()
+            .flatten()
+            .collect()
+    }
+    fn flag(&mut self) {
+        self.truncated = true;
+    }
+}
+
+impl Shorten for BookSummary {
+    fn strings(&mut self) -> Vec<&mut String> {
+        [Some(&mut self.title), Some(&mut self.author), self.language.as_mut(), self.date_last_read.as_mut()]
+            .into_iter()
+            .flatten()
+            .collect()
+    }
+    fn flag(&mut self) {
+        self.truncated = true;
+    }
+}
+
+impl Shorten for BookDetail {
+    fn strings(&mut self) -> Vec<&mut String> {
+        let mut strings = self.summary.strings();
+        strings.extend([self.isbn.as_mut(), self.publisher.as_mut(), self.description.as_mut()].into_iter().flatten());
+        strings
+    }
+    fn flag(&mut self) {
+        self.summary.truncated = true;
+    }
+}
+
+impl Shorten for BookRef {
+    fn strings(&mut self) -> Vec<&mut String> {
+        vec![&mut self.title, &mut self.author]
+    }
+    fn flag(&mut self) {
+        self.truncated = true;
+    }
+}
+
+impl Shorten for ReaderInfo {
+    fn strings(&mut self) -> Vec<&mut String> {
+        [Some(&mut self.name), self.new_since.as_mut()].into_iter().flatten().collect()
+    }
+    fn flag(&mut self) {
+        self.truncated = true;
+    }
 }
 
 fn json_size(value: &impl Serialize) -> usize {
@@ -321,6 +456,7 @@ fn summaries(
             note_count: r.get(7)?,
             new_count: r.get(8)?,
             removed_count: r.get(9)?,
+            truncated: false,
         })
     })?;
     Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
@@ -493,7 +629,7 @@ impl ReadLibrary {
             None => 0,
         };
         let limit = params.limit.unwrap_or(DEFAULT_BOOK_LIMIT).clamp(1, MAX_BOOK_LIMIT);
-        let (book, items, total) = self.read(|conn| {
+        let (mut book, items, total) = self.read(|conn| {
             let summary = summaries(conn, None, Some(params.book_id), "b.id")?
                 .pop()
                 .ok_or(ReadError::NotFound)?;
@@ -526,13 +662,24 @@ impl ReadLibrary {
             )?;
             Ok((book, rows.collect::<rusqlite::Result<Vec<_>>>()?, total))
         })?;
-        let (highlights, next_cursor) = fit_page(items, offset, total, |kept, cursor| {
-            json_size(&BookPage {
-                book: book.clone(),
-                highlights: kept.to_vec(),
-                next_cursor: cursor.map(str::to_string),
-            })
-        });
+        let (highlights, next_cursor) = fit_page(
+            &mut book,
+            items,
+            offset,
+            total,
+            |book, kept, cursor| {
+                json_size(&BookPage {
+                    book: book.clone(),
+                    highlights: kept.to_vec(),
+                    next_cursor: cursor.map(str::to_string),
+                })
+            },
+            |book, item, excess| {
+                let mut parts: Vec<&mut dyn Shorten> = vec![book];
+                parts.extend(item.map(|i| i as &mut dyn Shorten));
+                shorten_longest(parts, excess)
+            },
+        );
         Ok(BookPage { book, highlights, next_cursor })
     }
 
@@ -547,7 +694,7 @@ impl ReadLibrary {
             // A NULL synced_at compares as unknown, so it is never included.
             NewMode::SyncedSince(date) => ("h.synced_at >= ?3".to_string(), Some(normalize_since(date)?)),
         };
-        let (items, total, books) = self.read(|conn| {
+        let (items, total, mut books) = self.read(|conn| {
             let filter = format!("(?1 IS NULL OR b.reader_id = ?1) AND {condition}");
             let total: usize = {
                 let sql = format!("SELECT COUNT(*) FROM highlights h JOIN books b ON b.id = h.book_id WHERE {filter}");
@@ -577,13 +724,28 @@ impl ReadLibrary {
             Ok((items, total, books))
         })?;
         let total32 = total as u32;
-        let (items, next_cursor) = fit_page(items, offset, total, |kept, cursor| {
-            json_size(&NewPage {
-                groups: group_by_book(kept, &books),
-                next_cursor: cursor.map(str::to_string),
-                total_highlights: total32,
-            })
-        });
+        let (items, next_cursor) = fit_page(
+            &mut books,
+            items,
+            offset,
+            total,
+            |books, kept, cursor| {
+                json_size(&NewPage {
+                    groups: group_by_book(kept, books),
+                    next_cursor: cursor.map(str::to_string),
+                    total_highlights: total32,
+                })
+            },
+            |books, item, excess| {
+                let Some(item) = item else { return false };
+                let mut parts: Vec<&mut dyn Shorten> = vec![];
+                if let Some(book) = books.get_mut(&item.book_id) {
+                    parts.push(book);
+                }
+                parts.push(item);
+                shorten_longest(parts, excess)
+            },
+        );
         Ok(NewPage { groups: group_by_book(&items, &books), next_cursor, total_highlights: total32 })
     }
 }
@@ -650,6 +812,9 @@ pub struct BookRef {
     pub id: u32,
     pub title: String,
     pub author: String,
+    /// Strings were shortened to keep the answer under the ceiling.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub truncated: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -721,7 +886,7 @@ impl ReadLibrary {
                 }
                 hits.push(SearchHit {
                     highlight: highlight_from_row(row, true)?,
-                    book: BookRef { id: row.get(1)?, title: row.get(10)?, author: row.get(11)? },
+                    book: BookRef { id: row.get(1)?, title: row.get(10)?, author: row.get(11)?, truncated: false },
                     matched_in,
                 });
             }
@@ -729,9 +894,16 @@ impl ReadLibrary {
         })?;
         // Only "is there more" is known, which is all fit_page needs.
         let total = offset + hits.len() + usize::from(more);
-        let (results, next_cursor) = fit_page(hits, offset, total, |kept, cursor| {
-            json_size(&SearchPage { results: kept.to_vec(), next_cursor: cursor.map(str::to_string) })
-        });
+        let (results, next_cursor) = fit_page(
+            &mut (),
+            hits,
+            offset,
+            total,
+            |_, kept, cursor| json_size(&SearchPage { results: kept.to_vec(), next_cursor: cursor.map(str::to_string) }),
+            |_, hit, excess| {
+                hit.is_some_and(|h| shorten_longest(vec![&mut h.highlight, &mut h.book], excess))
+            },
+        );
         Ok(SearchPage { results, next_cursor })
     }
 }

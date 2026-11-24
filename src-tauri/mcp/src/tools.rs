@@ -35,7 +35,8 @@ fn book_summary() -> Value {
             "language": {"type": ["string", "null"]}, "dateLastRead": {"type": ["string", "null"]},
             "highlightCount": {"type": "integer", "description": "Highlights still on the Kobo"},
             "noteCount": {"type": "integer"}, "newCount": {"type": "integer"},
-            "removedCount": {"type": "integer", "description": "Highlights removed from the Kobo but kept in the Library"}
+            "removedCount": {"type": "integer", "description": "Highlights removed from the Kobo but kept in the Library"},
+            "truncated": {"type": "boolean", "description": "Present and true when long strings (title, author) were cut to keep the answer under 16 KB"}
         }),
         &["id", "readerId", "title", "author", "highlightCount", "noteCount", "newCount", "removedCount"],
     )
@@ -50,7 +51,7 @@ fn highlight() -> Value {
             "progress": {"type": ["number", "null"]}, "dateCreated": {"type": ["string", "null"]},
             "syncedAt": {"type": ["string", "null"]}, "isNew": {"type": "boolean"},
             "removed": {"type": "boolean"},
-            "truncated": {"type": "boolean", "description": "The text was cut at 2000 characters"}
+            "truncated": {"type": "boolean", "description": "The text was cut at 2000 characters, or the text, note or chapter was cut to keep the answer under 16 KB"}
         }),
         &["id", "bookId", "text", "isNew", "removed", "truncated"],
     )
@@ -76,7 +77,8 @@ pub fn definitions() -> Vec<ToolDef> {
                 json!({"readers": {"type": "array", "items": object(json!({
                     "id": {"type": "integer"}, "name": {"type": "string"},
                     "bookCount": {"type": "integer"}, "highlightCount": {"type": "integer"},
-                    "newCount": {"type": "integer"}, "newSince": {"type": ["string", "null"]}
+                    "newCount": {"type": "integer"}, "newSince": {"type": ["string", "null"]},
+                    "truncated": {"type": "boolean", "description": "Present and true when a long name was cut to keep the answer under 16 KB"}
                 }), &["id", "name", "bookCount", "highlightCount", "newCount"])}}),
                 &["readers"],
             ),
@@ -110,7 +112,7 @@ pub fn definitions() -> Vec<ToolDef> {
                 &["bookId"],
             ),
             output_schema: object(
-                json!({"book": {"type": "object", "description": "A book summary plus isbn, publisher and description"},
+                json!({"book": {"type": "object", "description": "A book summary plus isbn, publisher and description; truncated is true when a long string was cut to keep the answer under 16 KB"},
                        "highlights": {"type": "array", "items": highlight()},
                        "nextCursor": {"type": ["string", "null"]}}),
                 &["book", "highlights", "nextCursor"],
@@ -131,7 +133,8 @@ pub fn definitions() -> Vec<ToolDef> {
             output_schema: object(
                 json!({"results": {"type": "array", "items": object(json!({
                             "highlight": highlight(),
-                            "book": object(json!({"id": {"type": "integer"}, "title": {"type": "string"}, "author": {"type": "string"}}), &["id", "title", "author"]),
+                            "book": object(json!({"id": {"type": "integer"}, "title": {"type": "string"}, "author": {"type": "string"},
+                                          "truncated": {"type": "boolean", "description": "Present and true when long strings (title, author) were cut to keep the answer under 16 KB"}}), &["id", "title", "author"]),
                             "matchedIn": {"type": "string", "enum": ["text", "note"]}
                         }), &["highlight", "book", "matchedIn"])},
                        "nextCursor": {"type": ["string", "null"]}}),
