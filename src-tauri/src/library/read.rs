@@ -640,8 +640,15 @@ fn normalize_since(input: &str) -> Result<String, ReadError> {
     if let Ok(at) = DateTime::parse_from_rfc3339(input) {
         return Ok(at.with_timezone(&chrono::Utc).format("%Y-%m-%dT%H:%M:%SZ").to_string());
     }
-    if let Ok(at) = NaiveDateTime::parse_from_str(input, "%Y-%m-%dT%H:%M:%S") {
-        return Ok(at.format("%Y-%m-%dT%H:%M:%SZ").to_string());
+    // No seconds: `rfc3339` needs them. A date-time with no zone is UTC.
+    if let Ok(at) = DateTime::parse_from_str(input, "%Y-%m-%dT%H:%M%:z") {
+        return Ok(at.with_timezone(&chrono::Utc).format("%Y-%m-%dT%H:%M:%SZ").to_string());
+    }
+    let naive = input.strip_suffix(['Z', 'z']).unwrap_or(input);
+    for format in ["%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M"] {
+        if let Ok(at) = NaiveDateTime::parse_from_str(naive, format) {
+            return Ok(at.format("%Y-%m-%dT%H:%M:%SZ").to_string());
+        }
     }
     Err(ReadError::InvalidDate)
 }

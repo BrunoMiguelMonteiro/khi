@@ -223,6 +223,28 @@ fn new_highlights_synced_since_groups_by_book_and_skips_null() {
 }
 
 #[test]
+fn new_highlights_since_accepts_minutes_and_offsets() {
+    let (_dir, _app, lib) = eval();
+    let total = |s: &str| {
+        lib.new_highlights(&NewHighlights { mode: NewMode::SyncedSince(s.into()), reader_id: Some(1), ..Default::default() })
+            .unwrap_or_else(|e| panic!("{s:?}: {e:?}"))
+            .total_highlights
+    };
+    // The newest sync is at 2026-11-09T18:00:00Z. A date-time with no zone is UTC.
+    assert_eq!(total("2026-11-09T18:00"), 5);
+    assert_eq!(total("2026-11-09T18:01"), 0);
+    assert_eq!(total("2026-11-09T18:00:00"), 5);
+    assert_eq!(total("2026-11-09T18:00:01"), 0);
+    assert_eq!(total("2026-11-09T18:00Z"), 5);
+    assert_eq!(total("2026-11-09T18:01Z"), 0);
+    assert_eq!(total("2026-11-09T18:00:00Z"), 5);
+    assert_eq!(total("2026-11-09T19:00+01:00"), 5);
+    assert_eq!(total("2026-11-09T19:01+01:00"), 0);
+    assert_eq!(total("2026-11-09T19:00:00+01:00"), 5);
+    assert_eq!(total("2026-11-09T19:00:01+01:00"), 0);
+}
+
+#[test]
 fn new_highlights_rejects_a_bad_date() {
     let (_dir, _app, lib) = eval();
     for bad in ["yesterday", "2026-13-40", "", "01/11/2026"] {
