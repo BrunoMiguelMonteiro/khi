@@ -2,6 +2,7 @@
 //! a Kobo, kept in `library.sqlite` so it is available with no Kobo connected.
 
 pub mod identity;
+pub mod read;
 pub mod schema;
 pub mod sync;
 

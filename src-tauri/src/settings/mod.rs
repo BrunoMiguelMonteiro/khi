@@ -360,7 +360,7 @@ pub fn set_app_identifier(identifier: &str) {
 /// touches the installed Khi's settings or Library. Without an identifier,
 /// or in a debug build without the `.dev` one, there is no answer: it never
 /// falls back to the real folder.
-fn data_dir_for(home: &Path, identifier: Option<&str>, debug: bool) -> Result<PathBuf, SettingsError> {
+pub fn data_dir_for(home: &Path, identifier: Option<&str>, debug: bool) -> Result<PathBuf, SettingsError> {
     let identifier = identifier.ok_or(SettingsError::IdentifierUnknown)?;
     let folder = if identifier.ends_with(".dev") {
         "KoboHighlightsExporter Dev"
