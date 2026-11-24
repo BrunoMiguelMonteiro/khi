@@ -68,3 +68,9 @@ fn long_highlight_length() {
     let books = all_books(&lib);
     assert_eq!(highlight(&books, "long-01").text.chars().count(), 4956);
 }
+
+#[test]
+fn agents_are_allowed() {
+    let (_dir, lib) = built();
+    assert!(lib.allow_agents().unwrap());
+}

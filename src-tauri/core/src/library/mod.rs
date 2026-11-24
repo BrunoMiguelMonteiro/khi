@@ -129,6 +129,7 @@ pub fn safe_dir_name(name: &str) -> String {
 }
 
 const META_LAST_READER: &str = "last_reader";
+const META_ALLOW_AGENTS: &str = "allow_agents";
 
 /// A highlight `h` of book `b` is new if a sync after the Reader's first
 /// brought it, later than the book was last opened (D1), and it is not
@@ -293,6 +294,29 @@ impl Library {
             "INSERT INTO meta (key, value) VALUES (?1, ?2)
              ON CONFLICT(key) DO UPDATE SET value = excluded.value",
             params![META_LAST_READER, id.to_string()],
+        )?;
+        Ok(())
+    }
+
+    /// The "Permitir agentes" switch of the khi-mcp. Off unless the stored
+    /// value is exactly `true`: a missing key or a damaged value is off.
+    pub fn allow_agents(&self) -> Result<bool> {
+        let value: Option<String> = self
+            .conn
+            .query_row(
+                "SELECT value FROM meta WHERE key = ?1",
+                [META_ALLOW_AGENTS],
+                |r| r.get(0),
+            )
+            .optional()?;
+        Ok(value.as_deref() == Some("true"))
+    }
+
+    pub fn set_allow_agents(&self, on: bool) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO meta (key, value) VALUES (?1, ?2)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            params![META_ALLOW_AGENTS, on.to_string()],
         )?;
         Ok(())
     }

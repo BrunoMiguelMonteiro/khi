@@ -3,7 +3,7 @@
 
 use super::identity::normalize;
 use super::{schema, IS_NEW};
-use rusqlite::{Connection, ErrorCode, OpenFlags};
+use rusqlite::{Connection, ErrorCode, OpenFlags, OptionalExtension};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::path::Path;
@@ -28,6 +28,8 @@ pub enum ReadError {
     InvalidQuery,
     /// No such book.
     NotFound,
+    /// The "Permitir agentes" switch of the app is off.
+    DisabledInKhi,
     Db(rusqlite::Error),
 }
 
@@ -50,6 +52,7 @@ impl std::fmt::Display for ReadError {
             ReadError::InvalidDate => write!(f, "Invalid date: use YYYY-MM-DD or an ISO 8601 date-time"),
             ReadError::InvalidQuery => write!(f, "Invalid query: use 2 to 200 characters with at least one word of 2 or more letters or digits"),
             ReadError::NotFound => write!(f, "No such book in the Library"),
+            ReadError::DisabledInKhi => write!(f, "Turned off in Khi Settings › Agents"),
             ReadError::Db(e) => write!(f, "Library database error: {e}"),
         }
     }
@@ -209,6 +212,14 @@ impl ReadLibrary {
     fn read<T>(&self, f: impl FnOnce(&Connection) -> Result<T, ReadError>) -> Result<T, ReadError> {
         let tx = self.conn.unchecked_transaction()?;
         self.check_schema()?;
+        // Same transaction as the schema check: the switch cannot change
+        // between the check and the read.
+        let allowed: Option<String> = tx
+            .query_row("SELECT value FROM meta WHERE key = 'allow_agents'", [], |r| r.get(0))
+            .optional()?;
+        if allowed.as_deref() != Some("true") {
+            return Err(ReadError::DisabledInKhi);
+        }
         let out = f(&tx)?;
         tx.commit()?;
         Ok(out)

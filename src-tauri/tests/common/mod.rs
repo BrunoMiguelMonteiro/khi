@@ -11,10 +11,12 @@ use tempfile::TempDir;
 pub const KOBO_A: &str = "SERIAL-A";
 pub const KOBO_B: &str = "SERIAL-B";
 
-/// A Library with one Reader that owns both Kobos.
+/// A Library with one Reader that owns both Kobos, and agents allowed so
+/// the read tests can read it (a new Library has the switch off).
 pub fn setup() -> (TempDir, Library, u32) {
     let dir = TempDir::new().unwrap();
     let lib = Library::open(dir.path()).unwrap();
+    lib.set_allow_agents(true).unwrap();
     let reader = lib.create_reader("Bruno").unwrap();
     lib.associate_kobo(KOBO_A, reader.id).unwrap();
     lib.associate_kobo(KOBO_B, reader.id).unwrap();

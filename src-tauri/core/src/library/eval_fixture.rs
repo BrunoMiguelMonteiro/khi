@@ -23,6 +23,8 @@ pub fn build_eval_library(data_dir: &Path) -> Result<Library, String> {
 pub fn build_from_json(data_dir: &Path, json: &str) -> Result<Library, String> {
     let fixture: Value = serde_json::from_str(json).map_err(|e| e.to_string())?;
     let mut lib = Library::open(data_dir).map_err(|e| e.to_string())?;
+    // The agent evaluation and the tool tests read this Library through the khi-mcp.
+    lib.set_allow_agents(true).map_err(|e| e.to_string())?;
 
     // reader key -> (Reader id, Kobo serial)
     let mut readers: HashMap<String, (u32, String)> = HashMap::new();
