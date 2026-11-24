@@ -46,8 +46,8 @@
 		{ value: 'kobo', icon: Tablet, label: $_('settings.tabs.kobo') },
 		{ value: 'appearance', icon: Palette, label: $_('settings.tabs.appearance') },
 		{ value: 'export', icon: FileOutput, label: $_('settings.tabs.export') },
-		{ value: 'updates', icon: CircleArrowDown, label: $_('updates.settings.tab') },
-		{ value: 'agents', icon: Bot, label: $_('settings.tabs.agents') }
+		{ value: 'agents', icon: Bot, label: $_('settings.tabs.agents') },
+		{ value: 'updates', icon: CircleArrowDown, label: $_('updates.settings.tab') }
 	] as const);
 	const title = $derived(tabs.find((tab) => tab.value === pane)?.label ?? '');
 </script>

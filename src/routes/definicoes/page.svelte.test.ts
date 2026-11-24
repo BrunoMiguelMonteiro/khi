@@ -150,10 +150,10 @@ describe('/definicoes · window', () => {
 		expect(screen.getByRole('tab', { name: 'Export' })).toHaveAttribute('aria-selected', 'true');
 	});
 
-	it('the tabs are Kobo, Appearance, Export, Updates and Agents, in that order', async () => {
+	it('the tabs are Kobo, Appearance, Export, Agents and Updates, in that order', async () => {
 		render(Page);
 
-		expect(screen.getAllByRole('tab').map((tab) => tab.textContent?.trim())).toEqual(['Kobo', 'Appearance', 'Export', 'Updates', 'Agents']);
+		expect(screen.getAllByRole('tab').map((tab) => tab.textContent?.trim())).toEqual(['Kobo', 'Appearance', 'Export', 'Agents', 'Updates']);
 	});
 
 	it('without a stored pane the window opens on Kobo, the first tab', async () => {
