@@ -244,3 +244,16 @@ fn book_without_highlights_has_zero_counts() {
     let readers = lib.list_readers(&ListReaders::default()).unwrap().readers;
     assert_eq!((readers[0].book_count, readers[0].highlight_count, readers[0].new_count), (1, 0, 0));
 }
+
+#[test]
+fn list_books_query_folds_letters_nfd_keeps() {
+    let (dir, mut lib, _) = common::setup();
+    let book = kobo_book("file:///mnt/onboard/l.epub", "O Diário de Łódź", "Søren Kierkegaard", vec![hl("h1", "text")]);
+    lib.sync(KOBO_A, &snapshot(vec![book]), &common::no_cover, common::no_progress).unwrap();
+    let lib = open_read_only(dir.path()).unwrap();
+    for query in ["soren", "SØREN kierkegaard", "lodz", "ŁÓDŹ", "diario lodz", "Straße"] {
+        let page = lib.list_books(&ListBooks { query: Some(query.into()), ..Default::default() }).unwrap();
+        let expected = u32::from(query != "Straße");
+        assert_eq!(page.total, expected, "{query:?}");
+    }
+}

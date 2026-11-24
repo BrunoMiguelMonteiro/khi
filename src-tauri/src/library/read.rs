@@ -265,7 +265,7 @@ impl ReadLibrary {
         let words: Vec<String> = params
             .query
             .as_deref()
-            .map(|q| normalize(q).split(' ').filter(|w| !w.is_empty()).map(str::to_string).collect())
+            .map(|q| search_normalize(q).split(' ').filter(|w| !w.is_empty()).map(str::to_string).collect())
             .unwrap_or_default();
         let fp = fingerprint(
             "list_books",
@@ -291,7 +291,7 @@ impl ReadLibrary {
                     continue;
                 }
                 if !words.is_empty() {
-                    let haystack = normalize(&format!("{} {}", book.title, book.author));
+                    let haystack = search_normalize(&format!("{} {}", book.title, book.author));
                     if !words.iter().all(|w| haystack.contains(w.as_str())) {
                         continue;
                     }
