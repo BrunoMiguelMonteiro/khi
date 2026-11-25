@@ -95,6 +95,7 @@ pub enum SettingsPane {
     Appearance,
     Export,
     Updates,
+    Agents,
 }
 
 /// The accent colour chosen in Settings: Sistema follows macOS; the others are the swatches of
@@ -365,7 +366,7 @@ pub fn set_app_identifier(identifier: &str) {
 /// touches the installed Khi's settings or Library. Without an identifier,
 /// or in a debug build without the `.dev` one, there is no answer: it never
 /// falls back to the real folder.
-fn data_dir_for(home: &Path, identifier: Option<&str>, debug: bool) -> Result<PathBuf, SettingsError> {
+pub fn data_dir_for(home: &Path, identifier: Option<&str>, debug: bool) -> Result<PathBuf, SettingsError> {
     let identifier = identifier.ok_or(SettingsError::IdentifierUnknown)?;
     let folder = if identifier.ends_with(".dev") {
         "KoboHighlightsExporter Dev"
@@ -1036,6 +1037,12 @@ mod tests {
         assert_eq!(prefs.settings_pane, SettingsPane::Kobo);
         assert_eq!(prefs.accent_color, AccentChoice::System);
         assert_eq!(UiPreferences::default().settings_pane, SettingsPane::Kobo);
+    }
+
+    #[test]
+    fn the_agents_pane_is_kept_as_agents() {
+        assert_eq!(serde_json::to_string(&SettingsPane::Agents).unwrap(), "\"agents\"");
+        assert_eq!(serde_json::from_str::<SettingsPane>("\"agents\"").unwrap(), SettingsPane::Agents);
     }
 
     #[test]

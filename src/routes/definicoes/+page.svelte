@@ -28,7 +28,8 @@
 		export: $_('settings.tabs.export'),
 		appearance: $_('settings.tabs.appearance'),
 		kobo: $_('settings.tabs.kobo'),
-		updates: $_('updates.settings.tab')
+		updates: $_('updates.settings.tab'),
+		agents: $_('settings.tabs.agents')
 	});
 
 	function choosePane(next: SettingsPane) {

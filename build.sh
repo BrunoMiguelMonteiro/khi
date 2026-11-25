@@ -15,7 +15,7 @@ npm run build
 # Build Tauri app
 echo ""
 echo "[2/3] Building Tauri app (this may take a few minutes)..."
-npm run tauri build
+npm run build:release
 
 # Check if build succeeded
 if [ -d "src-tauri/target/release/bundle" ]; then

@@ -32,6 +32,10 @@ export const commands = {
 	associateKobo: (serial: string, readerId: number) => __TAURI_INVOKE<null>("associate_kobo", { serial, readerId }),
 	readerForKobo: (serial: string) => __TAURI_INVOKE<number | null>("reader_for_kobo", { serial }),
 	lastReader: () => __TAURI_INVOKE<number | null>("last_reader"),
+	/**  Whether agents (the MCP) may read the Library. Off until the user turns it on. */
+	agentsAllowed: () => __TAURI_INVOKE<boolean>("agents_allowed"),
+	setAgentsAllowed: (allowed: boolean) => __TAURI_INVOKE<null>("set_agents_allowed", { allowed }),
+	mcpHelperPath: () => __TAURI_INVOKE<string>("mcp_helper_path"),
 	getLibrary: (readerId: number) => __TAURI_INVOKE<LibraryBook_Serialize[]>("get_library", { readerId }),
 	deleteBook: (readerId: number, bookId: number) => __TAURI_INVOKE<null>("delete_book", { readerId, bookId }),
 	/**  Marks the book seen up to `seen_seq`, the highest `syncedSeq` loaded (D1). */
@@ -354,7 +358,7 @@ export type Reader_Serialize = {
 /**  A pane of the Settings window. */
 export type SettingsPane = 
 /**  The first tab: where the window opens when no pane was stored. */
-"kobo" | "appearance" | "export" | "updates";
+"kobo" | "appearance" | "export" | "updates" | "agents";
 
 /**
  *  What one window changes in the settings file: a field per leaf it edits,

@@ -11,11 +11,13 @@ const packageJsonPath = join(__dirname, '../package.json');
 const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
 const version = packageJson.version;
 
-// Update Cargo.toml
-const cargoPath = join(__dirname, '../src-tauri/Cargo.toml');
-let cargo = readFileSync(cargoPath, 'utf8');
-cargo = cargo.replace(/^version = ".*"/m, `version = "${version}"`);
-writeFileSync(cargoPath, cargo);
+// Update the Cargo.toml of the app and of the crates that ship inside it (khi-core, khi-mcp)
+for (const crate of ['', 'core/', 'mcp/']) {
+  const cargoPath = join(__dirname, `../src-tauri/${crate}Cargo.toml`);
+  let cargo = readFileSync(cargoPath, 'utf8');
+  cargo = cargo.replace(/^version = ".*"/m, `version = "${version}"`);
+  writeFileSync(cargoPath, cargo);
+}
 
 // Update tauri.conf.json
 const tauriConfPath = join(__dirname, '../src-tauri/tauri.conf.json');
@@ -23,5 +25,5 @@ let tauriConf = readFileSync(tauriConfPath, 'utf8');
 tauriConf = tauriConf.replace(/"version":\s*".*"/m, `"version": "${version}"`);
 writeFileSync(tauriConfPath, tauriConf);
 
-console.log(`✅ Cargo.toml version synced to ${version}`);
+console.log(`✅ Cargo.toml (app, core, mcp) version synced to ${version}`);
 console.log(`✅ tauri.conf.json version synced to ${version}`);

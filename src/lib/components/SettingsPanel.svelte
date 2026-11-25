@@ -5,6 +5,7 @@
   the moment it changes, so there is no Save, Cancel or Reset.
 -->
 <script lang="ts">
+	import Bot from 'lucide-svelte/icons/bot';
 	import CircleArrowDown from 'lucide-svelte/icons/circle-arrow-down';
 	import FileOutput from 'lucide-svelte/icons/file-output';
 	import Palette from 'lucide-svelte/icons/palette';
@@ -13,6 +14,7 @@
 	import { _ } from '$lib/i18n';
 	import { settings } from '../stores/settings.svelte';
 	import { updater } from '../stores/updater.svelte';
+	import AgentsPane from './settings/AgentsPane.svelte';
 	import AppearancePane from './settings/AppearancePane.svelte';
 	import ExportPane from './settings/ExportPane.svelte';
 	import KoboPane from './settings/KoboPane.svelte';
@@ -44,6 +46,7 @@
 		{ value: 'kobo', icon: Tablet, label: $_('settings.tabs.kobo') },
 		{ value: 'appearance', icon: Palette, label: $_('settings.tabs.appearance') },
 		{ value: 'export', icon: FileOutput, label: $_('settings.tabs.export') },
+		{ value: 'agents', icon: Bot, label: $_('settings.tabs.agents') },
 		{ value: 'updates', icon: CircleArrowDown, label: $_('updates.settings.tab') }
 	] as const);
 	const title = $derived(tabs.find((tab) => tab.value === pane)?.label ?? '');
@@ -88,6 +91,9 @@
 			onCheckNow={() => onCheckNow()}
 			onerror={(message) => (saveError = message)}
 		/>
+	</TabsContent>
+	<TabsContent value="agents" class="flex flex-col gap-6 p-6">
+		<AgentsPane onerror={(message) => (saveError = message)} />
 	</TabsContent>
 
 	{#if saveError}

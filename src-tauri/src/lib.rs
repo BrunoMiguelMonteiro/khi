@@ -2,13 +2,11 @@ pub mod commands;
 pub mod covers;
 pub mod db;
 pub mod device;
-pub mod export;
-pub mod library;
-pub mod models;
-pub mod settings;
 pub mod system_accent;
 pub mod utils;
 pub mod window;
+
+pub use khi_core::{export, library, models, settings};
 
 use device::monitor::DeviceMonitor;
 use device::monitor::{DeviceDetectedEvent, DeviceDisconnectedEvent};
@@ -37,6 +35,9 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         commands::library::associate_kobo,
         commands::library::reader_for_kobo,
         commands::library::last_reader,
+        commands::library::agents_allowed,
+        commands::library::set_agents_allowed,
+        commands::library::mcp_helper_path,
         commands::library::get_library,
         commands::library::delete_book,
         commands::library::mark_book_opened,

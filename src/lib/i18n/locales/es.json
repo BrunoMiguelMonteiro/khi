@@ -222,7 +222,8 @@
       "label": "Pestañas de ajustes",
       "export": "Exportación",
       "appearance": "Apariencia",
-      "kobo": "Kobo"
+      "kobo": "Kobo",
+      "agents": "Agentes"
     },
     "reader": {
       "title": "Lector",
@@ -256,6 +257,21 @@
       "readerPickHelp": "El lector cuyo nombre quieres cambiar.",
       "nameHelp": "Se muestra en el título de la Biblioteca.",
       "syncOnConnectAllHelp": "Se aplica a todos los lectores: sincroniza al conectar un Kobo conocido."
+    },
+    "agents": {
+      "allow": "Permitir agentes",
+      "allowHint": "El agente lee los subrayados y las notas de todos los lectores y los envía al modelo que usa. Khi no envía nada.",
+      "connect": "Conectar un agente",
+      "agent": "Agente",
+      "claudeCode": "Claude Code",
+      "claudeDesktop": "Claude Desktop",
+      "other": "Otros agentes",
+      "copy": "Copiar",
+      "copied": "Copiado",
+      "helpClaudeCode": "Pégalo en Terminal. Compruébalo con claude mcp list.",
+      "helpClaudeDesktop": "Pégalo en claude_desktop_config.json y vuelve a abrir Claude Desktop.",
+      "helpOther": "Indica este archivo al agente, sin argumentos.",
+      "footer": "Si mueves Khi a otra carpeta, vuelve a copiar el comando."
     }
   },
   "export": {

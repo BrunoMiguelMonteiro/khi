@@ -9,6 +9,7 @@ node_modules
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .worktrees/
+src-tauri/binaries/
 
 # Private project configuration (not for public repo)
 CLAUDE.md

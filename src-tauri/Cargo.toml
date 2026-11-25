@@ -1,3 +1,7 @@
+[workspace]
+members = [".", "core", "mcp"]
+resolver = "2"
+
 [package]
 name = "khi"
 version = "2.1.0"
@@ -9,10 +13,15 @@ edition = "2021"
 name = "khi_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+# The evaluation Library builder (src/library/eval_fixture.rs); only tests and the khi-mcp tooling turn it on.
+[features]
+eval-fixture = ["khi-core/eval-fixture"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+khi-core = { path = "core" }
 tauri = { version = "2", features = ["protocol-asset", "image-png"] }
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
@@ -45,6 +54,28 @@ objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std"
 [dev-dependencies]
 tempfile = "3.10"
 mockall = "0.12"
+# Turns eval-fixture on for every `cargo test --workspace`, so the [[test]]s below always run.
+khi = { path = ".", features = ["eval-fixture"] }
+
+[[test]]
+name = "eval_fixture"
+required-features = ["eval-fixture"]
+
+[[test]]
+name = "library_read_books"
+required-features = ["eval-fixture"]
+
+[[test]]
+name = "library_read_book"
+required-features = ["eval-fixture"]
+
+[[test]]
+name = "library_read_concurrency"
+required-features = ["eval-fixture"]
+
+[[test]]
+name = "library_read_search"
+required-features = ["eval-fixture"]
 
 [profile.release.build-override]
 strip = false

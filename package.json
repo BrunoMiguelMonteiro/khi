@@ -13,8 +13,9 @@
     "dev:app": "tauri dev --config src-tauri/tauri.dev.conf.json",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "version": "node scripts/sync-version.js && git add src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json",
+    "version": "node scripts/sync-version.js && git add src-tauri/Cargo.toml src-tauri/core/Cargo.toml src-tauri/mcp/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json",
     "release": "node scripts/release.js",
+    "build:release": "bash scripts/build-mcp.sh && tauri build --config src-tauri/tauri.release.conf.json",
     "test:visual": "vite build && playwright test",
     "test:visual:update": "vite build && playwright test --update-snapshots=all"
   },
