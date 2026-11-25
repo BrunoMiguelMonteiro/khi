@@ -4,7 +4,7 @@ resolver = "2"
 
 [package]
 name = "khi"
-version = "2.1.0"
+version = "2.2.0"
 description = "A macOS app to export Kobo highlights to Markdown"
 authors = ["you"]
 edition = "2021"

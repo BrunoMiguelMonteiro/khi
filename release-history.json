@@ -1,5 +1,25 @@
 [
   {
+    "version": "2.2.0",
+    "date": "2026-11-25",
+    "notes": {
+      "en": {
+        "whats_new": [
+          "Agents such as Claude Code and Claude Desktop can now read your Library: your Readers, books, highlights and notes. Turn on “Allow agents” in Settings › Agents.",
+          "Settings › Agents gives you the command or the configuration to copy for the agent you choose. Agents stay off until you turn them on."
+        ],
+        "bug_fixes": []
+      },
+      "pt": {
+        "whats_new": [
+          "Agentes como o Claude Code e o Claude Desktop já podem ler a tua Biblioteca: os Leitores, os livros, os destaques e as notas. Ativa «Permitir agentes» em Definições › Agentes.",
+          "Em Definições › Agentes escolhes o agente e copias o comando ou a configuração. Os agentes ficam desligados até os ativares."
+        ],
+        "bug_fixes": []
+      }
+    }
+  },
+  {
     "version": "2.1.0",
     "date": "2026-11-23",
     "notes": {
