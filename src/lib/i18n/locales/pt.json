@@ -209,6 +209,8 @@
       "languageHint": "Usado também no Markdown exportado.",
       "languages": {
         "en": "English",
+        "es": "Español",
+        "fr": "Français",
         "pt": "Português"
       },
       "themeSystem": "Sistema"

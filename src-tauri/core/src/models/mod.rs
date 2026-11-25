@@ -197,6 +197,8 @@ pub enum DateFormat {
 #[serde(rename_all = "lowercase")]
 pub enum Language {
     En,
+    Es,
+    Fr,
     Pt,
 }
 

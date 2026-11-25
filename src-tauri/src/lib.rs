@@ -49,6 +49,7 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         commands::library::sync_kobo,
         system_accent::get_system_accent,
         window::open_settings,
+        window::size_settings_window,
         window::settings_reader,
         window::traffic_lights_max_x,
     ])

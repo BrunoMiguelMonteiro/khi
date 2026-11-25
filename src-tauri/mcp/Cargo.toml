@@ -1,6 +1,6 @@
 [package]
 name = "khi-mcp"
-version = "1.3.0"
+version = "2.1.0"
 description = "Read-only MCP server over the Khi Library"
 edition = "2021"
 

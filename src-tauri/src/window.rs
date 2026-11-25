@@ -83,6 +83,21 @@ pub fn settings_window_spec(title: String) -> SettingsWindowSpec {
     }
 }
 
+/// The config the Settings window is built from. The traffic light position
+/// goes here, not on the builder: the builder's `traffic_light_position` only
+/// reaches wry, and tao, which puts the lights back after `setTitle`, would
+/// not know it. The title changes with the pane, so without this the lights
+/// fell back to AppKit's place whenever the pane changed and the height did not.
+pub fn settings_window_config(spec: &SettingsWindowSpec) -> tauri::utils::config::WindowConfig {
+    let (x, y) = spec.traffic_light_position;
+    tauri::utils::config::WindowConfig {
+        label: spec.label.to_string(),
+        url: tauri::WebviewUrl::App(spec.url_path.into()),
+        traffic_light_position: Some(tauri::utils::config::LogicalPosition { x, y }),
+        ..Default::default()
+    }
+}
+
 /// Held from looking the Settings window up until it is built: two quick ⌘,
 /// would otherwise both find no window and both build one. An async lock,
 /// awaited by the async command: a sync lock held on the main thread would
@@ -161,11 +176,8 @@ pub async fn open_settings(
         return window.set_focus().map_err(|e| e.to_string());
     }
 
-    let builder = tauri::WebviewWindowBuilder::new(
-        &app,
-        spec.label,
-        tauri::WebviewUrl::App(spec.url_path.into()),
-    )
+    let builder = tauri::WebviewWindowBuilder::from_config(&app, &settings_window_config(&spec))
+        .map_err(|e| e.to_string())?
     .title(spec.title)
     .resizable(spec.resizable)
     .minimizable(spec.minimizable)
@@ -176,14 +188,51 @@ pub async fn open_settings(
     #[cfg(target_os = "macos")]
     let builder = builder
         .title_bar_style(spec.title_bar_style)
-        .hidden_title(spec.hidden_title)
-        .traffic_light_position(tauri::LogicalPosition::new(
-            spec.traffic_light_position.0,
-            spec.traffic_light_position.1,
-        ));
+        .hidden_title(spec.hidden_title);
     builder.build().map_err(|e| e.to_string())?;
     show_when_ready(app.clone(), spec.label);
     Ok(())
+}
+
+/// A window frame in AppKit's points: origin at the bottom left, y up.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Frame {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
+/// The frame that gives the content `height`, with the top edge where it is:
+/// AppKit's y grows up, so a taller window starts lower.
+pub fn frame_for_content_height(frame: Frame, content_height: f64, height: f64) -> Frame {
+    let delta = height - content_height;
+    Frame { y: frame.y - delta, height: frame.height + delta, ..frame }
+}
+
+/// Sets the Settings window's content height, its top edge staying put. With
+/// `animate`, macOS animates it as in its own Settings windows: an instant
+/// resize of the shown window made the bar shake as it grew (WebKit draws a
+/// frame at the old size). Never animated with Reduce Motion on.
+#[tauri::command]
+#[specta::specta]
+pub async fn size_settings_window(window: tauri::WebviewWindow, height: f64, animate: bool) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        let target = window.clone();
+        window
+            .run_on_main_thread(move || {
+                let Some(mtm) = objc2::MainThreadMarker::new() else { return };
+                traffic_lights::set_content_height(&target, height, animate, mtm);
+            })
+            .map_err(|e| e.to_string())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = animate;
+        let width = window.inner_size().map_err(|e| e.to_string())?.to_logical::<f64>(window.scale_factor().map_err(|e| e.to_string())?).width;
+        window.set_size(tauri::LogicalSize::new(width, height)).map_err(|e| e.to_string())
+    }
 }
 
 /// Where the traffic lights end, in points from the window's left edge: the
@@ -248,7 +297,8 @@ pub fn traffic_lights_right_edge(inset_x: Option<f64>, edges: ButtonEdges) -> f6
 #[cfg(target_os = "macos")]
 mod traffic_lights {
     use objc2::MainThreadMarker;
-    use objc2_app_kit::{NSButton, NSWindow, NSWindowButton};
+    use objc2_app_kit::{NSButton, NSWindow, NSWindowButton, NSWorkspace};
+    use objc2_foundation::{NSPoint, NSRect, NSSize};
 
     use super::ButtonEdges;
 
@@ -271,6 +321,24 @@ mod traffic_lights {
         // If the event loop stops with the task still queued, this waits until
         // the process exits: it holds a pool thread, never the main thread.
         rx.recv().ok().flatten()
+    }
+
+    /// `size_settings_window` on the main thread. `setFrame:display:animate:`
+    /// runs the animation before it returns.
+    pub(super) fn set_content_height(window: &tauri::WebviewWindow, height: f64, animate: bool, _mtm: MainThreadMarker) {
+        let Ok(ptr) = window.ns_window() else { return };
+        // SAFETY: as in `read`: Tauri's NSWindow, used at once on the main thread; null gives `None`.
+        let Some(ns_window) = (unsafe { ptr.cast::<NSWindow>().as_ref() }) else { return };
+        let frame = ns_window.frame();
+        let content = ns_window.contentRectForFrameRect(frame);
+        let next = super::frame_for_content_height(
+            super::Frame { x: frame.origin.x, y: frame.origin.y, width: frame.size.width, height: frame.size.height },
+            content.size.height,
+            height,
+        );
+        let rect = NSRect::new(NSPoint::new(next.x, next.y), NSSize::new(next.width, next.height));
+        let reduce_motion = NSWorkspace::sharedWorkspace().accessibilityDisplayShouldReduceMotion();
+        ns_window.setFrame_display_animate(rect, true, animate && !reduce_motion);
     }
 
     /// `bounds`, to window coordinates (`toView: nil`).
@@ -329,6 +397,34 @@ mod tests {
         assert!(!spec.maximizable);
         // Shown by the page once its theme is applied
         assert!(!spec.visible);
+    }
+
+    #[test]
+    fn settings_window_config_carries_the_traffic_lights() {
+        let spec = super::settings_window_spec("Definições".to_string());
+        let config = super::settings_window_config(&spec);
+        assert_eq!(config.label, "settings");
+        assert_eq!(config.url, tauri::WebviewUrl::App("definicoes".into()));
+        // In the config, so tao keeps it and puts the lights back after a title change
+        let position = config.traffic_light_position.expect("traffic light position");
+        assert_eq!((position.x, position.y), (16.0, 28.0));
+    }
+
+    #[test]
+    fn a_new_content_height_keeps_the_top_edge() {
+        use super::{frame_for_content_height, Frame};
+        // Overlay title bar: the content is the whole frame
+        let frame = Frame { x: 486.0, y: 500.0, width: 540.0, height: 240.0 };
+        let top = frame.y + frame.height;
+        let grown = frame_for_content_height(frame, 240.0, 392.0);
+        assert_eq!(grown, Frame { x: 486.0, y: 348.0, width: 540.0, height: 392.0 });
+        assert_eq!(grown.y + grown.height, top);
+        let shrunk = frame_for_content_height(grown, 392.0, 285.0);
+        assert_eq!(shrunk.y + shrunk.height, top);
+        assert_eq!(shrunk.height, 285.0);
+        // A title bar of its own (content shorter than the frame) is kept
+        let titled = Frame { x: 0.0, y: 100.0, width: 540.0, height: 268.0 };
+        assert_eq!(frame_for_content_height(titled, 240.0, 300.0).height, 328.0);
     }
 
     #[test]

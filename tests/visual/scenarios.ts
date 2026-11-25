@@ -7,6 +7,9 @@
 import type { Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import type { Language, ThemePreference, ViewMode } from '../../src/lib/bindings';
+
+/** The screenshots are taken in the two languages they have texts for. */
+type ShotLanguage = Extract<Language, 'pt' | 'en'>;
 import type { MockConfig } from './mock-ipc';
 import { APP_VERSION, HOME, availableUpdate, books, booksAna, booksCoverTitles, booksDeletable, booksWithoutNews, defaultSettings, device, makeSettings, newSinceAna, reader, summary } from './fixtures';
 
@@ -14,7 +17,7 @@ export type ThemeName = 'light' | 'dark-app' | 'system-dark';
 
 export interface Variant {
 	theme: ThemeName;
-	language: Language;
+	language: ShotLanguage;
 	contrast?: 'more';
 	reducedMotion?: 'reduce';
 	/** The app window at its minimum size (`minWidth`/`minHeight` in tauri.conf.json). */
@@ -156,7 +159,7 @@ export interface Strings {
 	deleteConfirm: string;
 }
 
-const STRINGS: Record<Language, Strings> = {
+const STRINGS: Record<ShotLanguage, Strings> = {
 	pt: {
 		noKoboTitle: 'Liga o teu Kobo',
 		whoseKoboTitle: 'De quem é este Kobo?',
@@ -272,7 +275,7 @@ const STRINGS: Record<Language, Strings> = {
 		deleteConfirm: 'Delete'
 	}
 };
-export const stringsFor = (language: Language) => STRINGS[language];
+export const stringsFor = (language: ShotLanguage) => STRINGS[language];
 
 /** Theme chosen in the app's settings, and the OS's color scheme. */
 export const THEMES: Record<ThemeName, { app: ThemePreference; os: 'light' | 'dark'; htmlClass: 'light' | 'dark' }> = {

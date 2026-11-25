@@ -1,6 +1,6 @@
 {
   "name": "khi",
-  "version": "1.3.0",
+  "version": "2.1.0",
   "description": "A macOS app to export Kobo highlights to Markdown",
   "type": "module",
   "scripts": {
@@ -13,7 +13,7 @@
     "dev:app": "tauri dev --config src-tauri/tauri.dev.conf.json",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "version": "node scripts/sync-version.js && git add src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json",
+    "version": "node scripts/sync-version.js && git add src-tauri/Cargo.toml src-tauri/core/Cargo.toml src-tauri/mcp/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json",
     "release": "node scripts/release.js",
     "build:release": "bash scripts/build-mcp.sh && tauri build --config src-tauri/tauri.release.conf.json",
     "test:visual": "vite build && playwright test",

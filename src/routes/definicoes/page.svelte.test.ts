@@ -17,9 +17,11 @@ const appWindow = vi.hoisted(() => ({
 	}),
 	setTitle: vi.fn((_title: string) => Promise.resolve()),
 	setTheme: vi.fn(() => Promise.resolve()),
-	setSize: vi.fn((_size: { width: number; height: number }) => Promise.resolve()),
 	show: vi.fn(() => Promise.resolve())
 }));
+
+/** `size_settings_window`: the content height Rust is asked for, and whether it animates. */
+const sizeWindow = vi.hoisted(() => vi.fn((_size: { height: number; animate: boolean }) => Promise.resolve()));
 
 const handlers = vi.hoisted(() => new Map<string, (event: { payload: unknown }) => void>());
 
@@ -102,8 +104,8 @@ describe('/definicoes · window', () => {
 				this.getAttribute('data-slot') !== 'settings-window' ? 0 : pane === 'kobo' && readers.length >= 2 ? 320 : HEIGHTS[pane];
 			return { x: 0, y: 0, top: 0, left: 0, right: 540, bottom: height, width: 540, height, toJSON() {} };
 		});
-		appWindow.setSize.mockImplementation(() => {
-			calls.push('setSize');
+		sizeWindow.mockImplementation(() => {
+			calls.push('size');
 			return Promise.resolve();
 		});
 		appWindow.show.mockImplementation(() => {
@@ -111,6 +113,7 @@ describe('/definicoes · window', () => {
 			return Promise.resolve();
 		});
 		vi.mocked(invoke).mockImplementation((cmd: string, args?: unknown) => {
+			if (cmd === 'size_settings_window') return sizeWindow(args as { height: number; animate: boolean });
 			if (cmd === 'list_readers') return Promise.resolve(structuredClone(readers));
 			if (cmd === 'rename_reader') {
 				const { id, name } = args as { id: number; name: string };
@@ -144,9 +147,9 @@ describe('/definicoes · window', () => {
 	it('opens on Export and fits the window to it', async () => {
 		render(Page);
 
-		await waitFor(() => expect(appWindow.setSize).toHaveBeenCalled());
-		const size = appWindow.setSize.mock.calls[0][0];
-		expect([size.width, size.height]).toEqual([540, 382]);
+		await waitFor(() => expect(sizeWindow).toHaveBeenCalled());
+		// Not animated: the window is still hidden
+		expect(sizeWindow.mock.calls[0][0]).toEqual({ height: 382, animate: false });
 		expect(screen.getByRole('tab', { name: 'Export' })).toHaveAttribute('aria-selected', 'true');
 	});
 
@@ -167,48 +170,56 @@ describe('/definicoes · window', () => {
 
 	it('fits_the_window_when_the_pane_changes', async () => {
 		render(Page);
-		await waitFor(() => expect(appWindow.setSize).toHaveBeenCalledTimes(1));
+		await waitFor(() => expect(sizeWindow).toHaveBeenCalledTimes(1));
 
 		await fireEvent.click(screen.getByRole('tab', { name: 'Appearance' }));
 		resized();
-		await waitFor(() => expect(appWindow.setSize).toHaveBeenCalledTimes(2));
-		expect(appWindow.setSize.mock.calls[1][0]).toMatchObject({ width: 540, height: 287 });
+		await waitFor(() => expect(sizeWindow).toHaveBeenCalledTimes(2));
+		expect(sizeWindow.mock.calls[1][0]).toEqual({ height: 287, animate: true });
 
 		await fireEvent.click(screen.getByRole('tab', { name: 'Kobo' }));
 		resized();
-		await waitFor(() => expect(appWindow.setSize).toHaveBeenCalledTimes(3));
-		expect(appWindow.setSize.mock.calls[2][0]).toMatchObject({ width: 540, height: 243 });
+		await waitFor(() => expect(sizeWindow).toHaveBeenCalledTimes(3));
+		expect(sizeWindow.mock.calls[2][0]).toEqual({ height: 243, animate: true });
+	});
+
+	it('the page never scrolls: a taller pane waits for the window without a scrollbar', async () => {
+		const { unmount } = render(Page);
+
+		expect(document.documentElement.style.overflow).toBe('hidden');
+		unmount();
+		expect(document.documentElement.style.overflow).toBe('');
 	});
 
 	it('a height that did not change does not ask for a size again', async () => {
 		render(Page);
-		await waitFor(() => expect(appWindow.setSize).toHaveBeenCalledTimes(1));
+		await waitFor(() => expect(sizeWindow).toHaveBeenCalledTimes(1));
 
 		resized();
 		resized();
 		await new Promise((resolve) => setTimeout(resolve, 0));
 
-		expect(appWindow.setSize).toHaveBeenCalledTimes(1);
+		expect(sizeWindow).toHaveBeenCalledTimes(1);
 	});
 
 	it('shows_the_window_only_after_its_first_size', async () => {
 		render(Page);
 
 		await waitFor(() => expect(appWindow.show).toHaveBeenCalledTimes(1));
-		expect(calls).toEqual(['setSize', 'show']);
+		expect(calls).toEqual(['size', 'show']);
 	});
 
-	it('show waits for setSize to finish, and shows once', async () => {
+	it('show waits for the size to finish, and shows once', async () => {
 		let sized!: () => void;
-		appWindow.setSize.mockImplementation(() => {
-			calls.push('setSize');
+		sizeWindow.mockImplementation(() => {
+			calls.push('size');
 			return new Promise<void>((resolve) => (sized = resolve));
 		});
 		render(Page);
-		await waitFor(() => expect(appWindow.setSize).toHaveBeenCalledTimes(1));
+		await waitFor(() => expect(sizeWindow).toHaveBeenCalledTimes(1));
 		await new Promise((resolve) => setTimeout(resolve, 20));
 
-		// setSize has not finished: the window stays hidden
+		// The size has not finished: the window stays hidden
 		expect(appWindow.show).not.toHaveBeenCalled();
 
 		sized();
@@ -234,15 +245,34 @@ describe('/definicoes · window', () => {
 
 	it('the Agents pane fits the window and is remembered as the pane on show', async () => {
 		render(Page);
-		await waitFor(() => expect(appWindow.setSize).toHaveBeenCalledTimes(1));
+		await waitFor(() => expect(sizeWindow).toHaveBeenCalledTimes(1));
 
 		await fireEvent.click(screen.getByRole('tab', { name: 'Agents' }));
 		resized();
 
-		await waitFor(() => expect(appWindow.setSize).toHaveBeenCalledTimes(2));
-		expect(appWindow.setSize.mock.calls[1][0]).toMatchObject({ width: 540, height: 414 });
+		await waitFor(() => expect(sizeWindow).toHaveBeenCalledTimes(2));
+		expect(sizeWindow.mock.calls[1][0]).toEqual({ height: 414, animate: true });
 		await waitFor(() => expect(invoke).toHaveBeenCalledWith('update_settings', { patch: { settingsPane: 'agents' } }));
 		expect(await screen.findByRole('switch', { name: 'Allow agents' })).toBeInTheDocument();
+	});
+
+	it('names the window only after sizing it: a title change puts the traffic lights back at the height then', async () => {
+		render(Page);
+		await waitFor(() => expect(appWindow.show).toHaveBeenCalled());
+
+		for (const [tab, title, height] of [
+			['Kobo', 'Kobo', 243],
+			['Appearance', 'Appearance', 287],
+			['Export', 'Export', 382]
+		] as const) {
+			await fireEvent.click(screen.getByRole('tab', { name: tab }));
+			await waitFor(() => expect(appWindow.setTitle).toHaveBeenLastCalledWith(title));
+			const sized = sizeWindow.mock.calls.findLastIndex(([size]) => size.height === height);
+			const named = appWindow.setTitle.mock.calls.findLastIndex(([name]) => name === title);
+			expect(appWindow.setTitle.mock.invocationCallOrder[named]).toBeGreaterThan(
+				sizeWindow.mock.invocationCallOrder[sized]
+			);
+		}
 	});
 
 	it('the title follows the language', async () => {
@@ -273,10 +303,10 @@ describe('/definicoes · window', () => {
 		render(Page);
 
 		await waitFor(() => expect(screen.getByRole('tab', { name: 'Kobo' })).toHaveAttribute('aria-selected', 'true'));
-		await waitFor(() => expect(appWindow.setSize.mock.calls.at(-1)?.[0]).toMatchObject({ height: 243 }));
+		await waitFor(() => expect(sizeWindow.mock.calls.at(-1)?.[0]).toMatchObject({ height: 243 }));
 		expect(appWindow.setTitle).toHaveBeenLastCalledWith('Kobo');
 		// The window is shown with the right height already
-		expect(appWindow.setSize.mock.calls.every(([size]) => size.height === 243)).toBe(true);
+		expect(sizeWindow.mock.calls.every(([size]) => size.height === 243)).toBe(true);
 	});
 
 	it('the pane chosen is saved as the last one', async () => {
@@ -484,17 +514,17 @@ describe('/definicoes · window', () => {
 		render(Page);
 		await fireEvent.click(screen.getByRole('tab', { name: 'Kobo' }));
 		resized();
-		await waitFor(() => expect(appWindow.setSize).toHaveBeenLastCalledWith(expect.objectContaining({ height: 243 })));
+		await waitFor(() => expect(sizeWindow).toHaveBeenLastCalledWith(expect.objectContaining({ height: 243 })));
 		await waitFor(() => expect(handlers.has('readers-changed')).toBe(true));
-		const sizes = appWindow.setSize.mock.calls.length;
+		const sizes = sizeWindow.mock.calls.length;
 
 		readers = [reader, other];
 		handlers.get('readers-changed')!({ payload: null });
 		await screen.findByRole('combobox', { name: 'Reader' });
 		resized();
 
-		await waitFor(() => expect(appWindow.setSize.mock.calls.length).toBe(sizes + 1));
-		expect(appWindow.setSize).toHaveBeenLastCalledWith(expect.objectContaining({ width: 540, height: 320 }));
+		await waitFor(() => expect(sizeWindow.mock.calls.length).toBe(sizes + 1));
+		expect(sizeWindow).toHaveBeenLastCalledWith({ height: 320, animate: true });
 	});
 
 	it('the Updates switch is saved at the moment', async () => {

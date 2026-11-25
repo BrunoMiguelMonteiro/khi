@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { get } from 'svelte/store';
 import en from './locales/en.json';
+import es from './locales/es.json';
+import fr from './locales/fr.json';
 import pt from './locales/pt.json';
 
 // vitest-setup mocks $lib/i18n for every test; this file checks the real one
@@ -16,8 +18,12 @@ function keys(tree: object, prefix = ''): string[] {
 describe('i18n', () => {
 	afterEach(() => locale.set('en'));
 
-	it('pt has every key en has', () => {
-		expect(keys(pt).sort()).toEqual(keys(en).sort());
+	it.each([
+		['es', es],
+		['fr', fr],
+		['pt', pt]
+	])('%s has every key en has', (_name, tree) => {
+		expect(keys(tree).sort()).toEqual(keys(en).sort());
 	});
 
 	it('the reactive formatter follows the chosen locale', () => {
