@@ -1,6 +1,6 @@
 [package]
 name = "khi-core"
-version = "2.1.0"
+version = "2.2.0"
 description = "The Khi Library, models, settings and export, without Tauri"
 edition = "2021"
 
